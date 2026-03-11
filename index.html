@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <!-- 移动端视口设置：宽度等于设备宽度，初始缩放1，允许用户缩放 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes">
+    <title>我的照片地图 - 天地图版（移动端适配）</title>
+    <!-- 引入 OpenLayers 样式和库 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.5.2/ol.css">
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            /* 禁止页面滚动，地图内部滚动由OpenLayers处理 */
+            touch-action: pan-x pan-y; /* 允许双指缩放平移 */
+        }
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+        /* 弹出框基础样式 */
+        .ol-popup {
+            position: absolute;
+            background-color: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            bottom: 12px;
+            left: -50px;
+            min-width: 250px;
+            max-width: 350px;
+            font-size: 14px;
+        }
+        .ol-popup:after, .ol-popup:before {
+            top: 100%;
+            border: solid transparent;
+            content: " ";
+            height: 0;
+            width: 0;
+            position: absolute;
+            pointer-events: none;
+        }
+        .ol-popup:after {
+            border-top-color: white;
+            border-width: 10px;
+            left: 48px;
+            margin-left: -10px;
+        }
+        .ol-popup:before {
+            border-top-color: #ccc;
+            border-width: 11px;
+            left: 48px;
+            margin-left: -11px;
+        }
+        .popup-content img {
+            max-width: 100%;
+            max-height: 200px;
+            display: block;
+            margin-top: 8px;
+            border-radius: 4px;
+        }
+        /* 移动端弹出框优化 */
+        @media (max-width: 600px) {
+            .ol-popup {
+                min-width: 200px;
+                max-width: 85vw;
+                left: -20px;
+                padding: 12px;
+                font-size: 16px;
+            }
+            .ol-popup:after {
+                left: 30px;
+            }
+            .ol-popup:before {
+                left: 30px;
+            }
+            .popup-content img {
+                max-height: 150px;
+            }
+        }
+        /* 悬浮提示样式（仅非触摸设备可见） */
+        .ol-tooltip {
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: bold;
+            white-space: nowrap;
+            pointer-events: none;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            z-index: 1000;
+        }
+        /* 触摸设备隐藏悬浮提示（通过JS动态控制，这里仅保留样式） */
+        .no-touch .ol-tooltip {
+            display: block;
+        }
+        .touch .ol-tooltip {
+            display: none !important;
+        }
+        /* 点可点击区域提示 */
+        .ol-selectable {
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/ol@v7.5.2/dist/ol.js"></script>
+    <script>
+        // ==================== 配置区域 ====================
+        // 1. 天地图密钥（浏览器端类型）—— 请替换为您自己的Key
+        const TIANDITU_KEY = '4110bba1f23cd04ed33e43ab12a291fc';  // <-- 修改这里,天地图密钥
+
+        // 2. 您的照片点数据（GeoJSON格式）
+        //    注意：字段名必须与SHP中一致：JD经度，WD纬度，DD显示文字，MC图片文件名
+        const photoPoints = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [111.212202, 21.483160]   // [经度, 纬度]
+                    },
+                    "properties": {
+                        "DD": "博贺湾大酒店",
+                        "MC": "IMG_20260226_133945565.jpg"
+                    }
+                },
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [111.116915, 21.467190]
+                    },
+                    "properties": {
+                        "DD": "滨海旅游公路",
+                        "MC": "IMG_20260226_164817880.jpg"
+                    }
+                }
+                // ----- 请在这里继续添加您的其他点 -----
+                // 格式同上，注意经纬度顺序是 [经度, 纬度]
+            ]
+        };
+
+        // 3. 地图初始中心点（可自动计算平均值，这里先手动设置一个范围）
+        const initCenter = [111.18, 21.48];  // [经度, 纬度]
+        const initZoom = 10;
+        // ==================================================
+
+        // ----- 检测触摸设备 -----
+        const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+        document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
+
+        // 创建天地图矢量底图图层（使用EPSG:3857投影，矩阵集为w）
+        const vecLayer = new ol.layer.Tile({
+            source: new ol.source.XYZ({
+                url: `https://t0.tianditu.gov.cn/vec_w/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=vec&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&TileMatrix={z}&TileCol={x}&TileRow={y}&tk=${TIANDITU_KEY}`,
+                crossOrigin: 'anonymous',
+                tileSize: 256,
+                zoomOffset: 1  // 天地图TileMatrix从1开始，补偿OpenLayers的z从0开始
+            })
+        });
+
+        // 创建天地图中文注记图层
+        const cvaLayer = new ol.layer.Tile({
+            source: new ol.source.XYZ({
+                url: `https://t0.tianditu.gov.cn/cva_w/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=cva&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&TileMatrix={z}&TileCol={x}&TileRow={y}&tk=${TIANDITU_KEY}`,
+                crossOrigin: 'anonymous',
+                tileSize: 256,
+                zoomOffset: 1
+            })
+        });
+
+        // 创建地图视图
+        const view = new ol.View({
+            center: ol.proj.fromLonLat(initCenter),
+            zoom: initZoom,
+            projection: 'EPSG:3857'
+        });
+
+        // 初始化地图
+        const map = new ol.Map({
+            target: 'map',
+            layers: [vecLayer, cvaLayer],  // 先底图，后注记
+            view: view
+        });
+
+        // 将您的GeoJSON数据转换为OpenLayers要素
+        const vectorSource = new ol.source.Vector({
+            features: new ol.format.GeoJSON().readFeatures(photoPoints, {
+                dataProjection: 'EPSG:4326',     // 原始数据是WGS84经纬度
+                featureProjection: 'EPSG:3857'   // 转换为Web墨卡托用于显示
+            })
+        });
+
+        // 设置点样式（红色圆点）
+        const vectorLayer = new ol.layer.Vector({
+            source: vectorSource,
+            style: new ol.style.Style({
+                image: new ol.style.Circle({
+                    radius: 8,
+                    fill: new ol.style.Fill({color: 'rgba(255, 0, 0, 0.8)'}),
+                    stroke: new ol.style.Stroke({color: '#ffffff', width: 2})
+                })
+            })
+        });
+        map.addLayer(vectorLayer);
+
+        // ----- 创建悬浮提示框 (Tooltip) 仅用于非触摸设备 -----
+        let tooltip = null;
+        if (!isTouchDevice) {
+            tooltip = new ol.Overlay({
+                element: document.createElement('div'),
+                positioning: 'top-center',
+                offset: [0, -15],
+                className: 'ol-tooltip'
+            });
+            map.addOverlay(tooltip);
+            tooltip.getElement().style.display = 'none';
+
+            // 鼠标移动时检测要素并显示悬浮提示
+            map.on('pointermove', function(evt) {
+                const pixel = map.getEventPixel(evt.originalEvent);
+                const feature = map.forEachFeatureAtPixel(pixel, function(feature) {
+                    return feature;
+                });
+
+                if (feature) {
+                    const ddValue = feature.get('DD');
+                    const coord = feature.getGeometry().getCoordinates();
+                    tooltip.setPosition(coord);
+                    tooltip.getElement().innerHTML = ddValue;
+                    tooltip.getElement().style.display = 'block';
+                    map.getTargetElement().style.cursor = 'pointer';
+                } else {
+                    tooltip.setPosition(undefined);
+                    tooltip.getElement().style.display = 'none';
+                    map.getTargetElement().style.cursor = '';
+                }
+            });
+        } else {
+            // 触摸设备不启用悬浮，但光标提示不需要
+            map.getTargetElement().style.cursor = 'pointer'; // 可以保留指针样式
+        }
+
+        // ----- 创建点击弹出框 (Popup) -----
+        const popup = new ol.Overlay({
+            element: document.createElement('div'),
+            positioning: 'bottom-center',
+            stopEvent: true,
+            offset: [0, -10]
+        });
+        popup.getElement().className = 'ol-popup';
+        map.addOverlay(popup);
+        popup.getElement().style.display = 'none';
+
+        // 点击事件
+        map.on('click', function(evt) {
+            const feature = map.forEachFeatureAtPixel(evt.pixel, function(feature) {
+                return feature;
+            });
+
+            if (feature) {
+                const props = feature.getProperties();
+                const coord = feature.getGeometry().getCoordinates();
+
+                // 构建弹出内容：显示DD字段 + 图片
+                // 图片路径为相对路径 "PIC/文件名"
+                const imgSrc = `PICS/${props.MC}`;
+                const content = `
+                    <div class="popup-content">
+                        <b>${props.DD}</b><br>
+                        <img src="${imgSrc}" alt="照片" onerror="this.onerror=null; this.src='https://via.placeholder.com/250x150?text=图片未找到';">
+                    </div>
+                `;
+
+                popup.getElement().innerHTML = content;
+                popup.setPosition(coord);
+                popup.getElement().style.display = 'block';
+            } else {
+                popup.setPosition(undefined);
+                popup.getElement().style.display = 'none';
+            }
+        });
+
+        // 可选：点击地图空白处关闭弹窗（触摸设备也可通过其他操作关闭）
+        map.on('dblclick', function() {
+            popup.setPosition(undefined);
+            popup.getElement().style.display = 'none';
+        });
+
+        // 对于触摸设备，可以添加一个简单的触摸离开关闭机制（例如点击地图空白）
+        // 由于上面click事件中已经处理了点击非要素时关闭，所以已满足
+
+        console.log('地图加载完成，照片点数量：', photoPoints.features.length);
+    </script>
+</body>
+</html>
