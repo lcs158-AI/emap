@@ -106,10 +106,29 @@
         .ol-selectable {
             cursor: pointer;
         }
+        /* ===== 新增定位按钮样式 ===== */
+        #locateBtn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 8px 12px;
+            font-size: 14px;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        #locateBtn:hover {
+            background: #f0f0f0;
+        }
     </style>
 </head>
 <body>
     <div id="map"></div>
+    <!-- 新增定位按钮 -->
+    <button id="locateBtn">📍 显示我的位置</button>
 
     <script src="https://cdn.jsdelivr.net/npm/ol@v7.5.2/dist/ol.js"></script>
     <script>
@@ -300,6 +319,80 @@
         // 由于上面click事件中已经处理了点击非要素时关闭，所以已满足
 
         console.log('地图加载完成，照片点数量：', photoPoints.features.length);
+
+        // ==================== 新增：当前位置功能 ====================
+        // 创建位置图层（蓝色圆点）
+        const positionLayer = new ol.layer.Vector({
+            source: new ol.source.Vector(),
+            style: new ol.style.Style({
+                image: new ol.style.Circle({
+                    radius: 10,
+                    fill: new ol.style.Fill({color: 'rgba(0, 102, 255, 0.8)'}),
+                    stroke: new ol.style.Stroke({color: '#fff', width: 3})
+                })
+            })
+        });
+        map.addLayer(positionLayer);
+
+        let watching = false;
+        let watchId = null;
+
+        document.getElementById('locateBtn').addEventListener('click', function() {
+            if (!watching) {
+                if ('geolocation' in navigator) {
+                    watchId = navigator.geolocation.watchPosition(
+                        function(position) {
+                            const lon = position.coords.longitude;
+                            const lat = position.coords.latitude;
+                            const accuracy = position.coords.accuracy;
+
+                            // 清除之前标记
+                            positionLayer.getSource().clear();
+
+                            // 添加当前位置点
+                            const point = new ol.Feature({
+                                geometry: new ol.geom.Point(ol.proj.fromLonLat([lon, lat]))
+                            });
+                            positionLayer.getSource().addFeature(point);
+
+                            // 添加精度圆（如果accuracy合理）
+                            if (accuracy > 0 && accuracy < 1000) {
+                                const circle = new ol.Feature({
+                                    geometry: new ol.geom.Circle(ol.proj.fromLonLat([lon, lat]), accuracy)
+                                });
+                                positionLayer.getSource().addFeature(circle);
+                            }
+
+                            // 第一次定位时移动地图到该位置
+                            if (!watching) {
+                                map.getView().setCenter(ol.proj.fromLonLat([lon, lat]));
+                                map.getView().setZoom(15);
+                            }
+                        },
+                        function(error) {
+                            alert('获取位置失败：' + error.message);
+                        },
+                        {
+                            enableHighAccuracy: true,
+                            timeout: 10000,
+                            maximumAge: 0
+                        }
+                    );
+                    watching = true;
+                    this.textContent = '📍 隐藏我的位置';
+                } else {
+                    alert('您的浏览器不支持地理定位。');
+                }
+            } else {
+                if (watchId) {
+                    navigator.geolocation.clearWatch(watchId);
+                    watchId = null;
+                }
+                positionLayer.getSource().clear();
+                watching = false;
+                this.textContent = '📍 显示我的位置';
+            }
+        });
     </script>
 </body>
 </html>
