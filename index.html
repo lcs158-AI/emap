@@ -231,7 +231,17 @@
             })
         });
         map.addLayer(vectorLayer);
-
+// ===== 在这里插入 Esri 影像图层定义 =====
+const esriImagery = new ol.layer.Tile({
+    source: new ol.source.XYZ({
+        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        crossOrigin: 'anonymous',
+        maxZoom: 19
+    })
+});
+map.addLayer(esriImagery);
+esriImagery.setVisible(false);
+// ========================================
         // ----- 创建悬浮提示框 (Tooltip) 仅用于非触摸设备 -----
         let tooltip = null;
         if (!isTouchDevice) {
@@ -320,6 +330,25 @@
 
         console.log('地图加载完成，照片点数量：', photoPoints.features.length);
 
+        // ===== 在这里插入切换按钮逻辑 =====
+const switchBtn = document.getElementById('switchBaseMapBtn');
+let showingEsri = false;
+switchBtn.addEventListener('click', function() {
+    if (!showingEsri) {
+        vecLayer.setVisible(false);
+        cvaLayer.setVisible(false);
+        esriImagery.setVisible(true);
+        switchBtn.textContent = '切换为矢量底图';
+        showingEsri = true;
+    } else {
+        vecLayer.setVisible(true);
+        cvaLayer.setVisible(true);
+        esriImagery.setVisible(false);
+        switchBtn.textContent = '切换为影像底图';
+        showingEsri = false;
+    }
+});
+// ================================
         // ==================== 新增：当前位置功能 ====================
         // 创建位置图层（蓝色圆点）
         const positionLayer = new ol.layer.Vector({
