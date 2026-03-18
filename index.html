@@ -398,6 +398,9 @@ map.addLayer(cvaLayer);
 
         // 可选：点击地图空白处关闭弹窗（触摸设备也可通过其他操作关闭）
         map.on('dblclick', function() {
+            // 测量模式激活时不执行关闭弹窗，让绘制交互正常结束
+            if (measureActive) return;
+        
             popup.setPosition(undefined);
             popup.getElement().style.display = 'none';
         });
