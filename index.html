@@ -2,114 +2,32 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <!-- 移动端视口设置：宽度等于设备宽度，初始缩放1，允许用户缩放 -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes">
-    <title>My AI emap2.0</title>
-    <!-- 引入 OpenLayers 样式和库 -->
+    <title>My AI emap（带定位+测量）</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.5.2/ol.css">
     <style>
-        html, body {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            /* 禁止页面滚动，地图内部滚动由OpenLayers处理 */
-            touch-action: pan-x pan-y; /* 允许双指缩放平移 */
+        /* 保留原有样式，仅添加测量按钮样式 */
+        html, body { margin:0; padding:0; width:100%; height:100%; overflow:hidden; touch-action:pan-x pan-y; }
+        #map { width:100%; height:100%; }
+        .ol-popup { position:absolute; background-color:white; box-shadow:0 2px 8px rgba(0,0,0,0.3); padding:15px; border-radius:8px; border:1px solid #ccc; bottom:12px; left:-50px; min-width:250px; max-width:350px; font-size:14px; }
+        .ol-popup:after, .ol-popup:before { top:100%; border:solid transparent; content:" "; height:0; width:0; position:absolute; pointer-events:none; }
+        .ol-popup:after { border-top-color:white; border-width:10px; left:48px; margin-left:-10px; }
+        .ol-popup:before { border-top-color:#ccc; border-width:11px; left:48px; margin-left:-11px; }
+        .popup-content img { max-width:100%; max-height:200px; display:block; margin-top:8px; border-radius:4px; }
+        @media (max-width:600px) {
+            .ol-popup { min-width:200px; max-width:85vw; left:-20px; padding:12px; font-size:16px; }
+            .ol-popup:after { left:30px; }
+            .ol-popup:before { left:30px; }
+            .popup-content img { max-height:150px; }
         }
-        #map {
-            width: 100%;
-            height: 100%;
-        }
-        /* 弹出框基础样式 */
-        .ol-popup {
+        .ol-tooltip { background:rgba(0,0,0,0.8); color:white; padding:6px 12px; border-radius:20px; font-size:13px; font-weight:bold; white-space:nowrap; pointer-events:none; box-shadow:0 2px 6px rgba(0,0,0,0.3); z-index:1000; }
+        .no-touch .ol-tooltip { display:block; }
+        .touch .ol-tooltip { display:none !important; }
+        .ol-selectable { cursor:pointer; }
+
+        /* 按钮通用样式 */
+        #locateBtn, #switchBaseMapBtn, .measure-btn {
             position: absolute;
-            background-color: white;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-            padding: 15px;
-            border-radius: 8px;
-            border: 1px solid #ccc;
-            bottom: 12px;
-            left: -50px;
-            min-width: 250px;
-            max-width: 350px;
-            font-size: 14px;
-        }
-        .ol-popup:after, .ol-popup:before {
-            top: 100%;
-            border: solid transparent;
-            content: " ";
-            height: 0;
-            width: 0;
-            position: absolute;
-            pointer-events: none;
-        }
-        .ol-popup:after {
-            border-top-color: white;
-            border-width: 10px;
-            left: 48px;
-            margin-left: -10px;
-        }
-        .ol-popup:before {
-            border-top-color: #ccc;
-            border-width: 11px;
-            left: 48px;
-            margin-left: -11px;
-        }
-        .popup-content img {
-            max-width: 100%;
-            max-height: 200px;
-            display: block;
-            margin-top: 8px;
-            border-radius: 4px;
-        }
-        /* 移动端弹出框优化 */
-        @media (max-width: 600px) {
-            .ol-popup {
-                min-width: 200px;
-                max-width: 85vw;
-                left: -20px;
-                padding: 12px;
-                font-size: 16px;
-            }
-            .ol-popup:after {
-                left: 30px;
-            }
-            .ol-popup:before {
-                left: 30px;
-            }
-            .popup-content img {
-                max-height: 150px;
-            }
-        }
-        /* 悬浮提示样式（仅非触摸设备可见） */
-        .ol-tooltip {
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 13px;
-            font-weight: bold;
-            white-space: nowrap;
-            pointer-events: none;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-            z-index: 1000;
-        }
-        /* 触摸设备隐藏悬浮提示（通过JS动态控制，这里仅保留样式） */
-        .no-touch .ol-tooltip {
-            display: block;
-        }
-        .touch .ol-tooltip {
-            display: none !important;
-        }
-        /* 点可点击区域提示 */
-        .ol-selectable {
-            cursor: pointer;
-        }
-        /* ===== 新增定位按钮样式 ===== */
-        #locateBtn {
-            position: absolute;
-            top: 10px;
             right: 10px;
             z-index: 1000;
             background: white;
@@ -119,109 +37,55 @@
             font-size: 14px;
             cursor: pointer;
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            width: 130px;
+            text-align: left;
         }
-        #locateBtn:hover {
-            background: #f0f0f0;
+        #locateBtn { top: 10px; }
+        #switchBaseMapBtn { top: 60px; }
+        .measure-btn { width: 130px; }
+        #measureLengthBtn { top: 110px; }
+        #measureAreaBtn { top: 160px; }
+        #measureResult {
+            position: absolute;
+            top: 210px;
+            right: 10px;
+            z-index: 1000;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 8px 12px;
+            font-size: 14px;
+            min-width: 180px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            display: none;
         }
-        /* 测量按钮通用样式 */
-.measure-btn {
-    position: absolute;
-    right: 10px;
-    z-index: 1000;
-    background: white;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    padding: 8px 12px;
-    font-size: 14px;
-    cursor: pointer;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-    width: 120px; /* 固定宽度使按钮对齐 */
-    text-align: left;
-}
-
-.measure-btn:hover {
-    background: #f0f0f0;
-}
-
-.measure-btn.active {
-    background-color: #e6f7ff;
-    border-color: #1890ff;
-}
-
-#measureLengthBtn {
-    top: 110px;
-}
-
-#measureAreaBtn {
-    top: 160px;
-}
-
-#measureResult {
-    position: absolute;
-    top: 210px;
-    right: 10px;
-    z-index: 1000;
-    background: white;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    padding: 8px 12px;
-    font-size: 14px;
-    min-width: 180px;
-    text-align: center;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-    display: none;
-}
+        .measure-btn.active {
+            background-color: #e6f7ff;
+            border-color: #1890ff;
+        }
     </style>
 </head>
 <body>
     <div id="map"></div>
-    <!-- 在定位按钮之前或之后添加 -->
-<button id="switchBaseMapBtn" style="position: absolute; top: 60px; right: 10px; z-index: 1000; background: white; border: 1px solid #ccc; border-radius: 4px; padding: 8px 12px; font-size: 14px; cursor: pointer;">切换为影像底图</button>
-    <!-- 新增定位按钮 -->
     <button id="locateBtn">📍 显示我的位置</button>
-<button id="measureLengthBtn" class="measure-btn">📏 测量长度</button>
-<button id="measureAreaBtn" class="measure-btn">🔲 测量面积</button>
-<div id="measureResult">0 米</div>
+    <button id="switchBaseMapBtn">切换为影像底图</button>
+    <button id="measureLengthBtn" class="measure-btn">📏 测量长度</button>
+    <button id="measureAreaBtn" class="measure-btn">🔲 测量面积</button>
+    <div id="measureResult">0 米</div>
+
     <script src="https://cdn.jsdelivr.net/npm/ol@v7.5.2/dist/ol.js"></script>
     <script>
         // ==================== 配置区域 ====================
-        // 1. 天地图密钥（浏览器端类型）—— 请替换为您自己的Key
-        const TIANDITU_KEY = '4110bba1f23cd04ed33e43ab12a291fc';  // <-- 修改这里,天地图密钥
-
-        // 2. 您的照片点数据（GeoJSON格式）
-        //    注意：字段名必须与SHP中一致：JD经度，WD纬度，DD显示文字，MC图片文件名
+        const TIANDITU_KEY = '4110bba1f23cd04ed33e43ab12a291fc'; // 天地图密钥（浏览器端）
         const photoPoints = {
             "type": "FeatureCollection",
             "features": [
-                {
-                    "type": "Feature",
-                    "geometry": {
-                        "type": "Point",
-                        "coordinates": [111.212202, 21.483160]   // [经度, 纬度]
-                    },
-                    "properties": {
-                        "DD": "博贺湾大酒店",
-                        "MC": "IMG_20260226_133945565.jpg"
-                    }
-                },
-                {
-                    "type": "Feature",
-                    "geometry": {
-                        "type": "Point",
-                        "coordinates": [111.116915, 21.467190]
-                    },
-                    "properties": {
-                        "DD": "滨海旅游公路",
-                        "MC": "IMG_20260226_164817880.jpg"
-                    }
-                }
-                // ----- 请在这里继续添加您的其他点 -----
-                // 格式同上，注意经纬度顺序是 [经度, 纬度]
+                { "type": "Feature", "geometry": { "type": "Point", "coordinates": [111.212202, 21.483160] }, "properties": { "DD": "博贺湾大酒店", "MC": "IMG_20260226_133945565.jpg" } },
+                { "type": "Feature", "geometry": { "type": "Point", "coordinates": [111.116915, 21.467190] }, "properties": { "DD": "滨海旅游公路", "MC": "IMG_20260226_164817880.jpg" } }
             ]
         };
-
-        // 3. 地图初始中心点（可自动计算平均值，这里先手动设置一个范围）
-        const initCenter = [111.18, 21.48];  // [经度, 纬度]
+        const initCenter = [111.18, 21.48];
         const initZoom = 10;
         // ==================================================
 
@@ -229,105 +93,74 @@
         const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
         document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
 
-        // 创建天地图矢量底图图层（使用EPSG:3857投影，矩阵集为w）
+        // 创建天地图矢量底图图层
         const vecLayer = new ol.layer.Tile({
             source: new ol.source.XYZ({
                 url: `https://t0.tianditu.gov.cn/vec_w/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=vec&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&TileMatrix={z}&TileCol={x}&TileRow={y}&tk=${TIANDITU_KEY}`,
-                crossOrigin: 'anonymous',
-                tileSize: 256,
-                zoomOffset: 1  // 天地图TileMatrix从1开始，补偿OpenLayers的z从0开始
+                crossOrigin: 'anonymous', tileSize: 256, zoomOffset: 1
             })
         });
-
-        // 创建天地图中文注记图层
         const cvaLayer = new ol.layer.Tile({
             source: new ol.source.XYZ({
                 url: `https://t0.tianditu.gov.cn/cva_w/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=cva&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&TileMatrix={z}&TileCol={x}&TileRow={y}&tk=${TIANDITU_KEY}`,
-                crossOrigin: 'anonymous',
-                tileSize: 256,
-                zoomOffset: 1
+                crossOrigin: 'anonymous', tileSize: 256, zoomOffset: 1
             })
         });
 
-        // 创建地图视图
+        // 创建影像图层（Esri，初始隐藏）
+        const esriImagery = new ol.layer.Tile({
+            source: new ol.source.XYZ({
+                url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                crossOrigin: 'anonymous', maxZoom: 19
+            })
+        });
+
+        // 创建视图
         const view = new ol.View({
             center: ol.proj.fromLonLat(initCenter),
             zoom: initZoom,
             projection: 'EPSG:3857'
         });
 
-        // ===== 在这里插入 Esri 影像图层定义 =====
-const esriImagery = new ol.layer.Tile({
-    source: new ol.source.XYZ({
-        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-        crossOrigin: 'anonymous',
-        maxZoom: 19
-    })
-});
-        
-        // 初始化地图
-        const map = new ol.Map({
-    target: 'map',
-    layers: [],  // 先空数组
-    view: view
-});
-        // 按顺序添加图层：
-// 1. 影像图层（最底层，初始隐藏）
-map.addLayer(esriImagery);
-esriImagery.setVisible(false);
+        // 初始化地图（先空图层，按顺序添加）
+        const map = new ol.Map({ target: 'map', layers: [], view: view });
 
-        // 2. 天地图图层（中间层，初始显示）
-map.addLayer(vecLayer);
-map.addLayer(cvaLayer);
-       // const map = new ol.Map({
-         //   target: 'map',
-           // layers: [vecLayer, cvaLayer],  // 先底图，后注记
-            //view: view
-        //});
+        // 按顺序添加图层（最底层为影像，中间为天地图，最上层为照片点和测量图层）
+        map.addLayer(esriImagery);
+        esriImagery.setVisible(false);
+        map.addLayer(vecLayer);
+        map.addLayer(cvaLayer);
 
-        // 将您的GeoJSON数据转换为OpenLayers要素
+        // 照片点图层
         const vectorSource = new ol.source.Vector({
             features: new ol.format.GeoJSON().readFeatures(photoPoints, {
-                dataProjection: 'EPSG:4326',     // 原始数据是WGS84经纬度
-                featureProjection: 'EPSG:3857'   // 转换为Web墨卡托用于显示
+                dataProjection: 'EPSG:4326', featureProjection: 'EPSG:3857'
             })
         });
-
-        // 设置点样式（红色圆点）
         const vectorLayer = new ol.layer.Vector({
             source: vectorSource,
             style: new ol.style.Style({
                 image: new ol.style.Circle({
                     radius: 8,
-                    fill: new ol.style.Fill({color: 'rgba(255, 0, 0, 0.8)'}),
-                    stroke: new ol.style.Stroke({color: '#ffffff', width: 2})
+                    fill: new ol.style.Fill({ color: 'rgba(255,0,0,0.8)' }),
+                    stroke: new ol.style.Stroke({ color: '#ffffff', width: 2 })
                 })
             })
         });
-        // 3. 点图层（最上层，始终显示）
         map.addLayer(vectorLayer);
 
-
-// ========================================
-        // ----- 创建悬浮提示框 (Tooltip) 仅用于非触摸设备 -----
+        // ----- 悬浮提示（仅非触摸设备）-----
         let tooltip = null;
         if (!isTouchDevice) {
             tooltip = new ol.Overlay({
                 element: document.createElement('div'),
-                positioning: 'top-center',
-                offset: [0, -15],
-                className: 'ol-tooltip'
+                positioning: 'top-center', offset: [0, -15], className: 'ol-tooltip'
             });
             map.addOverlay(tooltip);
             tooltip.getElement().style.display = 'none';
-
-            // 鼠标移动时检测要素并显示悬浮提示
             map.on('pointermove', function(evt) {
                 const pixel = map.getEventPixel(evt.originalEvent);
-                const feature = map.forEachFeatureAtPixel(pixel, function(feature) {
-                    return feature;
-                });
-
+                const feature = map.forEachFeatureAtPixel(pixel, f => f);
                 if (feature) {
                     const ddValue = feature.get('DD');
                     const coord = feature.getGeometry().getCoordinates();
@@ -342,108 +175,62 @@ map.addLayer(cvaLayer);
                 }
             });
         } else {
-            // 触摸设备不启用悬浮，但光标提示不需要
-            map.getTargetElement().style.cursor = 'pointer'; // 可以保留指针样式
+            map.getTargetElement().style.cursor = 'pointer';
         }
 
-        // ----- 创建点击弹出框 (Popup) -----
+        // ----- 点击弹出框 (Popup) -----
         const popup = new ol.Overlay({
             element: document.createElement('div'),
-            positioning: 'bottom-center',
-            stopEvent: true,
-            offset: [0, -10]
+            positioning: 'bottom-center', stopEvent: true, offset: [0, -10]
         });
         popup.getElement().className = 'ol-popup';
         map.addOverlay(popup);
         popup.getElement().style.display = 'none';
 
-        // 点击事件
-        
-       map.on('click', function(evt) {
-    // 测量模式时不处理
-    if (measureActive) return;
+        // 点击事件（照片点弹出，测量/定位点忽略）
+        map.on('click', function(evt) {
+            if (measureActive) return; // 测量模式不处理点击
 
-    const feature = map.forEachFeatureAtPixel(evt.pixel, function(feature) {
-        return feature;
-    });
+            const feature = map.forEachFeatureAtPixel(evt.pixel, f => f);
+            if (feature) {
+                // 忽略定位点（positionLayer 中的要素）
+                if (positionLayer && positionLayer.getSource().getFeatures().includes(feature)) return;
 
-    if (feature) {
-        // 忽略定位点及其精度圆（来自 positionLayer）
-        if (positionLayer.getSource().getFeatures().includes(feature)) {
-            return;
-        }
+                const props = feature.getProperties();
+                const coord = feature.getGeometry().getCoordinates();
+                if (props.MC) {
+                    const imgSrc = `/pics/${props.MC}`;
+                    const content = `
+                        <div class="popup-content">
+                            <b>${props.DD}</b><br>
+                            <img src="${imgSrc}" alt="照片" onerror="this.onerror=null; this.src='https://via.placeholder.com/250x150?text=图片未找到';">
+                        </div>
+                    `;
+                    popup.getElement().innerHTML = content;
+                    popup.setPosition(coord);
+                    popup.getElement().style.display = 'block';
+                }
+            } else {
+                popup.setPosition(undefined);
+                popup.getElement().style.display = 'none';
+            }
+        });
 
-        const props = feature.getProperties();
-        const coord = feature.getGeometry().getCoordinates();
-
-        // 原有照片弹出逻辑
-        if (props.MC) {
-            const imgSrc = `/pics/${props.MC}`;
-            const content = `
-                <div class="popup-content">
-                    <b>${props.DD}</b><br>
-                    <img src="${imgSrc}" alt="照片" onerror="this.onerror=null; this.src='https://via.placeholder.com/250x150?text=图片未找到';">
-                </div>
-            `;
-            popup.getElement().innerHTML = content;
-            popup.setPosition(coord);
-            popup.getElement().style.display = 'block';
-        }
-        // 如果有其他类型要素可添加 else 分支
-    } else {
-        popup.setPosition(undefined);
-        popup.getElement().style.display = 'none';
-    }
-});
-
-        // 可选：点击地图空白处关闭弹窗（触摸设备也可通过其他操作关闭）
+        // 双击关闭弹窗（测量模式时不执行）
         map.on('dblclick', function() {
-            // 测量模式激活时不执行关闭弹窗，让绘制交互正常结束
             if (measureActive) return;
-        
             popup.setPosition(undefined);
             popup.getElement().style.display = 'none';
         });
 
-        // 对于触摸设备，可以添加一个简单的触摸离开关闭机制（例如点击地图空白）
-        // 由于上面click事件中已经处理了点击非要素时关闭，所以已满足
-
-        console.log('地图加载完成，照片点数量：', photoPoints.features.length);
-
-        // ===== 在这里插入切换按钮逻辑 =====
-document.addEventListener('DOMContentLoaded', function() {
-    const switchBtn = document.getElementById('switchBaseMapBtn');
-    if (!switchBtn) return;
-
-    let showingEsri = false;
-    switchBtn.addEventListener('click', function() {
-        if (!showingEsri) {
-            // 隐藏天地图，显示影像
-            vecLayer.setVisible(false);
-            cvaLayer.setVisible(false);
-            esriImagery.setVisible(true);
-            switchBtn.textContent = '切换为矢量底图';
-            showingEsri = true;
-        } else {
-            // 显示天地图，隐藏影像
-            vecLayer.setVisible(true);
-            cvaLayer.setVisible(true);
-            esriImagery.setVisible(false);
-            switchBtn.textContent = '切换为影像底图';
-            showingEsri = false;
-        }
-    });
-});
-// ================================
-        // ==================== 新增：当前位置功能 ====================
-        // 创建位置图层（蓝色圆点）
+        // ==================== 定位功能 ====================
         const positionLayer = new ol.layer.Vector({
             source: new ol.source.Vector(),
             style: new ol.style.Style({
                 image: new ol.style.Circle({
                     radius: 10,
-                    fill: new ol.style.Fill({color: 'rgba(0, 102, 255, 0.8)'}),
-                    stroke: new ol.style.Stroke({color: '#fff', width: 3})
+                    fill: new ol.style.Fill({ color: 'rgba(0,102,255,0.8)' }),
+                    stroke: new ol.style.Stroke({ color: '#fff', width: 3 })
                 })
             })
         });
@@ -451,7 +238,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
         let watching = false;
         let watchId = null;
-
         document.getElementById('locateBtn').addEventListener('click', function() {
             if (!watching) {
                 if ('geolocation' in navigator) {
@@ -460,38 +246,24 @@ document.addEventListener('DOMContentLoaded', function() {
                             const lon = position.coords.longitude;
                             const lat = position.coords.latitude;
                             const accuracy = position.coords.accuracy;
-
-                            // 清除之前标记
                             positionLayer.getSource().clear();
-
-                            // 添加当前位置点
                             const point = new ol.Feature({
                                 geometry: new ol.geom.Point(ol.proj.fromLonLat([lon, lat]))
                             });
                             positionLayer.getSource().addFeature(point);
-
-                            // 添加精度圆（如果accuracy合理）
                             if (accuracy > 0 && accuracy < 1000) {
                                 const circle = new ol.Feature({
                                     geometry: new ol.geom.Circle(ol.proj.fromLonLat([lon, lat]), accuracy)
                                 });
                                 positionLayer.getSource().addFeature(circle);
                             }
-
-                            // 第一次定位时移动地图到该位置
                             if (!watching) {
                                 map.getView().setCenter(ol.proj.fromLonLat([lon, lat]));
                                 map.getView().setZoom(15);
                             }
                         },
-                        function(error) {
-                            alert('获取位置失败：' + error.message);
-                        },
-                        {
-                            enableHighAccuracy: true,
-                            timeout: 10000,
-                            maximumAge: 0
-                        }
+                        function(error) { alert('获取位置失败：' + error.message); },
+                        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
                     );
                     watching = true;
                     this.textContent = '📍 隐藏我的位置';
@@ -499,219 +271,155 @@ document.addEventListener('DOMContentLoaded', function() {
                     alert('您的浏览器不支持地理定位。');
                 }
             } else {
-                if (watchId) {
-                    navigator.geolocation.clearWatch(watchId);
-                    watchId = null;
-                }
+                if (watchId) { navigator.geolocation.clearWatch(watchId); watchId = null; }
                 positionLayer.getSource().clear();
                 watching = false;
                 this.textContent = '📍 显示我的位置';
             }
         });
-        // ==================== 测量长度/面积功能 ====================
-// 创建用于测量的矢量图层（统一使用一个图层）
-const measureLayer = new ol.layer.Vector({
-    source: new ol.source.Vector(),
-    style: new ol.style.Style({
-        stroke: new ol.style.Stroke({
-            color: '#ff33cc',
-            width: 3,
-            lineDash: [5, 5]
-        }),
-        fill: new ol.style.Fill({
-            color: 'rgba(255, 51, 204, 0.1)'
-        }),
-        image: new ol.style.Circle({
-            radius: 5,
-            fill: new ol.style.Fill({ color: '#ff33cc' })
-        })
-    })
-});
-map.addLayer(measureLayer);
 
-// 获取双击缩放交互
-let dblClickZoomInteraction = null;
-map.getInteractions().forEach(function(interaction) {
-    if (interaction instanceof ol.interaction.DoubleClickZoom) {
-        dblClickZoomInteraction = interaction;
-    }
-});
-
-// 修改 activateMeasurement
-function activateMeasurement(type) {
-    if (measureActive) deactivateMeasurement();
-
-    // 禁用双击缩放
-    if (dblClickZoomInteraction) dblClickZoomInteraction.setActive(false);
-
-    measureActive = true;
-    currentMeasureType = type;
-    // ... 其余激活代码
-}
-
-// 修改 deactivateMeasurement
-function deactivateMeasurement() {
-    if (measureDraw) {
-        map.removeInteraction(measureDraw);
-        measureDraw = null;
-    }
-    measureLayer.getSource().clear();
-    measureActive = false;
-    currentMeasureType = null;
-    measureResult.style.display = 'none';
-    measureLengthBtn.classList.remove('active');
-    measureAreaBtn.classList.remove('active');
-    measureLengthBtn.textContent = '📏 测量长度';
-    measureAreaBtn.textContent = '🔲 测量面积';
-
-    // 恢复双击缩放
-    if (dblClickZoomInteraction) dblClickZoomInteraction.setActive(true);
-}
-        
-// 测量相关变量
-let measureActive = false;
-let currentMeasureType = null; // 'length' 或 'area'
-let measureDraw = null;
-const measureLengthBtn = document.getElementById('measureLengthBtn');
-const measureAreaBtn = document.getElementById('measureAreaBtn');
-const measureResult = document.getElementById('measureResult');
-
-// 格式化长度显示
-function formatLength(length) {
-    if (length >= 1000) {
-        return (length / 1000).toFixed(2) + ' 千米';
-    } else {
-        return length.toFixed(1) + ' 米';
-    }
-}
-
-// 格式化面积显示
-function formatArea(area) {
-    if (area >= 1000000) {
-        return (area / 1000000).toFixed(2) + ' 平方公里';
-    } else if (area >= 10000) {
-        return (area / 10000).toFixed(2) + ' 公顷';
-    } else {
-        return area.toFixed(1) + ' 平方米';
-    }
-}
-
-// 清除测量状态
-function clearMeasurement() {
-    if (measureDraw) {
-        map.removeInteraction(measureDraw);
-        measureDraw = null;
-    }
-    measureLayer.getSource().clear();
-    measureActive = false;
-    currentMeasureType = null;
-    measureResult.style.display = 'none';
-    measureResult.innerHTML = '0';
-    measureLengthBtn.classList.remove('active');
-    measureAreaBtn.classList.remove('active');
-}
-
-// 激活测量
-function activateMeasurement(type) {
-    if (measureActive) {
-        // 如果已有激活的测量，先清除
-        clearMeasurement();
-    }
-    
-    measureActive = true;
-    currentMeasureType = type;
-    
-    // 设置按钮激活样式
-    if (type === 'length') {
-        measureLengthBtn.classList.add('active');
-        measureLengthBtn.textContent = '📏 取消长度';
-    } else {
-        measureAreaBtn.classList.add('active');
-        measureAreaBtn.textContent = '🔲 取消面积';
-    }
-    
-    measureResult.style.display = 'block';
-    measureResult.innerHTML = type === 'length' ? '点击地图开始测量长度' : '点击地图开始测量面积';
-    
-    // 创建绘制交互
-    measureDraw = new ol.interaction.Draw({
-        source: measureLayer.getSource(),
-        type: type === 'length' ? 'LineString' : 'Polygon',
-        style: new ol.style.Style({
-            stroke: new ol.style.Stroke({
-                color: '#ff33cc',
-                width: 3,
-                lineDash: [5, 5]
-            }),
-            fill: new ol.style.Fill({
-                color: 'rgba(255, 51, 204, 0.1)'
-            }),
-            image: new ol.style.Circle({
-                radius: 5,
-                fill: new ol.style.Fill({ color: '#ff33cc' })
-            })
-        })
-    });
-    
-    // 绘制过程中实时更新结果
-    measureDraw.on('drawstart', function(evt) {
-        const sketch = evt.feature;
-        sketch.getGeometry().on('change', function(evt) {
-            const geom = evt.target;
-            if (type === 'length' && geom.getType() === 'LineString') {
-                const length = olSphere.getLength(geom, { projection: 'EPSG:3857' });
-                measureResult.innerHTML = formatLength(length);
-            } else if (type === 'area' && geom.getType() === 'Polygon') {
-                const area = olSphere.getArea(geom, { projection: 'EPSG:3857' });
-                measureResult.innerHTML = formatArea(area);
+        // ==================== 切换底图 ====================
+        document.getElementById('switchBaseMapBtn').addEventListener('click', function() {
+            const isVectorVisible = vecLayer.getVisible();
+            if (isVectorVisible) {
+                vecLayer.setVisible(false);
+                cvaLayer.setVisible(false);
+                esriImagery.setVisible(true);
+                this.textContent = '切换为矢量底图';
+            } else {
+                vecLayer.setVisible(true);
+                cvaLayer.setVisible(true);
+                esriImagery.setVisible(false);
+                this.textContent = '切换为影像底图';
             }
         });
-    });
-    
-    // 绘制完成后的处理
-    measureDraw.on('drawend', function(evt) {
-        const geom = evt.feature.getGeometry();
-        if (type === 'length') {
-            const length = olSphere.getLength(geom, { projection: 'EPSG:3857' });
-            measureResult.innerHTML = '长度: ' + formatLength(length);
-        } else {
-            const area = olSphere.getArea(geom, { projection: 'EPSG:3857' });
-            measureResult.innerHTML = '面积: ' + formatArea(area);
+
+        // ==================== 测量长度/面积功能（含禁用双击缩放）====================
+        const measureLayer = new ol.layer.Vector({
+            source: new ol.source.Vector(),
+            style: new ol.style.Style({
+                stroke: new ol.style.Stroke({ color: '#ff33cc', width: 3, lineDash: [5,5] }),
+                fill: new ol.style.Fill({ color: 'rgba(255,51,204,0.1)' }),
+                image: new ol.style.Circle({ radius: 5, fill: new ol.style.Fill({ color: '#ff33cc' }) })
+            })
+        });
+        map.addLayer(measureLayer);
+
+        let measureActive = false;
+        let currentMeasureType = null;
+        let measureDraw = null;
+        const measureLengthBtn = document.getElementById('measureLengthBtn');
+        const measureAreaBtn = document.getElementById('measureAreaBtn');
+        const measureResult = document.getElementById('measureResult');
+
+        // 获取双击缩放交互（用于临时禁用）
+        let dblClickZoomInteraction = null;
+        map.getInteractions().forEach(function(interaction) {
+            if (interaction instanceof ol.interaction.DoubleClickZoom) {
+                dblClickZoomInteraction = interaction;
+            }
+        });
+
+        function formatLength(length) {
+            return length >= 1000 ? (length/1000).toFixed(2) + ' 千米' : length.toFixed(1) + ' 米';
         }
-    });
-    
-    map.addInteraction(measureDraw);
-}
+        function formatArea(area) {
+            if (area >= 1000000) return (area/1000000).toFixed(2) + ' 平方公里';
+            if (area >= 10000) return (area/10000).toFixed(2) + ' 公顷';
+            return area.toFixed(1) + ' 平方米';
+        }
 
-// 长度按钮点击事件
-measureLengthBtn.addEventListener('click', function() {
-    if (measureActive && currentMeasureType === 'length') {
-        // 如果当前已经是长度测量，则关闭
-        clearMeasurement();
-        this.textContent = '📏 测量长度';
-    } else {
-        // 激活长度测量
-        activateMeasurement('length');
-        // 确保面积按钮文字恢复
-        measureAreaBtn.textContent = '🔲 测量面积';
-    }
-});
+        function deactivateMeasurement() {
+            if (measureDraw) {
+                map.removeInteraction(measureDraw);
+                measureDraw = null;
+            }
+            measureLayer.getSource().clear();
+            measureActive = false;
+            currentMeasureType = null;
+            measureResult.style.display = 'none';
+            measureLengthBtn.classList.remove('active');
+            measureAreaBtn.classList.remove('active');
+            measureLengthBtn.textContent = '📏 测量长度';
+            measureAreaBtn.textContent = '🔲 测量面积';
 
-// 面积按钮点击事件
-measureAreaBtn.addEventListener('click', function() {
-    if (measureActive && currentMeasureType === 'area') {
-        // 如果当前已经是面积测量，则关闭
-        clearMeasurement();
-        this.textContent = '🔲 测量面积';
-    } else {
-        // 激活面积测量
-        activateMeasurement('area');
-        // 确保长度按钮文字恢复
-        measureLengthBtn.textContent = '📏 测量长度';
-    }
-});
+            // 恢复双击缩放交互
+            if (dblClickZoomInteraction) dblClickZoomInteraction.setActive(true);
+        }
 
-// 点击地图空白处不会自动关闭测量，保持测量模式直到用户再次点击按钮
+        function activateMeasurement(type) {
+            if (measureActive) deactivateMeasurement();
+
+            // 禁用双击缩放交互（避免干扰绘制结束）
+            if (dblClickZoomInteraction) dblClickZoomInteraction.setActive(false);
+
+            measureActive = true;
+            currentMeasureType = type;
+
+            if (type === 'length') {
+                measureLengthBtn.classList.add('active');
+                measureLengthBtn.textContent = '📏 取消长度';
+            } else {
+                measureAreaBtn.classList.add('active');
+                measureAreaBtn.textContent = '🔲 取消面积';
+            }
+
+            measureResult.style.display = 'block';
+            measureResult.innerHTML = '单击加点，双击结束';
+
+            measureDraw = new ol.interaction.Draw({
+                source: measureLayer.getSource(),
+                type: type === 'length' ? 'LineString' : 'Polygon'
+            });
+
+            measureDraw.on('drawstart', function(evt) {
+                const sketch = evt.feature;
+                const listener = sketch.getGeometry().on('change', function(evt) {
+                    const geom = evt.target;
+                    if (type === 'length') {
+                        const length = olSphere.getLength(geom, { projection: 'EPSG:3857' });
+                        measureResult.innerHTML = formatLength(length);
+                    } else {
+                        const area = olSphere.getArea(geom, { projection: 'EPSG:3857' });
+                        measureResult.innerHTML = formatArea(area);
+                    }
+                });
+                sketch.once('change', function() {
+                    ol.Observable.unByKey(listener);
+                });
+            });
+
+            measureDraw.on('drawend', function(evt) {
+                const geom = evt.feature.getGeometry();
+                if (type === 'length') {
+                    const length = olSphere.getLength(geom, { projection: 'EPSG:3857' });
+                    measureResult.innerHTML = '长度: ' + formatLength(length);
+                } else {
+                    const area = olSphere.getArea(geom, { projection: 'EPSG:3857' });
+                    measureResult.innerHTML = '面积: ' + formatArea(area);
+                }
+            });
+
+            map.addInteraction(measureDraw);
+        }
+
+        measureLengthBtn.addEventListener('click', function() {
+            if (measureActive && currentMeasureType === 'length') {
+                deactivateMeasurement();
+            } else {
+                activateMeasurement('length');
+            }
+        });
+
+        measureAreaBtn.addEventListener('click', function() {
+            if (measureActive && currentMeasureType === 'area') {
+                deactivateMeasurement();
+            } else {
+                activateMeasurement('area');
+            }
+        });
+
+        console.log('地图加载完成，照片点数量：', photoPoints.features.length);
     </script>
 </body>
 </html>
