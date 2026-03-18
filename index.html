@@ -206,12 +206,34 @@
             projection: 'EPSG:3857'
         });
 
+        // ===== 在这里插入 Esri 影像图层定义 =====
+const esriImagery = new ol.layer.Tile({
+    source: new ol.source.XYZ({
+        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        crossOrigin: 'anonymous',
+        maxZoom: 19
+    })
+});
+        
         // 初始化地图
         const map = new ol.Map({
-            target: 'map',
-            layers: [vecLayer, cvaLayer],  // 先底图，后注记
-            view: view
-        });
+    target: 'map',
+    layers: [],  // 先空数组
+    view: view
+});
+        // 按顺序添加图层：
+// 1. 影像图层（最底层，初始隐藏）
+map.addLayer(esriImagery);
+esriImagery.setVisible(false);
+
+        // 2. 天地图图层（中间层，初始显示）
+map.addLayer(vecLayer);
+map.addLayer(cvaLayer);
+       // const map = new ol.Map({
+         //   target: 'map',
+           // layers: [vecLayer, cvaLayer],  // 先底图，后注记
+            //view: view
+        //});
 
         // 将您的GeoJSON数据转换为OpenLayers要素
         const vectorSource = new ol.source.Vector({
@@ -232,19 +254,10 @@
                 })
             })
         });
+        // 3. 点图层（最上层，始终显示）
         map.addLayer(vectorLayer);
-// ===== 在这里插入 Esri 影像图层定义 =====
-const esriImagery = new ol.layer.Tile({
-    source: new ol.source.XYZ({
-        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-        crossOrigin: 'anonymous',
-        maxZoom: 19
-    })
-});
-map.addLayer(esriImagery);
-esriImagery.setVisible(false);
-// 将影像图层移至底层（索引0），确保点图层在上层
-map.getLayers().insertAt(0, esriImagery);
+
+
 // ========================================
         // ----- 创建悬浮提示框 (Tooltip) 仅用于非触摸设备 -----
         let tooltip = null;
@@ -335,22 +348,28 @@ map.getLayers().insertAt(0, esriImagery);
         console.log('地图加载完成，照片点数量：', photoPoints.features.length);
 
         // ===== 在这里插入切换按钮逻辑 =====
-const switchBtn = document.getElementById('switchBaseMapBtn');
-let showingEsri = false;
-switchBtn.addEventListener('click', function() {
-    if (!showingEsri) {
-        vecLayer.setVisible(false);
-        cvaLayer.setVisible(false);
-        esriImagery.setVisible(true);
-        switchBtn.textContent = '切换为矢量底图';
-        showingEsri = true;
-    } else {
-        vecLayer.setVisible(true);
-        cvaLayer.setVisible(true);
-        esriImagery.setVisible(false);
-        switchBtn.textContent = '切换为影像底图';
-        showingEsri = false;
-    }
+document.addEventListener('DOMContentLoaded', function() {
+    const switchBtn = document.getElementById('switchBaseMapBtn');
+    if (!switchBtn) return;
+
+    let showingEsri = false;
+    switchBtn.addEventListener('click', function() {
+        if (!showingEsri) {
+            // 隐藏天地图，显示影像
+            vecLayer.setVisible(false);
+            cvaLayer.setVisible(false);
+            esriImagery.setVisible(true);
+            switchBtn.textContent = '切换为矢量底图';
+            showingEsri = true;
+        } else {
+            // 显示天地图，隐藏影像
+            vecLayer.setVisible(true);
+            cvaLayer.setVisible(true);
+            esriImagery.setVisible(false);
+            switchBtn.textContent = '切换为影像底图';
+            showingEsri = false;
+        }
+    });
 });
 // ================================
         // ==================== 新增：当前位置功能 ====================
