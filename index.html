@@ -358,33 +358,43 @@ map.addLayer(cvaLayer);
         popup.getElement().style.display = 'none';
 
         // 点击事件
-        map.on('click', function(evt) {
-            const feature = map.forEachFeatureAtPixel(evt.pixel, function(feature) {
-                return feature;
-            });
+        
+       map.on('click', function(evt) {
+    // 测量模式时不处理
+    if (measureActive) return;
 
-            if (feature) {
-                const props = feature.getProperties();
-                const coord = feature.getGeometry().getCoordinates();
+    const feature = map.forEachFeatureAtPixel(evt.pixel, function(feature) {
+        return feature;
+    });
 
-                // 构建弹出内容：显示DD字段 + 图片
-                // 图片路径为相对路径 "pics/文件名"
-                const imgSrc = `/pics/${props.MC}`;
-                const content = `
-                    <div class="popup-content">
-                        <b>${props.DD}</b><br>
-                        <img src="${imgSrc}" alt="照片" onerror="this.onerror=null; this.src='https://via.placeholder.com/250x150?text=图片未找到';">
-                    </div>
-                `;
+    if (feature) {
+        // 忽略定位点及其精度圆（来自 positionLayer）
+        if (positionLayer.getSource().getFeatures().includes(feature)) {
+            return;
+        }
 
-                popup.getElement().innerHTML = content;
-                popup.setPosition(coord);
-                popup.getElement().style.display = 'block';
-            } else {
-                popup.setPosition(undefined);
-                popup.getElement().style.display = 'none';
-            }
-        });
+        const props = feature.getProperties();
+        const coord = feature.getGeometry().getCoordinates();
+
+        // 原有照片弹出逻辑
+        if (props.MC) {
+            const imgSrc = `/pics/${props.MC}`;
+            const content = `
+                <div class="popup-content">
+                    <b>${props.DD}</b><br>
+                    <img src="${imgSrc}" alt="照片" onerror="this.onerror=null; this.src='https://via.placeholder.com/250x150?text=图片未找到';">
+                </div>
+            `;
+            popup.getElement().innerHTML = content;
+            popup.setPosition(coord);
+            popup.getElement().style.display = 'block';
+        }
+        // 如果有其他类型要素可添加 else 分支
+    } else {
+        popup.setPosition(undefined);
+        popup.getElement().style.display = 'none';
+    }
+});
 
         // 可选：点击地图空白处关闭弹窗（触摸设备也可通过其他操作关闭）
         map.on('dblclick', function() {
