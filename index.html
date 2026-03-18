@@ -123,6 +123,54 @@
         #locateBtn:hover {
             background: #f0f0f0;
         }
+        /* 测量按钮通用样式 */
+.measure-btn {
+    position: absolute;
+    right: 10px;
+    z-index: 1000;
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 8px 12px;
+    font-size: 14px;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    width: 120px; /* 固定宽度使按钮对齐 */
+    text-align: left;
+}
+
+.measure-btn:hover {
+    background: #f0f0f0;
+}
+
+.measure-btn.active {
+    background-color: #e6f7ff;
+    border-color: #1890ff;
+}
+
+#measureLengthBtn {
+    top: 110px;
+}
+
+#measureAreaBtn {
+    top: 160px;
+}
+
+#measureResult {
+    position: absolute;
+    top: 210px;
+    right: 10px;
+    z-index: 1000;
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 8px 12px;
+    font-size: 14px;
+    min-width: 180px;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    display: none;
+}
     </style>
 </head>
 <body>
@@ -131,7 +179,9 @@
 <button id="switchBaseMapBtn" style="position: absolute; top: 60px; right: 10px; z-index: 1000; background: white; border: 1px solid #ccc; border-radius: 4px; padding: 8px 12px; font-size: 14px; cursor: pointer;">切换为影像底图</button>
     <!-- 新增定位按钮 -->
     <button id="locateBtn">📍 显示我的位置</button>
-
+<button id="measureLengthBtn" class="measure-btn">📏 测量长度</button>
+<button id="measureAreaBtn" class="measure-btn">🔲 测量面积</button>
+<div id="measureResult">0 米</div>
     <script src="https://cdn.jsdelivr.net/npm/ol@v7.5.2/dist/ol.js"></script>
     <script>
         // ==================== 配置区域 ====================
@@ -445,6 +495,171 @@ document.addEventListener('DOMContentLoaded', function() {
                 this.textContent = '📍 显示我的位置';
             }
         });
+        // ==================== 测量长度/面积功能 ====================
+// 创建用于测量的矢量图层（统一使用一个图层）
+const measureLayer = new ol.layer.Vector({
+    source: new ol.source.Vector(),
+    style: new ol.style.Style({
+        stroke: new ol.style.Stroke({
+            color: '#ff33cc',
+            width: 3,
+            lineDash: [5, 5]
+        }),
+        fill: new ol.style.Fill({
+            color: 'rgba(255, 51, 204, 0.1)'
+        }),
+        image: new ol.style.Circle({
+            radius: 5,
+            fill: new ol.style.Fill({ color: '#ff33cc' })
+        })
+    })
+});
+map.addLayer(measureLayer);
+
+// 测量相关变量
+let measureActive = false;
+let currentMeasureType = null; // 'length' 或 'area'
+let measureDraw = null;
+const measureLengthBtn = document.getElementById('measureLengthBtn');
+const measureAreaBtn = document.getElementById('measureAreaBtn');
+const measureResult = document.getElementById('measureResult');
+
+// 格式化长度显示
+function formatLength(length) {
+    if (length >= 1000) {
+        return (length / 1000).toFixed(2) + ' 千米';
+    } else {
+        return length.toFixed(1) + ' 米';
+    }
+}
+
+// 格式化面积显示
+function formatArea(area) {
+    if (area >= 1000000) {
+        return (area / 1000000).toFixed(2) + ' 平方公里';
+    } else if (area >= 10000) {
+        return (area / 10000).toFixed(2) + ' 公顷';
+    } else {
+        return area.toFixed(1) + ' 平方米';
+    }
+}
+
+// 清除测量状态
+function clearMeasurement() {
+    if (measureDraw) {
+        map.removeInteraction(measureDraw);
+        measureDraw = null;
+    }
+    measureLayer.getSource().clear();
+    measureActive = false;
+    currentMeasureType = null;
+    measureResult.style.display = 'none';
+    measureResult.innerHTML = '0';
+    measureLengthBtn.classList.remove('active');
+    measureAreaBtn.classList.remove('active');
+}
+
+// 激活测量
+function activateMeasurement(type) {
+    if (measureActive) {
+        // 如果已有激活的测量，先清除
+        clearMeasurement();
+    }
+    
+    measureActive = true;
+    currentMeasureType = type;
+    
+    // 设置按钮激活样式
+    if (type === 'length') {
+        measureLengthBtn.classList.add('active');
+        measureLengthBtn.textContent = '📏 取消长度';
+    } else {
+        measureAreaBtn.classList.add('active');
+        measureAreaBtn.textContent = '🔲 取消面积';
+    }
+    
+    measureResult.style.display = 'block';
+    measureResult.innerHTML = type === 'length' ? '点击地图开始测量长度' : '点击地图开始测量面积';
+    
+    // 创建绘制交互
+    measureDraw = new ol.interaction.Draw({
+        source: measureLayer.getSource(),
+        type: type === 'length' ? 'LineString' : 'Polygon',
+        style: new ol.style.Style({
+            stroke: new ol.style.Stroke({
+                color: '#ff33cc',
+                width: 3,
+                lineDash: [5, 5]
+            }),
+            fill: new ol.style.Fill({
+                color: 'rgba(255, 51, 204, 0.1)'
+            }),
+            image: new ol.style.Circle({
+                radius: 5,
+                fill: new ol.style.Fill({ color: '#ff33cc' })
+            })
+        })
+    });
+    
+    // 绘制过程中实时更新结果
+    measureDraw.on('drawstart', function(evt) {
+        const sketch = evt.feature;
+        sketch.getGeometry().on('change', function(evt) {
+            const geom = evt.target;
+            if (type === 'length' && geom.getType() === 'LineString') {
+                const length = olSphere.getLength(geom, { projection: 'EPSG:3857' });
+                measureResult.innerHTML = formatLength(length);
+            } else if (type === 'area' && geom.getType() === 'Polygon') {
+                const area = olSphere.getArea(geom, { projection: 'EPSG:3857' });
+                measureResult.innerHTML = formatArea(area);
+            }
+        });
+    });
+    
+    // 绘制完成后的处理
+    measureDraw.on('drawend', function(evt) {
+        const geom = evt.feature.getGeometry();
+        if (type === 'length') {
+            const length = olSphere.getLength(geom, { projection: 'EPSG:3857' });
+            measureResult.innerHTML = '长度: ' + formatLength(length);
+        } else {
+            const area = olSphere.getArea(geom, { projection: 'EPSG:3857' });
+            measureResult.innerHTML = '面积: ' + formatArea(area);
+        }
+    });
+    
+    map.addInteraction(measureDraw);
+}
+
+// 长度按钮点击事件
+measureLengthBtn.addEventListener('click', function() {
+    if (measureActive && currentMeasureType === 'length') {
+        // 如果当前已经是长度测量，则关闭
+        clearMeasurement();
+        this.textContent = '📏 测量长度';
+    } else {
+        // 激活长度测量
+        activateMeasurement('length');
+        // 确保面积按钮文字恢复
+        measureAreaBtn.textContent = '🔲 测量面积';
+    }
+});
+
+// 面积按钮点击事件
+measureAreaBtn.addEventListener('click', function() {
+    if (measureActive && currentMeasureType === 'area') {
+        // 如果当前已经是面积测量，则关闭
+        clearMeasurement();
+        this.textContent = '🔲 测量面积';
+    } else {
+        // 激活面积测量
+        activateMeasurement('area');
+        // 确保长度按钮文字恢复
+        measureLengthBtn.textContent = '📏 测量长度';
+    }
+});
+
+// 点击地图空白处不会自动关闭测量，保持测量模式直到用户再次点击按钮
     </script>
 </body>
 </html>
