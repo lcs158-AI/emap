@@ -242,8 +242,9 @@ const esriImagery = new ol.layer.Tile({
     })
 });
 map.addLayer(esriImagery);
-        map.getLayers().insertAt(0, esriImagery);
 esriImagery.setVisible(false);
+// 将影像图层移至底层（索引0），确保点图层在上层
+map.getLayers().insertAt(0, esriImagery);
 // ========================================
         // ----- 创建悬浮提示框 (Tooltip) 仅用于非触摸设备 -----
         let tooltip = null;
