@@ -242,6 +242,7 @@ const esriImagery = new ol.layer.Tile({
     })
 });
 map.addLayer(esriImagery);
+        map.getLayers().insertAt(0, esriImagery);
 esriImagery.setVisible(false);
 // ========================================
         // ----- 创建悬浮提示框 (Tooltip) 仅用于非触摸设备 -----
