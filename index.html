@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <!-- 移动端视口设置：宽度等于设备宽度，初始缩放1，允许用户缩放 -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes">
-    <title>My AI emap</title>
+    <title>My AI emap2.0</title>
     <!-- 引入 OpenLayers 样式和库 -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.5.2/ol.css">
     <style>
@@ -529,6 +529,45 @@ const measureLayer = new ol.layer.Vector({
 });
 map.addLayer(measureLayer);
 
+// 获取双击缩放交互
+let dblClickZoomInteraction = null;
+map.getInteractions().forEach(function(interaction) {
+    if (interaction instanceof ol.interaction.DoubleClickZoom) {
+        dblClickZoomInteraction = interaction;
+    }
+});
+
+// 修改 activateMeasurement
+function activateMeasurement(type) {
+    if (measureActive) deactivateMeasurement();
+
+    // 禁用双击缩放
+    if (dblClickZoomInteraction) dblClickZoomInteraction.setActive(false);
+
+    measureActive = true;
+    currentMeasureType = type;
+    // ... 其余激活代码
+}
+
+// 修改 deactivateMeasurement
+function deactivateMeasurement() {
+    if (measureDraw) {
+        map.removeInteraction(measureDraw);
+        measureDraw = null;
+    }
+    measureLayer.getSource().clear();
+    measureActive = false;
+    currentMeasureType = null;
+    measureResult.style.display = 'none';
+    measureLengthBtn.classList.remove('active');
+    measureAreaBtn.classList.remove('active');
+    measureLengthBtn.textContent = '📏 测量长度';
+    measureAreaBtn.textContent = '🔲 测量面积';
+
+    // 恢复双击缩放
+    if (dblClickZoomInteraction) dblClickZoomInteraction.setActive(true);
+}
+        
 // 测量相关变量
 let measureActive = false;
 let currentMeasureType = null; // 'length' 或 'area'
