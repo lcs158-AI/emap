@@ -2,12 +2,12 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>北津港潮汐测试-小写</title>
+    <title>北津港潮汐测试-大写</title>
 </head>
 <body>
     <h1>北津港潮汐查询测试</h1>
     <p>当前日期: <span id="today"></span></p>
-    <p>站点: p2314 (北津)</p>
+    <p>站点: P2314 (北津)</p>
   
     <p>
         <a id="apiLink" href="#" target="_blank" style="font-size: 18px; background: #1890ff; color: white; padding: 8px 16px; text-decoration: none; border-radius: 4px;">🔗 在新窗口打开API</a>
@@ -27,7 +27,7 @@
         document.getElementById('today').innerText = dateStr;
 
         // 构建API URL
-        const baseUrl = `https://mg2tupq435.re.qweatherapi.com/v7/ocean/tide?location=p2314&date=20260320&key=ebd9161a4eda4f3ebbcc3f3977d64820`;
+        const baseUrl = `https://mg2tupq435.re.qweatherapi.com/v7/ocean/tide?location=P2314&date=20260320&key=ebd9161a4eda4f3ebbcc3f3977d64820`;
         const apiLink = document.getElementById('apiLink');
         apiLink.href = baseUrl;
 
