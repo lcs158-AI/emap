@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes">
-    <title>My AI emap（优化潮位）</title>
+    <title>My AI emap2.0（优化潮位）</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.5.2/ol.css">
     <script src="/js/chart.umd.min.js"></script>
     <style>
@@ -448,98 +448,115 @@
         let tideChartInstance = null;
 
         // 绘制潮汐曲线函数（修正版+显示当前潮位）
-        function renderTideChart(tideHourly) {
-            console.log('renderTideChart 被调用，数据长度:', tideHourly.length);
-            
-            if (!tideHourly || tideHourly.length === 0) {
-                console.warn('tideHourly 数据为空，无法绘制图表');
-                return;
+        function renderTideChart(tideHourly, useFullData = false) {
+    console.log('renderTideChart 被调用，数据长度:', tideHourly.length, 'useFullData:', useFullData);
+
+    if (!tideHourly || tideHourly.length === 0) {
+        console.warn('tideHourly 数据为空，无法绘制图表');
+        return;
+    }
+
+    const canvas = document.getElementById('tideChart');
+    if (!canvas) {
+        console.error('找不到 tideChart canvas 元素！');
+        return;
+    }
+
+    let labels, values, highlightIndex = -1;
+
+    if (useFullData) {
+        // 凌晨模式：直接使用传入的完整数据（0-12时）
+        labels = tideHourly.map(item => {
+            const d = new Date(item.fxTime);
+            return `${d.getHours()}:00`;
+        });
+        values = tideHourly.map(item => parseFloat(item.height));
+
+        // 尝试高亮当前小时（如果数据包含）
+        const now = new Date();
+        const currentHour = now.getHours();
+        highlightIndex = values.findIndex((_, idx) => {
+            const d = new Date(tideHourly[idx].fxTime);
+            return d.getHours() === currentHour;
+        });
+    } else {
+        // 非凌晨模式：以当前时间为中心截取前后6小时
+        const now = new Date();
+        let currentIndex = -1;
+        let minDiff = Infinity;
+        for (let i = 0; i < tideHourly.length; i++) {
+            const itemTime = new Date(tideHourly[i].fxTime);
+            const diff = Math.abs(itemTime - now);
+            if (diff < minDiff) {
+                minDiff = diff;
+                currentIndex = i;
             }
-
-            const canvas = document.getElementById('tideChart');
-            if (!canvas) {
-                console.error('找不到 tideChart canvas 元素！');
-                return;
-            }
-
-            const now = new Date();
-            // 找到当前时间最近的索引
-            let currentIndex = -1;
-            let minDiff = Infinity;
-            for (let i = 0; i < tideHourly.length; i++) {
-                const itemTime = new Date(tideHourly[i].fxTime);
-                const diff = Math.abs(itemTime - now);
-                if (diff < minDiff) {
-                    minDiff = diff;
-                    currentIndex = i;
-                }
-            }
-            
-            if (currentIndex === -1) currentIndex = Math.floor(tideHourly.length / 2);
-
-            // 取前后各6小时（共13个点）
-            const startIdx = Math.max(0, currentIndex - 6);
-            const endIdx = Math.min(tideHourly.length, currentIndex + 6 + 1);
-            const slicedData = tideHourly.slice(startIdx, endIdx);
-
-            // 重新计算当前点在截取数组中的索引
-            const slicedCurrentIndex = currentIndex - startIdx;
-
-            // 格式化标签：如果跨日，在日期变化处显示月-日
-            const labels = slicedData.map((item, idx) => {
-                const d = new Date(item.fxTime);
-                const hour = d.getHours().toString().padStart(2,'0');
-                // 检查是否跨日：与第一个点比较日期
-                if (idx > 0 && d.toDateString() !== new Date(slicedData[0].fxTime).toDateString()) {
-                    return `${d.getMonth()+1}/${d.getDate()} ${hour}:00`;
-                }
-                return `${hour}:00`;
-            });
-            
-            const values = slicedData.map(item => parseFloat(item.height));
-
-            if (tideChartInstance) tideChartInstance.destroy();
-
-            const ctx = canvas.getContext('2d');
-            tideChartInstance = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: '潮高 (米)',
-                        data: values,
-                        borderColor: '#1890ff',
-                        backgroundColor: 'rgba(24,144,255,0.1)',
-                        tension: 0.3,
-                        fill: true,
-                        // 默认点样式
-                        pointRadius: 3,
-                        pointHoverRadius: 5,
-                        // 突出显示当前点
-                        pointBackgroundColor: values.map((_, idx) => 
-                            idx === slicedCurrentIndex ? '#ff0000' : '#1890ff'
-                        ),
-                        pointRadius: values.map((_, idx) => 
-                            idx === slicedCurrentIndex ? 8 : 3
-                        ),
-                        pointHoverRadius: values.map((_, idx) => 
-                            idx === slicedCurrentIndex ? 10 : 5
-                        ),
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: { 
-                        y: { 
-                            beginAtZero: false,
-                            title: { display: true, text: '潮高 (米)' }
-                        }
-                    }
-                }
-            });
         }
+        if (currentIndex === -1) currentIndex = Math.floor(tideHourly.length / 2);
+
+        const startIdx = Math.max(0, currentIndex - 6);
+        const endIdx = Math.min(tideHourly.length, currentIndex + 6 + 1);
+        const slicedData = tideHourly.slice(startIdx, endIdx);
+
+        labels = slicedData.map((item, idx) => {
+            const d = new Date(item.fxTime);
+            const hour = d.getHours().toString().padStart(2, '0');
+            if (idx > 0 && d.toDateString() !== new Date(slicedData[0].fxTime).toDateString()) {
+                return `${d.getMonth() + 1}/${d.getDate()} ${hour}:00`;
+            }
+            return `${hour}:00`;
+        });
+        values = slicedData.map(item => parseFloat(item.height));
+        highlightIndex = currentIndex - startIdx;
+    }
+
+    // 销毁旧图表
+    if (tideChartInstance) {
+        tideChartInstance.destroy();
+    }
+
+    const ctx = canvas.getContext('2d');
+
+    // 构建高亮样式
+    const pointBackgroundColor = values.map((_, idx) =>
+        idx === highlightIndex ? '#ff0000' : '#1890ff'
+    );
+    const pointRadius = values.map((_, idx) =>
+        idx === highlightIndex ? 8 : 3
+    );
+    const pointHoverRadius = values.map((_, idx) =>
+        idx === highlightIndex ? 10 : 5
+    );
+
+    tideChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: '潮高 (米)',
+                data: values,
+                borderColor: '#1890ff',
+                backgroundColor: 'rgba(24,144,255,0.1)',
+                tension: 0.3,
+                fill: true,
+                pointBackgroundColor: pointBackgroundColor,
+                pointRadius: pointRadius,
+                pointHoverRadius: pointHoverRadius,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    title: { display: true, text: '潮高 (米)' }
+                }
+            }
+        }
+    });
+}
         console.log('地图加载完成，照片点数量：', photoPoints.features.length);
 
         // ==================== 潮汐功能（和风天气）====================
@@ -587,72 +604,73 @@ async function fetchTideData(lon, lat) {
         const now = new Date();
         const currentHour = now.getHours();
 
-        // 计算需要的日期
+        // 判断是否为凌晨时段 (0-6时)
+        const isEarlyMorning = currentHour >= 0 && currentHour <= 6;
+
+        // 准备日期字符串
         const today = new Date();
         const todayStr = today.toISOString().slice(0, 10).replace(/-/g, '');
-        
-        const yesterday = new Date(today);
-        yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayStr = yesterday.toISOString().slice(0, 10).replace(/-/g, '');
-        
         const tomorrow = new Date(today);
         tomorrow.setDate(tomorrow.getDate() + 1);
         const tomorrowStr = tomorrow.toISOString().slice(0, 10).replace(/-/g, '');
 
-        // 根据当前小时确定候选日期列表（按优先级排序）
-        let dateCandidates = [];
-        if (currentHour <= 6) {
-            // 凌晨：昨天优先，今天次之
-            dateCandidates = [
-                { date: yesterdayStr, label: '昨天' },
-                { date: todayStr, label: '今天' }
-            ];
-        } else if (currentHour >= 18) {
-            // 傍晚：今天优先，明天次之
-            dateCandidates = [
-                { date: todayStr, label: '今天' },
-                { date: tomorrowStr, label: '明天' }
-            ];
-        } else {
-            // 其他时段：只需要今天
-            dateCandidates = [
-                { date: todayStr, label: '今天' }
-            ];
-        }
-
-        // 去重
-        const uniqueCandidates = [];
-        const seen = new Set();
-        for (const cand of dateCandidates) {
-            if (!seen.has(cand.date)) {
-                seen.add(cand.date);
-                uniqueCandidates.push(cand);
-            }
-        }
-
         let allHourly = [];
-        for (const { date, label } of uniqueCandidates) {
-            try {
-                const tideUrl = `https://${APIhost}/v7/ocean/tide?location=${poiId}&date=${date}&key=${QWEATHER_KEY}`;
-                console.log(`请求${label}数据:`, tideUrl);
-                const tideRes = await fetch(tideUrl);
-                const tideData = await tideRes.json();
-                console.log(`${label}响应:`, tideData);
 
-                if (tideData.code === '200' && tideData.tideHourly && tideData.tideHourly.length > 0) {
-                    allHourly = allHourly.concat(tideData.tideHourly);
-                    // 如果已经收集到足够数据（至少24小时），可以停止
-                    if (allHourly.length >= 24) break;
+        if (isEarlyMorning) {
+            // 凌晨时段：只尝试获取当天数据，筛选0-12时
+            try {
+                const tideUrlToday = `https://${APIhost}/v7/ocean/tide?location=${poiId}&date=${todayStr}&key=${QWEATHER_KEY}`;
+                console.log('请求今天数据:', tideUrlToday);
+                const tideResToday = await fetch(tideUrlToday);
+                const tideDataToday = await tideResToday.json();
+                console.log('今天响应:', tideDataToday);
+
+                if (tideDataToday.code === '200' && tideDataToday.tideHourly?.length) {
+                    // 筛选0-12时的数据
+                    allHourly = tideDataToday.tideHourly.filter(item => {
+                        const hour = new Date(item.fxTime).getHours();
+                        return hour >= 0 && hour <= 12;
+                    });
+
+                    if (allHourly.length === 0) {
+                        throw new Error('今日0-12时数据为空');
+                    }
                 } else {
-                    console.warn(`${label}数据不可用:`, tideData.code);
+                    throw new Error(`今日数据不可用: ${tideDataToday.code}`);
                 }
             } catch (e) {
-                console.warn(`获取${label}数据失败:`, e.message);
+                console.error('凌晨获取数据失败:', e.message);
+                // 抛出明确错误提示
+                throw new Error('凌晨时段潮汐数据尚未生成，请稍后再试');
             }
-        }
+        } else {
+            // 非凌晨时段：以当前时间为中心，可能需要明天数据
+            const datesToFetch = [{ date: todayStr, label: '今天' }];
+            if (currentHour >= 18) {
+                datesToFetch.push({ date: tomorrowStr, label: '明天' });
+            }
 
-        if (allHourly.length === 0) {
-            throw new Error('无法获取任何有效潮汐数据');
+            for (const { date, label } of datesToFetch) {
+                try {
+                    const tideUrl = `https://${APIhost}/v7/ocean/tide?location=${poiId}&date=${date}&key=${QWEATHER_KEY}`;
+                    console.log(`请求${label}数据:`, tideUrl);
+                    const tideRes = await fetch(tideUrl);
+                    const tideData = await tideRes.json();
+                    console.log(`${label}响应:`, tideData);
+
+                    if (tideData.code === '200' && tideData.tideHourly?.length) {
+                        allHourly = allHourly.concat(tideData.tideHourly);
+                    } else {
+                        console.warn(`${label}数据不可用:`, tideData.code);
+                    }
+                } catch (e) {
+                    console.warn(`获取${label}数据失败:`, e.message);
+                }
+            }
+
+            if (allHourly.length === 0) {
+                throw new Error('无法获取任何有效潮汐数据');
+            }
         }
 
         // 按时间排序
@@ -660,9 +678,9 @@ async function fetchTideData(lon, lat) {
 
         // 更新界面
         updateTidePanel(allHourly, poiName, [lon, lat]);
-        
-        // 绘制曲线
-        renderTideChart(allHourly);
+
+        // 绘制曲线，凌晨模式传入 useFullData=true，非凌晨模式传入 false
+        renderTideChart(allHourly, isEarlyMorning);
 
     } catch (error) {
         console.error('潮汐查询出错:', error);
