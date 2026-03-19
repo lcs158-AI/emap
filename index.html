@@ -582,49 +582,68 @@ async function fetchTideData(lon, lat) {
         const poiName = geoData.poi[0]?.name || '附近海域';
         if (!poiId) throw new Error('未找到附近潮汐站点');
 
-        // 获取今天日期
-        const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-
-        // 获取今天潮汐数据
-        const tideUrlToday = `https://${APIhost}/v7/ocean/tide?location=${poiId}&date=${today}&key=${QWEATHER_KEY}`;
-        const tideResToday = await fetch(tideUrlToday);
-        const tideDataToday = await tideResToday.json();
-
-        if (tideDataToday.code !== '200') {
-            throw new Error(`今天潮汐查询失败: ${tideDataToday.code}`);
-        }
-
-        let combinedHourly = tideDataToday.tideHourly || [];
+        // 当前时间
         const now = new Date();
         const currentHour = now.getHours();
 
-        // 检查是否需要明天数据（如果当前小时+6超出今天最大小时）
-        const lastHourToday = new Date(combinedHourly[combinedHourly.length-1]?.fxTime).getHours();
-        if (currentHour + 6 > lastHourToday) {
-            // 获取明天日期
-            const tomorrow = new Date();
+        // 确定需要请求的日期列表
+        const datesToFetch = [];
+        const today = new Date();
+        const todayStr = today.toISOString().slice(0, 10).replace(/-/g, '');
+        datesToFetch.push({ date: todayStr, label: 'today' });
+
+        // 如果当前小时 >= 18，需要明天数据（后6小时可能跨到明天）
+        if (currentHour >= 18) {
+            const tomorrow = new Date(today);
             tomorrow.setDate(tomorrow.getDate() + 1);
             const tomorrowStr = tomorrow.toISOString().slice(0, 10).replace(/-/g, '');
+            datesToFetch.push({ date: tomorrowStr, label: 'tomorrow' });
+        }
 
-            const tideUrlTomorrow = `https://${APIhost}/v7/ocean/tide?location=${poiId}&date=${tomorrowStr}&key=${QWEATHER_KEY}`;
-            const tideResTomorrow = await fetch(tideUrlTomorrow);
-            const tideDataTomorrow = await tideResTomorrow.json();
+        // 如果当前小时 <= 6，需要昨天数据（前6小时可能跨到昨天）
+        if (currentHour <= 6) {
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+            const yesterdayStr = yesterday.toISOString().slice(0, 10).replace(/-/g, '');
+            datesToFetch.push({ date: yesterdayStr, label: 'yesterday' });
+        }
 
-            if (tideDataTomorrow.code === '200') {
-                // 合并两天数据
-                combinedHourly = combinedHourly.concat(tideDataTomorrow.tideHourly || []);
-            } else {
-                console.warn('获取明天潮汐数据失败，仅使用今天数据');
+        // 去重（例如当前小时=18时，昨天和明天都不会同时需要，但以防万一）
+        const uniqueDates = [...new Set(datesToFetch.map(d => d.date))].map(date => ({
+            date,
+            label: datesToFetch.find(d => d.date === date).label
+        }));
+
+        // 请求所有需要日期的数据
+        let allHourly = [];
+        for (const { date, label } of uniqueDates) {
+            try {
+                const tideUrl = `https://${APIhost}/v7/ocean/tide?location=${poiId}&date=${date}&key=${QWEATHER_KEY}`;
+                const tideRes = await fetch(tideUrl);
+                const tideData = await tideRes.json();
+                if (tideData.code === '200' && tideData.tideHourly && tideData.tideHourly.length > 0) {
+                    // 为每个数据点添加日期标签（可选，用于调试）
+                    allHourly = allHourly.concat(tideData.tideHourly);
+                } else {
+                    console.warn(`${label} 数据不可用:`, tideData.code);
+                }
+            } catch (e) {
+                console.warn(`获取 ${label} 数据失败:`, e.message);
             }
         }
 
-        // 更新界面（传入合并后的数据）
-        updateTidePanel(combinedHourly, poiName, [lon, lat]);
-        
-        // 绘制曲线（传入合并后的数据）
-        if (combinedHourly.length > 0) {
-            renderTideChart(combinedHourly);
+        if (allHourly.length === 0) {
+            throw new Error('无法获取任何有效潮汐数据');
         }
+
+        // 按时间排序（API返回可能已经有序，但安全起见）
+        allHourly.sort((a, b) => new Date(a.fxTime) - new Date(b.fxTime));
+
+        // 更新界面
+        updateTidePanel(allHourly, poiName, [lon, lat]);
+        
+        // 绘制曲线
+        renderTideChart(allHourly);
 
     } catch (error) {
         console.error('潮汐查询出错:', error);
@@ -634,29 +653,27 @@ async function fetchTideData(lon, lat) {
 }
 
 // 更新潮汐面板（简化版，仅保留曲线和关键数据）
-function updateTidePanel(combinedHourly, locationName, coords) {
+function updateTidePanel(allHourly, locationName, coords) {
     const now = new Date();
-    const currentHour = now.getHours();
     
-    // 从合并数据中找出当前小时的潮高（比较日期+小时）
-    let currentTide = null;
-    for (let item of combinedHourly) {
-        const itemDate = new Date(item.fxTime);
-        if (itemDate.getHours() === currentHour && itemDate.toDateString() === now.toDateString()) {
-            currentTide = item;
-            break;
+    // 找到最接近当前时间的数据点
+    let bestItem = null;
+    let minDiff = Infinity;
+    for (let item of allHourly) {
+        const itemTime = new Date(item.fxTime);
+        const diff = Math.abs(itemTime - now);
+        if (diff < minDiff) {
+            minDiff = diff;
+            bestItem = item;
         }
     }
-    // 如果没找到今天当前小时，就用第一个
-    if (!currentTide && combinedHourly.length > 0) {
-        currentTide = combinedHourly[0];
-    }
-
-    const tideHeight = currentTide ? parseFloat(currentTide.height).toFixed(1) : '--';
+    
+    const tideHeight = bestItem ? parseFloat(bestItem.height).toFixed(1) : '--';
+    const bestTime = bestItem ? new Date(bestItem.fxTime).toLocaleString('zh-CN', { hour: 'numeric', minute: 'numeric' }) : '';
     
     document.getElementById('tideLocation').innerHTML = `📍 ${locationName}`;
     document.getElementById('tideCurrent').innerHTML = `${tideHeight} 米`;
-    document.getElementById('tideTime').innerHTML = `⏱️ 更新：${new Date().toLocaleTimeString('zh-CN')}`;
+    document.getElementById('tideTime').innerHTML = `⏱️ ${bestTime} 更新`;
     document.getElementById('tideDetail').innerHTML = ''; // 清空错误信息
 }
 
