@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes">
-    <title>My AI emap（带定位+测量+潮位）</title>
+    <title>My AI emap（优化潮位）</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.5.2/ol.css">
     <script src="/js/chart.umd.min.js"></script>
     <style>
@@ -571,64 +571,83 @@ async function fetchTideData(lon, lat) {
 
         // 第一步：通过经纬度搜索最近的潮汐站点
         const geoUrl = `https://${APIhost}/geo/v2/poi/lookup?location=${lon},${lat}&type=TSTA&key=${QWEATHER_KEY}`;
+        console.log('地理搜索URL:', geoUrl);
         const geoRes = await fetch(geoUrl);
         const geoData = await geoRes.json();
+        console.log('地理搜索结果:', geoData);
 
-        if (geoData.code !== '200') {
-            throw new Error(`地理位置查询失败: ${geoData.code}`);
+        if (geoData.code !== '200' || !geoData.poi || geoData.poi.length === 0) {
+            throw new Error(`地理位置查询失败: ${geoData.code || '无站点'}`);
         }
 
         const poiId = geoData.poi[0]?.id;
         const poiName = geoData.poi[0]?.name || '附近海域';
-        if (!poiId) throw new Error('未找到附近潮汐站点');
+        console.log('找到站点:', poiId, poiName);
 
-        // 当前时间
         const now = new Date();
         const currentHour = now.getHours();
 
-        // 确定需要请求的日期列表
-        const datesToFetch = [];
+        // 计算需要的日期
         const today = new Date();
         const todayStr = today.toISOString().slice(0, 10).replace(/-/g, '');
-        datesToFetch.push({ date: todayStr, label: 'today' });
+        
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().slice(0, 10).replace(/-/g, '');
+        
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const tomorrowStr = tomorrow.toISOString().slice(0, 10).replace(/-/g, '');
 
-        // 如果当前小时 >= 18，需要明天数据（后6小时可能跨到明天）
-        if (currentHour >= 18) {
-            const tomorrow = new Date(today);
-            tomorrow.setDate(tomorrow.getDate() + 1);
-            const tomorrowStr = tomorrow.toISOString().slice(0, 10).replace(/-/g, '');
-            datesToFetch.push({ date: tomorrowStr, label: 'tomorrow' });
-        }
-
-        // 如果当前小时 <= 6，需要昨天数据（前6小时可能跨到昨天）
+        // 根据当前小时确定候选日期列表（按优先级排序）
+        let dateCandidates = [];
         if (currentHour <= 6) {
-            const yesterday = new Date(today);
-            yesterday.setDate(yesterday.getDate() - 1);
-            const yesterdayStr = yesterday.toISOString().slice(0, 10).replace(/-/g, '');
-            datesToFetch.push({ date: yesterdayStr, label: 'yesterday' });
+            // 凌晨：昨天优先，今天次之
+            dateCandidates = [
+                { date: yesterdayStr, label: '昨天' },
+                { date: todayStr, label: '今天' }
+            ];
+        } else if (currentHour >= 18) {
+            // 傍晚：今天优先，明天次之
+            dateCandidates = [
+                { date: todayStr, label: '今天' },
+                { date: tomorrowStr, label: '明天' }
+            ];
+        } else {
+            // 其他时段：只需要今天
+            dateCandidates = [
+                { date: todayStr, label: '今天' }
+            ];
         }
 
-        // 去重（例如当前小时=18时，昨天和明天都不会同时需要，但以防万一）
-        const uniqueDates = [...new Set(datesToFetch.map(d => d.date))].map(date => ({
-            date,
-            label: datesToFetch.find(d => d.date === date).label
-        }));
+        // 去重
+        const uniqueCandidates = [];
+        const seen = new Set();
+        for (const cand of dateCandidates) {
+            if (!seen.has(cand.date)) {
+                seen.add(cand.date);
+                uniqueCandidates.push(cand);
+            }
+        }
 
-        // 请求所有需要日期的数据
         let allHourly = [];
-        for (const { date, label } of uniqueDates) {
+        for (const { date, label } of uniqueCandidates) {
             try {
                 const tideUrl = `https://${APIhost}/v7/ocean/tide?location=${poiId}&date=${date}&key=${QWEATHER_KEY}`;
+                console.log(`请求${label}数据:`, tideUrl);
                 const tideRes = await fetch(tideUrl);
                 const tideData = await tideRes.json();
+                console.log(`${label}响应:`, tideData);
+
                 if (tideData.code === '200' && tideData.tideHourly && tideData.tideHourly.length > 0) {
-                    // 为每个数据点添加日期标签（可选，用于调试）
                     allHourly = allHourly.concat(tideData.tideHourly);
+                    // 如果已经收集到足够数据（至少24小时），可以停止
+                    if (allHourly.length >= 24) break;
                 } else {
-                    console.warn(`${label} 数据不可用:`, tideData.code);
+                    console.warn(`${label}数据不可用:`, tideData.code);
                 }
             } catch (e) {
-                console.warn(`获取 ${label} 数据失败:`, e.message);
+                console.warn(`获取${label}数据失败:`, e.message);
             }
         }
 
@@ -636,7 +655,7 @@ async function fetchTideData(lon, lat) {
             throw new Error('无法获取任何有效潮汐数据');
         }
 
-        // 按时间排序（API返回可能已经有序，但安全起见）
+        // 按时间排序
         allHourly.sort((a, b) => new Date(a.fxTime) - new Date(b.fxTime));
 
         // 更新界面
