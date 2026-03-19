@@ -586,20 +586,19 @@ async function fetchTideData(lon, lat) {
         document.getElementById('tideCurrent').innerHTML = '查询中...';
         document.getElementById('tideLocation').innerHTML = `正在获取潮汐数据`;
 
-        // 第一步：通过经纬度搜索最近的潮汐站点
+        // 第一步：通过经纬度搜索最近的潮汐站点（仅用于显示地点名称，不用于API调用）
         const geoUrl = `https://${APIhost}/geo/v2/poi/lookup?location=${lon},${lat}&type=TSTA&key=${QWEATHER_KEY}`;
         console.log('地理搜索URL:', geoUrl);
         const geoRes = await fetch(geoUrl);
         const geoData = await geoRes.json();
         console.log('地理搜索结果:', geoData);
 
-        if (geoData.code !== '200' || !geoData.poi || geoData.poi.length === 0) {
-            throw new Error(`地理位置查询失败: ${geoData.code || '无站点'}`);
+        let poiName = '附近海域';
+        if (geoData.code === '200' && geoData.poi && geoData.poi.length > 0) {
+            poiName = geoData.poi[0].name || poiName;
+        } else {
+            console.warn('地理搜索未返回名称，使用默认值');
         }
-
-        const poiId = geoData.poi[0]?.id;
-        const poiName = geoData.poi[0]?.name || '附近海域';
-        console.log('找到站点:', poiId, poiName);
 
         const now = new Date();
         const currentHour = now.getHours();
@@ -617,54 +616,47 @@ async function fetchTideData(lon, lat) {
         let allHourly = [];
 
         if (isEarlyMorning) {
-            // 凌晨时段：只尝试获取当天数据，筛选0-12时
-            try {
-                const tideUrlToday = `https://${APIhost}/v7/ocean/tide?location=${poiId}&date=${todayStr}&key=${QWEATHER_KEY}`;
-                console.log('请求今天数据:', tideUrlToday);
-                const tideResToday = await fetch(tideUrlToday);
-                const tideDataToday = await tideResToday.json();
-                console.log('今天响应:', tideDataToday);
+            // 凌晨时段：只请求今天数据，筛选0-12时
+            const tideUrl = `https://${APIhost}/v7/ocean/tide?location=${lon},${lat}&date=${todayStr}&key=${QWEATHER_KEY}`;
+            console.log('请求今天数据（经纬度）:', tideUrl);
+            const tideRes = await fetch(tideUrl);
+            const tideData = await tideRes.json();
+            console.log('今天响应:', tideData);
 
-                if (tideDataToday.code === '200' && tideDataToday.tideHourly?.length) {
-                    // 筛选0-12时的数据
-                    allHourly = tideDataToday.tideHourly.filter(item => {
-                        const hour = new Date(item.fxTime).getHours();
-                        return hour >= 0 && hour <= 12;
-                    });
+            if (tideData.code !== '200') {
+                throw new Error(`潮汐查询失败 (${tideData.code})`);
+            }
+            if (!tideData.tideHourly || tideData.tideHourly.length === 0) {
+                throw new Error('今日潮汐数据为空');
+            }
 
-                    if (allHourly.length === 0) {
-                        throw new Error('今日0-12时数据为空');
-                    }
-                } else {
-                    throw new Error(`今日数据不可用: ${tideDataToday.code}`);
-                }
-            } catch (e) {
-                console.error('凌晨获取数据失败:', e.message);
-                // 抛出明确错误提示
-                throw new Error('凌晨时段潮汐数据尚未生成，请稍后再试');
+            // 筛选0-12时的数据
+            allHourly = tideData.tideHourly.filter(item => {
+                const hour = new Date(item.fxTime).getHours();
+                return hour >= 0 && hour <= 12;
+            });
+
+            if (allHourly.length === 0) {
+                throw new Error('今日0-12时数据为空');
             }
         } else {
-            // 非凌晨时段：以当前时间为中心，可能需要明天数据
+            // 非凌晨时段：可能需要今天和明天的数据
             const datesToFetch = [{ date: todayStr, label: '今天' }];
             if (currentHour >= 18) {
                 datesToFetch.push({ date: tomorrowStr, label: '明天' });
             }
 
             for (const { date, label } of datesToFetch) {
-                try {
-                    const tideUrl = `https://${APIhost}/v7/ocean/tide?location=${poiId}&date=${date}&key=${QWEATHER_KEY}`;
-                    console.log(`请求${label}数据:`, tideUrl);
-                    const tideRes = await fetch(tideUrl);
-                    const tideData = await tideRes.json();
-                    console.log(`${label}响应:`, tideData);
+                const tideUrl = `https://${APIhost}/v7/ocean/tide?location=${lon},${lat}&date=${date}&key=${QWEATHER_KEY}`;
+                console.log(`请求${label}数据（经纬度）:`, tideUrl);
+                const tideRes = await fetch(tideUrl);
+                const tideData = await tideRes.json();
+                console.log(`${label}响应:`, tideData);
 
-                    if (tideData.code === '200' && tideData.tideHourly?.length) {
-                        allHourly = allHourly.concat(tideData.tideHourly);
-                    } else {
-                        console.warn(`${label}数据不可用:`, tideData.code);
-                    }
-                } catch (e) {
-                    console.warn(`获取${label}数据失败:`, e.message);
+                if (tideData.code === '200' && tideData.tideHourly && tideData.tideHourly.length > 0) {
+                    allHourly = allHourly.concat(tideData.tideHourly);
+                } else {
+                    console.warn(`${label}数据不可用:`, tideData.code);
                 }
             }
 
