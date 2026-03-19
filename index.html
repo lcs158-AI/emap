@@ -437,7 +437,7 @@ const keyPart1 = 'ebd9161a';
 const keyPart2 = '4eda4f3ebbcc';
 const keyPart3 = '3f3977d64820';
 const QWEATHER_KEY = keyPart1 + keyPart2 + keyPart3;
-const APIhost='mg2tupq435.re.qweatherapi.com'
+const APIhost='mg2tupq435.re.qweatherapi.com'  //mg2tupq435.re.qweatherapi.com
 //const QWEATHER_KEY = 'ebd9161a4eda4f3ebbcc3f3977d64820'; 
 
 // 获取DOM元素
@@ -459,7 +459,7 @@ async function fetchTideData(lon, lat) {
         document.getElementById('tideLocation').innerHTML = `正在获取潮汐数据`;
 
         // 第一步：通过经纬度搜索最近的潮汐站点[citation:1][citation:2],API HOST mg2tupq435.re.qweatherapi.com
-        const geoUrl = `https://${APIhost}/v2/poi?location=${lon},${lat}&type=scenic&key=${QWEATHER_KEY}`;
+        const geoUrl = `https://${APIhost}/geo/v2/poi/lookup?location=${lon},${lat}&type=TSTA&key=${QWEATHER_KEY}`;
         const geoRes = await fetch(geoUrl);
         const geoData = await geoRes.json();
 
