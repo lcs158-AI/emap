@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes">
+    <title>My AI emap（带定位+测量）</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.5.2/ol.css">
+    <style>
+        /* 原有样式 + 测量按钮样式 */
+        html, body { margin:0; padding:0; width:100%; height:100%; overflow:hidden; touch-action:pan-x pan-y; }
+        #map { width:100%; height:100%; }
+        .ol-popup { position:absolute; background-color:white; box-shadow:0 2px 8px rgba(0,0,0,0.3); padding:15px; border-radius:8px; border:1px solid #ccc; bottom:12px; left:-50px; min-width:250px; max-width:350px; font-size:14px; }
+        .ol-popup:after, .ol-popup:before { top:100%; border:solid transparent; content:" "; height:0; width:0; position:absolute; pointer-events:none; }
+        .ol-popup:after { border-top-color:white; border-width:10px; left:48px; margin-left:-10px; }
+        .ol-popup:before { border-top-color:#ccc; border-width:11px; left:48px; margin-left:-11px; }
+        .popup-content img { max-width:100%; max-height:200px; display:block; margin-top:8px; border-radius:4px; }
+        @media (max-width:600px) {
+            .ol-popup { min-width:200px; max-width:85vw; left:-20px; padding:12px; font-size:16px; }
+            .ol-popup:after { left:30px; }
+            .ol-popup:before { left:30px; }
+            .popup-content img { max-height:150px; }
+        }
+        .ol-tooltip { background:rgba(0,0,0,0.8); color:white; padding:6px 12px; border-radius:20px; font-size:13px; font-weight:bold; white-space:nowrap; pointer-events:none; box-shadow:0 2px 6px rgba(0,0,0,0.3); z-index:1000; }
+        .no-touch .ol-tooltip { display:block; }
+        .touch .ol-tooltip { display:none !important; }
+        .ol-selectable { cursor:pointer; }
+
+        /* 按钮样式 */
+        #locateBtn, #switchBaseMapBtn, .measure-btn {
+            position: absolute;
+            right: 10px;
+            z-index: 1000;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 8px 12px;
+            font-size: 14px;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            width: 130px;
+            text-align: left;
+        }
+        #locateBtn { top: 10px; }
+        #switchBaseMapBtn { top: 60px; }
+        #measureLengthBtn { top: 110px; }
+        #measureAreaBtn { top: 160px; }
+        #tideBtn { top: 210px; }  /* 新增 */
+        #measureResult {
+            position: absolute;
+            top: 260px;
+            right: 10px;
+            z-index: 1000;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 8px 12px;
+            font-size: 14px;
+            min-width: 180px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            display: none;
+        }
+        .measure-btn.active {
+            background-color: #e6f7ff;
+            border-color: #1890ff;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <button id="locateBtn">📍 显示我的位置</button>
+    <button id="switchBaseMapBtn">切换为影像底图</button>
+    <button id="measureLengthBtn" class="measure-btn">📏 测量长度</button>
+    <button id="measureAreaBtn" class="measure-btn">🔲 测量面积</button>
+    <div id="measureResult">0 米</div>
+<!-- 潮汐按钮（放在测量面积按钮下方） -->
+<button id="tideBtn" style="position: absolute; top: 210px; right: 10px; z-index: 1000; background: white; border: 1px solid #ccc; border-radius: 4px; padding: 8px 12px; font-size: 14px; cursor: pointer; width: 130px; text-align: left;">🌊 查潮汐</button>
+
+<!-- 潮汐信息面板 -->
+<div id="tidePanel" style="position: absolute; bottom: 20px; left: 20px; z-index: 1000; background: white; border-radius: 8px; padding: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); min-width: 260px; display: none;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <h4 style="margin: 0; color: #1890ff;">🌊 潮汐信息</h4>
+        <button id="closeTideBtn" style="background: none; border: none; font-size: 16px; cursor: pointer; color: #999;">✕</button>
+    </div>
+    <div id="tideLocation" style="font-size: 13px; color: #666; margin-bottom: 5px;"></div>
+    <div id="tideCurrent" style="font-size: 28px; font-weight: bold; color: #0066cc; text-align: center;"></div>
+    <div id="tideTime" style="font-size: 12px; color: #999; text-align: center; margin-bottom: 8px;"></div>
+    <div id="tideDetail" style="font-size: 13px; color: #333; margin-top: 5px; border-top: 1px solid #eee; padding-top: 8px;"></div>
+    <div style="margin-top: 8px; font-size: 11px; color: #aaa; text-align: right;">⏱️ 数据：和风天气</div>
+</div>
+    <script src="https://cdn.jsdelivr.net/npm/ol@v7.5.2/dist/ol.js"></script>
+    <script>
+        // ==================== 配置区域 ====================
+        const TIANDITU_KEY = '4110bba1f23cd04ed33e43ab12a291fc'; // 请替换为您的密钥
+        const photoPoints = {
+            "type": "FeatureCollection",
+            "features": [
+                { "type": "Feature", "geometry": { "type": "Point", "coordinates": [111.212202, 21.483160] }, "properties": { "DD": "博贺湾大酒店", "MC": "IMG_20260226_133945565.jpg" } },
+                { "type": "Feature", "geometry": { "type": "Point", "coordinates": [111.116915, 21.467190] }, "properties": { "DD": "滨海旅游公路", "MC": "IMG_20260226_164817880.jpg" } }
+            ]
+        };
+        const initCenter = [111.18, 21.48];
+        const initZoom = 10;
+        // ==================================================
+
+        // 触摸检测
+        const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+        document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
+
+        // 天地图图层
+        const vecLayer = new ol.layer.Tile({
+            source: new ol.source.XYZ({
+                url: `https://t0.tianditu.gov.cn/vec_w/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=vec&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&TileMatrix={z}&TileCol={x}&TileRow={y}&tk=${TIANDITU_KEY}`,
+                crossOrigin: 'anonymous', tileSize: 256, zoomOffset: 1
+            })
+        });
+        const cvaLayer = new ol.layer.Tile({
+            source: new ol.source.XYZ({
+                url: `https://t0.tianditu.gov.cn/cva_w/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=cva&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&TileMatrix={z}&TileCol={x}&TileRow={y}&tk=${TIANDITU_KEY}`,
+                crossOrigin: 'anonymous', tileSize: 256, zoomOffset: 1
+            })
+        });
+
+        // Esri影像图层
+        const esriImagery = new ol.layer.Tile({
+            source: new ol.source.XYZ({
+                url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                crossOrigin: 'anonymous', maxZoom: 19
+            })
+        });
+
+        // 视图
+        const view = new ol.View({
+            center: ol.proj.fromLonLat(initCenter),
+            zoom: initZoom,
+            projection: 'EPSG:3857'
+        });
+
+        // 地图
+        const map = new ol.Map({ target: 'map', layers: [], view: view });
+
+        // 按顺序添加图层
+        map.addLayer(esriImagery);
+        esriImagery.setVisible(false);
+        map.addLayer(vecLayer);
+        map.addLayer(cvaLayer);
+
+        // 照片点图层
+        const vectorSource = new ol.source.Vector({
+            features: new ol.format.GeoJSON().readFeatures(photoPoints, {
+                dataProjection: 'EPSG:4326', featureProjection: 'EPSG:3857'
+            })
+        });
+        const vectorLayer = new ol.layer.Vector({
+            source: vectorSource,
+            style: new ol.style.Style({
+                image: new ol.style.Circle({
+                    radius: 8,
+                    fill: new ol.style.Fill({ color: 'rgba(255,0,0,0.8)' }),
+                    stroke: new ol.style.Stroke({ color: '#ffffff', width: 2 })
+                })
+            })
+        });
+        map.addLayer(vectorLayer);
+
+        // ----- 悬浮提示 -----
+        let tooltip = null;
+        if (!isTouchDevice) {
+            tooltip = new ol.Overlay({
+                element: document.createElement('div'),
+                positioning: 'top-center', offset: [0, -15], className: 'ol-tooltip'
+            });
+            map.addOverlay(tooltip);
+            tooltip.getElement().style.display = 'none';
+            map.on('pointermove', function(evt) {
+                const pixel = map.getEventPixel(evt.originalEvent);
+                const feature = map.forEachFeatureAtPixel(pixel, f => f);
+                if (feature) {
+                    const ddValue = feature.get('DD');
+                    const coord = feature.getGeometry().getCoordinates();
+                    tooltip.setPosition(coord);
+                    tooltip.getElement().innerHTML = ddValue;
+                    tooltip.getElement().style.display = 'block';
+                    map.getTargetElement().style.cursor = 'pointer';
+                } else {
+                    tooltip.setPosition(undefined);
+                    tooltip.getElement().style.display = 'none';
+                    map.getTargetElement().style.cursor = '';
+                }
+            });
+        } else {
+            map.getTargetElement().style.cursor = 'pointer';
+        }
+
+        // ----- 点击弹出框 -----
+        const popup = new ol.Overlay({
+            element: document.createElement('div'),
+            positioning: 'bottom-center', stopEvent: true, offset: [0, -10]
+        });
+        popup.getElement().className = 'ol-popup';
+        map.addOverlay(popup);
+        popup.getElement().style.display = 'none';
+
+        map.on('click', function(evt) {
+            if (measureActive) return;
+
+            const feature = map.forEachFeatureAtPixel(evt.pixel, f => f);
+            if (feature) {
+                if (positionLayer && positionLayer.getSource().getFeatures().includes(feature)) return;
+
+                const props = feature.getProperties();
+                const coord = feature.getGeometry().getCoordinates();
+                if (props.MC) {
+                    const imgSrc = `/pics/${props.MC}`;
+                    const content = `
+                        <div class="popup-content">
+                            <b>${props.DD}</b><br>
+                            <img src="${imgSrc}" alt="照片" onerror="this.onerror=null; this.src='https://via.placeholder.com/250x150?text=图片未找到';">
+                        </div>
+                    `;
+                    popup.getElement().innerHTML = content;
+                    popup.setPosition(coord);
+                    popup.getElement().style.display = 'block';
+                }
+            } else {
+                popup.setPosition(undefined);
+                popup.getElement().style.display = 'none';
+            }
+        });
+
+        map.on('dblclick', function() {
+            if (measureActive) return;
+            popup.setPosition(undefined);
+            popup.getElement().style.display = 'none';
+        });
+
+        // ==================== 定位功能 ====================
+        const positionLayer = new ol.layer.Vector({
+            source: new ol.source.Vector(),
+            style: new ol.style.Style({
+                image: new ol.style.Circle({
+                    radius: 10,
+                    fill: new ol.style.Fill({ color: 'rgba(0,102,255,0.8)' }),
+                    stroke: new ol.style.Stroke({ color: '#fff', width: 3 })
+                })
+            })
+        });
+        map.addLayer(positionLayer);
+
+        let watching = false;
+        let watchId = null;
+        document.getElementById('locateBtn').addEventListener('click', function() {
+            if (!watching) {
+                if ('geolocation' in navigator) {
+                    watchId = navigator.geolocation.watchPosition(
+                        function(position) {
+                            const lon = position.coords.longitude;
+                            const lat = position.coords.latitude;
+                            const accuracy = position.coords.accuracy;
+                            positionLayer.getSource().clear();
+                            const point = new ol.Feature({
+                                geometry: new ol.geom.Point(ol.proj.fromLonLat([lon, lat]))
+                            });
+                            positionLayer.getSource().addFeature(point);
+                            if (accuracy > 0 && accuracy < 1000) {
+                                const circle = new ol.Feature({
+                                    geometry: new ol.geom.Circle(ol.proj.fromLonLat([lon, lat]), accuracy)
+                                });
+                                positionLayer.getSource().addFeature(circle);
+                            }
+                            if (!watching) {
+                                map.getView().setCenter(ol.proj.fromLonLat([lon, lat]));
+                                map.getView().setZoom(15);
+                            }
+                        },
+                        function(error) { alert('获取位置失败：' + error.message); },
+                        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                    );
+                    watching = true;
+                    this.textContent = '📍 隐藏我的位置';
+                } else {
+                    alert('您的浏览器不支持地理定位。');
+                }
+            } else {
+                if (watchId) { navigator.geolocation.clearWatch(watchId); watchId = null; }
+                positionLayer.getSource().clear();
+                watching = false;
+                this.textContent = '📍 显示我的位置';
+            }
+        });
+
+        // ==================== 切换底图 ====================
+        document.getElementById('switchBaseMapBtn').addEventListener('click', function() {
+            const isVectorVisible = vecLayer.getVisible();
+            if (isVectorVisible) {
+                vecLayer.setVisible(false);
+                cvaLayer.setVisible(false);
+                esriImagery.setVisible(true);
+                this.textContent = '切换为矢量底图';
+            } else {
+                vecLayer.setVisible(true);
+                cvaLayer.setVisible(true);
+                esriImagery.setVisible(false);
+                this.textContent = '切换为影像底图';
+            }
+        });
+
+        // ==================== 测量功能 ====================
+        const measureLayer = new ol.layer.Vector({
+            source: new ol.source.Vector(),
+            style: new ol.style.Style({
+                stroke: new ol.style.Stroke({ color: '#ff33cc', width: 3, lineDash: [5,5] }),
+                fill: new ol.style.Fill({ color: 'rgba(255,51,204,0.1)' }),
+                image: new ol.style.Circle({ radius: 5, fill: new ol.style.Fill({ color: '#ff33cc' }) })
+            })
+        });
+        map.addLayer(measureLayer);
+
+        let measureActive = false;
+        let currentMeasureType = null;
+        let measureDraw = null;
+        const measureLengthBtn = document.getElementById('measureLengthBtn');
+        const measureAreaBtn = document.getElementById('measureAreaBtn');
+        const measureResult = document.getElementById('measureResult');
+
+        // 获取双击缩放交互
+        let dblClickZoomInteraction = null;
+        map.getInteractions().forEach(function(interaction) {
+            if (interaction instanceof ol.interaction.DoubleClickZoom) {
+                dblClickZoomInteraction = interaction;
+            }
+        });
+
+        function formatLength(length) {
+            return length >= 1000 ? (length/1000).toFixed(2) + ' 千米' : length.toFixed(1) + ' 米';
+        }
+        function formatArea(area) {
+            if (area >= 1000000) return (area/1000000).toFixed(2) + ' 平方公里';
+            if (area >= 10000) return (area/10000).toFixed(2) + ' 公顷';
+            return area.toFixed(1) + ' 平方米';
+        }
+
+        function deactivateMeasurement() {
+            if (measureDraw) {
+                map.removeInteraction(measureDraw);
+                measureDraw = null;
+            }
+            measureLayer.getSource().clear();
+            measureActive = false;
+            currentMeasureType = null;
+            measureResult.style.display = 'none';
+            measureResult.innerHTML = '0 米';
+            measureLengthBtn.classList.remove('active');
+            measureAreaBtn.classList.remove('active');
+            measureLengthBtn.textContent = '📏 测量长度';
+            measureAreaBtn.textContent = '🔲 测量面积';
+            if (dblClickZoomInteraction) dblClickZoomInteraction.setActive(true);
+        }
+
+        function activateMeasurement(type) {
+            if (measureActive) deactivateMeasurement();
+            if (dblClickZoomInteraction) dblClickZoomInteraction.setActive(false);
+
+            measureActive = true;
+            currentMeasureType = type;
+
+            if (type === 'length') {
+                measureLengthBtn.classList.add('active');
+                measureLengthBtn.textContent = '📏 取消长度';
+            } else {
+                measureAreaBtn.classList.add('active');
+                measureAreaBtn.textContent = '🔲 取消面积';
+            }
+
+            measureResult.style.display = 'block';
+            measureResult.innerHTML = '单击加点，双击结束';
+
+            measureDraw = new ol.interaction.Draw({
+                source: measureLayer.getSource(),
+                type: type === 'length' ? 'LineString' : 'Polygon'
+            });
+
+            measureDraw.on('drawstart', function(evt) {
+                const sketch = evt.feature;
+                const listener = sketch.getGeometry().on('change', function(evt) {
+                    const geom = evt.target;
+                    if (type === 'length') {
+                        // 使用 ol.sphere.getLength
+                        const length = ol.sphere.getLength(geom, { projection: 'EPSG:3857' });
+                        measureResult.innerHTML = formatLength(length);
+                    } else {
+                        // 使用 ol.sphere.getArea
+                        const area = ol.sphere.getArea(geom, { projection: 'EPSG:3857' });
+                        measureResult.innerHTML = formatArea(area);
+                    }
+                });
+                sketch.once('change', function() {
+                    ol.Observable.unByKey(listener);
+                });
+            });
+
+            measureDraw.on('drawend', function(evt) {
+                const geom = evt.feature.getGeometry();
+                if (type === 'length') {
+                    const length = ol.sphere.getLength(geom, { projection: 'EPSG:3857' });
+                    measureResult.innerHTML = '长度: ' + formatLength(length);
+                } else {
+                    const area = ol.sphere.getArea(geom, { projection: 'EPSG:3857' });
+                    measureResult.innerHTML = '面积: ' + formatArea(area);
+                }
+            });
+
+            map.addInteraction(measureDraw);
+        }
+
+        measureLengthBtn.addEventListener('click', function() {
+            if (measureActive && currentMeasureType === 'length') {
+                deactivateMeasurement();
+            } else {
+                activateMeasurement('length');
+            }
+        });
+
+        measureAreaBtn.addEventListener('click', function() {
+            if (measureActive && currentMeasureType === 'area') {
+                deactivateMeasurement();
+            } else {
+                activateMeasurement('area');
+            }
+        });
+
+        console.log('地图加载完成，照片点数量：', photoPoints.features.length);
+        
+       // ==================== 方案二：tides API 潮汐查询 ====================
+async function fetchTideSimple(lat, lon) {
+    // API 地址
+    const url = 'https://hamandmore.net/api/harmonics/mcp';
+    
+    // 构造请求体 (JSON-RPC 格式) [citation:1]
+    const requestBody = {
+        jsonrpc: '2.0',
+        id: 1,  // 可以是任意数字，用于匹配请求和响应
+        method: 'tools/call',
+        params: {
+            name: 'tides_single',  // 调用“单点潮汐”工具
+            arguments: {
+                latitude: lat,
+                longitude: lon,
+                // 时间格式必须为 ISO 8601，例如 '2026-03-20T08:00:00Z' [citation:1]
+                time: new Date().toISOString() 
+            }
+        }
+    };
+
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestBody)
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        // 检查 JSON-RPC 返回的错误 [citation:1]
+        if (data.error) {
+            console.error('API Error:', data.error);
+            // 根据错误码给出提示
+            if (data.error.code === -32602) {
+                throw new Error('参数错误，请检查经纬度或时间格式');
+            } else if (data.error.code === -32601) {
+                throw new Error('方法不存在');
+            } else {
+                throw new Error(`服务器错误: ${data.error.message || '未知错误'}`);
+            }
+        }
+
+        // 解析成功的结果 [citation:1]
+        // 潮高数据通常在 result.structuredContent 或 result.content[0].text 中
+        const tideResult = data.result?.structuredContent || JSON.parse(data.result?.content[0]?.text || '{}');
+        
+        console.log('潮汐数据:', tideResult);
+        return tideResult;
+
+    } catch (error) {
+        console.error('潮汐查询失败:', error);
+        throw error; // 将错误抛给调用方处理
+    }
+}
+
+// --- 在您现有的“查潮汐”按钮点击事件中调用 ---
+// 假设您原来的按钮点击处理函数名为 onTideButtonClick
+// 您需要修改它来调用这个新函数
+async function onTideButtonClick() {
+    // 获取地图中心点 (示例)
+    const center = map.getView().getCenter();
+    const [lon, lat] = ol.proj.toLonLat(center);
+    
+    try {
+        // 显示“查询中...”状态
+        document.getElementById('tidePanel').style.display = 'block';
+        document.getElementById('tideCurrent').innerHTML = '查询中...';
+
+        const tideData = await fetchTideSimple(lat, lon);
+
+        // 更新您的潮汐面板 (tidePanel) 显示数据
+        // 这里需要根据 tideData 的实际结构来解析，可能包含潮高、时间等信息
+        if (tideData && tideData.height) {
+            document.getElementById('tideCurrent').innerHTML = `${tideData.height.toFixed(1)} 米`;
+            document.getElementById('tideDetail').innerHTML = `⏱️ 时间: ${new Date(tideData.time).toLocaleString('zh-CN')}`;
+        } else {
+            document.getElementById('tideCurrent').innerHTML = '数据格式异常';
+        }
+
+    } catch (error) {
+        document.getElementById('tideCurrent').innerHTML = '查询失败';
+        document.getElementById('tideDetail').innerHTML = `❌ ${error.message}`;
+    }
+}
+    </script>
+</body>
+</html>
