@@ -468,8 +468,8 @@ async function fetchTideData(lon, lat) {
         }
 
         // 获取第一个POI的ID（通常是最近的站点）
-        const poiId = geoData.location[0]?.id;
-        const poiName = geoData.location[0]?.name || '附近海域';
+        const poiId = geoData.poi[0]?.id;
+        const poiName = geoData.poi[0]?.name || '附近海域';
         
         if (!poiId) {
             throw new Error('未找到附近潮汐站点');
