@@ -435,62 +435,89 @@
         });
 
         // 全局图表实例
-let tideChartInstance = null;
+        let tideChartInstance = null;
 
-// 绘制潮汐曲线函数（修正版）
-function renderTideChart(tideHourly) {
-    console.log('renderTideChart 被调用，数据:', tideHourly);
-    
-    // 检查数据有效性
-    if (!tideHourly || tideHourly.length === 0) {
-        console.warn('tideHourly 数据为空，无法绘制图表');
-        return;
-    }
+        // 绘制潮汐曲线函数（修正版）
+        function renderTideChart(tideHourly) {
+            console.log('renderTideChart 被调用，数据:', tideHourly);
+            
+            if (!tideHourly || tideHourly.length === 0) {
+                console.warn('tideHourly 数据为空，无法绘制图表');
+                return;
+            }
 
-    // 获取 canvas 元素
-    const canvas = document.getElementById('tideChart');
-    if (!canvas) {
-        console.error('找不到 tideChart canvas 元素！请检查 HTML 中是否存在 id="tideChart" 的 <canvas>');
-        return;
-    }
+            const canvas = document.getElementById('tideChart');
+            if (!canvas) {
+                console.error('找不到 tideChart canvas 元素！请检查 HTML 中是否存在 id="tideChart" 的 <canvas>');
+                return;
+            }
 
-    // 准备图表数据（取未来24小时）
-    const now = new Date();
-    const startIndex = tideHourly.findIndex(item => new Date(item.fxTime) >= now);
-    const sliced = startIndex >= 0 ? tideHourly.slice(startIndex, startIndex + 24) : tideHourly.slice(0, 24);
-    
-    const labels = sliced.map(item => new Date(item.fxTime).getHours() + ':00');
-    const values = sliced.map(item => parseFloat(item.height));
+            // 获取当前小时（本地时间）
+            const now = new Date();
+            const currentHour = now.getHours();
 
-    // 销毁旧图表（如果存在）
-    if (tideChartInstance) {
-        tideChartInstance.destroy();
-    }
+            // 找到当前小时对应的数据索引
+            let currentIndex = tideHourly.findIndex(item => {
+                const itemHour = new Date(item.fxTime).getHours();
+                return itemHour === currentHour;
+            });
 
-    // 创建新图表
-    const ctx = canvas.getContext('2d');
-    tideChartInstance = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: '潮高 (米)',
-                data: values,
-                borderColor: '#1890ff',
-                backgroundColor: 'rgba(24,144,255,0.1)',
-                tension: 0.3,
-                fill: true,
-                pointRadius: 3,
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: { y: { beginAtZero: false } }
+            // 如果找不到（比如数据缺失或小时不匹配），默认取中间点（第12个）
+            if (currentIndex === -1) {
+                console.warn('未找到当前小时的数据，取中间点');
+                currentIndex = Math.floor(tideHourly.length / 2);
+            }
+
+            // 计算前后各6小时的索引范围
+            const startIdx = Math.max(0, currentIndex - 6);
+            const endIdx = Math.min(tideHourly.length, currentIndex + 6 + 1); // +1 因为 slice 结束不包含
+
+            const slicedData = tideHourly.slice(startIdx, endIdx);
+
+            // 准备标签和数据
+            const labels = slicedData.map(item => {
+                const d = new Date(item.fxTime);
+                return `${d.getHours()}:00`;
+            });
+            const values = slicedData.map(item => parseFloat(item.height));
+
+            // 销毁旧图表（如果存在）
+            if (tideChartInstance) {
+                tideChartInstance.destroy();
+            }
+
+            // 创建新图表
+            const ctx = canvas.getContext('2d');
+            tideChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '潮高 (米)',
+                        data: values,
+                        borderColor: '#1890ff',
+                        backgroundColor: 'rgba(24,144,255,0.1)',
+                        tension: 0.3,
+                        fill: true,
+                        pointRadius: 3,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { 
+                        y: { 
+                            beginAtZero: false,
+                            title: { display: true, text: '潮高 (米)' }
+                        },
+                        x: {
+                            title: { display: true, text: '时间 (小时)' }
+                        }
+                    }
+                }
+            });
         }
-    });
-}
         console.log('地图加载完成，照片点数量：', photoPoints.features.length);
 
         // ==================== 潮汐功能（和风天气）====================
@@ -564,65 +591,25 @@ async function fetchTideData(lon, lat) {
     }
 }
 
-// 更新潮汐面板
+// 更新潮汐面板（简化版，仅保留曲线和关键数据）
 function updateTidePanel(data, locationName, coords) {
     const tideHourly = data.tideHourly || [];
     const now = new Date();
     const currentHour = now.getHours();
     
-    // 找到当前时间最近的潮汐数据
-    let currentTide = null;
-    let nextTide = null;
-    
-    for (let i = 0; i < tideHourly.length; i++) {
-        const fxTime = new Date(tideHourly[i].fxTime);
-        if (fxTime.getHours() === currentHour) {
-            currentTide = tideHourly[i];
-        }
-        if (fxTime > now && !nextTide) {
-            nextTide = tideHourly[i];
-        }
-    }
-    
-    // 如果没有精确匹配，用最近的数据
-    if (!currentTide && tideHourly.length > 0) {
-        currentTide = tideHourly[0];
-    }
-    
-    // 格式化潮高（米）
+    // 找到当前时间对应的潮高
+    let currentTide = tideHourly.find(item => new Date(item.fxTime).getHours() === currentHour) || tideHourly[0];
     const tideHeight = currentTide ? parseFloat(currentTide.height).toFixed(1) : '--';
     
-    // 获取今日高低潮信息
-    const tideSummary = data.tideDaily?.[0] || {};
-    
-    // 更新面板
-    document.getElementById('tideLocation').innerHTML = `📍 ${locationName} (当前)`;
+    // 更新基本信息
+    document.getElementById('tideLocation').innerHTML = `📍 ${locationName}`;
     document.getElementById('tideCurrent').innerHTML = `${tideHeight} 米`;
     document.getElementById('tideTime').innerHTML = `⏱️ 更新：${new Date().toLocaleTimeString('zh-CN')}`;
     
-    // 构建详情信息
-    let detailHtml = '';
-    if (tideSummary.sunrise) {
-        detailHtml += `🌅 日出：${tideSummary.sunrise}<br>`;
-    }
-    if (tideSummary.sunset) {
-        detailHtml += `🌇 日落：${tideSummary.sunset}<br>`;
-    }
+    // 清空详情区域（不再显示列表）
+    document.getElementById('tideDetail').innerHTML = '';
     
-    // 显示接下来几个小时的潮高
-    detailHtml += '<hr style="margin:8px 0; border:0; border-top:1px solid #eee;">';
-    detailHtml += '<div style="font-size:12px;">⏳ 未来几小时：</div>';
-    
-    for (let i = 0; i < Math.min(5, tideHourly.length); i++) {
-        const hour = new Date(tideHourly[i].fxTime);
-        const timeStr = `${hour.getHours()}:00`;
-        const height = parseFloat(tideHourly[i].height).toFixed(1);
-        detailHtml += `<div style="display:flex; justify-content:space-between; margin:2px 0;">
-            <span>${timeStr}</span><span style="font-weight:bold;">${height}米</span>
-        </div>`;
-    }
-    
-    document.getElementById('tideDetail').innerHTML = detailHtml;
+    // 曲线图由 renderTideChart 单独绘制，无需在此处处理
 }
 
 // 潮汐按钮点击事件
