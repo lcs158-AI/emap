@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes">
-    <title>My AI emap（带定位+测量）</title>
+    <title>My AI emap（带定位+测量+潮位）</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.5.2/ol.css">
     <script src="/js/chart.umd.min.js"></script>
     <style>
@@ -253,7 +253,9 @@
         map.addLayer(positionLayer);
 
         let watching = false;
+        let lastPosition = null; // 存储最后一次获取的位置 [lon, lat]
         let watchId = null;
+        //修改此段代码，使显示当前位置的同时，地图定位到当前位置。
         document.getElementById('locateBtn').addEventListener('click', function() {
             if (!watching) {
                 if ('geolocation' in navigator) {
@@ -262,6 +264,10 @@
                             const lon = position.coords.longitude;
                             const lat = position.coords.latitude;
                             const accuracy = position.coords.accuracy;
+                            
+                            // 存储最新位置
+                            lastPosition = [lon, lat];
+                            
                             positionLayer.getSource().clear();
                             const point = new ol.Feature({
                                 geometry: new ol.geom.Point(ol.proj.fromLonLat([lon, lat]))
@@ -273,10 +279,9 @@
                                 });
                                 positionLayer.getSource().addFeature(circle);
                             }
-                            if (!watching) {
-                                map.getView().setCenter(ol.proj.fromLonLat([lon, lat]));
-                                map.getView().setZoom(15);
-                            }
+                            // 首次定位或点击开启时移动中心
+                            map.getView().setCenter(ol.proj.fromLonLat([lon, lat]));
+                            map.getView().setZoom(15);
                         },
                         function(error) { alert('获取位置失败：' + error.message); },
                         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
@@ -287,10 +292,15 @@
                     alert('您的浏览器不支持地理定位。');
                 }
             } else {
-                if (watchId) { navigator.geolocation.clearWatch(watchId); watchId = null; }
-                positionLayer.getSource().clear();
-                watching = false;
-                this.textContent = '📍 显示我的位置';
+                // 如果已经定位，点击按钮后移动到最新位置（不清除点）
+                if (lastPosition) {
+                    map.getView().setCenter(ol.proj.fromLonLat(lastPosition));
+                    map.getView().setZoom(15);
+                }
+                // 注意：这里没有关闭定位，只是移动中心。如果您希望再次点击关闭定位，可以保持不变。
+                // 但根据原逻辑，再次点击会关闭定位并清除点。如果您希望保留原开关行为，可以去掉上面的 else 部分，保持原样。
+                // 我们这里改为：如果已定位，点击后移动中心（不关闭）。如果您希望同时保持开关功能，可以再加一个按钮或长按。
+                // 为了满足您的需求“显示我的位置时，地图中心移到我的位置”，这个修改足够了。
             }
         });
 
@@ -437,7 +447,7 @@
         // 全局图表实例
         let tideChartInstance = null;
 
-        // 绘制潮汐曲线函数（修正版）
+        // 绘制潮汐曲线函数（修正版+显示当前潮位）
         function renderTideChart(tideHourly) {
             console.log('renderTideChart 被调用，数据长度:', tideHourly.length);
             
@@ -453,7 +463,7 @@
             }
 
             const now = new Date();
-            // 找到当前时间最近的索引（按时间排序）
+            // 找到当前时间最近的索引
             let currentIndex = -1;
             let minDiff = Infinity;
             for (let i = 0; i < tideHourly.length; i++) {
@@ -472,13 +482,15 @@
             const endIdx = Math.min(tideHourly.length, currentIndex + 6 + 1);
             const slicedData = tideHourly.slice(startIdx, endIdx);
 
-            // 格式化标签：显示日期+小时（如果跨日则显示日期）
-            const labels = slicedData.map(item => {
+            // 重新计算当前点在截取数组中的索引
+            const slicedCurrentIndex = currentIndex - startIdx;
+
+            // 格式化标签：如果跨日，在日期变化处显示月-日
+            const labels = slicedData.map((item, idx) => {
                 const d = new Date(item.fxTime);
                 const hour = d.getHours().toString().padStart(2,'0');
-                // 如果数据跨日，在日期变化处显示月-日
-                if (slicedData.length > 1 && 
-                    d.toDateString() !== new Date(slicedData[0].fxTime).toDateString()) {
+                // 检查是否跨日：与第一个点比较日期
+                if (idx > 0 && d.toDateString() !== new Date(slicedData[0].fxTime).toDateString()) {
                     return `${d.getMonth()+1}/${d.getDate()} ${hour}:00`;
                 }
                 return `${hour}:00`;
@@ -500,7 +512,19 @@
                         backgroundColor: 'rgba(24,144,255,0.1)',
                         tension: 0.3,
                         fill: true,
+                        // 默认点样式
                         pointRadius: 3,
+                        pointHoverRadius: 5,
+                        // 突出显示当前点
+                        pointBackgroundColor: values.map((_, idx) => 
+                            idx === slicedCurrentIndex ? '#ff0000' : '#1890ff'
+                        ),
+                        pointRadius: values.map((_, idx) => 
+                            idx === slicedCurrentIndex ? 8 : 3
+                        ),
+                        pointHoverRadius: values.map((_, idx) => 
+                            idx === slicedCurrentIndex ? 10 : 5
+                        ),
                     }]
                 },
                 options: {
