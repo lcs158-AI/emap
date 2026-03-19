@@ -430,7 +430,7 @@
         });
 
         console.log('地图加载完成，照片点数量：', photoPoints.features.length);
-        
+         document.getElementById('tideBtn').addEventListener('click', onTideButtonClick);
        // ==================== 方案二：tides API 潮汐查询 ====================
 async function fetchTideSimple(lat, lon) {
     // API 地址
