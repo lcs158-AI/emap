@@ -87,11 +87,12 @@
     <div id="tideCurrent" style="font-size: 28px; font-weight: bold; color: #0066cc; text-align: center;"></div>
     <div id="tideTime" style="font-size: 12px; color: #999; text-align: center; margin-bottom: 8px;"></div>
     <div id="tideDetail" style="font-size: 13px; color: #333; margin-top: 5px; border-top: 1px solid #eee; padding-top: 8px;"></div>
+    <div id="tideChartContainer" style="height: 150px; width: 100%; margin-top: 10px;">
+        <canvas id="tideChart"></canvas>
+    </div>
     <div style="margin-top: 8px; font-size: 11px; color: #aaa; text-align: right;">⏱️ 数据：和风天气</div>
 </div>
-<div id="tideChartContainer" style="height: 150px; width: 100%; margin-top: 10px;">
-    <canvas id="tideChart"></canvas>
-</div>
+
     <script src="https://cdn.jsdelivr.net/npm/ol@v7.5.2/dist/ol.js"></script>
     <script>
         // ==================== 配置区域 ====================
@@ -436,9 +437,24 @@
         // 全局图表实例
 let tideChartInstance = null;
 
-// 绘制潮汐曲线函数
+// 绘制潮汐曲线函数（修正版）
 function renderTideChart(tideHourly) {
-    // 取未来24小时数据
+    console.log('renderTideChart 被调用，数据:', tideHourly);
+    
+    // 检查数据有效性
+    if (!tideHourly || tideHourly.length === 0) {
+        console.warn('tideHourly 数据为空，无法绘制图表');
+        return;
+    }
+
+    // 获取 canvas 元素
+    const canvas = document.getElementById('tideChart');
+    if (!canvas) {
+        console.error('找不到 tideChart canvas 元素！请检查 HTML 中是否存在 id="tideChart" 的 <canvas>');
+        return;
+    }
+
+    // 准备图表数据（取未来24小时）
     const now = new Date();
     const startIndex = tideHourly.findIndex(item => new Date(item.fxTime) >= now);
     const sliced = startIndex >= 0 ? tideHourly.slice(startIndex, startIndex + 24) : tideHourly.slice(0, 24);
@@ -446,9 +462,13 @@ function renderTideChart(tideHourly) {
     const labels = sliced.map(item => new Date(item.fxTime).getHours() + ':00');
     const values = sliced.map(item => parseFloat(item.height));
 
-    if (tideChartInstance) tideChartInstance.destroy();
+    // 销毁旧图表（如果存在）
+    if (tideChartInstance) {
+        tideChartInstance.destroy();
+    }
 
-    const ctx = document.getElementById('tideChart').getContext('2d');
+    // 创建新图表
+    const ctx = canvas.getContext('2d');
     tideChartInstance = new Chart(ctx, {
         type: 'line',
         data: {
@@ -534,6 +554,8 @@ async function fetchTideData(lon, lat) {
         // 在更新面板之后，添加：
         if (tideData.tideHourly && tideData.tideHourly.length > 0) {
             renderTideChart(tideData.tideHourly);
+        } else {
+            console.warn('tideHourly 数据缺失');
         }
     } catch (error) {
         console.error('潮汐查询出错:', error);
