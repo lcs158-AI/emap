@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes">
     <title>My AI emap（带定位+测量）</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.5.2/ol.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         /* 原有样式 + 测量按钮样式 */
         html, body { margin:0; padding:0; width:100%; height:100%; overflow:hidden; touch-action:pan-x pan-y; }
@@ -87,6 +88,9 @@
     <div id="tideTime" style="font-size: 12px; color: #999; text-align: center; margin-bottom: 8px;"></div>
     <div id="tideDetail" style="font-size: 13px; color: #333; margin-top: 5px; border-top: 1px solid #eee; padding-top: 8px;"></div>
     <div style="margin-top: 8px; font-size: 11px; color: #aaa; text-align: right;">⏱️ 数据：和风天气</div>
+</div>
+<div id="tideChartContainer" style="height: 150px; width: 100%; margin-top: 10px;">
+    <canvas id="tideChart"></canvas>
 </div>
     <script src="https://cdn.jsdelivr.net/npm/ol@v7.5.2/dist/ol.js"></script>
     <script>
@@ -429,7 +433,46 @@
             }
         });
 
+        // 全局图表实例
+let tideChartInstance = null;
+
+// 绘制潮汐曲线函数
+function renderTideChart(tideHourly) {
+    // 取未来24小时数据
+    const now = new Date();
+    const startIndex = tideHourly.findIndex(item => new Date(item.fxTime) >= now);
+    const sliced = startIndex >= 0 ? tideHourly.slice(startIndex, startIndex + 24) : tideHourly.slice(0, 24);
+    
+    const labels = sliced.map(item => new Date(item.fxTime).getHours() + ':00');
+    const values = sliced.map(item => parseFloat(item.height));
+
+    if (tideChartInstance) tideChartInstance.destroy();
+
+    const ctx = document.getElementById('tideChart').getContext('2d');
+    tideChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: '潮高 (米)',
+                data: values,
+                borderColor: '#1890ff',
+                backgroundColor: 'rgba(24,144,255,0.1)',
+                tension: 0.3,
+                fill: true,
+                pointRadius: 3,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: false } }
+        }
+    });
+}
         console.log('地图加载完成，照片点数量：', photoPoints.features.length);
+
         // ==================== 潮汐功能（和风天气）====================
 // 和风天气API密钥（替换成你自己的）
 
@@ -487,7 +530,11 @@ async function fetchTideData(lon, lat) {
 
         // 更新界面
         updateTidePanel(tideData, poiName, [lon, lat]);
-
+        // 假设您有一个名为 fetchTideData 的函数，内部调用了 updateTidePanel
+        // 在更新面板之后，添加：
+        if (tideData.tideHourly && tideData.tideHourly.length > 0) {
+            renderTideChart(tideData.tideHourly);
+        }
     } catch (error) {
         console.error('潮汐查询出错:', error);
         document.getElementById('tideCurrent').innerHTML = '查询失败';
