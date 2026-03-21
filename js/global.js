@@ -1,10 +1,10 @@
 // ==================== 初始化 Cesium ====================
-// 设置 Cesium Ion 默认 token（需替换为您的 token）
+// 设置 Cesium Ion 默认 token（已填回）
 Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI3NzVhMzE5My0zNWU2LTQ1ZDYtYTI2MC05N2EzOTBhNDgxYzgiLCJpZCI6NDA3MDg1LCJpYXQiOjE3NzQxMDMyNjV9.PLB9fgVKv_MZLTFwzwMOea4W2uaAT8MT1w0pYcFuRZU';
 
 const viewer = new Cesium.Viewer('cesiumContainer', {
     baseLayerPicker: false,
-    imageryProvider: false,
+    // 不设置 imageryProvider: false，让 Viewer 自动加载默认底图
     terrainProvider: new Cesium.EllipsoidTerrainProvider(),
     animation: false,
     timeline: false,
@@ -17,11 +17,8 @@ const viewer = new Cesium.Viewer('cesiumContainer', {
     skyAtmosphere: false
 });
 
-// 1. Cesium Ion 默认影像
-const ionImagery = new Cesium.IonImageryProvider();
-viewer.imageryLayers.addImageryProvider(ionImagery);
-
-// 2. 天地图注记层（默认隐藏）
+// 默认底图自动加载，不需要手动添加 IonImageryProvider
+// 直接叠加天地图注记层（默认隐藏）
 const tiandituAnnotation = new Cesium.UrlTemplateImageryProvider({
     url: `https://t0.tianditu.gov.cn/cva_w/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=cva&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&TileMatrix={z}&TileCol={x}&TileRow={y}&tk=${TIANDITU_KEY}`,
     subdomains: ['0', '1', '2', '3', '4', '5', '6', '7'],
@@ -29,7 +26,7 @@ const tiandituAnnotation = new Cesium.UrlTemplateImageryProvider({
     tilingScheme: new Cesium.WebMercatorTilingScheme()
 });
 const annotationLayer = viewer.imageryLayers.addImageryProvider(tiandituAnnotation);
-annotationLayer.show = false;
+annotationLayer.show = false; // 默认隐藏
 
 // 切换标注按钮
 document.getElementById('toggleAnnotationBtn').addEventListener('click', () => {
