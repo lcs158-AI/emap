@@ -115,31 +115,47 @@ viewer.screenSpaceEventHandler.setInputAction(function (click) {
 }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
 // ==================== 定位功能 ====================
+let isLocated = false; // 记录是否已定位
 document.getElementById('locateBtn').addEventListener('click', () => {
-    if ('geolocation' in navigator) {
-        navigator.geolocation.getCurrentPosition(pos => {
-            const { longitude, latitude } = pos.coords;
-            viewer.camera.flyTo({
-                destination: Cesium.Cartesian3.fromDegrees(longitude, latitude),
-                orientation: {
-                    heading: 0,
-                    pitch: -Cesium.Math.toRadians(45),
-                    roll: 0
-                },
-                duration: 2
-            });
-            // 添加一个临时的蓝色圆点
-            viewer.entities.add({
-                position: Cesium.Cartesian3.fromDegrees(longitude, latitude),
-                point: { pixelSize: 14, color: Cesium.Color.BLUE, outlineWidth: 2 },
-                id: 'tempLoc'
-            });
-            setTimeout(() => {
-                viewer.entities.removeById('tempLoc');
-            }, 5000);
-        }, err => alert('获取位置失败: ' + err.message));
+    if (!isLocated) {
+        if ('geolocation' in navigator) {
+            navigator.geolocation.getCurrentPosition(pos => {
+                const { longitude, latitude } = pos.coords;
+                const height = 500;
+                const destination = Cesium.Cartesian3.fromDegrees(longitude, latitude, height);
+                const pitchAngle = -Cesium.Math.toRadians(85); // 正射视角
+                viewer.camera.flyTo({
+                    destination: destination,
+                    orientation: { heading: 0, pitch: pitchAngle, roll: 0 },
+                    duration: 1.5
+                });
+                // 移除旧标记（若有）
+                const old = viewer.entities.getById('myLocation');
+                if (old) viewer.entities.remove(old);
+                viewer.entities.add({
+                    position: Cesium.Cartesian3.fromDegrees(longitude, latitude),
+                    point: { pixelSize: 14, color: Cesium.Color.BLUE, outlineWidth: 2 },
+                    id: 'myLocation'
+                });
+                document.getElementById('locateBtn').classList.add('active');
+                document.getElementById('locateBtn').textContent = '📍 隐藏我的位置';
+                isLocated = true;
+            }, err => alert('获取位置失败: ' + err.message));
+        } else {
+            alert('浏览器不支持地理定位');
+        }
     } else {
-        alert('浏览器不支持地理定位');
+        // 隐藏当前位置：移除蓝点，恢复初始视角（茂名）
+        const myLoc = viewer.entities.getById('myLocation');
+        if (myLoc) viewer.entities.remove(myLoc);
+        viewer.camera.flyTo({
+            destination: Cesium.Cartesian3.fromDegrees(111.18, 21.48, 5000),
+            orientation: { heading: 0, pitch: -Cesium.Math.toRadians(85), roll: 0 },
+            duration: 1.5
+        });
+        document.getElementById('locateBtn').classList.remove('active');
+        document.getElementById('locateBtn').textContent = '📍 显示我的位置';
+        isLocated = false;
     }
 });
 
