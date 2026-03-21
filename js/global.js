@@ -28,6 +28,28 @@ const tiandituAnnotation = new Cesium.UrlTemplateImageryProvider({
 });
 viewer.imageryLayers.addImageryProvider(tiandituAnnotation);
 
+// 启动后跳转到指定位置
+if (typeof initCenter !== 'undefined' && initCenter.length === 3) {
+    // 根据缩放级别估算高度（经验公式：高度 ≈ 2000 * (20 - zoom) 米）
+    
+    viewer.camera.flyTo({
+        destination: Cesium.Cartesian3.fromDegrees(initCenter[0], initCenter[1], initCenter[2]),
+        orientation: {
+            heading: 0,
+            pitch: -Cesium.Math.toRadians(45), // 俯仰角 -45 度
+            roll: 0
+        },
+        duration: 1.5   // 平滑移动时间（秒）
+    });
+} else {
+    // 如果未定义 initCenter，则使用默认坐标（茂名）
+    viewer.camera.flyTo({
+        destination: Cesium.Cartesian3.fromDegrees(111.18, 21.48, 5000),
+        orientation: { heading: 0, pitch: -Cesium.Math.toRadians(45), roll: 0 },
+        duration: 1.5
+    });
+}
+
 // ==================== 添加照片点实体 ====================
 const entities = [];
 photoPoints.features.forEach(feature => {

@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
@@ -12,8 +13,9 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <!-- Cesium 核心库（必须） -->
     <script src="libs/cesium/Cesium.js"></script>
-    
+
 </head>
+
 <body>
     <div id="cesiumContainer"></div>
     <div class="toolbar">
@@ -54,9 +56,13 @@
                 { "type": "Feature", "geometry": { "type": "Point", "coordinates": [111.116915, 21.467190] }, "properties": { "DD": "滨海旅游公路", "MC": "IMG_20260226_164817880.jpg" } }
             ]
         };
+        //初始化位置及高度
+        const initCenter = [111.18,21.48,5000];
+
     </script>
     <!-- 引入通用工具和 Cesium 核心逻辑 -->
     <script src="js/utils.js"></script>
     <script src="js/global.js"></script>
 </body>
+
 </html>
