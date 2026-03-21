@@ -1,169 +1,201 @@
-    /* 原有样式 + 测量按钮样式 */
-    html,
-    body {
-        margin: 0;
-        padding: 0;
-        width: 100%;
-        height: 100%;
-        overflow: hidden;
-        touch-action: pan-x pan-y;
-    }
+/* ==================== 基础地图样式 ==================== */
+html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    touch-action: pan-x pan-y;
+}
+#map {
+    width: 100%;
+    height: 100%;
+}
 
-    #map {
-        width: 100%;
-        height: 100%;
-    }
-
+/* 弹出框基础样式 */
+.ol-popup {
+    position: absolute;
+    background-color: white;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    bottom: 12px;
+    left: -50px;
+    min-width: 250px;
+    max-width: 350px;
+    font-size: 14px;
+}
+.ol-popup:after, .ol-popup:before {
+    top: 100%;
+    border: solid transparent;
+    content: " ";
+    height: 0;
+    width: 0;
+    position: absolute;
+    pointer-events: none;
+}
+.ol-popup:after {
+    border-top-color: white;
+    border-width: 10px;
+    left: 48px;
+    margin-left: -10px;
+}
+.ol-popup:before {
+    border-top-color: #ccc;
+    border-width: 11px;
+    left: 48px;
+    margin-left: -11px;
+}
+.popup-content img {
+    max-width: 100%;
+    max-height: 200px;
+    display: block;
+    margin-top: 8px;
+    border-radius: 4px;
+}
+@media (max-width: 600px) {
     .ol-popup {
-        position: absolute;
-        background-color: white;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-        padding: 15px;
-        border-radius: 8px;
-        border: 1px solid #ccc;
-        bottom: 12px;
-        left: -50px;
-        min-width: 250px;
-        max-width: 350px;
-        font-size: 14px;
+        min-width: 200px;
+        max-width: 85vw;
+        left: -20px;
+        padding: 12px;
+        font-size: 16px;
     }
-
-    .ol-popup:after,
-    .ol-popup:before {
-        top: 100%;
-        border: solid transparent;
-        content: " ";
-        height: 0;
-        width: 0;
-        position: absolute;
-        pointer-events: none;
-    }
-
     .ol-popup:after {
-        border-top-color: white;
-        border-width: 10px;
-        left: 48px;
-        margin-left: -10px;
+        left: 30px;
     }
-
     .ol-popup:before {
-        border-top-color: #ccc;
-        border-width: 11px;
-        left: 48px;
-        margin-left: -11px;
+        left: 30px;
     }
-
     .popup-content img {
-        max-width: 100%;
-        max-height: 200px;
-        display: block;
-        margin-top: 8px;
-        border-radius: 4px;
+        max-height: 150px;
     }
+}
 
-    @media (max-width:600px) {
-        .ol-popup {
-            min-width: 200px;
-            max-width: 85vw;
-            left: -20px;
-            padding: 12px;
-            font-size: 16px;
-        }
+/* 悬浮提示样式（仅非触摸设备可见） */
+.ol-tooltip {
+    background: rgba(0,0,0,0.8);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: bold;
+    white-space: nowrap;
+    pointer-events: none;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    z-index: 1000;
+}
+.no-touch .ol-tooltip {
+    display: block;
+}
+.touch .ol-tooltip {
+    display: none !important;
+}
+.ol-selectable {
+    cursor: pointer;
+}
 
-        .ol-popup:after {
-            left: 30px;
-        }
+/* ==================== 新按钮工具栏样式 ==================== */
+.toolbar {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
 
-        .ol-popup:before {
-            left: 30px;
-        }
+/* 圆形按钮基础样式 */
+.action-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: white;
+    border: 1px solid #ccc;
+    font-size: 20px;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #333;
+}
+.action-btn:hover {
+    background: #f0f0f0;
+    transform: scale(1.05);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+/* 激活状态（用于测量等） */
+.action-btn.active {
+    background-color: #e6f7ff;
+    border-color: #1890ff;
+    color: #1890ff;
+}
 
-        .popup-content img {
-            max-height: 150px;
-        }
+/* 悬浮文字提示 */
+.action-btn[data-title]:hover::after {
+    content: attr(data-title);
+    position: absolute;
+    right: 50px;
+    background: rgba(0,0,0,0.7);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 1001;
+}
+
+/* 手机端适配：按钮稍大，间距稍大 */
+@media (max-width: 600px) {
+    .action-btn {
+        width: 48px;
+        height: 48px;
+        font-size: 24px;
     }
-
-    .ol-tooltip {
-        background: rgba(0, 0, 0, 0.8);
-        color: white;
-        padding: 6px 12px;
-        border-radius: 20px;
-        font-size: 13px;
-        font-weight: bold;
-        white-space: nowrap;
-        pointer-events: none;
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-        z-index: 1000;
+    .toolbar {
+        gap: 12px;
     }
+}
 
-    .no-touch .ol-tooltip {
-        display: block;
-    }
+/* 调整测量结果显示框位置，避免遮挡按钮 */
+#measureResult {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1000;
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 8px 12px;
+    font-size: 14px;
+    min-width: 180px;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    display: none;
+}
 
-    .touch .ol-tooltip {
-        display: none !important;
-    }
+/* 潮汐面板保持左下角 */
+#tidePanel {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    z-index: 1000;
+    background: white;
+    border-radius: 8px;
+    padding: 15px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    min-width: 260px;
+    display: none;
+}
 
-    .ol-selectable {
-        cursor: pointer;
-    }
-
-    /* 按钮样式 */
-    #locateBtn,
-    #switchBaseMapBtn,
-    .measure-btn {
-        position: absolute;
-        right: 10px;
-        z-index: 1000;
-        background: white;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-        padding: 8px 12px;
-        font-size: 14px;
-        cursor: pointer;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-        width: 130px;
-        text-align: left;
-    }
-
-    #locateBtn {
-        top: 10px;
-    }
-
-    #switchBaseMapBtn {
-        top: 60px;
-    }
-
-    #measureLengthBtn {
-        top: 110px;
-    }
-
-    #measureAreaBtn {
-        top: 160px;
-    }
-
-    #tideBtn {
-        top: 210px;
-    }
-
-    /* 新增 */
-    #measureResult {
-        position: absolute;
-        top: 260px;
-        right: 10px;
-        z-index: 1000;
-        background: white;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-        padding: 8px 12px;
-        font-size: 14px;
-        min-width: 180px;
-        text-align: center;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-        display: none;
-    }
-
-    .measure-btn.active {
-        background-color: #e6f7ff;
-        border-color: #1890ff;
-    }
+/* 确保潮汐图表容器正常显示 */
+#tideChartContainer {
+    height: 150px;
+    width: 100%;
+    margin-top: 10px;
+}
