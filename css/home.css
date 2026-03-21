@@ -27,8 +27,8 @@ body {
     line-height: 1.5;
     min-height: 100vh;
     display: flex;
-    align-items: center;
-    justify-content: center;
+    flex-direction: column;
+    /* 垂直排列子元素 */
     padding: 2rem 1rem;
 }
 
@@ -36,6 +36,8 @@ body {
     max-width: 1200px;
     width: 100%;
     margin: 0 auto;
+    flex: 1;
+    /* 占据剩余空间，将 footer 推到底部 */
 }
 
 /* ==================== 头部 ==================== */
@@ -192,22 +194,27 @@ h1 {
         --gray-600: #94a3b8;
         --gray-800: #e2e8f0;
     }
+
     body {
         background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
     }
+
     .card {
         background: rgba(30, 41, 59, 0.85);
         border-color: rgba(51, 65, 85, 0.5);
     }
+
     .card:hover {
         background: #1e293b;
         border-color: var(--primary);
     }
+
     .btn {
         background: var(--primary);
     }
 }
-/* 卡片左右布局 */
+
+/* ==================== 卡片左右布局 ==================== */
 .card-horizontal {
     display: flex;
     flex-direction: row;
@@ -215,7 +222,7 @@ h1 {
     gap: 1.5rem;
     text-align: left;
     padding: 1rem;
-    height: 100%; /* 保证卡片高度一致 */
+    height: 100%;
 }
 
 .card-image {
@@ -237,12 +244,13 @@ h1 {
     flex: 1;
 }
 
-/* 手机端恢复上下布局（可选，若已有媒体查询可保留） */
+/* 手机端恢复上下布局 */
 @media (max-width: 640px) {
     .card-horizontal {
         flex-direction: column;
         text-align: center;
     }
+
     .card-image {
         width: 100%;
         max-width: 200px;
@@ -259,4 +267,3 @@ h1 {
 .card-content p {
     margin: 0 0 1rem 0;
 }
-
