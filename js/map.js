@@ -1,9 +1,4 @@
-// ==================== 配置区域 ====================
-
-
-
-// ==================================================
-
+// ==================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
@@ -73,7 +68,7 @@ if (!isTouchDevice) {
     });
     map.addOverlay(tooltip);
     tooltip.getElement().style.display = 'none';
-    map.on('pointermove', function (evt) {
+    map.on('pointermove', function(evt) {
         const pixel = map.getEventPixel(evt.originalEvent);
         const feature = map.forEachFeatureAtPixel(pixel, f => f);
         if (feature) {
@@ -102,7 +97,7 @@ popup.getElement().className = 'ol-popup';
 map.addOverlay(popup);
 popup.getElement().style.display = 'none';
 
-map.on('click', function (evt) {
+map.on('click', function(evt) {
     if (measureActive) return;
 
     const feature = map.forEachFeatureAtPixel(evt.pixel, f => f);
@@ -114,11 +109,11 @@ map.on('click', function (evt) {
         if (props.MC) {
             const imgSrc = `/pics/${props.MC}`;
             const content = `
-                        <div class="popup-content">
-                            <b>${props.DD}</b><br>
-                            <img src="${imgSrc}" alt="照片" onerror="this.onerror=null; this.src='https://via.placeholder.com/250x150?text=图片未找到';">
-                        </div>
-                    `;
+                <div class="popup-content">
+                    <b>${props.DD}</b><br>
+                    <img src="${imgSrc}" alt="照片" onerror="this.onerror=null; this.src='https://via.placeholder.com/250x150?text=图片未找到';">
+                </div>
+            `;
             popup.getElement().innerHTML = content;
             popup.setPosition(coord);
             popup.getElement().style.display = 'block';
@@ -129,13 +124,13 @@ map.on('click', function (evt) {
     }
 });
 
-map.on('dblclick', function () {
+map.on('dblclick', function() {
     if (measureActive) return;
     popup.setPosition(undefined);
     popup.getElement().style.display = 'none';
 });
 
-// ==================== 定位功能（修正版，确保首次移动） ====================
+// ==================== 定位功能 ====================
 const positionLayer = new ol.layer.Vector({
     source: new ol.source.Vector(),
     style: new ol.style.Style({
@@ -149,30 +144,24 @@ const positionLayer = new ol.layer.Vector({
 map.addLayer(positionLayer);
 
 let watching = false;
+let firstPosition = true;
 let watchId = null;
-let firstPosition = true; // 用于标记是否第一次获取位置
 
-document.getElementById('locateBtn').addEventListener('click', function () {
+document.getElementById('locateBtn').addEventListener('click', function() {
     if (!watching) {
-        // 开启定位
         if ('geolocation' in navigator) {
-            firstPosition = true; // 重置首次标志
+            firstPosition = true;
             watchId = navigator.geolocation.watchPosition(
-                function (position) {
+                function(position) {
                     const lon = position.coords.longitude;
                     const lat = position.coords.latitude;
                     const accuracy = position.coords.accuracy;
 
-                    // 清除旧标记
                     positionLayer.getSource().clear();
-
-                    // 添加当前位置点
                     const point = new ol.Feature({
                         geometry: new ol.geom.Point(ol.proj.fromLonLat([lon, lat]))
                     });
                     positionLayer.getSource().addFeature(point);
-
-                    // 添加精度圆（如果 accuracy 合理）
                     if (accuracy > 0 && accuracy < 1000) {
                         const circle = new ol.Feature({
                             geometry: new ol.geom.Circle(ol.proj.fromLonLat([lon, lat]), accuracy)
@@ -180,49 +169,45 @@ document.getElementById('locateBtn').addEventListener('click', function () {
                         positionLayer.getSource().addFeature(circle);
                     }
 
-                    // 仅第一次获取位置时移动地图并缩放到合适级别
                     if (firstPosition) {
                         map.getView().setCenter(ol.proj.fromLonLat([lon, lat]));
                         map.getView().setZoom(15);
                         firstPosition = false;
                     }
                 },
-                function (error) {
-                    alert('获取位置失败：' + error.message);
-                },
+                function(error) { alert('获取位置失败：' + error.message); },
                 { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
             );
             watching = true;
-            this.textContent = '📍 隐藏我的位置';
+            this.classList.add('active');
         } else {
             alert('您的浏览器不支持地理定位。');
         }
     } else {
-        // 关闭定位
         if (watchId) {
             navigator.geolocation.clearWatch(watchId);
             watchId = null;
         }
         positionLayer.getSource().clear();
         watching = false;
-        firstPosition = true; // 重置标志
-        this.textContent = '📍 显示我的位置';
+        this.classList.remove('active');
     }
 });
 
 // ==================== 切换底图 ====================
-document.getElementById('switchBaseMapBtn').addEventListener('click', function () {
+const switchBtn = document.getElementById('switchBaseMapBtn');
+switchBtn.addEventListener('click', function() {
     const isVectorVisible = vecLayer.getVisible();
     if (isVectorVisible) {
         vecLayer.setVisible(false);
         cvaLayer.setVisible(false);
         esriImagery.setVisible(true);
-        this.textContent = '切换为矢量底图';
+        this.classList.add('active');   // 影像模式激活
     } else {
         vecLayer.setVisible(true);
         cvaLayer.setVisible(true);
         esriImagery.setVisible(false);
-        this.textContent = '切换为影像底图';
+        this.classList.remove('active'); // 矢量模式非激活
     }
 });
 
@@ -230,7 +215,7 @@ document.getElementById('switchBaseMapBtn').addEventListener('click', function (
 const measureLayer = new ol.layer.Vector({
     source: new ol.source.Vector(),
     style: new ol.style.Style({
-        stroke: new ol.style.Stroke({ color: '#ff33cc', width: 3, lineDash: [5, 5] }),
+        stroke: new ol.style.Stroke({ color: '#ff33cc', width: 3, lineDash: [5,5] }),
         fill: new ol.style.Fill({ color: 'rgba(255,51,204,0.1)' }),
         image: new ol.style.Circle({ radius: 5, fill: new ol.style.Fill({ color: '#ff33cc' }) })
     })
@@ -246,13 +231,11 @@ const measureResult = document.getElementById('measureResult');
 
 // 获取双击缩放交互
 let dblClickZoomInteraction = null;
-map.getInteractions().forEach(function (interaction) {
+map.getInteractions().forEach(function(interaction) {
     if (interaction instanceof ol.interaction.DoubleClickZoom) {
         dblClickZoomInteraction = interaction;
     }
 });
-
-
 
 function deactivateMeasurement() {
     if (measureDraw) {
@@ -266,8 +249,6 @@ function deactivateMeasurement() {
     measureResult.innerHTML = '0 米';
     measureLengthBtn.classList.remove('active');
     measureAreaBtn.classList.remove('active');
-    measureLengthBtn.textContent = '📏 测量长度';
-    measureAreaBtn.textContent = '🔲 测量面积';
     if (dblClickZoomInteraction) dblClickZoomInteraction.setActive(true);
 }
 
@@ -280,10 +261,10 @@ function activateMeasurement(type) {
 
     if (type === 'length') {
         measureLengthBtn.classList.add('active');
-        measureLengthBtn.textContent = '📏 取消长度';
+        measureAreaBtn.classList.remove('active');
     } else {
         measureAreaBtn.classList.add('active');
-        measureAreaBtn.textContent = '🔲 取消面积';
+        measureLengthBtn.classList.remove('active');
     }
 
     measureResult.style.display = 'block';
@@ -294,26 +275,24 @@ function activateMeasurement(type) {
         type: type === 'length' ? 'LineString' : 'Polygon'
     });
 
-    measureDraw.on('drawstart', function (evt) {
+    measureDraw.on('drawstart', function(evt) {
         const sketch = evt.feature;
-        const listener = sketch.getGeometry().on('change', function (evt) {
+        const listener = sketch.getGeometry().on('change', function(evt) {
             const geom = evt.target;
             if (type === 'length') {
-                // 使用 ol.sphere.getLength
                 const length = ol.sphere.getLength(geom, { projection: 'EPSG:3857' });
                 measureResult.innerHTML = formatLength(length);
             } else {
-                // 使用 ol.sphere.getArea
                 const area = ol.sphere.getArea(geom, { projection: 'EPSG:3857' });
                 measureResult.innerHTML = formatArea(area);
             }
         });
-        sketch.once('change', function () {
+        sketch.once('change', function() {
             ol.Observable.unByKey(listener);
         });
     });
 
-    measureDraw.on('drawend', function (evt) {
+    measureDraw.on('drawend', function(evt) {
         const geom = evt.feature.getGeometry();
         if (type === 'length') {
             const length = ol.sphere.getLength(geom, { projection: 'EPSG:3857' });
@@ -327,7 +306,7 @@ function activateMeasurement(type) {
     map.addInteraction(measureDraw);
 }
 
-measureLengthBtn.addEventListener('click', function () {
+measureLengthBtn.addEventListener('click', function() {
     if (measureActive && currentMeasureType === 'length') {
         deactivateMeasurement();
     } else {
@@ -335,7 +314,7 @@ measureLengthBtn.addEventListener('click', function () {
     }
 });
 
-measureAreaBtn.addEventListener('click', function () {
+measureAreaBtn.addEventListener('click', function() {
     if (measureActive && currentMeasureType === 'area') {
         deactivateMeasurement();
     } else {
@@ -343,90 +322,150 @@ measureAreaBtn.addEventListener('click', function () {
     }
 });
 
+// ==================== 潮汐功能 ====================
+// 获取DOM元素
+const tideBtn = document.getElementById('tideBtn');
+const tidePanel = document.getElementById('tidePanel');
+const closeTideBtn = document.getElementById('closeTideBtn');
+
+closeTideBtn.addEventListener('click', () => {
+    tidePanel.style.display = 'none';
+});
+
+async function fetchTideData(lon, lat) {
+    try {
+        tidePanel.style.display = 'block';
+        document.getElementById('tideCurrent').innerHTML = '查询中...';
+        document.getElementById('tideLocation').innerHTML = `正在获取潮汐数据`;
+
+        const geoUrl = `https://${APIhost}/geo/v2/poi/lookup?location=${lon},${lat}&type=TSTA&key=${QWEATHER_KEY}`;
+        const geoRes = await fetch(geoUrl);
+        const geoData = await geoRes.json();
+
+        const poiId = geoData.poi?.[0]?.id;
+        let poiName = '附近海域';
+        if (geoData.code === '200' && geoData.poi && geoData.poi.length > 0) {
+            poiName = geoData.poi[0].name || poiName;
+        }
+        if (!poiId) throw new Error('未找到附近潮汐站点');
+
+        const now = new Date();
+        const currentHour = now.getHours();
+        const isEarlyMorning = currentHour >= 0 && currentHour <= 6;
+        const todayStr = getLocalDateStr(now);
+        const tomorrow = new Date(now);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const tomorrowStr = getLocalDateStr(tomorrow);
+
+        let allHourly = [];
+
+        if (isEarlyMorning) {
+            const tideUrl = `https://${APIhost}/v7/ocean/tide?location=${poiId}&date=${todayStr}&key=${QWEATHER_KEY}`;
+            const tideRes = await fetch(tideUrl);
+            const tideData = await tideRes.json();
+            if (tideData.code !== '200') throw new Error(`潮汐查询失败 (${tideData.code})`);
+            if (!tideData.tideHourly || tideData.tideHourly.length === 0) throw new Error('今日潮汐数据为空');
+            allHourly = tideData.tideHourly.filter(item => {
+                const hour = new Date(item.fxTime).getHours();
+                return hour >= 0 && hour <= 12;
+            });
+            if (allHourly.length === 0) throw new Error('今日0-12时数据为空');
+        } else {
+            const datesToFetch = [{ date: todayStr, label: '今天' }];
+            if (currentHour >= 18) datesToFetch.push({ date: tomorrowStr, label: '明天' });
+            for (const { date, label } of datesToFetch) {
+                const tideUrl = `https://${APIhost}/v7/ocean/tide?location=${poiId}&date=${date}&key=${QWEATHER_KEY}`;
+                const tideRes = await fetch(tideUrl);
+                const tideData = await tideRes.json();
+                if (tideData.code === '200' && tideData.tideHourly && tideData.tideHourly.length > 0) {
+                    allHourly = allHourly.concat(tideData.tideHourly);
+                }
+            }
+            if (allHourly.length === 0) throw new Error('无法获取任何有效潮汐数据');
+        }
+
+        allHourly.sort((a, b) => new Date(a.fxTime) - new Date(b.fxTime));
+        updateTidePanel(allHourly, poiName, [lon, lat]);
+        renderTideChart(allHourly, isEarlyMorning);
+    } catch (error) {
+        console.error('潮汐查询出错:', error);
+        document.getElementById('tideCurrent').innerHTML = '查询失败';
+        document.getElementById('tideDetail').innerHTML = `❌ ${error.message}`;
+    }
+}
+
+function updateTidePanel(allHourly, locationName, coords) {
+    const now = new Date();
+    let bestItem = null, minDiff = Infinity;
+    for (let item of allHourly) {
+        const diff = Math.abs(new Date(item.fxTime) - now);
+        if (diff < minDiff) {
+            minDiff = diff;
+            bestItem = item;
+        }
+    }
+    const tideHeight = bestItem ? parseFloat(bestItem.height).toFixed(1) : '--';
+    const bestTime = bestItem ? new Date(bestItem.fxTime).toLocaleString('zh-CN', { hour: 'numeric', minute: 'numeric' }) : '';
+    document.getElementById('tideLocation').innerHTML = `📍 ${locationName}`;
+    document.getElementById('tideCurrent').innerHTML = `${tideHeight} 米`;
+    document.getElementById('tideTime').innerHTML = `⏱️ ${bestTime} 更新`;
+    document.getElementById('tideDetail').innerHTML = '';
+}
+
+tideBtn.addEventListener('click', async function() {
+    const center = map.getView().getCenter();
+    const lonLat = ol.proj.toLonLat(center);
+    await fetchTideData(lonLat[0].toFixed(4), lonLat[1].toFixed(4));
+});
+
 // 全局图表实例
 let tideChartInstance = null;
 
-// 绘制潮汐曲线函数（修正版+显示当前潮位）
 function renderTideChart(tideHourly, useFullData = false) {
     console.log('renderTideChart 被调用，数据长度:', tideHourly.length, 'useFullData:', useFullData);
-
-    if (!tideHourly || tideHourly.length === 0) {
-        console.warn('tideHourly 数据为空，无法绘制图表');
-        return;
-    }
+    if (!tideHourly || tideHourly.length === 0) return;
 
     const canvas = document.getElementById('tideChart');
-    if (!canvas) {
-        console.error('找不到 tideChart canvas 元素！');
-        return;
-    }
+    if (!canvas) return;
 
     let labels, values, highlightIndex = -1;
 
     if (useFullData) {
-        // 凌晨模式：直接使用传入的完整数据（0-12时）
-        labels = tideHourly.map(item => {
-            const d = new Date(item.fxTime);
-            return `${d.getHours()}:00`;
-        });
+        labels = tideHourly.map(item => new Date(item.fxTime).getHours() + ':00');
         values = tideHourly.map(item => parseFloat(item.height));
-
-        // 尝试高亮当前小时（如果数据包含）
         const now = new Date();
         const currentHour = now.getHours();
-        highlightIndex = values.findIndex((_, idx) => {
-            const d = new Date(tideHourly[idx].fxTime);
-            return d.getHours() === currentHour;
-        });
+        highlightIndex = values.findIndex((_, idx) => new Date(tideHourly[idx].fxTime).getHours() === currentHour);
     } else {
-        // 非凌晨模式：以当前时间为中心截取前后6小时
         const now = new Date();
-        let currentIndex = -1;
-        let minDiff = Infinity;
+        let currentIndex = -1, minDiff = Infinity;
         for (let i = 0; i < tideHourly.length; i++) {
-            const itemTime = new Date(tideHourly[i].fxTime);
-            const diff = Math.abs(itemTime - now);
+            const diff = Math.abs(new Date(tideHourly[i].fxTime) - now);
             if (diff < minDiff) {
                 minDiff = diff;
                 currentIndex = i;
             }
         }
         if (currentIndex === -1) currentIndex = Math.floor(tideHourly.length / 2);
-
         const startIdx = Math.max(0, currentIndex - 6);
         const endIdx = Math.min(tideHourly.length, currentIndex + 6 + 1);
-        const slicedData = tideHourly.slice(startIdx, endIdx);
-
-        labels = slicedData.map((item, idx) => {
+        const sliced = tideHourly.slice(startIdx, endIdx);
+        labels = sliced.map((item, idx) => {
             const d = new Date(item.fxTime);
             const hour = d.getHours().toString().padStart(2, '0');
-            if (idx > 0 && d.toDateString() !== new Date(slicedData[0].fxTime).toDateString()) {
-                return `${d.getMonth() + 1}/${d.getDate()} ${hour}:00`;
+            if (idx > 0 && d.toDateString() !== new Date(sliced[0].fxTime).toDateString()) {
+                return `${d.getMonth()+1}/${d.getDate()} ${hour}:00`;
             }
             return `${hour}:00`;
         });
-        values = slicedData.map(item => parseFloat(item.height));
+        values = sliced.map(item => parseFloat(item.height));
         highlightIndex = currentIndex - startIdx;
     }
 
-    // 销毁旧图表
-    if (tideChartInstance) {
-        tideChartInstance.destroy();
-    }
-
+    if (tideChartInstance) tideChartInstance.destroy();
     const ctx = canvas.getContext('2d');
-
-    // 构建高亮样式
-    const pointBackgroundColor = values.map((_, idx) =>
-        idx === highlightIndex ? '#ff0000' : '#1890ff'
-    );
-    const pointRadius = values.map((_, idx) =>
-        idx === highlightIndex ? 8 : 3
-    );
-    const pointHoverRadius = values.map((_, idx) =>
-        idx === highlightIndex ? 10 : 5
-    );
-
+    const pointBackgroundColor = values.map((_, i) => i === highlightIndex ? '#ff0000' : '#1890ff');
+    const pointRadius = values.map((_, i) => i === highlightIndex ? 8 : 3);
     tideChartInstance = new Chart(ctx, {
         type: 'line',
         data: {
@@ -440,177 +479,15 @@ function renderTideChart(tideHourly, useFullData = false) {
                 fill: true,
                 pointBackgroundColor: pointBackgroundColor,
                 pointRadius: pointRadius,
-                pointHoverRadius: pointHoverRadius,
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
             plugins: { legend: { display: false } },
-            scales: {
-                y: {
-                    beginAtZero: false,
-                    title: { display: true, text: '潮高 (米)' }
-                }
-            }
+            scales: { y: { beginAtZero: false, title: { display: true, text: '潮高 (米)' } } }
         }
     });
 }
+
 console.log('地图加载完成，照片点数量：', photoPoints.features.length);
-
-// ==================== 潮汐功能（和风天气）====================
-
-
-
-
-// 获取DOM元素
-const tideBtn = document.getElementById('tideBtn');
-const tidePanel = document.getElementById('tidePanel');
-const closeTideBtn = document.getElementById('closeTideBtn');
-
-// 关闭面板
-closeTideBtn.addEventListener('click', () => {
-    tidePanel.style.display = 'none';
-});
-
-// 潮汐查询主函数
-async function fetchTideData(lon, lat) {
-    try {
-        tidePanel.style.display = 'block';
-        document.getElementById('tideCurrent').innerHTML = '查询中...';
-        document.getElementById('tideLocation').innerHTML = `正在获取潮汐数据`;
-
-        // 第一步：通过经纬度搜索最近的潮汐站点（获取站点ID）
-        const geoUrl = `https://${APIhost}/geo/v2/poi/lookup?location=${lon},${lat}&type=TSTA&key=${QWEATHER_KEY}`;
-        console.log('地理搜索URL:', geoUrl);
-        const geoRes = await fetch(geoUrl);
-        const geoData = await geoRes.json();
-        console.log('地理搜索结果:', geoData);
-
-        // 获取站点ID和名称
-        const poiId = geoData.poi?.[0]?.id;
-        let poiName = '附近海域';
-        if (geoData.code === '200' && geoData.poi && geoData.poi.length > 0) {
-            poiName = geoData.poi[0].name || poiName;
-        } else {
-            console.warn('地理搜索未返回名称，使用默认值');
-        }
-
-        if (!poiId) {
-            throw new Error('未找到附近潮汐站点');
-        }
-
-        const now = new Date();
-        const currentHour = now.getHours();
-
-        // 判断是否为凌晨时段 (0-6时)
-        const isEarlyMorning = currentHour >= 0 && currentHour <= 6;
-
-        // 使用本地日期函数生成日期字符串
-        const todayStr = getLocalDateStr(now);
-        const tomorrow = new Date(now);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        const tomorrowStr = getLocalDateStr(tomorrow);
-
-        let allHourly = [];
-
-        if (isEarlyMorning) {
-            // 凌晨时段：只请求今天数据，筛选0-12时
-            const tideUrl = `https://${APIhost}/v7/ocean/tide?location=${poiId}&date=${todayStr}&key=${QWEATHER_KEY}`;
-            console.log('请求今天数据（站点ID）:', tideUrl);
-            const tideRes = await fetch(tideUrl);
-            const tideData = await tideRes.json();
-            console.log('今天响应:', tideData);
-
-            if (tideData.code !== '200') {
-                throw new Error(`潮汐查询失败 (${tideData.code})`);
-            }
-            if (!tideData.tideHourly || tideData.tideHourly.length === 0) {
-                throw new Error('今日潮汐数据为空');
-            }
-
-            // 筛选0-12时的数据
-            allHourly = tideData.tideHourly.filter(item => {
-                const hour = new Date(item.fxTime).getHours();
-                return hour >= 0 && hour <= 12;
-            });
-
-            if (allHourly.length === 0) {
-                throw new Error('今日0-12时数据为空');
-            }
-        } else {
-            // 非凌晨时段：可能需要今天和明天的数据
-            const datesToFetch = [{ date: todayStr, label: '今天' }];
-            if (currentHour >= 18) {
-                datesToFetch.push({ date: tomorrowStr, label: '明天' });
-            }
-
-            for (const { date, label } of datesToFetch) {
-                const tideUrl = `https://${APIhost}/v7/ocean/tide?location=${poiId}&date=${date}&key=${QWEATHER_KEY}`;
-                console.log(`请求${label}数据（站点ID）:`, tideUrl);
-                const tideRes = await fetch(tideUrl);
-                const tideData = await tideRes.json();
-                console.log(`${label}响应:`, tideData);
-
-                if (tideData.code === '200' && tideData.tideHourly && tideData.tideHourly.length > 0) {
-                    allHourly = allHourly.concat(tideData.tideHourly);
-                } else {
-                    console.warn(`${label}数据不可用:`, tideData.code);
-                }
-            }
-
-            if (allHourly.length === 0) {
-                throw new Error('无法获取任何有效潮汐数据');
-            }
-        }
-
-        // 按时间排序
-        allHourly.sort((a, b) => new Date(a.fxTime) - new Date(b.fxTime));
-
-        // 更新界面
-        updateTidePanel(allHourly, poiName, [lon, lat]);
-
-        // 绘制曲线，凌晨模式传入 useFullData=true，非凌晨模式传入 false
-        renderTideChart(allHourly, isEarlyMorning);
-
-    } catch (error) {
-        console.error('潮汐查询出错:', error);
-        document.getElementById('tideCurrent').innerHTML = '查询失败';
-        document.getElementById('tideDetail').innerHTML = `❌ ${error.message}`;
-    }
-}
-
-// 更新潮汐面板（简化版，仅保留曲线和关键数据）
-function updateTidePanel(allHourly, locationName, coords) {
-    const now = new Date();
-
-    // 找到最接近当前时间的数据点
-    let bestItem = null;
-    let minDiff = Infinity;
-    for (let item of allHourly) {
-        const itemTime = new Date(item.fxTime);
-        const diff = Math.abs(itemTime - now);
-        if (diff < minDiff) {
-            minDiff = diff;
-            bestItem = item;
-        }
-    }
-
-    const tideHeight = bestItem ? parseFloat(bestItem.height).toFixed(1) : '--';
-    const bestTime = bestItem ? new Date(bestItem.fxTime).toLocaleString('zh-CN', { hour: 'numeric', minute: 'numeric' }) : '';
-
-    document.getElementById('tideLocation').innerHTML = `📍 ${locationName}`;
-    document.getElementById('tideCurrent').innerHTML = `${tideHeight} 米`;
-    document.getElementById('tideTime').innerHTML = `⏱️ ${bestTime} 更新`;
-    document.getElementById('tideDetail').innerHTML = ''; // 清空错误信息
-}
-
-// 潮汐按钮点击事件
-tideBtn.addEventListener('click', async function () {
-    // 获取地图中心点坐标
-    const center = map.getView().getCenter();
-    const lonLat = ol.proj.toLonLat(center);
-
-    // 调用潮汐查询
-    await fetchTideData(lonLat[0].toFixed(4), lonLat[1].toFixed(4));
-});
