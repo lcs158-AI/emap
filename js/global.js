@@ -1,6 +1,6 @@
 // ==================== 初始化 Cesium ====================
 // 设置 Cesium Ion 默认 token（需替换为您的 token）
-Cesium.Ion.defaultAccessToken = '您的 token 字符串';
+Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI3NzVhMzE5My0zNWU2LTQ1ZDYtYTI2MC05N2EzOTBhNDgxYzgiLCJpZCI6NDA3MDg1LCJpYXQiOjE3NzQxMDMyNjV9.PLB9fgVKv_MZLTFwzwMOea4W2uaAT8MT1w0pYcFuRZU';
 
 const viewer = new Cesium.Viewer('cesiumContainer', {
     baseLayerPicker: false,
