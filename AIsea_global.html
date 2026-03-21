@@ -1,25 +1,22 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Cesium 地球</title>
-    <!-- Cesium 样式 -->
+    <title>Cesium 地球 - 照片点/定位/潮汐/测量</title>
+    <!-- Cesium 样式（必须） -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cesium@1.113/Build/Cesium/Widgets/widgets.css">
-    <!-- Cesium.js -->
-    <script src="https://cdn.jsdelivr.net/npm/cesium@1.113/Build/Cesium/Cesium.js"></script>
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <!-- 自定义样式 -->
     <link rel="stylesheet" href="css/global.css">
-
+    <!-- Chart.js（用于潮汐曲线） -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <!-- Cesium 核心库（必须） -->
+    <script src="https://cdn.jsdelivr.net/npm/cesium@1.113/Build/Cesium/Cesium.js"></script>
 </head>
-
 <body>
     <div id="cesiumContainer"></div>
     <div class="toolbar">
         <button id="locateBtn">📍 显示我的位置</button>
-        <button id="toggleEsriBtn">🗺️ 切换 Esri 影像</button>
         <button id="measureBtn">📏 测量距离</button>
         <button id="tideBtn">🌊 查潮汐</button>
     </div>
@@ -40,12 +37,15 @@
 
     <!-- 全局配置 -->
     <script>
+        // 天地图密钥（保留但不使用，可保留）
         const TIANDITU_KEY = '4110bba1f23cd04ed33e43ab12a291fc';
+        // 和风天气密钥
         const keyPart1 = 'ebd9161a';
         const keyPart2 = '4eda4f3ebbcc';
         const keyPart3 = '3f3977d64820';
         const QWEATHER_KEY = keyPart1 + keyPart2 + keyPart3;
         const APIhost = 'mg2tupq435.re.qweatherapi.com';
+        // 照片点数据
         const photoPoints = {
             "type": "FeatureCollection",
             "features": [
@@ -58,5 +58,4 @@
     <script src="js/utils.js"></script>
     <script src="js/global.js"></script>
 </body>
-
 </html>
