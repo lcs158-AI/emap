@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes">
-    <title>My AI emap2.1（优化潮位）</title>
+    <title>My AI emap2.1（for my daughter）</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.5.2/ol.css">
     <script src="/js/chart.umd.min.js"></script>
     <style>
@@ -239,77 +239,80 @@
             popup.getElement().style.display = 'none';
         });
 
-        // ==================== 定位功能（修正版） ====================
-const positionLayer = new ol.layer.Vector({
-    source: new ol.source.Vector(),
-    style: new ol.style.Style({
-        image: new ol.style.Circle({
-            radius: 10,
-            fill: new ol.style.Fill({ color: 'rgba(0,102,255,0.8)' }),
-            stroke: new ol.style.Stroke({ color: '#fff', width: 3 })
-        })
-    })
-});
-map.addLayer(positionLayer);
+        // ==================== 定位功能（修正版，确保首次移动） ====================
+        const positionLayer = new ol.layer.Vector({
+            source: new ol.source.Vector(),
+            style: new ol.style.Style({
+                image: new ol.style.Circle({
+                    radius: 10,
+                    fill: new ol.style.Fill({ color: 'rgba(0,102,255,0.8)' }),
+                    stroke: new ol.style.Stroke({ color: '#fff', width: 3 })
+                })
+            })
+        });
+        map.addLayer(positionLayer);
 
-let watching = false;
-let watchId = null;
-let lastPosition = null; // 存储最后一次获取的位置 [lon, lat]
+        let watching = false;
+        let watchId = null;
+        let firstPosition = true; // 用于标记是否第一次获取位置
 
-document.getElementById('locateBtn').addEventListener('click', function() {
-    if (!watching) {
-        // 开启定位
-        if ('geolocation' in navigator) {
-            watchId = navigator.geolocation.watchPosition(
-                function(position) {
-                    const lon = position.coords.longitude;
-                    const lat = position.coords.latitude;
-                    const accuracy = position.coords.accuracy;
-                    
-                    lastPosition = [lon, lat];
-                    positionLayer.getSource().clear();
-                    
-                    const point = new ol.Feature({
-                        geometry: new ol.geom.Point(ol.proj.fromLonLat([lon, lat]))
-                    });
-                    positionLayer.getSource().addFeature(point);
-                    
-                    if (accuracy > 0 && accuracy < 1000) {
-                        const circle = new ol.Feature({
-                            geometry: new ol.geom.Circle(ol.proj.fromLonLat([lon, lat]), accuracy)
-                        });
-                        positionLayer.getSource().addFeature(circle);
-                    }
-                    
-                    // 首次定位时移动地图到该位置，并缩放到合适级别
-                    if (!watching) {
-                        map.getView().setCenter(ol.proj.fromLonLat([lon, lat]));
-                        map.getView().setZoom(15);
-                    }
-                    // 后续定位只更新标记，不移动地图
-                },
-                function(error) {
-                    alert('获取位置失败：' + error.message);
-                },
-                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-            );
-            watching = true;
-            this.textContent = '📍 隐藏我的位置';
-        } else {
-            alert('您的浏览器不支持地理定位。');
-        }
-    } else {
-        // 关闭定位
-        if (watchId) {
-            navigator.geolocation.clearWatch(watchId);
-            watchId = null;
-        }
-        positionLayer.getSource().clear();
-        watching = false;
-        lastPosition = null;
-        this.textContent = '📍 显示我的位置';
-    }
-});
+        document.getElementById('locateBtn').addEventListener('click', function() {
+            if (!watching) {
+                // 开启定位
+                if ('geolocation' in navigator) {
+                    firstPosition = true; // 重置首次标志
+                    watchId = navigator.geolocation.watchPosition(
+                        function(position) {
+                            const lon = position.coords.longitude;
+                            const lat = position.coords.latitude;
+                            const accuracy = position.coords.accuracy;
+
+                            // 清除旧标记
+                            positionLayer.getSource().clear();
+
+                            // 添加当前位置点
+                            const point = new ol.Feature({
+                                geometry: new ol.geom.Point(ol.proj.fromLonLat([lon, lat]))
+                            });
+                            positionLayer.getSource().addFeature(point);
+
+                            // 添加精度圆（如果 accuracy 合理）
+                            if (accuracy > 0 && accuracy < 1000) {
+                                const circle = new ol.Feature({
+                                    geometry: new ol.geom.Circle(ol.proj.fromLonLat([lon, lat]), accuracy)
+                                });
+                                positionLayer.getSource().addFeature(circle);
+                            }
+
+                            // 仅第一次获取位置时移动地图并缩放到合适级别
+                            if (firstPosition) {
+                                map.getView().setCenter(ol.proj.fromLonLat([lon, lat]));
+                                map.getView().setZoom(15);
+                                firstPosition = false;
+                            }
+                        },
+                        function(error) {
+                            alert('获取位置失败：' + error.message);
+                        },
+                        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                    );
+                    watching = true;
+                    this.textContent = '📍 隐藏我的位置';
+                } else {
+                    alert('您的浏览器不支持地理定位。');
+                }
+            } else {
+                // 关闭定位
+                if (watchId) {
+                    navigator.geolocation.clearWatch(watchId);
+                    watchId = null;
+                }
+                positionLayer.getSource().clear();
+                watching = false;
+                firstPosition = true; // 重置标志
+                this.textContent = '📍 显示我的位置';
+            }
+        });
 
         // ==================== 切换底图 ====================
         document.getElementById('switchBaseMapBtn').addEventListener('click', function() {
