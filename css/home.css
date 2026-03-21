@@ -65,9 +65,23 @@ h1 {
 /* ==================== 卡片网格 ==================== */
 .card-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 2rem;
-    margin-bottom: 3rem;
+    /* 默认手机单列 */
+    grid-template-columns: 1fr;
+}
+
+/* 平板及以上：两列 */
+@media (min-width: 768px) {
+    .card-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* 超大屏幕：三列（可选） */
+@media (min-width: 1400px) {
+    .card-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
 }
 
 .card {
@@ -201,6 +215,7 @@ h1 {
     gap: 1.5rem;
     text-align: left;
     padding: 1rem;
+    height: 100%; /* 保证卡片高度一致 */
 }
 
 .card-image {
@@ -210,9 +225,6 @@ h1 {
     border-radius: 12px;
     overflow: hidden;
     background: #f0f2f5;
-    display: flex;
-    align-items: center;
-    justify-content: center;
 }
 
 .card-image img {
@@ -225,6 +237,20 @@ h1 {
     flex: 1;
 }
 
+/* 手机端恢复上下布局（可选，若已有媒体查询可保留） */
+@media (max-width: 640px) {
+    .card-horizontal {
+        flex-direction: column;
+        text-align: center;
+    }
+    .card-image {
+        width: 100%;
+        max-width: 200px;
+        height: auto;
+        aspect-ratio: 1 / 1;
+    }
+}
+
 .card-content h3 {
     margin: 0 0 0.5rem 0;
     font-size: 1.25rem;
@@ -234,20 +260,3 @@ h1 {
     margin: 0 0 1rem 0;
 }
 
-/* 移动端适配：小屏幕时改为上下布局，图片在上方 */
-@media (max-width: 640px) {
-    .card-horizontal {
-        flex-direction: column;
-        text-align: center;
-        gap: 1rem;
-    }
-    .card-image {
-        width: 100%;
-        max-width: 200px;
-        height: auto;
-        aspect-ratio: 1 / 1;
-    }
-    .card-content {
-        text-align: center;
-    }
-}
