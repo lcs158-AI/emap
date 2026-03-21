@@ -1,18 +1,20 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Cesium 地球 - 照片点/定位/潮汐/测量</title>
+    <title>Cesium 地球</title>
     <!-- Cesium 样式 -->
-    <link rel="stylesheet" href="https://cesium.com/downloads/cesiumjs/releases/1.113/Build/Cesium/Widgets/widgets.css">
-    <!-- 自定义样式（可选） -->
-    <link rel="stylesheet" href="css/global.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cesium@1.113/Build/Cesium/Widgets/widgets.css">
+    <!-- Cesium.js -->
+    <script src="https://cdn.jsdelivr.net/npm/cesium@1.113/Build/Cesium/Cesium.js"></script>
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <!-- Cesium.js -->
-    <script src="https://cesium.com/downloads/cesiumjs/releases/1.113/Build/Cesium/Cesium.js"></script>
+    <link rel="stylesheet" href="css/global.css">
+
 </head>
+
 <body>
     <div id="cesiumContainer"></div>
     <div class="toolbar">
@@ -56,4 +58,5 @@
     <script src="js/utils.js"></script>
     <script src="js/global.js"></script>
 </body>
+
 </html>
