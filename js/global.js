@@ -19,6 +19,15 @@ const viewer = new Cesium.Viewer('cesiumContainer', {
     terrainProvider: new Cesium.EllipsoidTerrainProvider()
 });
 
+// 天地图注记层（中文标注）
+const tiandituAnnotation = new Cesium.UrlTemplateImageryProvider({
+    url: `https://t0.tianditu.gov.cn/cva_w/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=cva&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&TileMatrix={z}&TileCol={x}&TileRow={y}&tk=${TIANDITU_KEY}`,
+    subdomains: ['0', '1', '2', '3', '4', '5', '6', '7'],
+    maximumLevel: 18,
+    tilingScheme: new Cesium.WebMercatorTilingScheme()
+});
+viewer.imageryLayers.addImageryProvider(tiandituAnnotation);
+
 // ==================== 添加照片点实体 ====================
 const entities = [];
 photoPoints.features.forEach(feature => {
