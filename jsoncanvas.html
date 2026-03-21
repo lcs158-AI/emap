@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html>
+<style>
+    svg,
+    canvas {
+        position: absolute;
+        left: 0px;
+        top: 0px;
+        overflow: visible;
+    }
+
+    #list {
+        position: fixed;
+        left: 5px;
+        top: 50px;
+        border-color: aqua;
+        border-width: thin;
+    }
+
+    #map {
+        background: rgb(176, 229, 255);
+        width: 1000px;
+        height: 660px;
+        border-style: solid;
+        border-width: thin;
+        top: 50px;
+        left: 150px;
+        position: absolute;
+        overflow: hidden;
+    }
+
+    #big2map {
+        position: absolute;
+        left: 300px;
+        top: 40px;
+    }
+</style>
+
+<head>
+    <title>基于CANVAS+json的WEBGIS研发</title>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="css/jquery-ui.css">
+    <script src="js/jquery-3.6.0.js"></script>
+    <script src="js/jquery-ui.js"></script>
+    <link rel="stylesheet" href="js/jsoncanvas.css">
+    <script type="text/javascript" src="js/twlays2000.js" charset="utf-8"></script>
+
+
+
+    <script type="text/javascript">
+        var k0 = 1;
+        var wz = 0;   //1---提取信息   .
+        var laydisps = new Array();
+        /*
+    'Define OBJ_TYPE_ARC                             1
+    'Define OBJ_TYPE_ELLIPSE                         2
+    'Define OBJ_TYPE_LINE                            3
+    'Define OBJ_TYPE_PLINE                           4
+    'Define OBJ_TYPE_POINT                           5
+    'Define OBJ_TYPE_FRAME                           6
+    'Define OBJ_TYPE_REGION                          7
+    'Define OBJ_TYPE_RECT                            8
+    'Define OBJ_TYPE_ROUNDRECT                       9
+    'Define OBJ_TYPE_TEXT                            10
+    'Define OBJ_TYPE_MPOINT                          11
+    'Define OBJ_TYPE_COLLECTION                      12
+    */
+        var obj_type = ["noobj", "OBJ_TYPE_ARC", "OBJ_TYPE_ELLIPSE", "OBJ_TYPE_LINE", "OBJ_TYPE_PLINE", "OBJ_TYPE_POINT", "OBJ_TYPE_FRAME", "OBJ_TYPE_REGION", "OBJ_TYPE_RECT", "OBJ_TYPE_ROUNDRECT", "OBJ_TYPE_TEXT", "OBJ_TYPE_MPOINT", "OBJ_TYPE_COLLECTION"];
+
+        $(document).ready(function () {
+
+            var xstr = $("p");
+            var c = document.getElementById("myCanvas");
+            var cxt = c.getContext("2d");
+            xstr.html("地图图层：");
+
+            for (var i = 0; i < canvasmap.length; i++) {     //历遍图层.
+                laydisps[i] = canvasmap[i].disp;
+                var radiolay = "<br>" + "<input type='checkbox' name='" + canvasmap[i].name + "' value='" + i + "' onclick='changelay(this)' >" + canvasmap[i].name + "</input>";
+                if (laydisps[i] > 0) {
+                    radiolay = "<br>" + "<input type='checkbox' name='" + canvasmap[i].name + "' value='" + i + "' checked='checked' onclick='changelay(this)'>" + canvasmap[i].name + "</input>";
+                }
+                $("#listmap").before(radiolay);
+            }
+            drawmap();
+
+            //函数------------------------------------------------------------------------------------
+
+            //点是否在线上
+            function online(mapx, mapy, arrd) {
+                var s = 3 * k0;         //设置点选框,//box":[xmin,ymax,xmax,ymin]
+                var pbox = new Array();
+                pbox = [mapx - 1, mapy + s, mapx + s, mapy - 1];
+                var onx = 0;
+                for (var i = 0; i < arrd.length; i++) {    //多单元对象
+                    for (j = 0; j < arrd[i].length - 1; j++) {
+                        //var b1=arrd[i][j];
+                        //var b2=arrd[i][j+1];
+                        //第一步，测试线端点是否在点选框内
+                        if (inbox(arrd[i][j][0], arrd[i][j][1], pbox) || inbox(arrd[i][j + 1][0], arrd[i][j + 1][1], pbox)) {
+                            return true;
+                        }
+                        //第二步，测试线段是否穿越点选框
+                        else if (intelines([mapx - 1, mapy - 1], [mapx + s, mapy + s], arrd[i][j], arrd[i][j + 1]) || intelines([mapx + s, mapy - 1], [mapx - 1, mapy + s], arrd[i][j], arrd[i][j + 1])) {
+                            return true;
+                        }
+                        else
+                            continue;
+                    }
+                }
+                return false;
+            }
+            //判断两线段是否相交,a,b两线段，a1,a2,b1,b2四端点
+            function intelines(a1, a2, b1, b2) {
+                var ax1 = a1[0];
+                var ay1 = a1[1];
+                var ax2 = a2[0];
+                var ay2 = a2[1];
+                var bx1 = b1[0];
+                var by1 = b1[1];
+                var bx2 = b2[0];
+                var by2 = b2[1];
+                if ((Math.max(ax1, ax2) >= Math.min(bx1, bx2) && Math.min(ax1, ax2) <= Math.max(bx1, bx2)) && (Math.max(ay1, ay2) >= Math.min(by1, by2) && Math.min(ay1, ay2) <= Math.max(by1, by2))) {
+                    if (
+                        ((bx1 - ax1) * (ay2 - ay1) - (by1 - ay1) * (ax2 - ax1)) * ((bx2 - ax1) * (ay2 - ay1) - (by2 - ay1) * (ax2 - ax1)) <= 0 &&
+                        ((ax1 - bx1) * (by2 - by1) - (ay1 - by1) * (bx2 - bx1)) * ((ax2 - bx1) * (by2 - by1) - (ay2 - by1) * (bx2 - bx1)) <= 0
+                    ) {
+                        return true;
+                    }
+                    else
+                        return false;
+                }
+                else
+                    return false;
+            }
+
+            //计算面积
+            function runarea(arrd) {
+                var myarea = 0;
+                for (var i = 0; i < arrd.length - 1; i++) {
+                    myarea = myarea + (arrd[i][0] * arrd[i + 1][1] - arrd[i][1] * arrd[i + 1][0])
+                }
+                return Math.abs(myarea) / 2;
+            }
+            //计算长度
+            function runlong(p1, p2) {
+                var x1 = p1[0];
+                var y1 = p1[1];
+                var x2 = p2[0];
+                var y2 = p2[1];
+                return Math.sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2));
+            }
+            //射线是否穿越线段
+            function crossline(x0, y0, p1, p2) {
+                var x1 = p1[0];
+                var y1 = p1[1];
+                var x2 = p2[0];
+                var y2 = p2[1];
+                var maxx = Math.max(x1, x2);
+                var minx = Math.min(x1, x2);
+                var crsinfo = 0;
+                //三角形+平行线，（y1-y0)/(y1-y2)=(crsx-x1)/(x2-x1)
+                //水平射线，y轴不变（y0），x0不变
+                //0----无相交
+                //1----两线交叉
+                //2----两线重合---0
+                //3----两线相切---解决切点另一端与Y0方向，同向则为0，异向则为1，用向量和解决
+                //4----点在线上
+                if ((y1 - y0) * (y2 - y0) > 0 || x0 > maxx) {
+                    crsinfo = 0;
+                }
+                else if (y0 == y1 && x0 == x1 || y0 == y2 && x0 == x2) {
+                    crsinfo = 4;
+
+                }
+                else if (y0 == y1 && y0 == y2) {
+                    if (x0 > minx) {
+                        crsinfo = 4;
+                    }
+                    else if (x0 < minx) {
+                        crsinfo = 0;
+                    }   //重合认定为0
+                }
+                else if (y0 == y1 || y0 == y2) {
+                    crsifno = 3;
+                    alert(crsinfo);
+                }
+                else {
+                    var crsx = (y1 - y0) * (x2 - x1) / (y1 - y2) + x1;
+                    if (crsx > x0) {
+                        crsinfo = 1;
+                    }
+                    else if (crsx == x0) {
+                        crsinfo = 4;
+                        //alert(crsx+":"+x0);
+                    }
+                    else {
+                        crsinfo = 0;
+                    }
+                }
+                return crsinfo;
+            }
+
+
+            //点是否位于区域内，使用射线穿越边界的次数来确定
+            function inobj(mapx, mapy, arrd) {
+                var crsn = 0;  //穿越次数
+                var tchn = 0;   //相切次数
+                var tchx = 1;
+
+                for (var i = 0; i < arrd.length; i++) {
+                    for (j = 0; j < arrd[i].length - 1; j++) {
+                        switch (crossline(mapx, mapy, arrd[i][j], arrd[i][j + 1])) {
+                            case 0:
+                                continue;
+                            case 1:
+                                //alert("1:"+crsn);
+                                crsn += 1;
+                                //alert("2:"+crsn);
+                                continue;
+                            case 4:
+                                crsn = 1;
+                                //alert("点在线上4:"+crsn);
+                                return;
+                            case 3:
+                                tchn += 1
+                                tchx *= (arrd[i][j][1] - arrd[i][j + 1][1]);   //得负则为同侧，不算穿越；得正则为异侧，算穿越。
+                                if (tchn == 2) {
+                                    if (tchx > 0) {           //穿越，如果为负则不用理会。
+                                        crsn += 1;
+                                    }
+                                    tchn = 0;
+                                    tchx = 1;
+                                }
+                                continue;
+
+                        }
+                    }
+                }
+                //if (tchn>0) crsn+=1;
+                // alert(crsn+"--"+crsn%2);
+                if (crsn % 2 == 0) {
+                    return false;
+                } else {
+                    return true;
+                }
+            }
+            function inbox(mapx, mapy, xbox) {
+                //box":[xmin,ymax,xmax,ymin]
+                if ((mapx - xbox[0]) * (mapx - xbox[2]) <= 0 && (mapy - xbox[3]) * (mapy - xbox[1]) <= 0) {
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+            function inbuff(mapx, mapy, xbox) {
+                //box":[xmin,ymax,xmax,ymin]
+                var s = 3;
+                if ((mapx - xbox[0] + s) * (mapx - xbox[2]) <= 0 && (mapy - xbox[3] + s) * (mapy - xbox[1]) <= 0) {
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+            function getobj(ilay, objtype, mapx, mapy) {
+
+                switch (objtype) {
+                    case 1:         //obj-type-arc
+                        break;
+                    case 2:         //obj-type-ellipse
+                        break;
+                    case 3:         //obj-type-line
+                        break;
+                    case 4:         //obj-type-pline
+                        var getobjinfo = canvasmap[ilay].name + "压边，但未提取到线对象";
+
+                        for (var k = 0; k < canvasmap[ilay].objs.length; k++) {
+                            if (inbuff(mapx, mapy, canvasmap[ilay].objs[k].box)) {                         //入多义线缓冲框
+                                getobjinfo = "压边，但未提取到线对象！";
+
+                                if (online(mapx, mapy, canvasmap[ilay].objs[k].obj)) {  //此处已改----2022.09.12
+                                    getobjinfo = canvasmap[ilay].objs[k].objnm + "," + canvasmap[ilay].objs[k].objid;
+                                    break;
+                                }
+                            }
+                        }
+                        break;
+                    case 5:         //obj-type-point
+                        for (var k = 0; k < canvasmap[ilay].objs.length; k++) {
+                            var l = (mapx - canvasmap[ilay].objs[k].cent[0]) * (mapx - canvasmap[ilay].objs[k].cent[0]) + (mapy - canvasmap[ilay].objs[k].cent[1]) * (mapy - canvasmap[ilay].objs[k].cent[1]);
+                            if (l <= 25) {
+                                getobjinfo = canvasmap[ilay].objs[k].objnm + "," + canvasmap[ilay].objs[k].objid;
+                                break;
+                            }
+                        }
+                        break;
+                    case 6:         //obj-type-frame
+                        break;
+                    case 7:         //obj-type-region
+                        for (var k = 0; k < canvasmap[ilay].objs.length; k++) {
+                            if (inbox(mapx, mapy, canvasmap[ilay].objs[k].box)) {
+                                if (inobj(mapx, mapy, canvasmap[ilay].objs[k].obj)) {
+                                    getobjinfo = canvasmap[ilay].objs[k].objnm + "," + canvasmap[ilay].objs[k].objid;
+                                    break;
+                                }
+                                else
+                                    continue;
+
+
+                            }
+                        }
+                        break;
+                    case 8:         //obj-type-rect
+                        break;
+                    case 9:         //obj-type-roundrect
+                        break;
+                    case 10:           //obj-type-text
+
+                        break;
+                    case 11:            //obj-type-mpoint
+                        break;
+                    case 12:            //obj-type-collection
+                        break;
+                }
+                //alert(objtype);
+                return getobjinfo;
+            };
+            function drawmap() {
+                // alert(canvasmap.length);
+                for (var i = canvasmap.length - 1; i >= 0; i--) {     //历遍图层
+                    if (laydisps[i] > 0) {
+
+                        for (var j = 0; j < canvasmap[i].objs.length; j++) {           //历遍图层内图斑
+                            //xstr.html(canvasmap[i].objs[j].objtype);
+                            switch (canvasmap[i].objs[j].objtype) {
+                                case 1:         //obj-type-arc
+                                    break;
+                                case 2:         //obj-type-ellipse
+                                    break;
+                                case 3:         //obj-type-line
+                                    break;
+                                case 4:         //obj-type-pline
+                                    cxt.lineWidth = canvasmap[i].laysiz;
+                                    cxt.strokeStyle = "rgba(" + canvasmap[i].layclr[0] + "," + canvasmap[i].layclr[1] + "," + canvasmap[i].layclr[2] + "," + canvasmap[i].layclr[3] / 255 + ")";
+                                    cxt.beginPath();
+                                    // cxt.moveTo(canvasmap[i].objs[j].obj[0][0][0],canvasmap[i].objs[j].obj[0][0][1]);
+                                    //for (var k=1; k<canvasmap[i].objs[j].obj[0].length; k++){          //历遍图斑中单元
+                                    // cxt.lineTo(canvasmap[i].objs[j].obj[0][k][0],canvasmap[i].objs[j].obj[0][k][1]);
+                                    //}
+
+                                    for (var k = 0; k < canvasmap[i].objs[j].obj.length; k++) {          //历遍图斑中单元
+                                        cxt.moveTo(canvasmap[i].objs[j].obj[k][0][0], canvasmap[i].objs[j].obj[k][0][1]);
+                                        for (var l = 1; l < canvasmap[i].objs[j].obj[k].length; l++) {	//历遍图斑单元中的节点
+                                            cxt.lineTo(canvasmap[i].objs[j].obj[k][l][0], canvasmap[i].objs[j].obj[k][l][1]);
+                                        }
+                                    }
+                                    cxt.stroke();
+                                    break;
+                                case 5:         //obj-type-point
+                                    //cxt.strokeStyle="black";
+
+                                    cxt.fillStyle = "rgba(" + canvasmap[i].layclr[0] + "," + canvasmap[i].layclr[1] + "," + canvasmap[i].layclr[2] + "," + canvasmap[i].layclr[3] / 255 + ")";
+                                    cxt.beginPath();
+                                    cxt.arc(canvasmap[i].objs[j].cent[0], canvasmap[i].objs[j].cent[1], 5, 0, Math.PI * 2, false);
+                                    cxt.closePath();
+                                    //cxt.stroke();
+                                    cxt.fill();
+                                    break;
+                                case 6:         //obj-type-frame
+                                    break;
+                                case 7:         //obj-type-region
+                                    cxt.linewidth = 0;
+                                    cxt.strokeStyle = "gray";
+                                    cxt.fillStyle = "rgba(" + canvasmap[i].layclr[0] + "," + canvasmap[i].layclr[1] + "," + canvasmap[i].layclr[2] + "," + canvasmap[i].layclr[3] / 255 + ")";
+                                    cxt.beginPath();
+                                    //cxt.moveTo(canvasmap[i].objs[j].obj[0][0][0],canvasmap[i].objs[j].obj[0][0][1]);
+                                    //for (var k=1; k<canvasmap[i].objs[j].obj[0].length; k++){          //历遍图斑中单元
+                                    // cxt.lineTo(canvasmap[i].objs[j].obj[0][k][0],canvasmap[i].objs[j].obj[0][k][1]);
+                                    //}
+                                    for (var k = 0; k < canvasmap[i].objs[j].obj.length; k++) {          //历遍图斑中单元
+                                        cxt.moveTo(canvasmap[i].objs[j].obj[k][0][0], canvasmap[i].objs[j].obj[k][0][1]);
+                                        for (var l = 1; l < canvasmap[i].objs[j].obj[k].length; l++) {	//历遍图斑单元中的节点
+                                            cxt.lineTo(canvasmap[i].objs[j].obj[k][l][0], canvasmap[i].objs[j].obj[k][l][1]);
+                                        }
+                                    }
+                                    cxt.closePath();
+                                    cxt.stroke();
+                                    cxt.fill();
+
+                                    break;
+                                case 8:         //obj-type-rect
+                                    break;
+                                case 9:         //obj-type-roundrect
+                                    break;
+                                case 10:           //obj-type-text
+                                    cxt.font = "16px serif";
+                                    cxt.fillStyle = "black";
+                                    cxt.fillText(canvasmap[i].objs[j].objnm, canvasmap[i].objs[j].cent[0], canvasmap[i].objs[j].cent[1]);
+                                    break;
+                                case 11:            //obj-type-mpoint
+                                    break;
+                                case 12:            //obj-type-collection
+                                    break;
+                            };
+
+                        };
+                    };
+                };
+            };
+            $("#getdata").click(function () {
+
+                drawmap();
+            });
+
+            /*        
+   actionscript 源码：
+function zoom(k:Number) {
+   zoombar_mc.bar_mc._x += 10*k;
+   var tx = mWin_mc._x;
+   var ty = mWin_mc._y;
+   var i:Number = Math.pow(zoom_k, k);
+   mWin_mc._width *= i;
+   mWin_mc._height *= i;
+   mWin_mc._x = tx*i-cover_mc._width*(i-1)/2;
+   mWin_mc._y = ty*i-cover_mc._height*(i-1)/2;
+   for (var i = 1; i<=3; i++) {
+       for (var j = 1; j<=3; j++) {
+           //mWin_mc["xml"+(i*10+j)].removeMovieClip();
+       }
+   }
+   getlocalmap(mWin_mc);
+}
+   */
+
+            $("#zoominmap").click(function () {
+                xstr.html("ZOOM IN");
+                var xw = $("canvas").width();
+                var tx = $("canvas").offset().left;
+                var ty = $("canvas").offset().top;
+                xw *= 1.2;
+                $("canvas").width(xw);
+                k0 *= 1.2;
+
+
+                var mx = tx * 1.2 - 1000 / 10;
+                var my = ty * 1.2 - 660 / 10;
+                $("canvas").offset({ left: mx, top: my });
+
+            });
+            $("#movemap").click(function () {
+                xstr.html("movemap");
+                $("canvas").offset({ left: 100, top: 100 });
+
+            });
+            $("#zoomoutmap").click(function () {
+                xstr.html("zoomout map")
+                var xw = $("canvas").width();
+                var tx = $("canvas").offset().left;
+                var ty = $("canvas").offset().top;
+                xw /= 1.2;
+                $("canvas").width(xw);
+                k0 /= 1.2;
+                var mx = tx / 1.2 + 1000 / 12;
+                var my = ty / 1.2 + 660 / 12;
+                $("canvas").offset({ left: mx, top: my });
+            });
+            $("#getinfo").click(function () {
+                xstr.html("get info of map");
+                wz = 1;
+            });
+            //cxt.fillStyle="black";
+            //cxt.fillRect(0,0,400,300);
+
+            $("canvas").click(function (e) {
+
+                var offset = $(this).offset();
+                var X = e.pageX - offset.left;
+                var Y = e.pageY - offset.top;
+
+
+                X = X / k0;
+                Y = Y / k0;
+
+                if (wz == 1) {
+                    var clrgrid = cxt.getImageData(X, Y, 3, 3);
+                    var pixclr = clrgrid.data;
+                    //alert(pixclr.length);
+                    for (var s = 0; s < 8; s++) {
+
+                        var cred = pixclr[4 * s + 0];
+                        var cgreen = pixclr[4 * s + 1];
+                        var cblue = pixclr[4 * s + 2];
+                        var calpha = pixclr[4 * s + 3];
+                        var geti = -1;
+                        for (var i = 0; i < canvasmap.length; i++) {     //历遍图层.
+                            //laydisps[i]=canvasmap[i].disp;
+                            if (canvasmap[i].layclr[0] == cred && canvasmap[i].layclr[1] == cgreen && canvasmap[i].layclr[2] == cblue && canvasmap[i].layclr[3] == calpha) {
+                                $("#movex").val(obj_type[canvasmap[i].laytype]);
+                                //$("#movey").val(canvasmap[i].name);
+                                geti = i;
+                                var getin = getobj(i, canvasmap[i].laytype, X, Y);
+                                $("#movey").val(getin);
+                                //alert(getobj(i,canvasmap[i].laytype,X,Y));
+                                break;
+                            }
+                        };
+                        if (geti == i) {
+                            break;
+                        }
+
+                    }
+
+
+
+
+                    if (geti == -1) {
+                        //alert("x:"+geti);
+                        $("#movex").val(cred + "," + cgreen + "," + cblue + "," + calpha);
+                        $("#movey").val("未提取信息");
+                    };
+
+                }
+
+
+
+
+            });
+
+            $("#clearmap").click(function () {
+                xstr.html("clear map")
+                cxt.clearRect(-1000, -1000, 20000, 20000);
+                cxt.beginPath();
+            });
+
+        })
+
+        $(function () {
+            $("#myCanvas").draggable();
+        });
+
+        function changelay(checkbox) {
+            var i = Number(checkbox.value);
+            if (checkbox.checked == true) {
+                laydisps[i] = 1;
+            } else {
+                laydisps[i] = 0;
+            }
+            $("#clearmap").click();
+            $("#getdata").click();
+            //cxt.clearRect(-1000,-1000,2000,2000); 
+            //drawmap();
+        };
+    </script>
+
+</head>
+
+<body>
+    <button id="getdata">绘制地图</button>
+    <button id="clearmap">清除地图</button>
+    <button id="zoominmap">放大地图</button>
+    <button id="zoomoutmap">缩小地图</button>
+    <button id="getinfo">信息提取</button>
+    <button id="movemap">移动地图</button>
+    图形类型：<input id="movex" type="text" value="-100" name="tx" size="15" maxlength="6">
+    图形名称：<input id="movey" type="text" value="100" name="ty" size="15" maxlength="6">
+
+    <p>map name:</p>
+    <div id="list">
+        <a id="listmap"></a>
+    </div>
+
+    <div id="map" class="frame">
+
+        <canvas id="myCanvas" width="2000" height="2000"></canvas>
+
+    </div>
+</body>
+
+</html>
