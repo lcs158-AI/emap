@@ -253,14 +253,14 @@ function deactivateMeasurement() {
 }
 
 function activateMeasurement(type) {
-    // 检查依赖
+    console.log('activateMeasurement called, type:', type);
     if (typeof formatLength !== 'function') {
-        console.error('formatLength 未定义，请检查 utils.js 是否加载');
+        console.error('formatLength 未定义');
         alert('测量功能初始化失败：工具函数缺失');
         return;
     }
     if (typeof ol.sphere === 'undefined') {
-        console.error('ol.sphere 未定义，请检查 OpenLayers 库');
+        console.error('ol.sphere 未定义');
         alert('测量功能初始化失败：地图库错误');
         return;
     }
@@ -282,12 +282,17 @@ function activateMeasurement(type) {
     measureResult.style.display = 'block';
     measureResult.innerHTML = '单击加点，双击结束';
 
+    // 确保 measureLayer 存在且 source 可用
+    console.log('measureLayer source:', measureLayer.getSource());
+
     measureDraw = new ol.interaction.Draw({
         source: measureLayer.getSource(),
         type: type === 'length' ? 'LineString' : 'Polygon'
     });
+    console.log('measureDraw created:', measureDraw);
 
     measureDraw.on('drawstart', function(evt) {
+        console.log('drawstart event');
         const sketch = evt.feature;
         const listener = sketch.getGeometry().on('change', function(evt) {
             const geom = evt.target;
@@ -305,6 +310,7 @@ function activateMeasurement(type) {
     });
 
     measureDraw.on('drawend', function(evt) {
+        console.log('drawend event');
         const geom = evt.feature.getGeometry();
         if (type === 'length') {
             const length = ol.sphere.getLength(geom, { projection: 'EPSG:3857' });
@@ -316,6 +322,7 @@ function activateMeasurement(type) {
     });
 
     map.addInteraction(measureDraw);
+    console.log('interactions after add:', map.getInteractions().getArray());
 }
 
 measureLengthBtn.addEventListener('click', function() {
