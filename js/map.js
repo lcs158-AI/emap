@@ -253,6 +253,18 @@ function deactivateMeasurement() {
 }
 
 function activateMeasurement(type) {
+    // 检查依赖
+    if (typeof formatLength !== 'function') {
+        console.error('formatLength 未定义，请检查 utils.js 是否加载');
+        alert('测量功能初始化失败：工具函数缺失');
+        return;
+    }
+    if (typeof ol.sphere === 'undefined') {
+        console.error('ol.sphere 未定义，请检查 OpenLayers 库');
+        alert('测量功能初始化失败：地图库错误');
+        return;
+    }
+
     if (measureActive) deactivateMeasurement();
     if (dblClickZoomInteraction) dblClickZoomInteraction.setActive(false);
 
