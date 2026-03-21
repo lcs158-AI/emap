@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Cesium 地球 - 照片点/定位/潮汐/测量</title>
+    <title>Cesium 地球 </title>
     <!-- Cesium 样式（必须） -->
     <link rel="stylesheet" href="libs/cesium/Widgets/widgets.css">
     <!-- 自定义样式 -->
@@ -19,9 +19,10 @@
 <body>
     <div id="cesiumContainer"></div>
     <div class="toolbar">
-        <button id="locateBtn">📍 显示我的位置</button>
-        <button id="measureBtn">📏 测量距离</button>
-        <button id="tideBtn">🌊 查潮汐</button>
+        <button id="locateBtn">📍</button>
+        <button id="toggleAnnotationBtn" class="action-btn" data-title="切换标注">🏷️</button>
+        <button id="measureBtn">📏</button>
+        <button id="tideBtn">🌊</button>
     </div>
     <div id="tidePanel">
         <div style="display: flex; justify-content: space-between;">
@@ -57,7 +58,7 @@
             ]
         };
         //初始化位置及高度
-        const initCenter = [111.18,21.48,5000];
+        const initCenter = [111.18, 21.48, 5000];
 
     </script>
     <!-- 引入通用工具和 Cesium 核心逻辑 -->

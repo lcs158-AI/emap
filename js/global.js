@@ -20,13 +20,22 @@ const viewer = new Cesium.Viewer('cesiumContainer', {
 });
 
 // 天地图注记层（中文标注）
+// 添加天地图注记层，并保存引用
 const tiandituAnnotation = new Cesium.UrlTemplateImageryProvider({
     url: `https://t0.tianditu.gov.cn/cva_w/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=cva&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&TileMatrix={z}&TileCol={x}&TileRow={y}&tk=${TIANDITU_KEY}`,
     subdomains: ['0', '1', '2', '3', '4', '5', '6', '7'],
     maximumLevel: 18,
     tilingScheme: new Cesium.WebMercatorTilingScheme()
 });
-viewer.imageryLayers.addImageryProvider(tiandituAnnotation);
+const annotationLayer = viewer.imageryLayers.addImageryProvider(tiandituAnnotation);
+annotationLayer.show = false; // 默认隐藏标注
+
+// 切换标注按钮
+document.getElementById('toggleAnnotationBtn').addEventListener('click', () => {
+    annotationLayer.show = !annotationLayer.show;
+    const btn = document.getElementById('toggleAnnotationBtn');
+    btn.classList.toggle('active');
+});
 
 // 启动后跳转到指定位置
 if (typeof initCenter !== 'undefined' && initCenter.length === 3) {
