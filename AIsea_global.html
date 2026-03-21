@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Cesium 地球 - 照片点/定位/潮汐/测量</title>
+    <!-- Cesium 样式 -->
+    <link rel="stylesheet" href="https://cesium.com/downloads/cesiumjs/releases/1.113/Build/Cesium/Widgets/widgets.css">
+    <!-- 自定义样式（可选） -->
+    <link rel="stylesheet" href="css/global.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <div id="cesiumContainer"></div>
+    <div class="toolbar">
+        <button id="locateBtn">📍 显示我的位置</button>
+        <button id="toggleEsriBtn">🗺️ 切换 Esri 影像</button>
+        <button id="measureBtn">📏 测量距离</button>
+        <button id="tideBtn">🌊 查潮汐</button>
+    </div>
+    <div id="tidePanel">
+        <div style="display: flex; justify-content: space-between;">
+            <h4>🌊 潮汐信息</h4>
+            <button id="closeTideBtn" class="close-btn">✕</button>
+        </div>
+        <div id="tideLocation"></div>
+        <div id="tideCurrent">-- 米</div>
+        <div id="tideTime"></div>
+        <div id="tideChartContainer">
+            <canvas id="tideChart" width="400" height="120"></canvas>
+        </div>
+        <div style="font-size: 10px; color: #aaa; text-align: right;">数据：和风天气</div>
+    </div>
+    <div id="measureResult">距离: -- 米</div>
+
+    <!-- 全局配置 -->
+    <script>
+        const TIANDITU_KEY = '4110bba1f23cd04ed33e43ab12a291fc';
+        const keyPart1 = 'ebd9161a';
+        const keyPart2 = '4eda4f3ebbcc';
+        const keyPart3 = '3f3977d64820';
+        const QWEATHER_KEY = keyPart1 + keyPart2 + keyPart3;
+        const APIhost = 'mg2tupq435.re.qweatherapi.com';
+        const photoPoints = {
+            "type": "FeatureCollection",
+            "features": [
+                { "type": "Feature", "geometry": { "type": "Point", "coordinates": [111.212202, 21.483160] }, "properties": { "DD": "博贺湾大酒店", "MC": "IMG_20260226_133945565.jpg" } },
+                { "type": "Feature", "geometry": { "type": "Point", "coordinates": [111.116915, 21.467190] }, "properties": { "DD": "滨海旅游公路", "MC": "IMG_20260226_164817880.jpg" } }
+            ]
+        };
+    </script>
+    <!-- 引入通用工具和 Cesium 核心逻辑 -->
+    <script src="js/utils.js"></script>
+    <script src="js/global.js"></script>
+</body>
+</html>
