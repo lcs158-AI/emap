@@ -1,10 +1,11 @@
 // ==================== 初始化 Cesium ====================
-// 替换为您的 Cesium Ion Token
-Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI3NzVhMzE5My0zNWU2LTQ1ZDYtYTI2MC05N2EzOTBhNDgxYzgiLCJpZCI6NDA3MDg1LCJpYXQiOjE3NzQxMDMyNjV9.PLB9fgVKv_MZLTFwzwMOea4W2uaAT8MT1w0pYcFuRZU';
+// 设置 Cesium Ion 默认 token（需替换为您的 token）
+Cesium.Ion.defaultAccessToken = '您的 token 字符串';
 
-// 配置 Viewer，关闭不必要的控件，减少网络请求
 const viewer = new Cesium.Viewer('cesiumContainer', {
-    baseLayerPicker: false,      // 隐藏图层选择器
+    baseLayerPicker: false,
+    imageryProvider: false,
+    terrainProvider: new Cesium.EllipsoidTerrainProvider(),
     animation: false,
     timeline: false,
     infoBox: false,
@@ -12,15 +13,15 @@ const viewer = new Cesium.Viewer('cesiumContainer', {
     navigationHelpButton: false,
     homeButton: false,
     fullscreenButton: false,
-    // 可选：关闭星空和大气效果（加快加载）
     skyBox: false,
-    skyAtmosphere: false,
-    // 使用椭球体地形，避免加载地形数据（加快加载）
-    terrainProvider: new Cesium.EllipsoidTerrainProvider()
+    skyAtmosphere: false
 });
 
-// 天地图注记层（中文标注）
-// 添加天地图注记层，并保存引用
+// 1. Cesium Ion 默认影像
+const ionImagery = new Cesium.IonImageryProvider();
+viewer.imageryLayers.addImageryProvider(ionImagery);
+
+// 2. 天地图注记层（默认隐藏）
 const tiandituAnnotation = new Cesium.UrlTemplateImageryProvider({
     url: `https://t0.tianditu.gov.cn/cva_w/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=cva&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&TileMatrix={z}&TileCol={x}&TileRow={y}&tk=${TIANDITU_KEY}`,
     subdomains: ['0', '1', '2', '3', '4', '5', '6', '7'],
@@ -28,30 +29,22 @@ const tiandituAnnotation = new Cesium.UrlTemplateImageryProvider({
     tilingScheme: new Cesium.WebMercatorTilingScheme()
 });
 const annotationLayer = viewer.imageryLayers.addImageryProvider(tiandituAnnotation);
-annotationLayer.show = false; // 默认隐藏标注
+annotationLayer.show = false;
 
 // 切换标注按钮
 document.getElementById('toggleAnnotationBtn').addEventListener('click', () => {
     annotationLayer.show = !annotationLayer.show;
-    const btn = document.getElementById('toggleAnnotationBtn');
-    btn.classList.toggle('active');
+    document.getElementById('toggleAnnotationBtn').classList.toggle('active');
 });
 
-// 启动后跳转到指定位置
-if (typeof initCenter !== 'undefined' && initCenter.length === 3) {
-    // 根据缩放级别估算高度（经验公式：高度 ≈ 2000 * (20 - zoom) 米）
-    
+// ==================== 启动后跳转到指定位置 ====================
+if (initCenter && initCenter.length >= 3) {
     viewer.camera.flyTo({
         destination: Cesium.Cartesian3.fromDegrees(initCenter[0], initCenter[1], initCenter[2]),
-        orientation: {
-            heading: 0,
-            pitch: -Cesium.Math.toRadians(45), // 俯仰角 -45 度
-            roll: 0
-        },
-        duration: 1.5   // 平滑移动时间（秒）
+        orientation: { heading: 0, pitch: -Cesium.Math.toRadians(45), roll: 0 },
+        duration: 1.5
     });
 } else {
-    // 如果未定义 initCenter，则使用默认坐标（茂名）
     viewer.camera.flyTo({
         destination: Cesium.Cartesian3.fromDegrees(111.18, 21.48, 5000),
         orientation: { heading: 0, pitch: -Cesium.Math.toRadians(45), roll: 0 },
@@ -59,7 +52,7 @@ if (typeof initCenter !== 'undefined' && initCenter.length === 3) {
     });
 }
 
-// ==================== 添加照片点实体 ====================
+// ==================== 照片点实体 ====================
 const entities = [];
 photoPoints.features.forEach(feature => {
     const [lon, lat] = feature.geometry.coordinates;
@@ -90,7 +83,7 @@ photoPoints.features.forEach(feature => {
     entities.push(entity);
 });
 
-// 悬浮提示：鼠标移动时高亮最近点并显示标签
+// 悬浮提示
 let lastHighlighted = null;
 viewer.screenSpaceEventHandler.setInputAction(function (movement) {
     const picked = viewer.scene.pick(movement.endPosition);
@@ -113,7 +106,7 @@ viewer.screenSpaceEventHandler.setInputAction(function (movement) {
     }
 }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
 
-// 点击弹出照片（使用浏览器 alert 简化，可替换为自定义弹窗）
+// 点击弹出照片
 viewer.screenSpaceEventHandler.setInputAction(function (click) {
     const picked = viewer.scene.pick(click.position);
     if (Cesium.defined(picked) && picked.id && picked.id.properties) {
@@ -124,85 +117,86 @@ viewer.screenSpaceEventHandler.setInputAction(function (click) {
 }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
 // ==================== 定位功能 ====================
-let isLocated = false; // 记录是否已定位
 document.getElementById('locateBtn').addEventListener('click', () => {
-    if (!isLocated) {
-        if ('geolocation' in navigator) {
-            navigator.geolocation.getCurrentPosition(pos => {
-                const { longitude, latitude } = pos.coords;
-                const height = 500;
-                const destination = Cesium.Cartesian3.fromDegrees(longitude, latitude, height);
-                const pitchAngle = -Cesium.Math.toRadians(85); // 正射视角
-                viewer.camera.flyTo({
-                    destination: destination,
-                    orientation: { heading: 0, pitch: pitchAngle, roll: 0 },
-                    duration: 1.5
-                });
-                // 移除旧标记（若有）
-                const old = viewer.entities.getById('myLocation');
-                if (old) viewer.entities.remove(old);
-                viewer.entities.add({
-                    position: Cesium.Cartesian3.fromDegrees(longitude, latitude),
-                    point: { pixelSize: 14, color: Cesium.Color.BLUE, outlineWidth: 2 },
-                    id: 'myLocation'
-                });
-                document.getElementById('locateBtn').classList.add('active');
-                document.getElementById('locateBtn').textContent = '📍 隐藏我的位置';
-                isLocated = true;
-            }, err => alert('获取位置失败: ' + err.message));
-        } else {
-            alert('浏览器不支持地理定位');
-        }
+    if ('geolocation' in navigator) {
+        navigator.geolocation.getCurrentPosition(pos => {
+            const { longitude, latitude } = pos.coords;
+            viewer.camera.flyTo({
+                destination: Cesium.Cartesian3.fromDegrees(longitude, latitude, 1000),
+                orientation: { heading: 0, pitch: -Cesium.Math.toRadians(45), roll: 0 },
+                duration: 2
+            });
+            viewer.entities.add({
+                position: Cesium.Cartesian3.fromDegrees(longitude, latitude),
+                point: { pixelSize: 14, color: Cesium.Color.BLUE, outlineWidth: 2 },
+                id: 'tempLoc'
+            });
+            setTimeout(() => viewer.entities.removeById('tempLoc'), 5000);
+            document.getElementById('locateBtn').classList.add('active');
+        }, err => alert('获取位置失败: ' + err.message));
     } else {
-        // 隐藏当前位置：移除蓝点，恢复初始视角（茂名）
-        const myLoc = viewer.entities.getById('myLocation');
-        if (myLoc) viewer.entities.remove(myLoc);
-        viewer.camera.flyTo({
-            destination: Cesium.Cartesian3.fromDegrees(111.18, 21.48, 5000),
-            orientation: { heading: 0, pitch: -Cesium.Math.toRadians(85), roll: 0 },
-            duration: 1.5
-        });
-        document.getElementById('locateBtn').classList.remove('active');
-        document.getElementById('locateBtn').textContent = '📍 显示我的位置';
-        isLocated = false;
+        alert('浏览器不支持地理定位');
     }
 });
 
-// ==================== 简易距离测量 ====================
+// ==================== 测量功能 ====================
 let measureActive = false;
 let points = [];
+let tempEntities = [];
 const measureResultDiv = document.getElementById('measureResult');
+
 document.getElementById('measureBtn').addEventListener('click', () => {
-    measureActive = !measureActive;
     if (measureActive) {
+        // 退出测量模式
+        tempEntities.forEach(e => viewer.entities.remove(e));
+        tempEntities = [];
         points = [];
-        measureResultDiv.style.display = 'block';
-        measureResultDiv.textContent = '点击地图添加点，双击结束';
-        document.getElementById('measureBtn').style.background = '#e6f7ff';
-    } else {
         measureResultDiv.style.display = 'none';
-        document.getElementById('measureBtn').style.background = 'white';
-        if (window.tempPoints) window.tempPoints.forEach(e => viewer.entities.remove(e));
-        window.tempPoints = [];
+        document.getElementById('measureBtn').classList.remove('active');
+        measureActive = false;
+    } else {
+        // 进入测量模式
+        measureActive = true;
+        measureResultDiv.style.display = 'block';
+        measureResultDiv.textContent = '单击添加点，双击结束当前线段';
+        document.getElementById('measureBtn').classList.add('active');
+        tempEntities.forEach(e => viewer.entities.remove(e));
+        tempEntities = [];
+        points = [];
     }
 });
 
 viewer.screenSpaceEventHandler.setInputAction(function (click) {
     if (!measureActive) return;
-    const cartesian = viewer.scene.pickPosition(click.position);
+    let cartesian = viewer.scene.pickPosition(click.position);
+    if (!Cesium.defined(cartesian)) {
+        cartesian = viewer.camera.pickEllipsoid(click.position);
+    }
     if (!Cesium.defined(cartesian)) return;
     const cartographic = Cesium.Cartographic.fromCartesian(cartesian);
     const lon = Cesium.Math.toDegrees(cartographic.longitude);
     const lat = Cesium.Math.toDegrees(cartographic.latitude);
     points.push({ lon, lat, cartesian });
-    // 添加临时点标记
     const entity = viewer.entities.add({
         position: cartesian,
-        point: { pixelSize: 8, color: Cesium.Color.ORANGE },
-        label: { text: `${points.length}`, font: '12px sans-serif', pixelOffset: new Cesium.Cartesian2(0, -10) }
+        point: {
+            pixelSize: 12,
+            color: Cesium.Color.ORANGE,
+            outlineColor: Cesium.Color.BLACK,
+            outlineWidth: 1
+        },
+        label: {
+            text: `${points.length}`,
+            font: '14px sans-serif',
+            pixelOffset: new Cesium.Cartesian2(0, -12),
+            fillColor: Cesium.Color.BLACK,
+            backgroundColor: Cesium.Color.WHITE,
+            style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+            outlineWidth: 1,
+            outlineColor: Cesium.Color.BLACK
+        }
     });
-    if (!window.tempPoints) window.tempPoints = [];
-    window.tempPoints.push(entity);
+    tempEntities.push(entity);
     if (points.length >= 2) {
         const dist = Cesium.Cartesian3.distance(points[0].cartesian, points[1].cartesian);
         measureResultDiv.textContent = `距离: ${dist.toFixed(1)} 米`;
@@ -211,12 +205,11 @@ viewer.screenSpaceEventHandler.setInputAction(function (click) {
 
 viewer.screenSpaceEventHandler.setInputAction(function () {
     if (measureActive) {
-        measureActive = false;
-        measureResultDiv.style.display = 'none';
-        document.getElementById('measureBtn').style.background = 'white';
-        if (window.tempPoints) window.tempPoints.forEach(e => viewer.entities.remove(e));
-        window.tempPoints = [];
+        // 双击结束当前线段，清除点和线，但不退出测量模式
+        tempEntities.forEach(e => viewer.entities.remove(e));
+        tempEntities = [];
         points = [];
+        measureResultDiv.textContent = '单击添加点，双击结束当前线段';
     }
 }, Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
 
@@ -237,7 +230,6 @@ const tideBtn = document.getElementById('tideBtn');
 
 closeTideBtn.addEventListener('click', () => tidePanel.style.display = 'none');
 
-// 潮汐查询函数（与之前相同，依赖 utils.js 中的 getLocalDateStr 和和风 API）
 async function fetchTideData(lon, lat) {
     try {
         tidePanel.style.display = 'block';
@@ -247,7 +239,9 @@ async function fetchTideData(lon, lat) {
         const geoUrl = `https://${APIhost}/geo/v2/poi/lookup?location=${lon},${lat}&type=TSTA&key=${QWEATHER_KEY}`;
         const geoRes = await fetch(geoUrl);
         const geoData = await geoRes.json();
-        if (geoData.code !== '200' || !geoData.poi || geoData.poi.length === 0) throw new Error('未找到附近潮汐站点');
+        if (geoData.code !== '200' || !geoData.poi || geoData.poi.length === 0) {
+            throw new Error('未找到附近潮汐站点');
+        }
         const poiId = geoData.poi[0].id;
         const poiName = geoData.poi[0].name || '附近海域';
 
@@ -274,7 +268,9 @@ async function fetchTideData(lon, lat) {
                 const tideUrl = `https://${APIhost}/v7/ocean/tide?location=${poiId}&date=${date}&key=${QWEATHER_KEY}`;
                 const tideRes = await fetch(tideUrl);
                 const tideData = await tideRes.json();
-                if (tideData.code === '200' && tideData.tideHourly) allHourly = allHourly.concat(tideData.tideHourly);
+                if (tideData.code === '200' && tideData.tideHourly) {
+                    allHourly = allHourly.concat(tideData.tideHourly);
+                }
             }
         }
         if (allHourly.length === 0) throw new Error('无潮汐数据');
@@ -321,6 +317,11 @@ function renderTideChart(tideHourly) {
     const highlightIndex = currentIndex - start;
 
     if (tideChartInstance) tideChartInstance.destroy();
+
+    // 为数据集准备数组形式的 pointRadius 和 pointBackgroundColor（Chart.js v4 推荐）
+    const pointRadiusArr = values.map((_, idx) => idx === highlightIndex ? 6 : 3);
+    const pointBgColorArr = values.map((_, idx) => idx === highlightIndex ? '#ff0000' : '#1890ff');
+
     const ctx = canvas.getContext('2d');
     tideChartInstance = new Chart(ctx, {
         type: 'line',
@@ -332,11 +333,15 @@ function renderTideChart(tideHourly) {
                 backgroundColor: 'rgba(24,144,255,0.1)',
                 tension: 0.3,
                 fill: true,
-                pointRadius: (ctx, p) => p.dataIndex === highlightIndex ? 6 : 3,
-                pointBackgroundColor: (ctx, p) => p.dataIndex === highlightIndex ? '#ff0000' : '#1890ff'
+                pointRadius: pointRadiusArr,
+                pointBackgroundColor: pointBgColorArr
             }]
         },
-        options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } } }
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: { legend: { display: false } }
+        }
     });
 }
 

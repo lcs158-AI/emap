@@ -1,26 +1,23 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Cesium 地球 </title>
-    <!-- Cesium 样式（必须） -->
+    <title>Cesium 地球 - 照片点/定位/潮汐/测量</title>
+    <!-- Cesium 本地样式 -->
     <link rel="stylesheet" href="libs/cesium/Widgets/widgets.css">
     <!-- 自定义样式 -->
     <link rel="stylesheet" href="css/global.css">
-    <!-- Chart.js（用于潮汐曲线） -->
+    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <!-- Cesium 核心库（必须） -->
+    <!-- Cesium 本地库 -->
     <script src="libs/cesium/Cesium.js"></script>
-
 </head>
-
 <body>
     <div id="cesiumContainer"></div>
     <div class="toolbar">
         <button id="locateBtn">📍</button>
-        <button id="toggleAnnotationBtn" class="action-btn" data-title="切换标注">🏷️</button>
+        <button id="toggleAnnotationBtn">🏷️</button>
         <button id="measureBtn">📏</button>
         <button id="tideBtn">🌊</button>
     </div>
@@ -41,15 +38,14 @@
 
     <!-- 全局配置 -->
     <script>
-        // 天地图密钥（保留但不使用，可保留）
         const TIANDITU_KEY = '4110bba1f23cd04ed33e43ab12a291fc';
-        // 和风天气密钥
         const keyPart1 = 'ebd9161a';
         const keyPart2 = '4eda4f3ebbcc';
         const keyPart3 = '3f3977d64820';
         const QWEATHER_KEY = keyPart1 + keyPart2 + keyPart3;
         const APIhost = 'mg2tupq435.re.qweatherapi.com';
-        // 照片点数据
+        // 初始位置：[经度, 纬度, 高度(米)]
+        const initCenter = [111.18, 21.48, 5000];
         const photoPoints = {
             "type": "FeatureCollection",
             "features": [
@@ -57,13 +53,9 @@
                 { "type": "Feature", "geometry": { "type": "Point", "coordinates": [111.116915, 21.467190] }, "properties": { "DD": "滨海旅游公路", "MC": "IMG_20260226_164817880.jpg" } }
             ]
         };
-        //初始化位置及高度
-        const initCenter = [111.18, 21.48, 5000];
-
     </script>
     <!-- 引入通用工具和 Cesium 核心逻辑 -->
     <script src="js/utils.js"></script>
     <script src="js/global.js"></script>
 </body>
-
 </html>
