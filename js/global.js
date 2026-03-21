@@ -1,66 +1,22 @@
 // ==================== 初始化 Cesium ====================
-Cesium.Ion.defaultAccessToken = '';
+// 替换为您的 Cesium Ion Token
+Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI3NzVhMzE5My0zNWU2LTQ1ZDYtYTI2MC05N2EzOTBhNDgxYzgiLCJpZCI6NDA3MDg1LCJpYXQiOjE3NzQxMDMyNjV9.PLB9fgVKv_MZLTFwzwMOea4W2uaAT8MT1w0pYcFuRZU';
 
-// 地形提供者（兼容处理）
-let terrainProvider;
-if (typeof Cesium.createWorldTerrain === 'function') {
-    terrainProvider = Cesium.createWorldTerrain();
-} else {
-    console.warn('Cesium.createWorldTerrain not available, using default.');
-    terrainProvider = new Cesium.EllipsoidTerrainProvider();
-}
-
+// 配置 Viewer，关闭不必要的控件，减少网络请求
 const viewer = new Cesium.Viewer('cesiumContainer', {
-    baseLayerPicker: false,
-    imageryProvider: false,
-    terrainProvider: terrainProvider,
+    baseLayerPicker: false,      // 隐藏图层选择器
     animation: false,
     timeline: false,
     infoBox: false,
     selectionIndicator: false,
     navigationHelpButton: false,
     homeButton: false,
-    fullscreenButton: false
-});
-
-// 1. 天地图影像底图（使用 UrlTemplateImageryProvider + Web Mercator）
-const tiandituProvider = new Cesium.UrlTemplateImageryProvider({
-    url: `https://t0.tianditu.gov.cn/img_w/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=img&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&TileMatrix={z}&TileCol={x}&TileRow={y}&tk=${TIANDITU_KEY}`,
-    subdomains: ['0', '1', '2', '3', '4', '5', '6', '7'],
-    maximumLevel: 18,
-    tilingScheme: new Cesium.WebMercatorTilingScheme()
-});
-viewer.imageryLayers.addImageryProvider(tiandituProvider);
-
-// 天地图注记层
-const annotationProvider = new Cesium.UrlTemplateImageryProvider({
-    url: `https://t0.tianditu.gov.cn/cva_w/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=cva&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&TileMatrix={z}&TileCol={x}&TileRow={y}&tk=${TIANDITU_KEY}`,
-    subdomains: ['0', '1', '2', '3', '4', '5', '6', '7'],
-    maximumLevel: 18,
-    tilingScheme: new Cesium.WebMercatorTilingScheme()
-});
-viewer.imageryLayers.addImageryProvider(annotationProvider);
-
-// 2. Esri 影像图层（备用）
-let esriLayer = null;
-let esriVisible = false;
-async function initEsriLayer() {
-    if (esriLayer) return;
-    const provider = await Cesium.ArcGisMapServerImageryProvider.fromUrl(
-        'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer'
-    );
-    esriLayer = viewer.imageryLayers.addImageryProvider(provider);
-    esriLayer.show = false;
-}
-initEsriLayer();
-
-document.getElementById('toggleEsriBtn').addEventListener('click', async () => {
-    if (!esriLayer) await initEsriLayer();
-    if (esriLayer) {
-        esriVisible = !esriVisible;
-        esriLayer.show = esriVisible;
-        document.getElementById('toggleEsriBtn').textContent = esriVisible ? '🗺️ 关闭 Esri' : '🗺️ 切换 Esri';
-    }
+    fullscreenButton: false,
+    // 可选：关闭星空和大气效果（加快加载）
+    skyBox: false,
+    skyAtmosphere: false,
+    // 使用椭球体地形，避免加载地形数据（加快加载）
+    terrainProvider: new Cesium.EllipsoidTerrainProvider()
 });
 
 // ==================== 添加照片点实体 ====================
@@ -94,7 +50,7 @@ photoPoints.features.forEach(feature => {
     entities.push(entity);
 });
 
-// 悬浮提示
+// 悬浮提示：鼠标移动时高亮最近点并显示标签
 let lastHighlighted = null;
 viewer.screenSpaceEventHandler.setInputAction(function (movement) {
     const picked = viewer.scene.pick(movement.endPosition);
@@ -117,7 +73,7 @@ viewer.screenSpaceEventHandler.setInputAction(function (movement) {
     }
 }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
 
-// 点击弹出照片
+// 点击弹出照片（使用浏览器 alert 简化，可替换为自定义弹窗）
 viewer.screenSpaceEventHandler.setInputAction(function (click) {
     const picked = viewer.scene.pick(click.position);
     if (Cesium.defined(picked) && picked.id && picked.id.properties) {
@@ -141,11 +97,11 @@ document.getElementById('locateBtn').addEventListener('click', () => {
                 },
                 duration: 2
             });
+            // 添加一个临时的蓝色圆点
             viewer.entities.add({
                 position: Cesium.Cartesian3.fromDegrees(longitude, latitude),
                 point: { pixelSize: 14, color: Cesium.Color.BLUE, outlineWidth: 2 },
-                id: 'tempLoc',
-                lifecycle: 5
+                id: 'tempLoc'
             });
             setTimeout(() => {
                 viewer.entities.removeById('tempLoc');
@@ -183,6 +139,7 @@ viewer.screenSpaceEventHandler.setInputAction(function (click) {
     const lon = Cesium.Math.toDegrees(cartographic.longitude);
     const lat = Cesium.Math.toDegrees(cartographic.latitude);
     points.push({ lon, lat, cartesian });
+    // 添加临时点标记
     const entity = viewer.entities.add({
         position: cartesian,
         point: { pixelSize: 8, color: Cesium.Color.ORANGE },
@@ -224,6 +181,7 @@ const tideBtn = document.getElementById('tideBtn');
 
 closeTideBtn.addEventListener('click', () => tidePanel.style.display = 'none');
 
+// 潮汐查询函数（与之前相同，依赖 utils.js 中的 getLocalDateStr 和和风 API）
 async function fetchTideData(lon, lat) {
     try {
         tidePanel.style.display = 'block';
