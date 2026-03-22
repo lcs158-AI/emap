@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Cesium 地球 - 照片点/定位/潮汐/测量</title>
+    <title>Cesium 地球</title>
     <!-- Cesium 本地样式 -->
     <link rel="stylesheet" href="libs/cesium/Widgets/widgets.css">
     <!-- 自定义样式 -->
@@ -13,6 +14,7 @@
     <!-- Cesium 本地库 -->
     <script src="libs/cesium/Cesium.js"></script>
 </head>
+
 <body>
     <div id="cesiumContainer"></div>
     <div class="toolbar">
@@ -45,7 +47,8 @@
         const QWEATHER_KEY = keyPart1 + keyPart2 + keyPart3;
         const APIhost = 'mg2tupq435.re.qweatherapi.com';
         // 初始位置：[经度, 纬度, 高度(米)]
-        const initCenter = [111.18, 21.48, 5000];
+        const initCenter = [111.18, 21.48, 5000, 45];   // 经度,纬度,高度,俯仰角
+        const offsetK = 0.8;                            // 偏移系数
         const photoPoints = {
             "type": "FeatureCollection",
             "features": [
@@ -58,4 +61,5 @@
     <script src="js/utils.js"></script>
     <script src="js/global.js"></script>
 </body>
+
 </html>

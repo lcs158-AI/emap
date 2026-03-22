@@ -28,6 +28,41 @@ const tiandituAnnotation = new Cesium.UrlTemplateImageryProvider({
 const annotationLayer = viewer.imageryLayers.addImageryProvider(tiandituAnnotation);
 annotationLayer.show = false; // 默认隐藏
 
+// 通用飞行函数：飞到 (lon, lat) 南方偏移后的位置
+// 偏移距离 = (高度 / tan(俯仰角)) * offsetK
+function flyToLocation(lon, lat, height, pitchDeg) {
+    const pitchRad = Cesium.Math.toRadians(pitchDeg);
+    const distance = (pitchRad === 0) ? 0 : height / Math.tan(pitchRad);   // 相机到地面投影点水平距离（米）
+    const offsetDistance = distance * offsetK;      // 实际偏移距离（米）
+    const offsetLat = offsetDistance / 111000;      // 1纬度≈111000米
+    const targetLat = lat - offsetLat;
+    viewer.camera.flyTo({
+        destination: Cesium.Cartesian3.fromDegrees(lon, targetLat, height),
+        orientation: {
+            heading: 0,
+            pitch: -pitchRad,
+            roll: 0
+        },
+        duration: 2
+    });
+}
+
+// 添加或更新用户位置蓝点（永久显示）
+function updateUserLocation(lon, lat) {
+    const existing = viewer.entities.getById('userLocation');
+    if (existing) viewer.entities.remove(existing);
+    viewer.entities.add({
+        position: Cesium.Cartesian3.fromDegrees(lon, lat),
+        point: {
+            pixelSize: 14,
+            color: Cesium.Color.BLUE,
+            outlineColor: Cesium.Color.WHITE,
+            outlineWidth: 2
+        },
+        id: 'userLocation'
+    });
+}
+
 // 切换标注按钮
 document.getElementById('toggleAnnotationBtn').addEventListener('click', () => {
     annotationLayer.show = !annotationLayer.show;
@@ -35,18 +70,12 @@ document.getElementById('toggleAnnotationBtn').addEventListener('click', () => {
 });
 
 // ==================== 启动后跳转到指定位置 ====================
-if (initCenter && initCenter.length >= 3) {
-    viewer.camera.flyTo({
-        destination: Cesium.Cartesian3.fromDegrees(initCenter[0], initCenter[1], initCenter[2]),
-        orientation: { heading: 0, pitch: -Cesium.Math.toRadians(45), roll: 0 },
-        duration: 1.5
-    });
+if (initCenter && initCenter.length >= 4) {
+    const [lon, lat, height, pitch] = initCenter;
+    flyToLocation(lon, lat, height, pitch);
+    //updateUserLocation(lon, lat);   // 可同时显示蓝点（可选）
 } else {
-    viewer.camera.flyTo({
-        destination: Cesium.Cartesian3.fromDegrees(111.18, 21.48, 5000),
-        orientation: { heading: 0, pitch: -Cesium.Math.toRadians(45), roll: 0 },
-        duration: 1.5
-    });
+    flyToLocation(113.5, 22.5, 20000, 45);
 }
 
 // ==================== 照片点实体 ====================
@@ -113,22 +142,16 @@ viewer.screenSpaceEventHandler.setInputAction(function (click) {
     }
 }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
+
 // ==================== 定位功能 ====================
+// 定位按钮点击事件
 document.getElementById('locateBtn').addEventListener('click', () => {
     if ('geolocation' in navigator) {
         navigator.geolocation.getCurrentPosition(pos => {
             const { longitude, latitude } = pos.coords;
-            viewer.camera.flyTo({
-                destination: Cesium.Cartesian3.fromDegrees(longitude, latitude, 1000),
-                orientation: { heading: 0, pitch: -Cesium.Math.toRadians(45), roll: 0 },
-                duration: 2
-            });
-            viewer.entities.add({
-                position: Cesium.Cartesian3.fromDegrees(longitude, latitude),
-                point: { pixelSize: 14, color: Cesium.Color.BLUE, outlineWidth: 2 },
-                id: 'tempLoc'
-            });
-            setTimeout(() => viewer.entities.removeById('tempLoc'), 5000);
+            // 使用与初始视角相同的高度和俯仰角（也可从配置读取）
+            flyToLocation(longitude, latitude, 5000, 45);
+            updateUserLocation(longitude, latitude);
             document.getElementById('locateBtn').classList.add('active');
         }, err => alert('获取位置失败: ' + err.message));
     } else {
