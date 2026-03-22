@@ -4,11 +4,9 @@ Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOi
 
 // ==================== 初始化 Cesium ====================
 
-
-// 创建 Viewer，不设置地形（稍后动态设置）
 const viewer = new Cesium.Viewer('cesiumContainer', {
     baseLayerPicker: false,
-    // 不设置 terrain 或 terrainProvider，让动态代码接管
+    terrainProvider: new Cesium.EllipsoidTerrainProvider(), // 先使用平面地形
     animation: false,
     timeline: false,
     infoBox: false,
@@ -20,44 +18,14 @@ const viewer = new Cesium.Viewer('cesiumContainer', {
     skyAtmosphere: false
 });
 
-// ==================== 动态地形细节控制 ====================
-let currentMaxLevel = 12;
-const targetMaxLevel = 15;
-const heightThreshold = 5000;
-let terrainSwitchTimer = null;
-
-function createTerrainProvider(maxLevel) {
-    return Cesium.Terrain.fromWorldTerrain({
+// 延迟加载三维地形
+setTimeout(() => {
+    viewer.terrainProvider = Cesium.Terrain.fromWorldTerrain({
         requestVertexNormals: true,
         requestWaterMask: true,
-        maximumLevel: maxLevel,
-        terrainExaggeration: 1   // 降低地形起伏，让市区更平滑
+        maximumLevel: 14   // 限制细节级别
     });
-}
-
-// 设置初始地形（低细节）
-viewer.terrainProvider = createTerrainProvider(currentMaxLevel);
-
-// 监听相机高度变化
-viewer.camera.changed.addEventListener(() => {
-    const height = viewer.camera.positionCartographic.height;
-    let newMaxLevel = currentMaxLevel;
-
-    if (height < heightThreshold && currentMaxLevel < targetMaxLevel) {
-        newMaxLevel = targetMaxLevel;
-    } else if (height >= heightThreshold && currentMaxLevel > targetMaxLevel) {
-        newMaxLevel = targetMaxLevel; // 注意：这里逻辑可能需要调整，若想升到高细节后不再降级可改为不降
-    }
-
-    if (newMaxLevel !== currentMaxLevel && !terrainSwitchTimer) {
-        terrainSwitchTimer = setTimeout(() => {
-            viewer.terrainProvider = createTerrainProvider(newMaxLevel);
-            currentMaxLevel = newMaxLevel;
-            terrainSwitchTimer = null;
-            console.log(`地形细节级别已切换至 ${newMaxLevel}`);
-        }, 500);
-    }
-});
+}, 2000); // 2秒后开始加载地形，用户无感知
 
 
 let userLocationVisible = false;
