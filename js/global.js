@@ -23,7 +23,7 @@ setTimeout(() => {
     viewer.terrainProvider = Cesium.Terrain.fromWorldTerrain({
         requestVertexNormals: true,
         requestWaterMask: true,
-        maximumLevel: 14   // 限制细节级别
+        maximumLevel: 12   // 限制细节级别
     });
 }, 2000); // 2秒后开始加载地形，用户无感知
 
