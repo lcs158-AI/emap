@@ -1,0 +1,73 @@
+{
+  "version": 1,
+  "map_center": [
+    113.8151892,
+    22.58735723
+  ],
+  "camera_altitude_km": 186.3762914,
+  "layers": [
+    {
+      "name": "anfang",
+      "tab_path": "C:\\个人\\自编程序\\readexif\\wor\\anfang.tab",
+      "geojson_path": "geojson/anfang.geojson",
+      "style": {
+        "point": {
+          "type": 41,
+          "color": 16711680,
+          "size": 6,
+          "font": "MapInfo Cartographic"
+        },
+        "line": {
+          "width": 1,
+          "color": 2,
+          "pattern": 0
+        },
+        "fill": {
+          "pattern": 2,
+          "foreground": 16777215,
+          "background": 16777215
+        }
+      },
+      "label_field": "FL",
+      "link_field": ""
+    },
+    {
+      "name": "landline",
+      "tab_path": "C:\\个人\\自编程序\\readexif\\wor\\landline.tab",
+      "geojson_path": "geojson/landline.geojson",
+      "style": {
+        "line": {
+          "width": 2,
+          "color": 2,
+          "pattern": 255
+        },
+        "fill": {
+          "pattern": 2,
+          "foreground": 16777215,
+          "background": 16777215
+        }
+      },
+      "label_field": "岸线二级类",
+      "link_field": ""
+    },
+    {
+      "name": "islandline",
+      "tab_path": "C:\\个人\\自编程序\\readexif\\wor\\islandline.tab",
+      "geojson_path": "geojson/islandline.geojson",
+      "style": {
+        "line": {
+          "width": 2,
+          "color": 2,
+          "pattern": 255
+        },
+        "fill": {
+          "pattern": 2,
+          "foreground": 16777215,
+          "background": 16777215
+        }
+      },
+      "label_field": "岸线二级类",
+      "link_field": ""
+    }
+  ]
+}

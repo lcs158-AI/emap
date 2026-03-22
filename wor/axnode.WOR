@@ -1,0 +1,42 @@
+!Workspace
+!Version  950
+!Charset WindowsSimpChinese
+Open Table "C:\个人\自编程序\readexif\wor\landline" As landline Interactive
+Open Table "C:\个人\自编程序\readexif\wor\islandline" As islandline Interactive
+Open Table "C:\个人\自编程序\readexif\wor\anfang" As anfang Interactive
+Map From anfang,landline,islandline
+  Position (0.666667,2.36458) Units "in"
+  Width 6.63542 Units "in" Height 3.04167 Units "in" 
+Set Window FrontWindow() ScrollBars Off Autoscroll On Enhanced On Smooth Text Antialias Image High
+Set Map
+  CoordSys Earth Projection 1, 104
+  Center (113.8151892,22.58735723)
+  Zoom 186.3762914 Units "km"
+  Preserve Zoom Display Zoom
+  Distance Units "km" Area Units "sq km" XY Units "degree"
+Set Map
+  Layer 1
+    Display Global
+    Global Pen (1,2,0) Brush (2,16777215,16777215) Symbol (41,16711680,6,"MapInfo Cartographic",0,0) Line (1,2,0) Font ("Tahoma",0,12,0)
+    Label Line Arrow Position Right Font ("Tahoma",0,12,0) Pen (1,2,0) 
+      With FL
+      Parallel On Auto Off Overlap Off Duplicates On Offset 2
+      Visibility On
+    Activate Using MC On Labels Relative Path Off
+  Layer 2
+    Display Global
+    Global Pen (1,2,0) Brush (2,16777215,16777215) Symbol (35,0,12) Line (2,2,255) Font ("Tahoma",0,12,0)
+    Label Line Arrow Position Above Font ("Tahoma",0,12,0) Pen (1,2,0) 
+      With 岸线二级类
+      Parallel On Auto Off Overlap Off Duplicates Off Offset 2
+      Visibility On
+  Layer 3
+    Display Global
+    Global Pen (1,2,0) Brush (2,16777215,16777215) Symbol (35,0,12) Line (2,2,255) Font ("Tahoma",0,12,0)
+    Label Line Arrow Position Above Font ("Tahoma",0,12,0) Pen (1,2,0) 
+      With 岸线二级类
+      Parallel On Auto Off Overlap Off Duplicates Off Offset 2
+      Visibility On
+Set Window FrontWindow() Printer
+ Name "HP Designjet T7100 Class Driver" Orientation Portrait Copies 1
+ Papersize 194

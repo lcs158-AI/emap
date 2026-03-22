@@ -41,24 +41,6 @@ esriImagery.setVisible(false);
 map.addLayer(vecLayer);
 map.addLayer(cvaLayer);
 
-// 照片点图层
-const vectorSource = new ol.source.Vector({
-    features: new ol.format.GeoJSON().readFeatures(photoPoints, {
-        dataProjection: 'EPSG:4326', featureProjection: 'EPSG:3857'
-    })
-});
-const vectorLayer = new ol.layer.Vector({
-    source: vectorSource,
-    style: new ol.style.Style({
-        image: new ol.style.Circle({
-            radius: 8,
-            fill: new ol.style.Fill({ color: 'rgba(255,0,0,0.8)' }),
-            stroke: new ol.style.Stroke({ color: '#ffffff', width: 2 })
-        })
-    })
-});
-map.addLayer(vectorLayer);
-
 // ----- 悬浮提示 -----
 let tooltip = null;
 if (!isTouchDevice) {
@@ -69,15 +51,27 @@ if (!isTouchDevice) {
     map.addOverlay(tooltip);
     tooltip.getElement().style.display = 'none';
     map.on('pointermove', function(evt) {
+        if (measureActive) return;
+
         const pixel = map.getEventPixel(evt.originalEvent);
         const feature = map.forEachFeatureAtPixel(pixel, f => f);
         if (feature) {
-            const ddValue = feature.get('DD');
-            const coord = feature.getGeometry().getCoordinates();
-            tooltip.setPosition(coord);
-            tooltip.getElement().innerHTML = ddValue;
-            tooltip.getElement().style.display = 'block';
-            map.getTargetElement().style.cursor = 'pointer';
+            // 优先使用动态图层的标注字段
+            const layer = feature.get('layer');
+            let text = null;
+            if (layer && layer.labelField) {
+                text = feature.get(layer.labelField);
+            } else {
+                // 兼容旧点（已无）
+                text = feature.get('DD');
+            }
+            if (text) {
+                const coord = feature.getGeometry().getCoordinates();
+                tooltip.setPosition(coord);
+                tooltip.getElement().innerHTML = text;
+                tooltip.getElement().style.display = 'block';
+                map.getTargetElement().style.cursor = 'pointer';
+            }
         } else {
             tooltip.setPosition(undefined);
             tooltip.getElement().style.display = 'none';
@@ -106,18 +100,39 @@ map.on('click', function(evt) {
 
         const props = feature.getProperties();
         const coord = feature.getGeometry().getCoordinates();
-        if (props.MC) {
-            const imgSrc = `/pics/${props.MC}`;
-            const content = `
+        let content = '';
+
+        // 优先使用动态图层的链接字段
+        const layer = feature.get('layer');
+        if (layer && layer.linkField) {
+            const imgFile = feature.get(layer.linkField);
+            if (imgFile) {
+                content = `
+                    <div class="popup-content">
+                        <b>${feature.get(layer.labelField) || ''}</b><br>
+                        <img src="/pics/${imgFile}" alt="照片" onerror="this.onerror=null; this.src='https://via.placeholder.com/250x150?text=图片未找到';">
+                    </div>
+                `;
+            } else {
+                content = `<div><b>${feature.get(layer.labelField) || '要素'}</b></div>`;
+            }
+        } else if (props.MC) {
+            // 兼容旧照片点（已无）
+            content = `
                 <div class="popup-content">
                     <b>${props.DD}</b><br>
-                    <img src="${imgSrc}" alt="照片" onerror="this.onerror=null; this.src='https://via.placeholder.com/250x150?text=图片未找到';">
+                    <img src="/pics/${props.MC}" alt="照片" onerror="this.onerror=null; this.src='https://via.placeholder.com/250x150?text=图片未找到';">
                 </div>
             `;
-            popup.getElement().innerHTML = content;
-            popup.setPosition(coord);
-            popup.getElement().style.display = 'block';
+        } else if (props.DD) {
+            content = `<div><b>${props.DD}</b></div>`;
+        } else {
+            content = `<div><b>要素信息</b></div>`;
         }
+
+        popup.getElement().innerHTML = content;
+        popup.setPosition(coord);
+        popup.getElement().style.display = 'block';
     } else {
         popup.setPosition(undefined);
         popup.getElement().style.display = 'none';
@@ -509,4 +524,166 @@ function renderTideChart(tideHourly, useFullData = false) {
     });
 }
 
-console.log('地图加载完成，照片点数量：', photoPoints.features.length);
+// ==================== 动态图层加载（基于 JSON 配置） ====================
+/**
+ * 将 MapInfo 颜色整数转换为 rgba 字符串
+ */
+function rgbFromMapInfoColor(colorInt, alpha = 1) {
+    const r = (colorInt >> 16) & 0xFF;
+    const g = (colorInt >> 8) & 0xFF;
+    const b = colorInt & 0xFF;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+/**
+ * 根据 MapInfo 样式配置生成 OpenLayers 样式函数（支持 Emoji 图标）
+ */
+function createStyleFromConfig(styleConfig) {
+    // 默认样式参数
+    const pointConfig = styleConfig?.point || {};
+    const lineConfig = styleConfig?.line || {};
+    const fillConfig = styleConfig?.fill || {};
+
+    const defaultRadius = pointConfig.size / 2 || 6;
+    const defaultColor = rgbFromMapInfoColor(pointConfig.color || 0x000000);
+
+    // 线样式（预定义）
+    const lineStyle = lineConfig.color ? new ol.style.Style({
+        stroke: new ol.style.Stroke({
+            color: rgbFromMapInfoColor(lineConfig.color),
+            width: lineConfig.width || 1,
+            lineDash: lineConfig.pattern === 2 ? [4, 4] : undefined
+        })
+    }) : null;
+
+    // 面样式（预定义）
+    const fillStyle = fillConfig.foreground ? new ol.style.Style({
+        fill: new ol.style.Fill({
+            color: rgbFromMapInfoColor(fillConfig.foreground, 0.6)
+        }),
+        stroke: new ol.style.Stroke({
+            color: rgbFromMapInfoColor(fillConfig.background || 0x000000),
+            width: 1
+        })
+    }) : null;
+
+    // 返回样式函数
+    return function(feature) {
+        const geometryType = feature.getGeometry().getType();
+        const styles = [];
+
+        // 处理点要素
+        if (geometryType === 'Point') {
+            const sj = feature.get('SJ'); // 获取 SJ 字段值
+            let imageStyle;
+
+            if (sj === 'phone_pic') {
+                imageStyle = new ol.style.Text({
+                    text: '📷',  // 相机 Emoji
+                    font: '20px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif',
+                    fill: new ol.style.Fill({ color: defaultColor }),
+                    offsetY: -12  // 向上偏移，使点位置位于图标底部中心
+                });
+            } else if (sj === 'plane_pic') {
+                imageStyle = new ol.style.Text({
+                    text: '✈️',  // 飞机 Emoji
+                    font: '20px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif',
+                    fill: new ol.style.Fill({ color: defaultColor }),
+                    offsetY: -12
+                });
+            } else {
+                // 默认圆点
+                imageStyle = new ol.style.Circle({
+                    radius: defaultRadius,
+                    fill: new ol.style.Fill({ color: defaultColor }),
+                    stroke: new ol.style.Stroke({ color: '#ffffff', width: 2 })
+                });
+            }
+            styles.push(new ol.style.Style({ image: imageStyle }));
+        }
+
+        // 处理线要素
+        if (lineStyle && (geometryType === 'LineString' || geometryType === 'MultiLineString')) {
+            styles.push(lineStyle);
+        }
+
+        // 处理面要素
+        if (fillStyle && (geometryType === 'Polygon' || geometryType === 'MultiPolygon')) {
+            styles.push(fillStyle);
+        }
+
+        // 如果没有匹配任何样式，返回空样式（避免报错）
+        if (styles.length === 0) {
+            styles.push(new ol.style.Style());
+        }
+
+        return styles;
+    };
+}
+
+async function loadLayersFromConfig() {
+    try {
+        const response = await fetch('data/axnode_config.json');
+        if (!response.ok) throw new Error('配置文件加载失败');
+        const config = await response.json();
+
+        // 设置地图初始视图（可选，也可保留原有 initCenter/initZoom）
+        if (config.map_center && config.map_center.length === 2) {
+            const center = ol.proj.fromLonLat(config.map_center);
+            map.getView().setCenter(center);
+            if (config.camera_altitude_km) {
+                // 粗略转换：相机高度 km -> zoom
+                const zoom = Math.max(3, Math.min(18, 14 - Math.log2(config.camera_altitude_km / 10)));
+                map.getView().setZoom(zoom);
+            }
+        }
+
+        // 遍历图层
+        for (const layerConfig of config.layers) {
+            if (!layerConfig.geojson_path) continue;
+
+            // 加载 GeoJSON
+            const geoJsonUrl = layerConfig.geojson_path;
+            const geoJsonResponse = await fetch(geoJsonUrl);
+            const geoJson = await geoJsonResponse.json();
+
+            // 转换为 OpenLayers 要素
+            const features = new ol.format.GeoJSON().readFeatures(geoJson, {
+                dataProjection: 'EPSG:4326',
+                featureProjection: 'EPSG:3857'
+            });
+
+            // 为每个要素附加图层配置（用于交互）
+            features.forEach(f => {
+                f.set('layer', {
+                    labelField: layerConfig.label_field || '',
+                    linkField: layerConfig.link_field || ''
+                });
+            });
+
+            const source = new ol.source.Vector({ features });
+
+            // 创建样式函数
+            const style = createStyleFromConfig(layerConfig.style);
+            const vectorLayer = new ol.layer.Vector({
+                source: source,
+                style: style,
+                properties: {
+                    labelField: layerConfig.label_field || '',
+                    linkField: layerConfig.link_field || ''
+                }
+            });
+            map.addLayer(vectorLayer);
+        }
+
+        console.log('动态图层加载完成');
+    } catch (err) {
+        console.error('加载配置文件失败:', err);
+    }
+}
+
+// 启动动态图层加载（放在所有初始化之后）
+loadLayersFromConfig();
+
+// 原日志（已移除 photoPoints 引用）
+console.log('地图加载完成');
