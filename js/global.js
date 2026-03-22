@@ -2,10 +2,12 @@
 // 设置 Cesium Ion 默认 token（已填回）
 Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI3NzVhMzE5My0zNWU2LTQ1ZDYtYTI2MC05N2EzOTBhNDgxYzgiLCJpZCI6NDA3MDg1LCJpYXQiOjE3NzQxMDMyNjV9.PLB9fgVKv_MZLTFwzwMOea4W2uaAT8MT1w0pYcFuRZU';
 
+// ==================== 初始化 Cesium ====================
+Cesium.Ion.defaultAccessToken = '您的 token 字符串';
+
 const viewer = new Cesium.Viewer('cesiumContainer', {
     baseLayerPicker: false,
-    // 不设置 imageryProvider: false，让 Viewer 自动加载默认底图
-     terrain: Cesium.Terrain.fromWorldTerrain(), // 启用全球三维地形
+    terrainProvider: new Cesium.EllipsoidTerrainProvider(), // 先使用平面地形
     animation: false,
     timeline: false,
     infoBox: false,
@@ -16,6 +18,15 @@ const viewer = new Cesium.Viewer('cesiumContainer', {
     skyBox: false,
     skyAtmosphere: false
 });
+
+// 延迟加载三维地形
+setTimeout(() => {
+    viewer.terrainProvider = Cesium.Terrain.fromWorldTerrain({
+        requestVertexNormals: true,
+        requestWaterMask: true,
+        maximumLevel: 15   // 限制细节级别
+    });
+}, 2000); // 2秒后开始加载地形，用户无感知
 
 
 let userLocationVisible = false;
