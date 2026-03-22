@@ -5,7 +5,7 @@ Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOi
 const viewer = new Cesium.Viewer('cesiumContainer', {
     baseLayerPicker: false,
     // 不设置 imageryProvider: false，让 Viewer 自动加载默认底图
-    terrainProvider: Cesium.createWorldTerrain(),  // 启用真实地形
+     terrain: Cesium.Terrain.fromWorldTerrain(), // 启用全球三维地形
     animation: false,
     timeline: false,
     infoBox: false,
@@ -16,6 +16,7 @@ const viewer = new Cesium.Viewer('cesiumContainer', {
     skyBox: false,
     skyAtmosphere: false
 });
+
 
 let userLocationVisible = false;
 // 默认底图自动加载，不需要手动添加 IonImageryProvider
