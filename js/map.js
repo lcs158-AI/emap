@@ -539,7 +539,6 @@ function rgbFromMapInfoColor(colorInt, alpha = 1) {
  * 根据 MapInfo 样式配置生成 OpenLayers 样式函数（支持 Emoji 图标）
  */
 function createStyleFromConfig(styleConfig) {
-    // 默认样式参数
     const pointConfig = styleConfig?.point || {};
     const lineConfig = styleConfig?.line || {};
     const fillConfig = styleConfig?.fill || {};
@@ -574,32 +573,39 @@ function createStyleFromConfig(styleConfig) {
 
         // 处理点要素
         if (geometryType === 'Point') {
-            const sj = feature.get('SJ'); // 获取 SJ 字段值
-            let imageStyle;
+            const sj = feature.get('SJ');
+            let styleObj;
 
             if (sj === 'phone_pic') {
-                imageStyle = new ol.style.Text({
-                    text: '📷',  // 相机 Emoji
-                    font: '20px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif',
-                    fill: new ol.style.Fill({ color: defaultColor }),
-                    offsetY: -12  // 向上偏移，使点位置位于图标底部中心
+                // 使用文本样式（Emoji）
+                styleObj = new ol.style.Style({
+                    text: new ol.style.Text({
+                        text: '📷',
+                        font: '20px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif',
+                        fill: new ol.style.Fill({ color: defaultColor }),
+                        offsetY: -12
+                    })
                 });
             } else if (sj === 'plane_pic') {
-                imageStyle = new ol.style.Text({
-                    text: '✈️',  // 飞机 Emoji
-                    font: '20px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif',
-                    fill: new ol.style.Fill({ color: defaultColor }),
-                    offsetY: -12
+                styleObj = new ol.style.Style({
+                    text: new ol.style.Text({
+                        text: '✈️',
+                        font: '20px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif',
+                        fill: new ol.style.Fill({ color: defaultColor }),
+                        offsetY: -12
+                    })
                 });
             } else {
                 // 默认圆点
-                imageStyle = new ol.style.Circle({
-                    radius: defaultRadius,
-                    fill: new ol.style.Fill({ color: defaultColor }),
-                    stroke: new ol.style.Stroke({ color: '#ffffff', width: 2 })
+                styleObj = new ol.style.Style({
+                    image: new ol.style.Circle({
+                        radius: defaultRadius,
+                        fill: new ol.style.Fill({ color: defaultColor }),
+                        stroke: new ol.style.Stroke({ color: '#ffffff', width: 2 })
+                    })
                 });
             }
-            styles.push(new ol.style.Style({ image: imageStyle }));
+            styles.push(styleObj);
         }
 
         // 处理线要素
