@@ -9,7 +9,8 @@ Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOi
 const viewer = new Cesium.Viewer('cesiumContainer', {
     baseLayerPicker: false,          // 隐藏底图选择器
     imageryProvider: false,          // 关键！禁用默认的 Cesium Ion 影像
-    terrainProvider: new Cesium.EllipsoidTerrainProvider(), // 平面地形（可后续升级）
+    //terrainProvider: new Cesium.EllipsoidTerrainProvider(), // 平面地形（可后续升级）
+    terrain: Cesium.Terrain.fromWorldTerrain(),
     animation: false,                // 隐藏动画控件
     timeline: false,                 // 隐藏时间线
     infoBox: false,                  // 隐藏信息框
@@ -48,42 +49,6 @@ const tiandituAnnotation = new Cesium.UrlTemplateImageryProvider({
 });
 const annotationLayer = viewer.imageryLayers.addImageryProvider(tiandituAnnotation);
 annotationLayer.show = false; // 默认隐藏
-
-// ==================== 渐进式三维地形加载 ====================
-let currentTerrainLevel = 0; // 0:平面, 1:低细节三维, 2:高细节三维
-let terrainSwitchTimer = null;
-
-// 创建低细节三维地形（加载快，地形平滑，市区不崎岖）
-function createLowDetailTerrain() {
-    return Cesium.Terrain.fromWorldTerrain({
-        requestVertexNormals: true,
-        requestWaterMask: true,
-        maximumLevel: 12,
-        terrainExaggeration: 1   // 降低起伏，市区更平缓
-    });
-}
-
-// 创建高细节三维地形（适合拉近观察）
-function createHighDetailTerrain() {
-    return Cesium.Terrain.fromWorldTerrain({
-        requestVertexNormals: true,
-        requestWaterMask: true,
-        maximumLevel: 14,
-        terrainExaggeration: 1
-    });
-}
-
-// 延迟加载低细节三维地形（让用户先看到平面地图）
-setTimeout(() => {
-    if (currentTerrainLevel === 0) {
-        viewer.terrainProvider = createLowDetailTerrain();
-        currentTerrainLevel = 1;
-        console.log('已切换到低细节三维地形');
-    }
-}, 2000); // 可根据需要调整延迟时间
-
-//删除监听代码试试
-
 
 // 通用飞行函数：飞到 (lon, lat) 南方偏移后的位置
 // 偏移距离 = (高度 / tan(俯仰角)) * offsetK
