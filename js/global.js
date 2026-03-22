@@ -4,9 +4,13 @@ Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOi
 
 // ==================== 初始化 Cesium ====================
 
+// ==================== 初始化 Cesium ====================
+Cesium.Ion.defaultAccessToken = '您的 token 字符串';  // 仍然需要，因为地形服务可能使用
+
 const viewer = new Cesium.Viewer('cesiumContainer', {
     baseLayerPicker: false,
-    terrainProvider: new Cesium.EllipsoidTerrainProvider(), // 先使用平面地形
+    imageryProvider: false,   // 禁用默认底图
+    terrainProvider: new Cesium.EllipsoidTerrainProvider(), // 先使用平面地形（可后续升级）
     animation: false,
     timeline: false,
     infoBox: false,
@@ -18,15 +22,13 @@ const viewer = new Cesium.Viewer('cesiumContainer', {
     skyAtmosphere: false
 });
 
-// 延迟加载三维地形
-//setTimeout(() => {
-//    viewer.terrainProvider = Cesium.Terrain.fromWorldTerrain({
-//        requestVertexNormals: true,
-//        requestWaterMask: true,
-//        maximumLevel: 12   // 限制细节级别
-//    });
-//}, 2000); // 2秒后开始加载地形，用户无感知
-
+// 添加 Esri 影像底图（与平面地图相同的 URL）
+const esriImagery = new Cesium.UrlTemplateImageryProvider({
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    maximumLevel: 19,
+    tilingScheme: new Cesium.WebMercatorTilingScheme()
+});
+viewer.imageryLayers.addImageryProvider(esriImagery);
 
 let userLocationVisible = false;
 // 默认底图自动加载，不需要手动添加 IonImageryProvider
@@ -39,6 +41,16 @@ const tiandituAnnotation = new Cesium.UrlTemplateImageryProvider({
 });
 const annotationLayer = viewer.imageryLayers.addImageryProvider(tiandituAnnotation);
 annotationLayer.show = false; // 默认隐藏
+
+// 延迟加载三维地形
+//setTimeout(() => {
+//    viewer.terrainProvider = Cesium.Terrain.fromWorldTerrain({
+//        requestVertexNormals: true,
+//        requestWaterMask: true,
+//        maximumLevel: 12   // 限制细节级别
+//    });
+//}, 2000); // 2秒后开始加载地形，用户无感知
+
 
 // 通用飞行函数：飞到 (lon, lat) 南方偏移后的位置
 // 偏移距离 = (高度 / tan(俯仰角)) * offsetK
