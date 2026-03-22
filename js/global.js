@@ -17,6 +17,7 @@ const viewer = new Cesium.Viewer('cesiumContainer', {
     skyAtmosphere: false
 });
 
+let userLocationVisible = false;
 // 默认底图自动加载，不需要手动添加 IonImageryProvider
 // 直接叠加天地图注记层（默认隐藏）
 const tiandituAnnotation = new Cesium.UrlTemplateImageryProvider({
@@ -146,16 +147,25 @@ viewer.screenSpaceEventHandler.setInputAction(function (click) {
 // ==================== 定位功能 ====================
 // 定位按钮点击事件
 document.getElementById('locateBtn').addEventListener('click', () => {
-    if ('geolocation' in navigator) {
-        navigator.geolocation.getCurrentPosition(pos => {
-            const { longitude, latitude } = pos.coords;
-            // 使用与初始视角相同的高度和俯仰角（也可从配置读取）
-            flyToLocation(longitude, latitude, 5000, 45);
-            updateUserLocation(longitude, latitude);
-            document.getElementById('locateBtn').classList.add('active');
-        }, err => alert('获取位置失败: ' + err.message));
+    if (userLocationVisible) {
+        // 隐藏蓝点
+        const existing = viewer.entities.getById('userLocation');
+        if (existing) viewer.entities.remove(existing);
+        userLocationVisible = false;
+        document.getElementById('locateBtn').classList.remove('active');
     } else {
-        alert('浏览器不支持地理定位');
+        // 显示蓝点并定位
+        if ('geolocation' in navigator) {
+            navigator.geolocation.getCurrentPosition(pos => {
+                const { longitude, latitude } = pos.coords;
+                flyToLocation(longitude, latitude, 5000, 45);
+                updateUserLocation(longitude, latitude);
+                userLocationVisible = true;
+                document.getElementById('locateBtn').classList.add('active');
+            }, err => alert('获取位置失败: ' + err.message));
+        } else {
+            alert('浏览器不支持地理定位');
+        }
     }
 });
 

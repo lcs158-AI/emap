@@ -43,9 +43,11 @@ body, html {
     transform: scale(1.05);
 }
 .toolbar button.active {
-    background-color: #e6f7ff;
-    border-color: #1890ff;
-    color: #1890ff;
+    background-color: #1890ff;
+    border-color: #096dd9;
+    color: white;
+    box-shadow: 0 0 0 2px rgba(24,144,255,0.3);
+    transform: scale(0.98);
 }
 /* 潮汐面板 (左下角) */
 #tidePanel {
