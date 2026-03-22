@@ -19,13 +19,13 @@ const viewer = new Cesium.Viewer('cesiumContainer', {
 });
 
 // 延迟加载三维地形
-setTimeout(() => {
-    viewer.terrainProvider = Cesium.Terrain.fromWorldTerrain({
-        requestVertexNormals: true,
-        requestWaterMask: true,
-        maximumLevel: 12   // 限制细节级别
-    });
-}, 2000); // 2秒后开始加载地形，用户无感知
+//setTimeout(() => {
+//    viewer.terrainProvider = Cesium.Terrain.fromWorldTerrain({
+//        requestVertexNormals: true,
+//        requestWaterMask: true,
+//        maximumLevel: 12   // 限制细节级别
+//    });
+//}, 2000); // 2秒后开始加载地形，用户无感知
 
 
 let userLocationVisible = false;
