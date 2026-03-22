@@ -171,16 +171,18 @@ document.getElementById('locateBtn').addEventListener('click', () => {
 
 // ==================== 测量功能 ====================
 let measureActive = false;
-let points = [];
-let tempEntities = [];
+let points = [];           // 存储点坐标及位置
+let tempEntities = [];     // 存储所有临时实体（点、线）
+let totalDistance = 0;     // 当前折线总长度（米）
 const measureResultDiv = document.getElementById('measureResult');
 
 document.getElementById('measureBtn').addEventListener('click', () => {
     if (measureActive) {
-        // 退出测量模式
+        // 退出测量模式：清除所有临时实体，重置状态
         tempEntities.forEach(e => viewer.entities.remove(e));
         tempEntities = [];
         points = [];
+        totalDistance = 0;
         measureResultDiv.style.display = 'none';
         document.getElementById('measureBtn').classList.remove('active');
         measureActive = false;
@@ -190,12 +192,59 @@ document.getElementById('measureBtn').addEventListener('click', () => {
         measureResultDiv.style.display = 'block';
         measureResultDiv.textContent = '单击添加点，双击结束当前线段';
         document.getElementById('measureBtn').classList.add('active');
+        // 清空旧数据（以防残留）
         tempEntities.forEach(e => viewer.entities.remove(e));
         tempEntities = [];
         points = [];
+        totalDistance = 0;
     }
 });
 
+// 添加点并更新折线
+function addMeasurePoint(cartesian, lon, lat) {
+    const pointEntity = viewer.entities.add({
+        position: cartesian,
+        point: {
+            pixelSize: 12,
+            color: Cesium.Color.ORANGE,
+            outlineColor: Cesium.Color.BLACK,
+            outlineWidth: 1
+        },
+        label: {
+            text: `${points.length + 1}`,
+            font: '14px sans-serif',
+            pixelOffset: new Cesium.Cartesian2(0, -12),
+            fillColor: Cesium.Color.BLACK,
+            backgroundColor: Cesium.Color.WHITE,
+            style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+            outlineWidth: 1,
+            outlineColor: Cesium.Color.BLACK
+        }
+    });
+    tempEntities.push(pointEntity);
+
+    // 如果已有前一个点，添加线段并累计长度
+    if (points.length > 0) {
+        const prev = points[points.length - 1];
+        const lineEntity = viewer.entities.add({
+            polyline: {
+                positions: [prev.cartesian, cartesian],
+                width: 3,
+                material: Cesium.Color.BLUE,
+                clampToGround: false
+            }
+        });
+        tempEntities.push(lineEntity);
+        // 计算新线段长度并累加
+        const segmentLength = Cesium.Cartesian3.distance(prev.cartesian, cartesian);
+        totalDistance += segmentLength;
+        measureResultDiv.textContent = `总长度: ${totalDistance.toFixed(1)} 米`;
+    }
+
+    points.push({ cartesian, lon, lat });
+}
+
+// 单击添加点
 viewer.screenSpaceEventHandler.setInputAction(function (click) {
     if (!measureActive) return;
     let cartesian = viewer.scene.pickPosition(click.position);
@@ -206,39 +255,16 @@ viewer.screenSpaceEventHandler.setInputAction(function (click) {
     const cartographic = Cesium.Cartographic.fromCartesian(cartesian);
     const lon = Cesium.Math.toDegrees(cartographic.longitude);
     const lat = Cesium.Math.toDegrees(cartographic.latitude);
-    points.push({ lon, lat, cartesian });
-    const entity = viewer.entities.add({
-        position: cartesian,
-        point: {
-            pixelSize: 12,
-            color: Cesium.Color.ORANGE,
-            outlineColor: Cesium.Color.BLACK,
-            outlineWidth: 1
-        },
-        label: {
-            text: `${points.length}`,
-            font: '14px sans-serif',
-            pixelOffset: new Cesium.Cartesian2(0, -12),
-            fillColor: Cesium.Color.BLACK,
-            backgroundColor: Cesium.Color.WHITE,
-            style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-            outlineWidth: 1,
-            outlineColor: Cesium.Color.BLACK
-        }
-    });
-    tempEntities.push(entity);
-    if (points.length >= 2) {
-        const dist = Cesium.Cartesian3.distance(points[0].cartesian, points[1].cartesian);
-        measureResultDiv.textContent = `距离: ${dist.toFixed(1)} 米`;
-    }
+    addMeasurePoint(cartesian, lon, lat);
 }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
+// 双击结束当前线段（清除点线，但保持测量模式）
 viewer.screenSpaceEventHandler.setInputAction(function () {
     if (measureActive) {
-        // 双击结束当前线段，清除点和线，但不退出测量模式
         tempEntities.forEach(e => viewer.entities.remove(e));
         tempEntities = [];
         points = [];
+        totalDistance = 0;
         measureResultDiv.textContent = '单击添加点，双击结束当前线段';
     }
 }, Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
