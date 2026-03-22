@@ -56,15 +56,8 @@ if (!isTouchDevice) {
         const pixel = map.getEventPixel(evt.originalEvent);
         const feature = map.forEachFeatureAtPixel(pixel, f => f);
         if (feature) {
-            // 优先使用动态图层的标注字段
-            const layer = feature.get('layer');
-            let text = null;
-            if (layer && layer.labelField) {
-                text = feature.get(layer.labelField);
-            } else {
-                // 兼容旧点（已无）
-                text = feature.get('DD');
-            }
+            // 极简测试时，只显示“点”
+            const text = '点';
             if (text) {
                 const coord = feature.getGeometry().getCoordinates();
                 tooltip.setPosition(coord);
@@ -98,38 +91,8 @@ map.on('click', function(evt) {
     if (feature) {
         if (positionLayer && positionLayer.getSource().getFeatures().includes(feature)) return;
 
-        const props = feature.getProperties();
         const coord = feature.getGeometry().getCoordinates();
-        let content = '';
-
-        // 优先使用动态图层的链接字段
-        const layer = feature.get('layer');
-        if (layer && layer.linkField) {
-            const imgFile = feature.get(layer.linkField);
-            if (imgFile) {
-                content = `
-                    <div class="popup-content">
-                        <b>${feature.get(layer.labelField) || ''}</b><br>
-                        <img src="/pics/${imgFile}" alt="照片" onerror="this.onerror=null; this.src='https://via.placeholder.com/250x150?text=图片未找到';">
-                    </div>
-                `;
-            } else {
-                content = `<div><b>${feature.get(layer.labelField) || '要素'}</b></div>`;
-            }
-        } else if (props.MC) {
-            // 兼容旧照片点（已无）
-            content = `
-                <div class="popup-content">
-                    <b>${props.DD}</b><br>
-                    <img src="/pics/${props.MC}" alt="照片" onerror="this.onerror=null; this.src='https://via.placeholder.com/250x150?text=图片未找到';">
-                </div>
-            `;
-        } else if (props.DD) {
-            content = `<div><b>${props.DD}</b></div>`;
-        } else {
-            content = `<div><b>要素信息</b></div>`;
-        }
-
+        const content = `<div><b>要素</b></div>`;
         popup.getElement().innerHTML = content;
         popup.setPosition(coord);
         popup.getElement().style.display = 'block';
@@ -217,12 +180,12 @@ switchBtn.addEventListener('click', function() {
         vecLayer.setVisible(false);
         cvaLayer.setVisible(false);
         esriImagery.setVisible(true);
-        this.classList.add('active');   // 影像模式激活
+        this.classList.add('active');
     } else {
         vecLayer.setVisible(true);
         cvaLayer.setVisible(true);
         esriImagery.setVisible(false);
-        this.classList.remove('active'); // 矢量模式非激活
+        this.classList.remove('active');
     }
 });
 
@@ -268,7 +231,6 @@ function deactivateMeasurement() {
 }
 
 function activateMeasurement(type) {
-    console.log('activateMeasurement called, type:', type);
     if (typeof formatLength !== 'function') {
         console.error('formatLength 未定义');
         alert('测量功能初始化失败：工具函数缺失');
@@ -297,17 +259,12 @@ function activateMeasurement(type) {
     measureResult.style.display = 'block';
     measureResult.innerHTML = '单击加点，双击结束';
 
-    // 确保 measureLayer 存在且 source 可用
-    console.log('measureLayer source:', measureLayer.getSource());
-
     measureDraw = new ol.interaction.Draw({
         source: measureLayer.getSource(),
         type: type === 'length' ? 'LineString' : 'Polygon'
     });
-    console.log('measureDraw created:', measureDraw);
 
     measureDraw.on('drawstart', function(evt) {
-        console.log('drawstart event');
         const sketch = evt.feature;
         const listener = sketch.getGeometry().on('change', function(evt) {
             const geom = evt.target;
@@ -325,7 +282,6 @@ function activateMeasurement(type) {
     });
 
     measureDraw.on('drawend', function(evt) {
-        console.log('drawend event');
         const geom = evt.feature.getGeometry();
         if (type === 'length') {
             const length = ol.sphere.getLength(geom, { projection: 'EPSG:3857' });
@@ -337,7 +293,6 @@ function activateMeasurement(type) {
     });
 
     map.addInteraction(measureDraw);
-    console.log('interactions after add:', map.getInteractions().getArray());
 }
 
 measureLengthBtn.addEventListener('click', function() {
@@ -357,7 +312,6 @@ measureAreaBtn.addEventListener('click', function() {
 });
 
 // ==================== 潮汐功能 ====================
-// 获取DOM元素
 const tideBtn = document.getElementById('tideBtn');
 const tidePanel = document.getElementById('tidePanel');
 const closeTideBtn = document.getElementById('closeTideBtn');
@@ -456,7 +410,6 @@ tideBtn.addEventListener('click', async function() {
 let tideChartInstance = null;
 
 function renderTideChart(tideHourly, useFullData = false) {
-    console.log('renderTideChart 被调用，数据长度:', tideHourly.length, 'useFullData:', useFullData);
     if (!tideHourly || tideHourly.length === 0) return;
 
     const canvas = document.getElementById('tideChart');
@@ -505,7 +458,6 @@ function renderTideChart(tideHourly, useFullData = false) {
         data: {
             labels: labels,
             datasets: [{
-                label: '潮高 (米)',
                 data: values,
                 borderColor: '#1890ff',
                 backgroundColor: 'rgba(24,144,255,0.1)',
@@ -524,10 +476,8 @@ function renderTideChart(tideHourly, useFullData = false) {
     });
 }
 
-// ==================== 动态图层加载（基于 JSON 配置） ====================
-/**
- * 将 MapInfo 颜色整数转换为 rgba 字符串
- */
+// ==================== 动态图层加载（极简样式测试） ====================
+// 辅助函数：颜色转换
 function rgbFromMapInfoColor(colorInt, alpha = 1) {
     const r = (colorInt >> 16) & 0xFF;
     const g = (colorInt >> 8) & 0xFF;
@@ -535,131 +485,69 @@ function rgbFromMapInfoColor(colorInt, alpha = 1) {
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-/**
- * 根据 MapInfo 样式配置生成 OpenLayers 样式函数（支持 Emoji 图标）
- */
+// 极简样式函数：只返回红色圆点，忽略所有配置
 function createStyleFromConfig(styleConfig) {
-    const pointConfig = styleConfig?.point || {};
-    const lineConfig = styleConfig?.line || {};
-    const fillConfig = styleConfig?.fill || {};
-
-    const defaultRadius = pointConfig.size / 2 || 6;
-    const defaultColor = rgbFromMapInfoColor(pointConfig.color || 0x000000);
-
-    // 线样式（预定义）
-    const lineStyle = lineConfig.color ? new ol.style.Style({
-        stroke: new ol.style.Stroke({
-            color: rgbFromMapInfoColor(lineConfig.color),
-            width: lineConfig.width || 1,
-            lineDash: lineConfig.pattern === 2 ? [4, 4] : undefined
-        })
-    }) : null;
-
-    // 面样式（预定义）
-    const fillStyle = fillConfig.foreground ? new ol.style.Style({
-        fill: new ol.style.Fill({
-            color: rgbFromMapInfoColor(fillConfig.foreground, 0.6)
-        }),
-        stroke: new ol.style.Stroke({
-            color: rgbFromMapInfoColor(fillConfig.background || 0x000000),
-            width: 1
-        })
-    }) : null;
-
-    // 返回样式函数
+    // 忽略配置，统一使用红色圆点
     return function(feature) {
-        const geometryType = feature.getGeometry().getType();
-        const styles = [];
-
-        // 处理点要素
-        if (geometryType === 'Point') {
-            const sj = feature.get('SJ');
-            let styleObj;
-
-            if (sj === 'phone_pic') {
-                // 使用文本样式（Emoji）
-                styleObj = new ol.style.Style({
-                    text: new ol.style.Text({
-                        text: '📷',
-                        font: '20px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif',
-                        fill: new ol.style.Fill({ color: defaultColor }),
-                        offsetY: -12
-                    })
-                });
-            } else if (sj === 'plane_pic') {
-                styleObj = new ol.style.Style({
-                    text: new ol.style.Text({
-                        text: '✈️',
-                        font: '20px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif',
-                        fill: new ol.style.Fill({ color: defaultColor }),
-                        offsetY: -12
-                    })
-                });
-            } else {
-                // 默认圆点
-                styleObj = new ol.style.Style({
-                    image: new ol.style.Circle({
-                        radius: defaultRadius,
-                        fill: new ol.style.Fill({ color: defaultColor }),
-                        stroke: new ol.style.Stroke({ color: '#ffffff', width: 2 })
-                    })
-                });
-            }
-            styles.push(styleObj);
-        }
-
-        // 处理线要素
-        if (lineStyle && (geometryType === 'LineString' || geometryType === 'MultiLineString')) {
-            styles.push(lineStyle);
-        }
-
-        // 处理面要素
-        if (fillStyle && (geometryType === 'Polygon' || geometryType === 'MultiPolygon')) {
-            styles.push(fillStyle);
-        }
-
-        // 如果没有匹配任何样式，返回空样式（避免报错）
-        if (styles.length === 0) {
-            styles.push(new ol.style.Style());
-        }
-
-        return styles;
+        return new ol.style.Style({
+            image: new ol.style.Circle({
+                radius: 6,
+                fill: new ol.style.Fill({ color: 'red' }),
+                stroke: new ol.style.Stroke({ color: 'white', width: 2 })
+            })
+        });
     };
 }
 
 async function loadLayersFromConfig() {
     try {
         const response = await fetch('data/axnode_config.json');
-        if (!response.ok) throw new Error('配置文件加载失败');
+        if (!response.ok) throw new Error(`配置文件加载失败: ${response.status}`);
         const config = await response.json();
+        console.log('配置文件内容:', config);
 
-        // 设置地图初始视图（可选，也可保留原有 initCenter/initZoom）
         if (config.map_center && config.map_center.length === 2) {
             const center = ol.proj.fromLonLat(config.map_center);
             map.getView().setCenter(center);
             if (config.camera_altitude_km) {
-                // 粗略转换：相机高度 km -> zoom
                 const zoom = Math.max(3, Math.min(18, 14 - Math.log2(config.camera_altitude_km / 10)));
                 map.getView().setZoom(zoom);
             }
         }
 
-        // 遍历图层
         for (const layerConfig of config.layers) {
-            if (!layerConfig.geojson_path) continue;
+            if (!layerConfig.geojson_path) {
+                console.warn('图层缺少 geojson_path:', layerConfig.name);
+                continue;
+            }
 
-            // 加载 GeoJSON
-            const geoJsonUrl = layerConfig.geojson_path;
-            const geoJsonResponse = await fetch(geoJsonUrl);
+            let geoJsonUrl = layerConfig.geojson_path;
+            console.log(`尝试加载: ${geoJsonUrl}`);
+
+            let geoJsonResponse;
+            try {
+                geoJsonResponse = await fetch(geoJsonUrl);
+            } catch (err) {
+                console.warn(`首次请求失败: ${geoJsonUrl}`, err);
+                const altUrl = geoJsonUrl.replace('../geojson/', 'geojson/');
+                console.log(`尝试备用路径: ${altUrl}`);
+                geoJsonResponse = await fetch(altUrl);
+                geoJsonUrl = altUrl;
+            }
+
+            if (!geoJsonResponse.ok) {
+                console.error(`加载 GeoJSON 失败: ${geoJsonUrl}`, geoJsonResponse.status);
+                continue;
+            }
+
             const geoJson = await geoJsonResponse.json();
+            console.log(`成功加载 ${layerConfig.name}, 要素数量:`, geoJson.features?.length);
 
-            // 转换为 OpenLayers 要素
             const features = new ol.format.GeoJSON().readFeatures(geoJson, {
                 dataProjection: 'EPSG:4326',
                 featureProjection: 'EPSG:3857'
             });
 
-            // 为每个要素附加图层配置（用于交互）
             features.forEach(f => {
                 f.set('layer', {
                     labelField: layerConfig.label_field || '',
@@ -668,8 +556,7 @@ async function loadLayersFromConfig() {
             });
 
             const source = new ol.source.Vector({ features });
-
-            // 创建样式函数
+            // 使用极简样式函数（忽略配置）
             const style = createStyleFromConfig(layerConfig.style);
             const vectorLayer = new ol.layer.Vector({
                 source: source,
@@ -680,16 +567,12 @@ async function loadLayersFromConfig() {
                 }
             });
             map.addLayer(vectorLayer);
+            console.log(`已添加图层: ${layerConfig.name}`);
         }
-
-        console.log('动态图层加载完成');
     } catch (err) {
         console.error('加载配置文件失败:', err);
     }
 }
 
-// 启动动态图层加载（放在所有初始化之后）
 loadLayersFromConfig();
-
-// 原日志（已移除 photoPoints 引用）
 console.log('地图加载完成');
