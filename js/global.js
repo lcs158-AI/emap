@@ -82,22 +82,7 @@ setTimeout(() => {
     }
 }, 2000); // 可根据需要调整延迟时间
 
-// 监听相机高度，当拉近时升级到高细节
-viewer.camera.changed.addEventListener(() => {
-    if (currentTerrainLevel !== 1) return; // 只有处于低细节状态才考虑升级
-
-    const height = viewer.camera.positionCartographic.height;
-    const threshold = 3000; // 高度阈值（米）
-
-    if (height < threshold && !terrainSwitchTimer) {
-        terrainSwitchTimer = setTimeout(() => {
-            viewer.terrainProvider = createHighDetailTerrain();
-            currentTerrainLevel = 2;
-            terrainSwitchTimer = null;
-            console.log('已切换到高细节三维地形');
-        }, 500);
-    }
-});
+//删除监听代码试试
 
 
 // 通用飞行函数：飞到 (lon, lat) 南方偏移后的位置
