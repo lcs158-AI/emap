@@ -10,7 +10,9 @@ const viewer = new Cesium.Viewer('cesiumContainer', {
     baseLayerPicker: false,          // 隐藏底图选择器
     imageryProvider: false,          // 关键！禁用默认的 Cesium Ion 影像
     //terrainProvider: new Cesium.EllipsoidTerrainProvider(), // 平面地形（可后续升级）
-    terrain: Cesium.Terrain.fromWorldTerrain(),
+    terrain: Cesium.Terrain.fromWorldTerrain({
+        maximumLevel: 14,           // 限制最大级别为14（值越小加载越快，细节越少）
+    }),
     animation: false,                // 隐藏动画控件
     timeline: false,                 // 隐藏时间线
     infoBox: false,                  // 隐藏信息框
