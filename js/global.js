@@ -2,33 +2,40 @@
 // 设置 Cesium Ion 默认 token（已填回）
 Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI3NzVhMzE5My0zNWU2LTQ1ZDYtYTI2MC05N2EzOTBhNDgxYzgiLCJpZCI6NDA3MDg1LCJpYXQiOjE3NzQxMDMyNjV9.PLB9fgVKv_MZLTFwzwMOea4W2uaAT8MT1w0pYcFuRZU';
 
-// ==================== 初始化 Cesium ====================
+// 设置 Cesium Ion Token（仍用于地形等，但底图已禁用）
 
-// ==================== 初始化 Cesium ====================
-Cesium.Ion.defaultAccessToken = '您的 token 字符串';  // 仍然需要，因为地形服务可能使用
 
+// 创建 Viewer，完全禁用默认底图，仅使用自定义影像
 const viewer = new Cesium.Viewer('cesiumContainer', {
-    baseLayerPicker: false,
-    imageryProvider: false,   // 禁用默认底图
-    terrainProvider: new Cesium.EllipsoidTerrainProvider(), // 先使用平面地形（可后续升级）
-    animation: false,
-    timeline: false,
-    infoBox: false,
-    selectionIndicator: false,
-    navigationHelpButton: false,
-    homeButton: false,
-    fullscreenButton: false,
-    skyBox: false,
-    skyAtmosphere: false
+    baseLayerPicker: false,          // 隐藏底图选择器
+    imageryProvider: false,          // 关键！禁用默认的 Cesium Ion 影像
+    terrainProvider: new Cesium.EllipsoidTerrainProvider(), // 平面地形（可后续升级）
+    animation: false,                // 隐藏动画控件
+    timeline: false,                 // 隐藏时间线
+    infoBox: false,                  // 隐藏信息框
+    selectionIndicator: false,       // 隐藏选中指示器
+    navigationHelpButton: false,     // 隐藏导航帮助按钮
+    homeButton: false,               // 隐藏主页按钮
+    fullscreenButton: false,         // 隐藏全屏按钮
+    skyBox: false,                   // 禁用星空背景
+    skyAtmosphere: false             // 禁用大气效果（减少请求）
 });
 
-// 添加 Esri 影像底图（与平面地图相同的 URL）
+// ==================== 添加影像底图 ====================
+// 使用 Esri World Imagery（与平面地图一致）
 const esriImagery = new Cesium.UrlTemplateImageryProvider({
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
     maximumLevel: 19,
     tilingScheme: new Cesium.WebMercatorTilingScheme()
 });
 viewer.imageryLayers.addImageryProvider(esriImagery);
+
+
+// 切换标注按钮的事件（已在原有代码中定义，无需重复）
+// document.getElementById('toggleAnnotationBtn').addEventListener('click', () => {
+//     annotationLayer.show = !annotationLayer.show;
+//     document.getElementById('toggleAnnotationBtn').classList.toggle('active');
+// });
 
 let userLocationVisible = false;
 // 默认底图自动加载，不需要手动添加 IonImageryProvider
