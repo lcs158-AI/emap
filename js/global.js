@@ -5,7 +5,7 @@ Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOi
 const viewer = new Cesium.Viewer('cesiumContainer', {
     baseLayerPicker: false,
     // 不设置 imageryProvider: false，让 Viewer 自动加载默认底图
-    terrainProvider: new Cesium.EllipsoidTerrainProvider(),
+    terrainProvider: Cesium.createWorldTerrain(),  // 启用真实地形
     animation: false,
     timeline: false,
     infoBox: false,
