@@ -37,9 +37,9 @@
       "geojson_path": "geojson/landline.geojson",
       "style": {
         "line": {
+          "pattern": 2,
           "width": 2,
-          "color": 2,
-          "pattern": 255
+          "color": 255
         },
         "fill": {
           "pattern": 2,
