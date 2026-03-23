@@ -1,10 +1,10 @@
 {
   "version": 1,
   "map_center": [
-    117.041686,
-    23.57109755
+    111.5738004,
+    21.52414335
   ],
-  "camera_altitude_km": 49.49153912,
+  "camera_altitude_km": 4.154708309,
   "layers": [
     {
       "name": "POImark",
@@ -23,7 +23,7 @@
         }
       },
       "label_field": "ID",
-      "link_field": ""
+      "link_field": "MC"
     },
     {
       "name": "anfang",
@@ -48,7 +48,7 @@
         }
       },
       "label_field": "FL",
-      "link_field": ""
+      "link_field": "MC"
     },
     {
       "name": "landline",

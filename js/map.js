@@ -53,12 +53,18 @@ if (!isTouchDevice) {
     tooltip.getElement().style.display = 'none';
     map.on('pointermove', function (evt) {
         if (measureActive) return;
-
         const pixel = map.getEventPixel(evt.originalEvent);
         const feature = map.forEachFeatureAtPixel(pixel, f => f);
         if (feature) {
-            // 极简测试时，只显示“点”
-            const text = '点';
+            // 优先使用图层的标注字段
+            const layer = feature.get('layer');
+            let text = null;
+            if (layer && layer.labelField) {
+                text = feature.get(layer.labelField);
+            } else {
+                // 兼容旧数据（如有）
+                text = feature.get('DD');
+            }
             if (text) {
                 const coord = feature.getGeometry().getCoordinates();
                 tooltip.setPosition(coord);
@@ -87,13 +93,40 @@ popup.getElement().style.display = 'none';
 
 map.on('click', function (evt) {
     if (measureActive) return;
-
     const feature = map.forEachFeatureAtPixel(evt.pixel, f => f);
     if (feature) {
         if (positionLayer && positionLayer.getSource().getFeatures().includes(feature)) return;
-
         const coord = feature.getGeometry().getCoordinates();
-        const content = `<div><b>要素</b></div>`;
+        const layer = feature.get('layer');
+        let content = '';
+
+        if (layer && layer.linkField) {
+            const imgFile = feature.get(layer.linkField);
+            if (imgFile) {
+                // 使用 linkField 作为图片文件名
+                const labelText = layer.labelField ? feature.get(layer.labelField) : '';
+                content = `
+                    <div class="popup-content">
+                        <b>${labelText}</b><br>
+                        <img src="/pics/${imgFile}" alt="照片" onerror="this.onerror=null; this.src='https://via.placeholder.com/250x150?text=图片未找到';">
+                    </div>
+                `;
+            } else {
+                // 有链接字段但无值，仅显示标注字段
+                const labelText = layer.labelField ? feature.get(layer.labelField) : '';
+                content = `<div><b>${labelText}</b></div>`;
+            }
+        } else if (layer && layer.labelField) {
+            // 只有标注字段
+            const labelText = feature.get(layer.labelField);
+            content = `<div><b>${labelText}</b></div>`;
+        } else if (feature.get('DD')) {
+            // 兼容旧点（如有）
+            content = `<div><b>${feature.get('DD')}</b></div>`;
+        } else {
+            content = `<div><b>要素</b></div>`;
+        }
+
         popup.getElement().innerHTML = content;
         popup.setPosition(coord);
         popup.getElement().style.display = 'block';
@@ -642,7 +675,7 @@ async function loadLayersFromConfig() {
                     labelField: layerConfig.label_field || '',
                     linkField: layerConfig.link_field || ''
                 });
-            });
+            })
 
             const source = new ol.source.Vector({ features });
             const style = createStyleFromConfig(layerConfig.style);
