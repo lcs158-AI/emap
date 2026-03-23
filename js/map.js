@@ -530,7 +530,7 @@ function createStyleFromConfig(styleConfig) {
         })
     }) : null;
 
-    return function(feature) {
+    return function (feature) {
         const geometryType = feature.getGeometry().getType();
         const styles = [];
 
@@ -673,8 +673,11 @@ async function loadLayersFromConfig() {
         console.error('加载配置文件失败:', err);
     }
 }
+
+let layerPanelVisible = true; // 面板当前是否可见
+
 function createLayerControl() {
-    // 如果已存在面板，先移除旧的（避免重复）
+    // 如果面板已存在，先移除（避免重复）
     const oldPanel = document.getElementById('layerControl');
     if (oldPanel) oldPanel.remove();
 
@@ -690,16 +693,41 @@ function createLayerControl() {
     panel.style.padding = '10px';
     panel.style.boxShadow = '0 2px 10px rgba(0,0,0,0.2)';
     panel.style.minWidth = '150px';
-    panel.style.maxHeight = '300px';
+    panel.style.maxHeight = '60vh';
     panel.style.overflowY = 'auto';
     document.body.appendChild(panel);
 
-    // 标题
+    // 面板头部：标题 + 关闭按钮
+    const header = document.createElement('div');
+    header.style.display = 'flex';
+    header.style.justifyContent = 'space-between';
+    header.style.alignItems = 'center';
+    header.style.marginBottom = '8px';
+    header.style.borderBottom = '1px solid #eee';
+    header.style.paddingBottom = '5px';
+
     const title = document.createElement('div');
     title.textContent = '图层管理';
     title.style.fontWeight = 'bold';
-    title.style.marginBottom = '8px';
-    panel.appendChild(title);
+
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '✕';
+    closeBtn.style.background = 'none';
+    closeBtn.style.border = 'none';
+    closeBtn.style.fontSize = '16px';
+    closeBtn.style.cursor = 'pointer';
+    closeBtn.style.color = '#999';
+    closeBtn.addEventListener('click', () => {
+        panel.style.display = 'none';
+        layerPanelVisible = false;
+        // 同步工具栏按钮状态（可选）
+        const toggleBtn = document.getElementById('toggleLayerPanelBtn');
+        if (toggleBtn) toggleBtn.classList.remove('active');
+    });
+
+    header.appendChild(title);
+    header.appendChild(closeBtn);
+    panel.appendChild(header);
 
     // 遍历动态图层生成列表
     dynamicLayers.forEach(item => {
@@ -709,6 +737,7 @@ function createLayerControl() {
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.checked = item.visible;
+        checkbox.setAttribute('data-layer-name', item.name);
         checkbox.addEventListener('change', (e) => {
             const isVisible = e.target.checked;
             item.layer.setVisible(isVisible);
@@ -723,6 +752,36 @@ function createLayerControl() {
         div.appendChild(label);
         panel.appendChild(div);
     });
+
+    // 添加工具栏按钮事件（如果不存在则添加）
+    let toggleBtn = document.getElementById('toggleLayerPanelBtn');
+    if (!toggleBtn) {
+        // 如果按钮不在工具栏，动态创建（但通常已在HTML中）
+        const toolbar = document.querySelector('.toolbar');
+        if (toolbar) {
+            toggleBtn = document.createElement('button');
+            toggleBtn.id = 'toggleLayerPanelBtn';
+            toggleBtn.className = 'action-btn';
+            toggleBtn.setAttribute('data-title', '图层管理');
+            toggleBtn.textContent = '🗂️';
+            toolbar.appendChild(toggleBtn);
+        }
+    }
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', () => {
+            if (panel.style.display === 'none') {
+                panel.style.display = 'block';
+                layerPanelVisible = true;
+                toggleBtn.classList.add('active');
+            } else {
+                panel.style.display = 'none';
+                layerPanelVisible = false;
+                toggleBtn.classList.remove('active');
+            }
+        });
+        // 初始同步按钮状态
+        if (layerPanelVisible) toggleBtn.classList.add('active');
+    }
 }
 loadLayersFromConfig();
 console.log('地图加载完成');
