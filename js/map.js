@@ -486,24 +486,40 @@ function rgbFromMapInfoColor(colorInt, alpha = 1) {
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-// 极简样式函数：只返回红色圆点，忽略所有配置
 function createStyleFromConfig(styleConfig) {
     const pointConfig = styleConfig?.point || {};
     const lineConfig = styleConfig?.line || {};
     const fillConfig = styleConfig?.fill || {};
 
-    const pointColor = pointConfig.color ? rgbFromMapInfoColor(pointConfig.color) : 'red';
-    const pointSize = pointConfig.size || 12;
-    const defaultRadius = pointSize / 2;
+    // 默认点样式
+    const defaultColor = pointConfig.color ? rgbFromMapInfoColor(pointConfig.color) : 'red';
+    const defaultRadius = pointConfig.size / 2 || 6;
 
-    const lineStyle = lineConfig.color ? new ol.style.Style({
-        stroke: new ol.style.Stroke({
-            color: rgbFromMapInfoColor(lineConfig.color),
-            width: lineConfig.width || 1,
-            lineDash: lineConfig.pattern === 2 ? [4, 4] : undefined
-        })
-    }) : null;
+    // 线样式：根据 pattern 决定是否创建及线型
+    let lineStyle = null;
+    if (lineConfig.color && lineConfig.width && lineConfig.pattern !== 1) {
+        const strokeColor = rgbFromMapInfoColor(lineConfig.color);
+        const strokeWidth = lineConfig.width || 1;
+        let lineDash = undefined;
+        // MapInfo 线型映射（根据实际需求）
+        if (lineConfig.pattern === 3) {
+            // 虚线，可调整间距
+            lineDash = [6, 4];
+        } else if (lineConfig.pattern === 2) {
+            // 实线，lineDash 保持 undefined
+        } else {
+            // 其他 pattern 按实线处理，或根据需求扩展
+        }
+        lineStyle = new ol.style.Style({
+            stroke: new ol.style.Stroke({
+                color: strokeColor,
+                width: strokeWidth,
+                lineDash: lineDash
+            })
+        });
+    }
 
+    // 面样式：如果配置了前景色
     const fillStyle = fillConfig.foreground ? new ol.style.Style({
         fill: new ol.style.Fill({
             color: rgbFromMapInfoColor(fillConfig.foreground, 0.6)
@@ -514,20 +530,19 @@ function createStyleFromConfig(styleConfig) {
         })
     }) : null;
 
-    return function (feature) {
+    return function(feature) {
         const geometryType = feature.getGeometry().getType();
         const styles = [];
 
         if (geometryType === 'Point') {
             const sj = feature.get('SJ');
             let styleObj;
-
             if (sj === 'phone_pic') {
                 styleObj = new ol.style.Style({
                     text: new ol.style.Text({
                         text: '📷',
                         font: '20px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif',
-                        fill: new ol.style.Fill({ color: pointColor }),
+                        fill: new ol.style.Fill({ color: defaultColor }),
                         offsetY: -12
                     })
                 });
@@ -536,7 +551,7 @@ function createStyleFromConfig(styleConfig) {
                     text: new ol.style.Text({
                         text: '✈️',
                         font: '20px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif',
-                        fill: new ol.style.Fill({ color: pointColor }),
+                        fill: new ol.style.Fill({ color: defaultColor }),
                         offsetY: -12
                     })
                 });
@@ -544,7 +559,7 @@ function createStyleFromConfig(styleConfig) {
                 styleObj = new ol.style.Style({
                     image: new ol.style.Circle({
                         radius: defaultRadius,
-                        fill: new ol.style.Fill({ color: pointColor }),
+                        fill: new ol.style.Fill({ color: defaultColor }),
                         stroke: new ol.style.Stroke({ color: '#ffffff', width: 2 })
                     })
                 });
