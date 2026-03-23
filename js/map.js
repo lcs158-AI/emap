@@ -95,6 +95,7 @@ map.on('click', function (evt) {
     if (measureActive) return;
     const feature = map.forEachFeatureAtPixel(evt.pixel, f => f);
     if (feature) {
+        console.log('点击要素的属性:', feature.getProperties());
         if (positionLayer && positionLayer.getSource().getFeatures().includes(feature)) return;
         const coord = feature.getGeometry().getCoordinates();
         const layer = feature.get('layer');
@@ -116,7 +117,8 @@ map.on('click', function (evt) {
                 const labelText = layer.labelField ? feature.get(layer.labelField) : '';
                 content = `<div><b>${labelText}</b></div>`;
             }
-        } else if (layer && layer.labelField) {
+        } 
+        else if (layer && layer.labelField) {
             // 只有标注字段
             const labelText = feature.get(layer.labelField);
             content = `<div><b>${labelText}</b></div>`;
@@ -675,7 +677,7 @@ async function loadLayersFromConfig() {
                     labelField: layerConfig.label_field || '',
                     linkField: layerConfig.link_field || ''
                 });
-            })
+            });
 
             const source = new ol.source.Vector({ features });
             const style = createStyleFromConfig(layerConfig.style);
