@@ -19,7 +19,14 @@
         <button id="measureAreaBtn" class="action-btn measure-btn" data-title="测量面积">🔲</button>
         <button id="tideBtn" class="action-btn" data-title="查潮汐">🌊</button>
     </div>
-
+    <div class="layer-control">
+        <button id="toggleLayerPanel" class="action-btn" data-title="图层管理">📂</button>
+        <div id="layerPanel"
+            style="display: none; position: absolute; top: 60px; left: 10px; background: white; border-radius: 8px; padding: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); min-width: 200px;">
+            <h4>图层列表</h4>
+            <div id="layerList"></div>
+        </div>
+    </div>
     <div id="measureResult">0 米</div>
     <!-- 潮汐信息面板 -->
     <div id="tidePanel"

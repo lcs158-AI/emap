@@ -2,7 +2,8 @@
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
-
+// 存储动态加载的图层（用于图层管理）
+let dynamicLayers = [];
 // 天地图图层
 const vecLayer = new ol.layer.Tile({
     source: new ol.source.XYZ({
@@ -50,7 +51,7 @@ if (!isTouchDevice) {
     });
     map.addOverlay(tooltip);
     tooltip.getElement().style.display = 'none';
-    map.on('pointermove', function(evt) {
+    map.on('pointermove', function (evt) {
         if (measureActive) return;
 
         const pixel = map.getEventPixel(evt.originalEvent);
@@ -84,7 +85,7 @@ popup.getElement().className = 'ol-popup';
 map.addOverlay(popup);
 popup.getElement().style.display = 'none';
 
-map.on('click', function(evt) {
+map.on('click', function (evt) {
     if (measureActive) return;
 
     const feature = map.forEachFeatureAtPixel(evt.pixel, f => f);
@@ -102,7 +103,7 @@ map.on('click', function(evt) {
     }
 });
 
-map.on('dblclick', function() {
+map.on('dblclick', function () {
     if (measureActive) return;
     popup.setPosition(undefined);
     popup.getElement().style.display = 'none';
@@ -125,12 +126,12 @@ let watching = false;
 let firstPosition = true;
 let watchId = null;
 
-document.getElementById('locateBtn').addEventListener('click', function() {
+document.getElementById('locateBtn').addEventListener('click', function () {
     if (!watching) {
         if ('geolocation' in navigator) {
             firstPosition = true;
             watchId = navigator.geolocation.watchPosition(
-                function(position) {
+                function (position) {
                     const lon = position.coords.longitude;
                     const lat = position.coords.latitude;
                     const accuracy = position.coords.accuracy;
@@ -153,7 +154,7 @@ document.getElementById('locateBtn').addEventListener('click', function() {
                         firstPosition = false;
                     }
                 },
-                function(error) { alert('获取位置失败：' + error.message); },
+                function (error) { alert('获取位置失败：' + error.message); },
                 { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
             );
             watching = true;
@@ -174,7 +175,7 @@ document.getElementById('locateBtn').addEventListener('click', function() {
 
 // ==================== 切换底图 ====================
 const switchBtn = document.getElementById('switchBaseMapBtn');
-switchBtn.addEventListener('click', function() {
+switchBtn.addEventListener('click', function () {
     const isVectorVisible = vecLayer.getVisible();
     if (isVectorVisible) {
         vecLayer.setVisible(false);
@@ -193,7 +194,7 @@ switchBtn.addEventListener('click', function() {
 const measureLayer = new ol.layer.Vector({
     source: new ol.source.Vector(),
     style: new ol.style.Style({
-        stroke: new ol.style.Stroke({ color: '#ff33cc', width: 3, lineDash: [5,5] }),
+        stroke: new ol.style.Stroke({ color: '#ff33cc', width: 3, lineDash: [5, 5] }),
         fill: new ol.style.Fill({ color: 'rgba(255,51,204,0.1)' }),
         image: new ol.style.Circle({ radius: 5, fill: new ol.style.Fill({ color: '#ff33cc' }) })
     })
@@ -209,7 +210,7 @@ const measureResult = document.getElementById('measureResult');
 
 // 获取双击缩放交互
 let dblClickZoomInteraction = null;
-map.getInteractions().forEach(function(interaction) {
+map.getInteractions().forEach(function (interaction) {
     if (interaction instanceof ol.interaction.DoubleClickZoom) {
         dblClickZoomInteraction = interaction;
     }
@@ -264,9 +265,9 @@ function activateMeasurement(type) {
         type: type === 'length' ? 'LineString' : 'Polygon'
     });
 
-    measureDraw.on('drawstart', function(evt) {
+    measureDraw.on('drawstart', function (evt) {
         const sketch = evt.feature;
-        const listener = sketch.getGeometry().on('change', function(evt) {
+        const listener = sketch.getGeometry().on('change', function (evt) {
             const geom = evt.target;
             if (type === 'length') {
                 const length = ol.sphere.getLength(geom, { projection: 'EPSG:3857' });
@@ -276,12 +277,12 @@ function activateMeasurement(type) {
                 measureResult.innerHTML = formatArea(area);
             }
         });
-        sketch.once('change', function() {
+        sketch.once('change', function () {
             ol.Observable.unByKey(listener);
         });
     });
 
-    measureDraw.on('drawend', function(evt) {
+    measureDraw.on('drawend', function (evt) {
         const geom = evt.feature.getGeometry();
         if (type === 'length') {
             const length = ol.sphere.getLength(geom, { projection: 'EPSG:3857' });
@@ -295,7 +296,7 @@ function activateMeasurement(type) {
     map.addInteraction(measureDraw);
 }
 
-measureLengthBtn.addEventListener('click', function() {
+measureLengthBtn.addEventListener('click', function () {
     if (measureActive && currentMeasureType === 'length') {
         deactivateMeasurement();
     } else {
@@ -303,7 +304,7 @@ measureLengthBtn.addEventListener('click', function() {
     }
 });
 
-measureAreaBtn.addEventListener('click', function() {
+measureAreaBtn.addEventListener('click', function () {
     if (measureActive && currentMeasureType === 'area') {
         deactivateMeasurement();
     } else {
@@ -400,7 +401,7 @@ function updateTidePanel(allHourly, locationName, coords) {
     document.getElementById('tideDetail').innerHTML = '';
 }
 
-tideBtn.addEventListener('click', async function() {
+tideBtn.addEventListener('click', async function () {
     const center = map.getView().getCenter();
     const lonLat = ol.proj.toLonLat(center);
     await fetchTideData(lonLat[0].toFixed(4), lonLat[1].toFixed(4));
@@ -441,7 +442,7 @@ function renderTideChart(tideHourly, useFullData = false) {
             const d = new Date(item.fxTime);
             const hour = d.getHours().toString().padStart(2, '0');
             if (idx > 0 && d.toDateString() !== new Date(sliced[0].fxTime).toDateString()) {
-                return `${d.getMonth()+1}/${d.getDate()} ${hour}:00`;
+                return `${d.getMonth() + 1}/${d.getDate()} ${hour}:00`;
             }
             return `${hour}:00`;
         });
@@ -487,15 +488,83 @@ function rgbFromMapInfoColor(colorInt, alpha = 1) {
 
 // 极简样式函数：只返回红色圆点，忽略所有配置
 function createStyleFromConfig(styleConfig) {
-    // 忽略配置，统一使用红色圆点
-    return function(feature) {
-        return new ol.style.Style({
-            image: new ol.style.Circle({
-                radius: 6,
-                fill: new ol.style.Fill({ color: 'red' }),
-                stroke: new ol.style.Stroke({ color: 'white', width: 2 })
-            })
-        });
+    const pointConfig = styleConfig?.point || {};
+    const lineConfig = styleConfig?.line || {};
+    const fillConfig = styleConfig?.fill || {};
+
+    const pointColor = pointConfig.color ? rgbFromMapInfoColor(pointConfig.color) : 'red';
+    const pointSize = pointConfig.size || 12;
+    const defaultRadius = pointSize / 2;
+
+    const lineStyle = lineConfig.color ? new ol.style.Style({
+        stroke: new ol.style.Stroke({
+            color: rgbFromMapInfoColor(lineConfig.color),
+            width: lineConfig.width || 1,
+            lineDash: lineConfig.pattern === 2 ? [4, 4] : undefined
+        })
+    }) : null;
+
+    const fillStyle = fillConfig.foreground ? new ol.style.Style({
+        fill: new ol.style.Fill({
+            color: rgbFromMapInfoColor(fillConfig.foreground, 0.6)
+        }),
+        stroke: new ol.style.Stroke({
+            color: rgbFromMapInfoColor(fillConfig.background || 0x000000),
+            width: 1
+        })
+    }) : null;
+
+    return function (feature) {
+        const geometryType = feature.getGeometry().getType();
+        const styles = [];
+
+        if (geometryType === 'Point') {
+            const sj = feature.get('SJ');
+            let styleObj;
+
+            if (sj === 'phone_pic') {
+                styleObj = new ol.style.Style({
+                    text: new ol.style.Text({
+                        text: '📷',
+                        font: '20px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif',
+                        fill: new ol.style.Fill({ color: pointColor }),
+                        offsetY: -12
+                    })
+                });
+            } else if (sj === 'plane_pic') {
+                styleObj = new ol.style.Style({
+                    text: new ol.style.Text({
+                        text: '✈️',
+                        font: '20px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif',
+                        fill: new ol.style.Fill({ color: pointColor }),
+                        offsetY: -12
+                    })
+                });
+            } else {
+                styleObj = new ol.style.Style({
+                    image: new ol.style.Circle({
+                        radius: defaultRadius,
+                        fill: new ol.style.Fill({ color: pointColor }),
+                        stroke: new ol.style.Stroke({ color: '#ffffff', width: 2 })
+                    })
+                });
+            }
+            styles.push(styleObj);
+        }
+
+        if (lineStyle && (geometryType === 'LineString' || geometryType === 'MultiLineString')) {
+            styles.push(lineStyle);
+        }
+
+        if (fillStyle && (geometryType === 'Polygon' || geometryType === 'MultiPolygon')) {
+            styles.push(fillStyle);
+        }
+
+        if (styles.length === 0) {
+            styles.push(new ol.style.Style());
+        }
+
+        return styles;
     };
 }
 
@@ -506,20 +575,24 @@ async function loadLayersFromConfig() {
         const config = await response.json();
         console.log('配置文件内容:', config);
 
+        // 1. 设置地图初始视图（中心点 + 缩放）
         if (config.map_center && config.map_center.length === 2) {
             const center = ol.proj.fromLonLat(config.map_center);
             map.getView().setCenter(center);
             if (config.camera_altitude_km) {
+                // 相机高度（km）转 zoom 的粗略公式
                 const zoom = Math.max(3, Math.min(18, 14 - Math.log2(config.camera_altitude_km / 10)));
                 map.getView().setZoom(zoom);
             }
         }
 
+        // 2. 清空已有动态图层（避免重复加载）
+        dynamicLayers.forEach(item => map.removeLayer(item.layer));
+        dynamicLayers = [];
+
+        // 3. 加载新图层
         for (const layerConfig of config.layers) {
-            if (!layerConfig.geojson_path) {
-                console.warn('图层缺少 geojson_path:', layerConfig.name);
-                continue;
-            }
+            if (!layerConfig.geojson_path) continue;
 
             let geoJsonUrl = layerConfig.geojson_path;
             console.log(`尝试加载: ${geoJsonUrl}`);
@@ -528,7 +601,7 @@ async function loadLayersFromConfig() {
             try {
                 geoJsonResponse = await fetch(geoJsonUrl);
             } catch (err) {
-                console.warn(`首次请求失败: ${geoJsonUrl}`, err);
+                // 尝试备用路径（如果原路径包含 ../geojson/ 则替换）
                 const altUrl = geoJsonUrl.replace('../geojson/', 'geojson/');
                 console.log(`尝试备用路径: ${altUrl}`);
                 geoJsonResponse = await fetch(altUrl);
@@ -548,6 +621,7 @@ async function loadLayersFromConfig() {
                 featureProjection: 'EPSG:3857'
             });
 
+            // 为每个要素附加图层配置（用于交互）
             features.forEach(f => {
                 f.set('layer', {
                     labelField: layerConfig.label_field || '',
@@ -556,7 +630,6 @@ async function loadLayersFromConfig() {
             });
 
             const source = new ol.source.Vector({ features });
-            // 使用极简样式函数（忽略配置）
             const style = createStyleFromConfig(layerConfig.style);
             const vectorLayer = new ol.layer.Vector({
                 source: source,
@@ -564,15 +637,77 @@ async function loadLayersFromConfig() {
                 properties: {
                     labelField: layerConfig.label_field || '',
                     linkField: layerConfig.link_field || ''
-                }
+                },
+                name: layerConfig.name   // 存储图层名，便于控制面板显示
             });
+
             map.addLayer(vectorLayer);
+            // 存储到动态图层数组
+            dynamicLayers.push({
+                layer: vectorLayer,
+                name: layerConfig.name,
+                visible: true
+            });
             console.log(`已添加图层: ${layerConfig.name}`);
         }
+
+        // 4. 创建图层控制面板
+        createLayerControl();
+
     } catch (err) {
         console.error('加载配置文件失败:', err);
     }
 }
+function createLayerControl() {
+    // 如果已存在面板，先移除旧的（避免重复）
+    const oldPanel = document.getElementById('layerControl');
+    if (oldPanel) oldPanel.remove();
 
+    // 创建新面板
+    const panel = document.createElement('div');
+    panel.id = 'layerControl';
+    panel.style.position = 'absolute';
+    panel.style.bottom = '20px';
+    panel.style.right = '20px';
+    panel.style.zIndex = '1000';
+    panel.style.backgroundColor = 'white';
+    panel.style.borderRadius = '8px';
+    panel.style.padding = '10px';
+    panel.style.boxShadow = '0 2px 10px rgba(0,0,0,0.2)';
+    panel.style.minWidth = '150px';
+    panel.style.maxHeight = '300px';
+    panel.style.overflowY = 'auto';
+    document.body.appendChild(panel);
+
+    // 标题
+    const title = document.createElement('div');
+    title.textContent = '图层管理';
+    title.style.fontWeight = 'bold';
+    title.style.marginBottom = '8px';
+    panel.appendChild(title);
+
+    // 遍历动态图层生成列表
+    dynamicLayers.forEach(item => {
+        const div = document.createElement('div');
+        div.style.marginBottom = '5px';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = item.visible;
+        checkbox.addEventListener('change', (e) => {
+            const isVisible = e.target.checked;
+            item.layer.setVisible(isVisible);
+            item.visible = isVisible;
+        });
+
+        const label = document.createElement('label');
+        label.textContent = item.name;
+        label.style.marginLeft = '5px';
+
+        div.appendChild(checkbox);
+        div.appendChild(label);
+        panel.appendChild(div);
+    });
+}
 loadLayersFromConfig();
 console.log('地图加载完成');
