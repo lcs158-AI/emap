@@ -1,0 +1,16 @@
+{
+"type": "FeatureCollection",
+"name": "POImark",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+"features": [
+{ "type": "Feature", "properties": { "ID": "cz01" }, "geometry": { "type": "Point", "coordinates": [ 117.0100112, 23.55063156 ] } },
+{ "type": "Feature", "properties": { "ID": "cz02" }, "geometry": { "type": "Point", "coordinates": [ 116.9512654, 23.54033862 ] } },
+{ "type": "Feature", "properties": { "ID": "cz03" }, "geometry": { "type": "Point", "coordinates": [ 116.955832, 23.54358204 ] } },
+{ "type": "Feature", "properties": { "ID": "cz04" }, "geometry": { "type": "Point", "coordinates": [ 117.1385615, 23.59054665 ] } },
+{ "type": "Feature", "properties": { "ID": "cz05" }, "geometry": { "type": "Point", "coordinates": [ 117.1731751, 23.61427452 ] } },
+{ "type": "Feature", "properties": { "ID": "cz06" }, "geometry": { "type": "Point", "coordinates": [ 117.1264082, 23.57621541 ] } },
+{ "type": "Feature", "properties": { "ID": "cz07" }, "geometry": { "type": "Point", "coordinates": [ 116.9561632, 23.51687535 ] } },
+{ "type": "Feature", "properties": { "ID": "cz08" }, "geometry": { "type": "Point", "coordinates": [ 116.9208518, 23.54878998 ] } },
+{ "type": "Feature", "properties": { "ID": "cz09" }, "geometry": { "type": "Point", "coordinates": [ 117.0893347, 23.55275601 ] } }
+]
+}

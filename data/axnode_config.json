@@ -1,14 +1,33 @@
 {
   "version": 1,
   "map_center": [
-    113.8151892,
-    22.58735723
+    117.041686,
+    23.57109755
   ],
-  "camera_altitude_km": 186.3762914,
+  "camera_altitude_km": 49.49153912,
   "layers": [
     {
+      "name": "POImark",
+      "tab_path": "wor\\POImark.tab",
+      "geojson_path": "geojson/POImark.geojson",
+      "style": {
+        "line": {
+          "pattern": 1,
+          "width": 2,
+          "color": 0
+        },
+        "fill": {
+          "pattern": 2,
+          "foreground": 16777215,
+          "background": 16777215
+        }
+      },
+      "label_field": "ID",
+      "link_field": ""
+    },
+    {
       "name": "anfang",
-      "tab_path": "C:\\个人\\自编程序\\readexif\\wor\\anfang.tab",
+      "tab_path": "wor\\anfang.tab",
       "geojson_path": "geojson/anfang.geojson",
       "style": {
         "point": {
@@ -18,9 +37,9 @@
           "font": "MapInfo Cartographic"
         },
         "line": {
-          "width": 1,
-          "color": 2,
-          "pattern": 0
+          "pattern": 1,
+          "width": 2,
+          "color": 0
         },
         "fill": {
           "pattern": 2,
@@ -33,7 +52,7 @@
     },
     {
       "name": "landline",
-      "tab_path": "C:\\个人\\自编程序\\readexif\\wor\\landline.tab",
+      "tab_path": "wor\\landline.tab",
       "geojson_path": "geojson/landline.geojson",
       "style": {
         "line": {
@@ -52,7 +71,7 @@
     },
     {
       "name": "islandline",
-      "tab_path": "C:\\个人\\自编程序\\readexif\\wor\\islandline.tab",
+      "tab_path": "wor\\islandline.tab",
       "geojson_path": "geojson/islandline.geojson",
       "style": {
         "line": {
