@@ -8,7 +8,7 @@
 { "type": "Feature", "properties": { "ID": "cz03", "MC": "" }, "geometry": { "type": "Point", "coordinates": [ 116.955832, 23.54358204 ] } },
 { "type": "Feature", "properties": { "ID": "cz04", "MC": "" }, "geometry": { "type": "Point", "coordinates": [ 117.1385615, 23.59054665 ] } },
 { "type": "Feature", "properties": { "ID": "cz05", "MC": "IMG_20260323_154507.jpg" }, "geometry": { "type": "Point", "coordinates": [ 117.1731751, 23.61427452 ] } },
-{ "type": "Feature", "properties": { "ID": "cz06", "MC": "" }, "geometry": { "type": "Point", "coordinates": [ 117.1264082, 23.57621541 ] } },
+{ "type": "Feature", "properties": { "ID": "cz06", "MC": "DCWJC01.jpg" }, "geometry": { "type": "Point", "coordinates": [ 117.1264082, 23.57621541 ] } },
 { "type": "Feature", "properties": { "ID": "cz07", "MC": "" }, "geometry": { "type": "Point", "coordinates": [ 116.9561632, 23.51687535 ] } },
 { "type": "Feature", "properties": { "ID": "cz08", "MC": "" }, "geometry": { "type": "Point", "coordinates": [ 116.9208518, 23.54878998 ] } },
 { "type": "Feature", "properties": { "ID": "cz09", "MC": "" }, "geometry": { "type": "Point", "coordinates": [ 117.0893347, 23.55275601 ] } },
