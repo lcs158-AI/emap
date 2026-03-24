@@ -679,10 +679,11 @@ async function loadLayersFromConfig() {
 
             const source = new ol.source.Vector({ features });
             const style = createStyleFromConfig(layerConfig.style);
+            const initialVisible = layerConfig.visible !== undefined ? layerConfig.visible : true;
             const vectorLayer = new ol.layer.Vector({
                 source: source,
                 style: style,
-                visible: layerConfig.visible !== false, // 默认 true，若配置为 false 则隐藏
+                visible: initialVisible,   // 设置图层初始可见性
                 properties: {
                     labelField: layerConfig.label_field || '',
                     linkField: layerConfig.link_field || ''
@@ -693,7 +694,7 @@ async function loadLayersFromConfig() {
             layersToAdd.push({
                 layer: vectorLayer,
                 name: layerConfig.name,
-                visible: true,
+                visible: initialVisible,   // 关键：必须使用 initialVisible
                 labelField: layerConfig.label_field || '',
                 linkField: layerConfig.link_field || ''
             });
