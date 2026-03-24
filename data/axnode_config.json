@@ -1,11 +1,36 @@
 {
   "version": 1,
   "map_center": [
-    111.5738004,
-    21.52414335
+    116.5089895,
+    22.99801832
   ],
-  "camera_altitude_km": 4.154708309,
+  "camera_altitude_km": 50.76192249,
   "layers": [
+    {
+      "name": "anfang",
+      "tab_path": "wor\\anfang.tab",
+      "geojson_path": "geojson/anfang.geojson",
+      "style": {
+        "point": {
+          "type": 41,
+          "color": 16711680,
+          "size": 8,
+          "font": "MapInfo Cartographic"
+        },
+        "line": {
+          "pattern": 1,
+          "width": 2,
+          "color": 0
+        },
+        "fill": {
+          "pattern": 2,
+          "foreground": 16777215,
+          "background": 16777215
+        }
+      },
+      "label_field": "FL",
+      "link_field": "MC"
+    },
     {
       "name": "POImark",
       "tab_path": "wor\\POImark.tab",
@@ -23,31 +48,6 @@
         }
       },
       "label_field": "ID",
-      "link_field": "MC"
-    },
-    {
-      "name": "anfang",
-      "tab_path": "wor\\anfang.tab",
-      "geojson_path": "geojson/anfang.geojson",
-      "style": {
-        "point": {
-          "type": 41,
-          "color": 16711680,
-          "size": 6,
-          "font": "MapInfo Cartographic"
-        },
-        "line": {
-          "pattern": 1,
-          "width": 2,
-          "color": 0
-        },
-        "fill": {
-          "pattern": 2,
-          "foreground": 16777215,
-          "background": 16777215
-        }
-      },
-      "label_field": "FL",
       "link_field": "MC"
     },
     {
@@ -86,6 +86,14 @@
         }
       },
       "label_field": "岸线二级类",
+      "link_field": ""
+    },
+    {
+      "name": "POImark",
+      "tab_path": "wor\\POImark.tab",
+      "geojson_path": "geojson/POImark.geojson",
+      "style": {},
+      "label_field": "",
       "link_field": ""
     }
   ]
