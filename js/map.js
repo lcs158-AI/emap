@@ -97,10 +97,10 @@ map.on('click', function (evt) {
     if (feature) {
         console.log('点击要素的属性:', feature.getProperties());
         if (positionLayer && positionLayer.getSource().getFeatures().includes(feature)) return;
-        
+
         // 获取点击位置的实际地图坐标（用于弹出框定位）
         const coordinate = map.getCoordinateFromPixel(evt.pixel);
-        
+
         const layer = feature.get('layer');
         let content = '';
 
@@ -118,7 +118,7 @@ map.on('click', function (evt) {
                 const labelText = layer.labelField ? feature.get(layer.labelField) : '';
                 content = `<div><b>${labelText}</b></div>`;
             }
-        } 
+        }
         else if (layer && layer.labelField) {
             const labelText = feature.get(layer.labelField);
             content = `<div><b>${labelText}</b></div>`;
@@ -769,7 +769,8 @@ function createLayerControl() {
     panel.appendChild(header);
 
     // 遍历动态图层生成列表
-    dynamicLayers.forEach(item => {
+    // 按地图显示顺序（倒序）生成列表
+    dynamicLayers.reverse().forEach(item => {
         const div = document.createElement('div');
         div.style.marginBottom = '5px';
 
