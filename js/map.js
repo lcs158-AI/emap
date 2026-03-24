@@ -689,7 +689,7 @@ async function loadLayersFromConfig() {
                 },
                 name: layerConfig.name
             });
-
+            console.log(`图层 ${layerConfig.name} visible: ${layerConfig.visible}`);
             layersToAdd.push({
                 layer: vectorLayer,
                 name: layerConfig.name,
@@ -792,6 +792,7 @@ function createLayerControl() {
         div.appendChild(checkbox);
         div.appendChild(label);
         panel.appendChild(div);
+        console.log(`图层 ${item.name} visible: ${item.visible}`);
     });
 
     // 添加工具栏按钮事件（如果不存在则添加）
