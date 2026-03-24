@@ -87,14 +87,6 @@
       },
       "label_field": "岸线二级类",
       "link_field": ""
-    },
-    {
-      "name": "POImark",
-      "tab_path": "wor\\POImark.tab",
-      "geojson_path": "geojson/POImark.geojson",
-      "style": {},
-      "label_field": "",
-      "link_field": ""
     }
   ]
 }
