@@ -97,14 +97,16 @@ map.on('click', function (evt) {
     if (feature) {
         console.log('点击要素的属性:', feature.getProperties());
         if (positionLayer && positionLayer.getSource().getFeatures().includes(feature)) return;
-        const coord = feature.getGeometry().getCoordinates();
+        
+        // 获取点击位置的实际地图坐标（用于弹出框定位）
+        const coordinate = map.getCoordinateFromPixel(evt.pixel);
+        
         const layer = feature.get('layer');
         let content = '';
 
         if (layer && layer.linkField) {
             const imgFile = feature.get(layer.linkField);
             if (imgFile) {
-                // 使用 linkField 作为图片文件名
                 const labelText = layer.labelField ? feature.get(layer.labelField) : '';
                 content = `
                     <div class="popup-content">
@@ -113,24 +115,21 @@ map.on('click', function (evt) {
                     </div>
                 `;
             } else {
-                // 有链接字段但无值，仅显示标注字段
                 const labelText = layer.labelField ? feature.get(layer.labelField) : '';
                 content = `<div><b>${labelText}</b></div>`;
             }
         } 
         else if (layer && layer.labelField) {
-            // 只有标注字段
             const labelText = feature.get(layer.labelField);
             content = `<div><b>${labelText}</b></div>`;
         } else if (feature.get('DD')) {
-            // 兼容旧点（如有）
             content = `<div><b>${feature.get('DD')}</b></div>`;
         } else {
             content = `<div><b>要素</b></div>`;
         }
 
         popup.getElement().innerHTML = content;
-        popup.setPosition(coord);
+        popup.setPosition(coordinate);
         popup.getElement().style.display = 'block';
     } else {
         popup.setPosition(undefined);
@@ -625,22 +624,23 @@ async function loadLayersFromConfig() {
         const config = await response.json();
         console.log('配置文件内容:', config);
 
-        // 1. 设置地图初始视图（中心点 + 缩放）
+        // 设置地图初始视图
         if (config.map_center && config.map_center.length === 2) {
             const center = ol.proj.fromLonLat(config.map_center);
             map.getView().setCenter(center);
             if (config.camera_altitude_km) {
-                // 相机高度（km）转 zoom 的粗略公式
                 const zoom = Math.max(3, Math.min(18, 14 - Math.log2(config.camera_altitude_km / 10)));
                 map.getView().setZoom(zoom);
             }
         }
 
-        // 2. 清空已有动态图层（避免重复加载）
+        // 清空已有动态图层
         dynamicLayers.forEach(item => map.removeLayer(item.layer));
         dynamicLayers = [];
 
-        // 3. 加载新图层
+        const layersToAdd = []; // 临时存储图层对象
+
+        // 加载所有图层到临时数组
         for (const layerConfig of config.layers) {
             if (!layerConfig.geojson_path) continue;
 
@@ -651,7 +651,6 @@ async function loadLayersFromConfig() {
             try {
                 geoJsonResponse = await fetch(geoJsonUrl);
             } catch (err) {
-                // 尝试备用路径（如果原路径包含 ../geojson/ 则替换）
                 const altUrl = geoJsonUrl.replace('../geojson/', 'geojson/');
                 console.log(`尝试备用路径: ${altUrl}`);
                 geoJsonResponse = await fetch(altUrl);
@@ -671,7 +670,6 @@ async function loadLayersFromConfig() {
                 featureProjection: 'EPSG:3857'
             });
 
-            // 为每个要素附加图层配置（用于交互）
             features.forEach(f => {
                 f.set('layer', {
                     labelField: layerConfig.label_field || '',
@@ -688,20 +686,26 @@ async function loadLayersFromConfig() {
                     labelField: layerConfig.label_field || '',
                     linkField: layerConfig.link_field || ''
                 },
-                name: layerConfig.name   // 存储图层名，便于控制面板显示
+                name: layerConfig.name
             });
 
-            map.addLayer(vectorLayer);
-            // 存储到动态图层数组
-            dynamicLayers.push({
+            layersToAdd.push({
                 layer: vectorLayer,
                 name: layerConfig.name,
-                visible: true
+                visible: true,
+                labelField: layerConfig.label_field || '',
+                linkField: layerConfig.link_field || ''
             });
-            console.log(`已添加图层: ${layerConfig.name}`);
         }
 
-        // 4. 创建图层控制面板
+        // 倒序添加图层到地图（使 MapInfo 中靠上的图层最后添加，显示在最上层）
+        for (let i = layersToAdd.length - 1; i >= 0; i--) {
+            const item = layersToAdd[i];
+            map.addLayer(item.layer);
+            dynamicLayers.push(item); // 保持顺序与配置文件一致（正序）
+        }
+
+        // 创建图层控制面板
         createLayerControl();
 
     } catch (err) {
