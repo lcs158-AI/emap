@@ -13,7 +13,7 @@
 { "type": "Feature", "properties": { "SJ": "phone_pic", "FL": "取水管", "MC": "" }, "geometry": { "type": "Point", "coordinates": [ 117.1402895, 23.5920258 ] } },
 { "type": "Feature", "properties": { "SJ": "phone_pic", "FL": "取水管", "MC": "" }, "geometry": { "type": "Point", "coordinates": [ 117.1707458, 23.61239433 ] } },
 { "type": "Feature", "properties": { "SJ": "phone_pic", "FL": "无居民海岛构筑物", "MC": "" }, "geometry": { "type": "Point", "coordinates": [ 113.5400036, 22.66174548 ] } },
-{ "type": "Feature", "properties": { "SJ": "plane_pic", "FL": "无居民海岛构筑物", "MC": "DJI_0091.jpg" }, "geometry": { "type": "Point", "coordinates": [ 113.6529706, 22.71983949 ] } },
+{ "type": "Feature", "properties": { "SJ": "plane_pic", "FL": "无居民海岛构筑物", "MC": "pics/DJI_0091.JPG" }, "geometry": { "type": "Point", "coordinates": [ 113.6529706, 22.71983949 ] } },
 { "type": "Feature", "properties": { "SJ": "phone_pic", "FL": "排污口", "MC": "" }, "geometry": { "type": "Point", "coordinates": [ 115.0194244, 22.74120828 ] } },
 { "type": "Feature", "properties": { "SJ": "phone_pic", "FL": "无居民海岛构筑物", "MC": "" }, "geometry": { "type": "Point", "coordinates": [ 114.5265883, 22.67218287 ] } },
 { "type": "Feature", "properties": { "SJ": "phone_pic", "FL": "排污口", "MC": "" }, "geometry": { "type": "Point", "coordinates": [ 114.7878756, 22.59955791 ] } },
