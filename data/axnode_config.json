@@ -1,10 +1,10 @@
 {
   "version": 1,
   "map_center": [
-    116.5089895,
-    22.99801832
+    117.1179562,
+    23.56116087
   ],
-  "camera_altitude_km": 50.76192249,
+  "camera_altitude_km": 25.27385702,
   "layers": [
     {
       "name": "anfang",
@@ -29,7 +29,8 @@
         }
       },
       "label_field": "FL",
-      "link_field": "MC"
+      "link_field": "MC",
+      "visible": true
     },
     {
       "name": "POImark",
@@ -48,7 +49,8 @@
         }
       },
       "label_field": "ID",
-      "link_field": "MC"
+      "link_field": "MC",
+      "visible": true
     },
     {
       "name": "landline",
@@ -67,7 +69,8 @@
         }
       },
       "label_field": "岸线二级类",
-      "link_field": ""
+      "link_field": "",
+      "visible": false
     },
     {
       "name": "islandline",
@@ -86,7 +89,8 @@
         }
       },
       "label_field": "岸线二级类",
-      "link_field": ""
+      "link_field": "",
+      "visible": false
     }
   ]
 }

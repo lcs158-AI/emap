@@ -682,6 +682,7 @@ async function loadLayersFromConfig() {
             const vectorLayer = new ol.layer.Vector({
                 source: source,
                 style: style,
+                visible: layerConfig.visible !== false, // 默认 true，若配置为 false 则隐藏
                 properties: {
                     labelField: layerConfig.label_field || '',
                     linkField: layerConfig.link_field || ''
