@@ -619,6 +619,14 @@ function createStyleFromConfig(styleConfig) {
 
 async function loadLayersFromConfig(configUrl) {
     try {
+        // 显示加载提示
+        const loadingPanel = document.getElementById('loadingPanel');
+        const loadingProgress = document.getElementById('loadingProgress');
+        if (loadingPanel) {
+            loadingPanel.style.display = 'block';
+            loadingProgress.textContent = '加载配置文件...';
+        }
+        
         const response = await fetch(configUrl);
         if (!response.ok) throw new Error(`配置文件加载失败: ${response.status}`);
         const config = await response.json();
@@ -653,8 +661,14 @@ async function loadLayersFromConfig(configUrl) {
         const layersToAdd = []; // 临时存储图层对象
 
         // 加载所有图层到临时数组
-        for (const layerConfig of config.layers) {
+        for (let i = 0; i < config.layers.length; i++) {
+            const layerConfig = config.layers[i];
             if (!layerConfig.geojson_path) continue;
+
+            // 更新加载进度
+            if (loadingProgress) {
+                loadingProgress.textContent = `加载图层 ${i + 1}/${config.layers.length}: ${layerConfig.name}`;
+            }
 
             // 解析 geojson_path，支持多种写法：
             // 1. 纯文件名（如 "anfang.geojson"）-> 自动拼接 geojsonBasePath
@@ -734,6 +748,11 @@ async function loadLayersFromConfig(configUrl) {
         // 创建图层控制面板
         createLayerControl();
 
+        // 隐藏加载提示
+        if (loadingPanel) {
+            loadingPanel.style.display = 'none';
+        }
+
     } catch (err) {
         console.error('加载配置文件失败:', err);
         // 清理已加载的图层，回到无参数导入状态
@@ -743,6 +762,10 @@ async function loadLayersFromConfig(configUrl) {
         const layerControl = document.getElementById('layerControl');
         if (layerControl) {
             layerControl.remove();
+        }
+        // 隐藏加载提示
+        if (loadingPanel) {
+            loadingPanel.style.display = 'none';
         }
         console.log('已清理图层，回到无参数导入状态');
     }
