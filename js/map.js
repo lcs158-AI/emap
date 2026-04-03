@@ -617,12 +617,24 @@ function createStyleFromConfig(styleConfig) {
     };
 }
 
-async function loadLayersFromConfig() {
+async function loadLayersFromConfig(configUrl) {
     try {
-        const response = await fetch('data/axnode_config.json');
+        const response = await fetch(configUrl);
         if (!response.ok) throw new Error(`配置文件加载失败: ${response.status}`);
         const config = await response.json();
         console.log('配置文件内容:', config);
+
+        // 获取配置文件的基准路径
+        const configBasePath = configUrl.substring(0, configUrl.lastIndexOf('/') + 1) || '';
+        console.log('配置文件基准路径:', configBasePath);
+
+        // GeoJSON 文件的基础路径（可在配置文件中指定，默认为配置文件的基准路径）
+        const geojsonBasePath = config.geojson_base_path !== undefined
+            ? (config.geojson_base_path.startsWith('/')
+                ? config.geojson_base_path
+                : configBasePath + config.geojson_base_path)
+            : configBasePath;
+        console.log('GeoJSON 基础路径:', geojsonBasePath);
 
         // 设置地图初始视图
         if (config.map_center && config.map_center.length === 2) {
@@ -644,21 +656,33 @@ async function loadLayersFromConfig() {
         for (const layerConfig of config.layers) {
             if (!layerConfig.geojson_path) continue;
 
+            // 解析 geojson_path，支持多种写法：
+            // 1. 纯文件名（如 "anfang.geojson"）-> 自动拼接 geojsonBasePath
+            // 2. 相对路径（如 "subdir/anfang.geojson"）-> 自动拼接 geojsonBasePath
+            // 3. 绝对路径（如 "/geojson/anfang.geojson" 或 "http://..."）-> 直接使用
             let geoJsonUrl = layerConfig.geojson_path;
+
+            // 如果是纯文件名或相对路径（不以 / 或 http 开头），则拼接 geojsonBasePath
+            if (!geoJsonUrl.startsWith('/') && !geoJsonUrl.startsWith('http')) {
+                // 移除开头的 ./ 如果存在
+                if (geoJsonUrl.startsWith('./')) {
+                    geoJsonUrl = geoJsonUrl.substring(2);
+                }
+                geoJsonUrl = geojsonBasePath + geoJsonUrl;
+            }
+
             console.log(`尝试加载: ${geoJsonUrl}`);
 
             let geoJsonResponse;
             try {
                 geoJsonResponse = await fetch(geoJsonUrl);
             } catch (err) {
-                const altUrl = geoJsonUrl.replace('../geojson/', 'geojson/');
-                console.log(`尝试备用路径: ${altUrl}`);
-                geoJsonResponse = await fetch(altUrl);
-                geoJsonUrl = altUrl;
+                console.error(`加载 GeoJSON 失败: ${geoJsonUrl}`, err);
+                continue;
             }
 
             if (!geoJsonResponse.ok) {
-                console.error(`加载 GeoJSON 失败: ${geoJsonUrl}`, geoJsonResponse.status);
+                console.error(`加载 GeoJSON 失败: ${geoJsonUrl}, 状态码: ${geoJsonResponse.status}`);
                 continue;
             }
 
@@ -826,5 +850,24 @@ function createLayerControl() {
         if (layerPanelVisible) toggleBtn.classList.add('active');
     }
 }
-loadLayersFromConfig();
+// 获取URL参数，决定加载哪个配置文件
+function getConfigUrlFromParams() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const configParam = urlParams.get('config');
+    if (configParam) {
+        // 自动补全 .json 扩展名（如果未指定）
+        let configFile = configParam.endsWith('.json') ? configParam : `${configParam}.json`;
+        // 如果参数包含路径分隔符，直接使用；否则默认在data目录下查找
+        return configFile.includes('/') ? configFile : `data/${configFile}`;
+    }
+    return null;
+}
+
+// 根据URL参数决定是否加载图层
+const configUrl = getConfigUrlFromParams();
+if (configUrl) {
+    loadLayersFromConfig(configUrl);
+} else {
+    console.log('未指定配置文件，跳过图层加载。使用 ?config=xxx.json 参数指定配置文件');
+}
 console.log('地图加载完成');
