@@ -854,17 +854,22 @@ function createLayerControl() {
 function getConfigUrlFromParams() {
     const urlParams = new URLSearchParams(window.location.search);
     const configParam = urlParams.get('config');
+    console.log('URL参数 config:', configParam);
+    console.log('当前页面URL:', window.location.href);
     if (configParam) {
         // 自动补全 .json 扩展名（如果未指定）
         let configFile = configParam.endsWith('.json') ? configParam : `${configParam}.json`;
         // 如果参数包含路径分隔符，直接使用；否则默认在data目录下查找
-        return configFile.includes('/') ? configFile : `data/${configFile}`;
+        const result = configFile.includes('/') ? configFile : `data/${configFile}`;
+        console.log('配置文件路径:', result);
+        return result;
     }
     return null;
 }
 
 // 根据URL参数决定是否加载图层
 const configUrl = getConfigUrlFromParams();
+console.log('最终配置文件URL:', configUrl);
 if (configUrl) {
     loadLayersFromConfig(configUrl);
 } else {
