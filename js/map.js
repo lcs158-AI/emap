@@ -736,6 +736,15 @@ async function loadLayersFromConfig(configUrl) {
 
     } catch (err) {
         console.error('加载配置文件失败:', err);
+        // 清理已加载的图层，回到无参数导入状态
+        dynamicLayers.forEach(item => map.removeLayer(item.layer));
+        dynamicLayers = [];
+        // 清除图层控制面板
+        const layerControl = document.getElementById('layerControl');
+        if (layerControl) {
+            layerControl.remove();
+        }
+        console.log('已清理图层，回到无参数导入状态');
     }
 }
 
