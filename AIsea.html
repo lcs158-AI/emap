@@ -19,7 +19,10 @@
         <button id="measureAreaBtn" class="action-btn measure-btn" data-title="测量面积">🔲</button>
         <button id="tideBtn" class="action-btn" data-title="查潮汐">🌊</button>
         <button id="toggleLayerPanelBtn" class="action-btn" data-title="图层管理">🗂️</button>
+        <button id="loadGeoJsonBtn" class="action-btn" data-title="加载 GeoJSON">📁</button>
     </div>
+    <!-- 隐藏的 GeoJSON 文件上传输入框 -->
+    <input type="file" id="geoJsonFileInput" accept=".geojson,.json" style="display: none;" />
     <div class="layer-control">
         <button id="toggleLayerPanel" class="action-btn" data-title="图层管理">📂</button>
         <div id="layerPanel"

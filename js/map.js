@@ -777,7 +777,7 @@ function createLayerControl() {
     // 如果面板已存在，先移除（避免重复）
     const oldPanel = document.getElementById('layerControl');
     if (oldPanel) oldPanel.remove();
-
+    
     // 创建新面板
     const panel = document.createElement('div');
     panel.id = 'layerControl';
@@ -793,7 +793,7 @@ function createLayerControl() {
     panel.style.maxHeight = '60vh';
     panel.style.overflowY = 'auto';
     document.body.appendChild(panel);
-
+    
     // 面板头部：标题 + 关闭按钮
     const header = document.createElement('div');
     header.style.display = 'flex';
@@ -802,11 +802,11 @@ function createLayerControl() {
     header.style.marginBottom = '8px';
     header.style.borderBottom = '1px solid #eee';
     header.style.paddingBottom = '5px';
-
+    
     const title = document.createElement('div');
     title.textContent = '图层管理';
     title.style.fontWeight = 'bold';
-
+    
     const closeBtn = document.createElement('button');
     closeBtn.textContent = '✕';
     closeBtn.style.background = 'none';
@@ -821,41 +821,88 @@ function createLayerControl() {
         const toggleBtn = document.getElementById('toggleLayerPanelBtn');
         if (toggleBtn) toggleBtn.classList.remove('active');
     });
-
+    
     header.appendChild(title);
     header.appendChild(closeBtn);
     panel.appendChild(header);
-
+    
+    // 添加本地 GeoJSON 图层列表
+    if (localGeoJsonLayers.length > 0) {
+        const localTitle = document.createElement('div');
+        localTitle.textContent = '本地图层';
+        localTitle.style.fontWeight = 'bold';
+        localTitle.style.marginTop = '10px';
+        localTitle.style.marginBottom = '5px';
+        localTitle.style.fontSize = '12px';
+        localTitle.style.color = '#666';
+        panel.appendChild(localTitle);
+        
+        localGeoJsonLayers.forEach(item => {
+            const div = document.createElement('div');
+            div.style.marginBottom = '5px';
+            
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = item.visible;
+            checkbox.setAttribute('data-layer-name', item.name);
+            checkbox.addEventListener('change', (e) => {
+                const isVisible = e.target.checked;
+                item.layer.setVisible(isVisible);
+                item.visible = isVisible;
+            });
+            
+            const label = document.createElement('label');
+            label.textContent = item.name;
+            label.style.marginLeft = '5px';
+            
+            div.appendChild(checkbox);
+            div.appendChild(label);
+            panel.appendChild(div);
+            console.log(`本地图层 ${item.name} visible: ${item.visible}`);
+        });
+    }
+    
     // 遍历动态图层生成列表
     // 按地图显示顺序（倒序）生成列表
-    dynamicLayers.reverse().forEach(item => {
-        const div = document.createElement('div');
-        div.style.marginBottom = '5px';
-
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.checked = item.visible;
-        checkbox.setAttribute('data-layer-name', item.name);
-        checkbox.addEventListener('change', (e) => {
-            const isVisible = e.target.checked;
-            item.layer.setVisible(isVisible);
-            item.visible = isVisible;
+    if (dynamicLayers.length > 0) {
+        const dynamicTitle = document.createElement('div');
+        dynamicTitle.textContent = '配置图层';
+        dynamicTitle.style.fontWeight = 'bold';
+        dynamicTitle.style.marginTop = '10px';
+        dynamicTitle.style.marginBottom = '5px';
+        dynamicTitle.style.fontSize = '12px';
+        dynamicTitle.style.color = '#666';
+        panel.appendChild(dynamicTitle);
+        
+        dynamicLayers.reverse().forEach(item => {
+            const div = document.createElement('div');
+            div.style.marginBottom = '5px';
+            
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = item.visible;
+            checkbox.setAttribute('data-layer-name', item.name);
+            checkbox.addEventListener('change', (e) => {
+                const isVisible = e.target.checked;
+                item.layer.setVisible(isVisible);
+                item.visible = isVisible;
+            });
+            
+            const label = document.createElement('label');
+            label.textContent = item.name;
+            label.style.marginLeft = '5px';
+            
+            div.appendChild(checkbox);
+            div.appendChild(label);
+            panel.appendChild(div);
+            console.log(`图层 ${item.name} visible: ${item.visible}`);
         });
-
-        const label = document.createElement('label');
-        label.textContent = item.name;
-        label.style.marginLeft = '5px';
-
-        div.appendChild(checkbox);
-        div.appendChild(label);
-        panel.appendChild(div);
-        console.log(`图层 ${item.name} visible: ${item.visible}`);
-    });
-
+    }
+    
     // 添加工具栏按钮事件（如果不存在则添加）
     let toggleBtn = document.getElementById('toggleLayerPanelBtn');
     if (!toggleBtn) {
-        // 如果按钮不在工具栏，动态创建（但通常已在HTML中）
+        // 如果按钮不在工具栏，动态创建（但通常已在 HTML 中）
         const toolbar = document.querySelector('.toolbar');
         if (toolbar) {
             toggleBtn = document.createElement('button');
@@ -899,12 +946,186 @@ function getConfigUrlFromParams() {
     return null;
 }
 
-// 根据URL参数决定是否加载图层
+// 根据 URL 参数决定是否加载图层
 const configUrl = getConfigUrlFromParams();
-console.log('最终配置文件URL:', configUrl);
+console.log('最终配置文件 URL:', configUrl);
 if (configUrl) {
     loadLayersFromConfig(configUrl);
 } else {
     console.log('未指定配置文件，跳过图层加载。使用 ?config=xxx.json 参数指定配置文件');
 }
 console.log('地图加载完成');
+
+// ==================== 加载本地 GeoJSON 文件 ====================
+// 加载 GeoJSON 文件按钮事件
+const loadGeoJsonBtn = document.getElementById('loadGeoJsonBtn');
+const geoJsonFileInput = document.getElementById('geoJsonFileInput');
+
+if (loadGeoJsonBtn) {
+    loadGeoJsonBtn.addEventListener('click', function() {
+        // 触发文件选择对话框
+        geoJsonFileInput.click();
+    });
+}
+
+if (geoJsonFileInput) {
+    geoJsonFileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        // 显示加载提示
+        const loadingPanel = document.getElementById('loadingPanel');
+        const loadingProgress = document.getElementById('loadingProgress');
+        if (loadingPanel) {
+            loadingPanel.style.display = 'block';
+            loadingProgress.textContent = '正在加载 GeoJSON 文件...';
+        }
+        
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            try {
+                const geoJson = JSON.parse(event.target.result);
+                loadLocalGeoJSON(geoJson, file.name.replace(/\.(geojson|json)$/i, ''));
+                
+                // 隐藏加载提示
+                if (loadingPanel) {
+                    loadingPanel.style.display = 'none';
+                }
+                
+                // 清空 input，允许重复加载同一文件
+                geoJsonFileInput.value = '';
+            } catch (error) {
+                console.error('解析 GeoJSON 失败:', error);
+                alert('GeoJSON 文件解析失败：' + error.message);
+                
+                // 隐藏加载提示
+                if (loadingPanel) {
+                    loadingPanel.style.display = 'none';
+                }
+            }
+        };
+        
+        reader.onerror = function() {
+            console.error('读取文件失败');
+            alert('读取 GeoJSON 文件失败');
+            
+            // 隐藏加载提示
+            if (loadingPanel) {
+                loadingPanel.style.display = 'none';
+            }
+        };
+        
+        reader.readAsText(file);
+    });
+}
+
+// 存储本地加载的 GeoJSON 图层
+let localGeoJsonLayers = [];
+
+/**
+ * 加载本地 GeoJSON 数据到地图
+ * @param {Object} geoJson - GeoJSON 对象
+ * @param {string} name - 图层名称
+ */
+function loadLocalGeoJSON(geoJson, name) {
+    try {
+        // 将 GeoJSON 转换为 OpenLayers 要素
+        const features = new ol.format.GeoJSON().readFeatures(geoJson, {
+            dataProjection: 'EPSG:4326',
+            featureProjection: 'EPSG:3857'
+        });
+        
+        console.log('成功加载本地 GeoJSON:', name, '要素数量:', features.length);
+        
+        // 创建矢量图层
+        const vectorLayer = new ol.layer.Vector({
+            source: new ol.source.Vector({ features }),
+            style: function(feature) {
+                const geometryType = feature.getGeometry().getType();
+                
+                // 根据几何类型设置默认样式
+                if (geometryType === 'Point') {
+                    return new ol.style.Style({
+                        image: new ol.style.Circle({
+                            radius: 6,
+                            fill: new ol.style.Fill({ color: 'rgba(24, 144, 255, 0.8)' }),
+                            stroke: new ol.style.Stroke({ color: '#fff', width: 2 })
+                        })
+                    });
+                } else if (geometryType === 'LineString' || geometryType === 'MultiLineString') {
+                    return new ol.style.Style({
+                        stroke: new ol.style.Stroke({
+                            color: 'rgba(82, 196, 26, 0.9)',
+                            width: 3
+                        })
+                    });
+                } else if (geometryType === 'Polygon' || geometryType === 'MultiPolygon') {
+                    return new ol.style.Style({
+                        fill: new ol.style.Fill({
+                            color: 'rgba(255, 165, 0, 0.3)'
+                        }),
+                        stroke: new ol.style.Stroke({
+                            color: 'rgba(255, 165, 0, 0.9)',
+                            width: 2
+                        })
+                    });
+                }
+                
+                return new ol.style.Style();
+            },
+            visible: true,
+            properties: {
+                labelField: '',
+                linkField: ''
+            },
+            name: name
+        });
+        
+        // 添加到地图
+        map.addLayer(vectorLayer);
+        
+        // 记录到本地图层数组
+        localGeoJsonLayers.push({
+            layer: vectorLayer,
+            name: name,
+            visible: true
+        });
+        
+        // 更新图层控制面板
+        createLayerControl();
+        
+        // 自动缩放到图层范围
+        zoomToLayerExtent(vectorLayer);
+        
+        console.log('本地 GeoJSON 图层已添加:', name);
+    } catch (error) {
+        console.error('加载本地 GeoJSON 失败:', error);
+        throw error;
+    }
+}
+
+/**
+ * 缩放到图层范围
+ * @param {ol.layer.Vector} layer - 矢量图层
+ */
+function zoomToLayerExtent(layer) {
+    const source = layer.getSource();
+    if (!source || source.getFeatures().length === 0) return;
+    
+    const extent = ol.extent.createEmpty();
+    source.getFeatures().forEach(feature => {
+        const geom = feature.getGeometry();
+        if (geom) {
+            ol.extent.extend(extent, geom.getExtent());
+        }
+    });
+    
+    if (ol.extent.getWidth(extent) > 0 && ol.extent.getHeight(extent) > 0) {
+        // 添加 10% 的边距
+        const bufferedExtent = ol.extent.buffer(extent, ol.extent.getWidth(extent) * 0.1);
+        map.getView().fit(bufferedExtent, {
+            padding: [50, 50, 50, 50],
+            duration: 500
+        });
+    }
+}
