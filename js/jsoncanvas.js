@@ -1,0 +1,709 @@
+// 全局变量
+let canvas, ctx;
+let mapData = {
+    layers: [],
+    currentLayer: null,
+    selectedFeature: null,
+    tool: 'select',
+    scale: 1,
+    offsetX: 0,
+    offsetY: 0,
+    isDragging: false,
+    lastMouseX: 0,
+    lastMouseY: 0,
+    editMode: false,
+    editPoints: []
+};
+
+// 坐标转换函数
+function lonLatToPixel(lon, lat, width, height) {
+    const centerLon = 115.0; // 调整到数据中心
+    const centerLat = 22.5;  // 调整到数据中心
+    const scale = 1000;      // 减小缩放比例
+    
+    const x = (lon - centerLon) * scale + width / 2;
+    const y = height / 2 - (lat - centerLat) * scale;
+    
+    return { x: x * mapData.scale + mapData.offsetX, y: y * mapData.scale + mapData.offsetY };
+}
+
+function pixelToLonLat(x, y, width, height) {
+    const centerLon = 115.0;
+    const centerLat = 22.5;
+    const scale = 1000;
+    
+    const lon = (x - mapData.offsetX) / mapData.scale / scale + centerLon;
+    const lat = centerLat - (y - mapData.offsetY) / mapData.scale / scale;
+    
+    return { lon, lat };
+}
+
+// 初始化
+function init() {
+    canvas = document.getElementById('mapCanvas');
+    ctx = canvas.getContext('2d');
+    
+    // 设置画布大小
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+    
+    // 鼠标事件
+    canvas.addEventListener('mousedown', handleMouseDown);
+    canvas.addEventListener('mousemove', handleMouseMove);
+    canvas.addEventListener('mouseup', handleMouseUp);
+    
+    // 触摸事件
+    canvas.addEventListener('touchstart', handleTouchStart);
+    canvas.addEventListener('touchmove', handleTouchMove);
+    canvas.addEventListener('touchend', handleTouchEnd);
+    
+    // 文件上传
+    document.getElementById('file-upload').addEventListener('change', handleFileUpload);
+    
+    // 搜索输入
+    document.getElementById('searchInput').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            performSearch();
+        }
+    });
+    
+    // 初始加载示例数据
+    loadSampleData();
+}
+
+function resizeCanvas() {
+    const mapContainer = document.getElementById('map');
+    canvas.width = mapContainer.clientWidth;
+    canvas.height = mapContainer.clientHeight;
+    renderMap();
+}
+
+function handleMouseDown(e) {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    if (mapData.tool === 'select') {
+        const feature = findFeatureAt(x, y);
+        if (feature) {
+            selectFeature(feature);
+        } else {
+            mapData.isDragging = true;
+            mapData.lastMouseX = x;
+            mapData.lastMouseY = y;
+        }
+    } else if (mapData.tool === 'point') {
+        addPointFeature(x, y);
+    } else if (mapData.tool === 'line' || mapData.tool === 'polygon') {
+        mapData.editPoints.push({ x, y });
+        if (mapData.editPoints.length > 1) {
+            renderMap();
+            drawEditPreview();
+        }
+    }
+}
+
+function handleMouseMove(e) {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    if (mapData.isDragging) {
+        mapData.offsetX += x - mapData.lastMouseX;
+        mapData.offsetY += y - mapData.lastMouseY;
+        mapData.lastMouseX = x;
+        mapData.lastMouseY = y;
+        renderMap();
+    } else if (mapData.tool === 'line' || mapData.tool === 'polygon') {
+        if (mapData.editPoints.length > 0) {
+            renderMap();
+            drawEditPreview(x, y);
+        }
+    }
+}
+
+function handleMouseUp(e) {
+    if (mapData.isDragging) {
+        mapData.isDragging = false;
+    } else if (mapData.tool === 'line' && mapData.editPoints.length >= 2) {
+        addLineFeature();
+    } else if (mapData.tool === 'polygon' && mapData.editPoints.length >= 3) {
+        addPolygonFeature();
+    }
+}
+
+function handleTouchStart(e) {
+    if (e.touches.length === 1) {
+        const touch = e.touches[0];
+        const rect = canvas.getBoundingClientRect();
+        const x = touch.clientX - rect.left;
+        const y = touch.clientY - rect.top;
+        
+        mapData.lastMouseX = x;
+        mapData.lastMouseY = y;
+        mapData.isDragging = true;
+    }
+}
+
+function handleTouchMove(e) {
+    if (e.touches.length === 1 && mapData.isDragging) {
+        const touch = e.touches[0];
+        const rect = canvas.getBoundingClientRect();
+        const x = touch.clientX - rect.left;
+        const y = touch.clientY - rect.top;
+        
+        mapData.offsetX += x - mapData.lastMouseX;
+        mapData.offsetY += y - mapData.lastMouseY;
+        mapData.lastMouseX = x;
+        mapData.lastMouseY = y;
+        renderMap();
+    }
+}
+
+function handleTouchEnd(e) {
+    mapData.isDragging = false;
+}
+
+function handleFileUpload(e) {
+    const file = e.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const geojson = JSON.parse(e.target.result);
+                addLayerFromGeoJSON(geojson, file.name);
+            } catch (error) {
+                alert('文件解析失败: ' + error.message);
+            }
+        };
+        reader.readAsText(file);
+    }
+}
+
+function loadSampleData() {
+    showLoading('加载示例数据...');
+    
+    // 加载 geojson 文件夹下的文件
+    const files = ['anfang.geojson', 'POImark.geojson', 'landline.geojson', 'islandline.geojson'];
+    let loaded = 0;
+    
+    files.forEach(filename => {
+        fetch('geojson/' + filename)
+            .then(response => response.json())
+            .then(geojson => {
+                addLayerFromGeoJSON(geojson, filename);
+                loaded++;
+                if (loaded === files.length) {
+                    hideLoading();
+                    updateStats();
+                }
+            })
+            .catch(error => {
+                console.error('加载文件失败:', filename, error);
+                loaded++;
+                if (loaded === files.length) {
+                    hideLoading();
+                }
+            });
+    });
+}
+
+function addLayerFromGeoJSON(geojson, name) {
+    const layer = {
+        name: name.replace('.geojson', ''),
+        features: geojson.features || [],
+        visible: true
+    };
+    
+    mapData.layers.push(layer);
+    mapData.currentLayer = layer;
+    updateLayerList();
+    renderMap();
+    updateStats();
+    console.log('图层加载完成:', name, '要素数量:', layer.features.length);
+}
+
+function updateLayerList() {
+    const layerList = document.getElementById('layer-list');
+    layerList.innerHTML = '';
+    
+    mapData.layers.forEach((layer, index) => {
+        const item = document.createElement('div');
+        item.className = 'layer-item' + (mapData.currentLayer === layer ? ' active' : '');
+        item.innerHTML = `
+            <input type="checkbox" ${layer.visible ? 'checked' : ''} onchange="toggleLayerVisibility(${index})">
+            ${layer.name} (${layer.features.length})
+        `;
+        item.onclick = () => selectLayer(index);
+        layerList.appendChild(item);
+    });
+}
+
+function selectLayer(index) {
+    mapData.currentLayer = mapData.layers[index];
+    updateLayerList();
+    renderMap();
+}
+
+function toggleLayerVisibility(index) {
+    mapData.layers[index].visible = !mapData.layers[index].visible;
+    renderMap();
+}
+
+function setTool(tool) {
+    mapData.tool = tool;
+    mapData.editPoints = [];
+    
+    // 更新按钮状态
+    document.querySelectorAll('.btn').forEach(btn => btn.classList.remove('active'));
+    document.getElementById(tool + 'Tool')?.classList.add('active');
+}
+
+function findFeatureAt(x, y) {
+    for (const layer of mapData.layers) {
+        if (!layer.visible) continue;
+        
+        for (const feature of layer.features) {
+            if (isFeatureAt(feature, x, y)) {
+                return { layer, feature };
+            }
+        }
+    }
+    return null;
+}
+
+function isFeatureAt(feature, x, y) {
+    const geometry = feature.geometry;
+    
+    switch (geometry.type) {
+        case 'Point':
+            const point = lonLatToPixel(geometry.coordinates[0], geometry.coordinates[1], canvas.width, canvas.height);
+            const distance = Math.sqrt((x - point.x) ** 2 + (y - point.y) ** 2);
+            return distance < 10;
+        
+        case 'LineString':
+            // 简化的线要素检测
+            for (let i = 0; i < geometry.coordinates.length - 1; i++) {
+                const p1 = lonLatToPixel(geometry.coordinates[i][0], geometry.coordinates[i][1], canvas.width, canvas.height);
+                const p2 = lonLatToPixel(geometry.coordinates[i+1][0], geometry.coordinates[i+1][1], canvas.width, canvas.height);
+                if (pointToLineDistance(x, y, p1.x, p1.y, p2.x, p2.y) < 5) {
+                    return true;
+                }
+            }
+            return false;
+        
+        case 'Polygon':
+            // 简化的面要素检测
+            const polygon = geometry.coordinates[0].map(coord => 
+                lonLatToPixel(coord[0], coord[1], canvas.width, canvas.height)
+            );
+            return pointInPolygon(x, y, polygon);
+        
+        default:
+            return false;
+    }
+}
+
+function pointToLineDistance(x, y, x1, y1, x2, y2) {
+    const A = x - x1;
+    const B = y - y1;
+    const C = x2 - x1;
+    const D = y2 - y1;
+    const dot = A * C + B * D;
+    const lenSq = C * C + D * D;
+    let param = -1;
+    if (lenSq !== 0) param = dot / lenSq;
+    
+    let xx, yy;
+    if (param < 0) {
+        xx = x1;
+        yy = y1;
+    } else if (param > 1) {
+        xx = x2;
+        yy = y2;
+    } else {
+        xx = x1 + param * C;
+        yy = y1 + param * D;
+    }
+    
+    const dx = x - xx;
+    const dy = y - yy;
+    return Math.sqrt(dx * dx + dy * dy);
+}
+
+function pointInPolygon(x, y, polygon) {
+    let inside = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+        const xi = polygon[i].x, yi = polygon[i].y;
+        const xj = polygon[j].x, yj = polygon[j].y;
+        
+        const intersect = ((yi > y) !== (yj > y)) && 
+            (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+        if (intersect) inside = !inside;
+    }
+    return inside;
+}
+
+function selectFeature(featureInfo) {
+    mapData.selectedFeature = featureInfo;
+    updateFeatureInfo(featureInfo);
+    renderMap();
+}
+
+function updateFeatureInfo(featureInfo) {
+    const infoPanel = document.getElementById('featureInfo');
+    if (!featureInfo) {
+        infoPanel.innerHTML = '点击要素查看信息';
+        return;
+    }
+    
+    const feature = featureInfo.feature;
+    const properties = feature.properties || {};
+    let html = `<strong>图层:</strong> ${featureInfo.layer.name}<br>`;
+    html += `<strong>类型:</strong> ${feature.geometry.type}<br>`;
+    html += `<strong>坐标:</strong> ${feature.geometry.coordinates}<br>`;
+    html += '<strong>属性:</strong><br>';
+    
+    for (const [key, value] of Object.entries(properties)) {
+        html += `${key}: ${value}<br>`;
+    }
+    
+    infoPanel.innerHTML = html;
+}
+
+function deleteSelected() {
+    if (mapData.selectedFeature) {
+        const { layer, feature } = mapData.selectedFeature;
+        const index = layer.features.indexOf(feature);
+        if (index > -1) {
+            layer.features.splice(index, 1);
+            mapData.selectedFeature = null;
+            updateFeatureInfo(null);
+            updateLayerList();
+            updateStats();
+            renderMap();
+        }
+    }
+}
+
+function addPointFeature(x, y) {
+    if (!mapData.currentLayer) {
+        alert('请先选择或创建图层');
+        return;
+    }
+    
+    const lonLat = pixelToLonLat(x, y, canvas.width, canvas.height);
+    const feature = {
+        type: 'Feature',
+        properties: {
+            name: '新点',
+            description: '手动添加的点'
+        },
+        geometry: {
+            type: 'Point',
+            coordinates: [lonLat.lon, lonLat.lat]
+        }
+    };
+    
+    mapData.currentLayer.features.push(feature);
+    updateLayerList();
+    updateStats();
+    renderMap();
+}
+
+function addLineFeature() {
+    if (!mapData.currentLayer) {
+        alert('请先选择或创建图层');
+        return;
+    }
+    
+    const coordinates = mapData.editPoints.map(point => {
+        const lonLat = pixelToLonLat(point.x, point.y, canvas.width, canvas.height);
+        return [lonLat.lon, lonLat.lat];
+    });
+    
+    const feature = {
+        type: 'Feature',
+        properties: {
+            name: '新线',
+            description: '手动添加的线'
+        },
+        geometry: {
+            type: 'LineString',
+            coordinates: coordinates
+        }
+    };
+    
+    mapData.currentLayer.features.push(feature);
+    mapData.editPoints = [];
+    updateLayerList();
+    updateStats();
+    renderMap();
+}
+
+function addPolygonFeature() {
+    if (!mapData.currentLayer) {
+        alert('请先选择或创建图层');
+        return;
+    }
+    
+    const coordinates = mapData.editPoints.map(point => {
+        const lonLat = pixelToLonLat(point.x, point.y, canvas.width, canvas.height);
+        return [lonLat.lon, lonLat.lat];
+    });
+    
+    // 闭合多边形
+    coordinates.push(coordinates[0]);
+    
+    const feature = {
+        type: 'Feature',
+        properties: {
+            name: '新面',
+            description: '手动添加的面'
+        },
+        geometry: {
+            type: 'Polygon',
+            coordinates: [coordinates]
+        }
+    };
+    
+    mapData.currentLayer.features.push(feature);
+    mapData.editPoints = [];
+    updateLayerList();
+    updateStats();
+    renderMap();
+}
+
+function drawEditPreview(x, y) {
+    if (mapData.editPoints.length === 0) return;
+    
+    ctx.beginPath();
+    ctx.moveTo(mapData.editPoints[0].x, mapData.editPoints[0].y);
+    
+    for (let i = 1; i < mapData.editPoints.length; i++) {
+        ctx.lineTo(mapData.editPoints[i].x, mapData.editPoints[i].y);
+    }
+    
+    if (x !== undefined && y !== undefined) {
+        ctx.lineTo(x, y);
+    }
+    
+    if (mapData.tool === 'polygon' && mapData.editPoints.length > 2) {
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(0, 128, 255, 0.2)';
+        ctx.fill();
+    }
+    
+    ctx.strokeStyle = '#0080ff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    
+    // 绘制编辑点
+    mapData.editPoints.forEach(point => {
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, 4, 0, Math.PI * 2);
+        ctx.fillStyle = '#0080ff';
+        ctx.fill();
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+    });
+}
+
+function renderMap() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // 绘制网格
+    drawGrid();
+    
+    // 绘制图层
+    let featureCount = 0;
+    mapData.layers.forEach(layer => {
+        if (layer.visible) {
+            layer.features.forEach(feature => {
+                drawFeature(feature, layer === mapData.currentLayer);
+                featureCount++;
+            });
+        }
+    });
+    
+    // 绘制选中要素
+    if (mapData.selectedFeature) {
+        drawFeature(mapData.selectedFeature.feature, true, true);
+    }
+    
+    console.log('渲染完成，绘制要素数量:', featureCount);
+}
+
+function drawGrid() {
+    ctx.strokeStyle = 'rgba(200, 200, 200, 0.3)';
+    ctx.lineWidth = 1;
+    
+    const gridSize = 50 * mapData.scale;
+    
+    for (let x = 0; x < canvas.width; x += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+    }
+    
+    for (let y = 0; y < canvas.height; y += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+    }
+}
+
+function drawFeature(feature, isCurrentLayer, isSelected = false) {
+    const geometry = feature.geometry;
+    const properties = feature.properties || {};
+    
+    switch (geometry.type) {
+        case 'Point':
+            drawPoint(geometry.coordinates[0], geometry.coordinates[1], properties, isSelected);
+            break;
+        case 'LineString':
+            drawLine(geometry.coordinates, properties, isSelected);
+            break;
+        case 'Polygon':
+            drawPolygon(geometry.coordinates, properties, isSelected);
+            break;
+    }
+}
+
+function drawPoint(lon, lat, properties, isSelected) {
+    const point = lonLatToPixel(lon, lat, canvas.width, canvas.height);
+    
+    // 绘制点
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, isSelected ? 8 : 5, 0, Math.PI * 2);
+    ctx.fillStyle = isSelected ? '#ff4d4f' : '#1890ff';
+    ctx.fill();
+    ctx.strokeStyle = 'white';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    
+    // 绘制标签
+    if (properties.name || properties.FL) {
+        ctx.fillStyle = '#333';
+        ctx.font = '12px Arial';
+        ctx.fillText(properties.name || properties.FL, point.x + 10, point.y + 4);
+    }
+}
+
+function drawLine(coordinates, properties, isSelected) {
+    ctx.beginPath();
+    
+    const firstPoint = lonLatToPixel(coordinates[0][0], coordinates[0][1], canvas.width, canvas.height);
+    ctx.moveTo(firstPoint.x, firstPoint.y);
+    
+    for (let i = 1; i < coordinates.length; i++) {
+        const point = lonLatToPixel(coordinates[i][0], coordinates[i][1], canvas.width, canvas.height);
+        ctx.lineTo(point.x, point.y);
+    }
+    
+    ctx.strokeStyle = isSelected ? '#ff4d4f' : '#52c41a';
+    ctx.lineWidth = isSelected ? 4 : 2;
+    ctx.stroke();
+}
+
+function drawPolygon(coordinates, properties, isSelected) {
+    const polygon = coordinates[0];
+    
+    ctx.beginPath();
+    const firstPoint = lonLatToPixel(polygon[0][0], polygon[0][1], canvas.width, canvas.height);
+    ctx.moveTo(firstPoint.x, firstPoint.y);
+    
+    for (let i = 1; i < polygon.length; i++) {
+        const point = lonLatToPixel(polygon[i][0], polygon[i][1], canvas.width, canvas.height);
+        ctx.lineTo(point.x, point.y);
+    }
+    
+    ctx.closePath();
+    ctx.fillStyle = isSelected ? 'rgba(255, 77, 79, 0.3)' : 'rgba(82, 196, 26, 0.3)';
+    ctx.fill();
+    ctx.strokeStyle = isSelected ? '#ff4d4f' : '#52c41a';
+    ctx.lineWidth = isSelected ? 3 : 2;
+    ctx.stroke();
+}
+
+function zoomIn() {
+    mapData.scale *= 1.2;
+    renderMap();
+}
+
+function zoomOut() {
+    mapData.scale /= 1.2;
+    renderMap();
+}
+
+function resetView() {
+    mapData.scale = 1;
+    mapData.offsetX = 0;
+    mapData.offsetY = 0;
+    renderMap();
+}
+
+function performSearch() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    if (!searchTerm) return;
+    
+    const results = [];
+    
+    mapData.layers.forEach(layer => {
+        layer.features.forEach(feature => {
+            const properties = feature.properties || {};
+            for (const [key, value] of Object.entries(properties)) {
+                if (String(value).toLowerCase().includes(searchTerm)) {
+                    results.push({ layer, feature });
+                    break;
+                }
+            }
+        });
+    });
+    
+    if (results.length > 0) {
+        selectFeature(results[0]);
+        alert(`找到 ${results.length} 个匹配要素`);
+    } else {
+        alert('未找到匹配要素');
+    }
+}
+
+function updateStats() {
+    let total = 0, points = 0, lines = 0, polygons = 0;
+    
+    mapData.layers.forEach(layer => {
+        layer.features.forEach(feature => {
+            total++;
+            switch (feature.geometry.type) {
+                case 'Point': points++;
+                    break;
+                case 'LineString': lines++;
+                    break;
+                case 'Polygon': polygons++;
+                    break;
+            }
+        });
+    });
+    
+    document.getElementById('totalFeatures').textContent = total;
+    document.getElementById('pointCount').textContent = points;
+    document.getElementById('lineCount').textContent = lines;
+    document.getElementById('polygonCount').textContent = polygons;
+}
+
+function showLoading(text) {
+    const loading = document.getElementById('loading');
+    document.getElementById('loadingText').textContent = text;
+    loading.style.display = 'block';
+}
+
+function hideLoading() {
+    document.getElementById('loading').style.display = 'none';
+}
+
+// 初始化
+window.onload = init;
