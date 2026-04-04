@@ -1,0 +1,93 @@
+{
+  "version": 1,
+  "map_center": [
+    117.1179562,
+    23.56116087
+  ],
+  "camera_altitude_km": 25.27385702,
+  "geojson_base_path": "../geojson/",
+  "layers": [
+    {
+      "name": "anfang",
+      "geojson_path": "anfang.geojson",
+      "style": {
+        "point": {
+          "type": 41,
+          "color": 16711680,
+          "size": 8,
+          "font": "MapInfo Cartographic"
+        },
+        "line": {
+          "pattern": 1,
+          "width": 2,
+          "color": 0
+        },
+        "fill": {
+          "pattern": 2,
+          "foreground": 16777215,
+          "background": 16777215
+        }
+      },
+      "label_field": "FL",
+      "link_field": "MC",
+      "visible": true
+    },
+    {
+      "name": "POImark",
+      "geojson_path": "POImark.geojson",
+      "style": {
+        "line": {
+          "pattern": 1,
+          "width": 2,
+          "color": 0
+        },
+        "fill": {
+          "pattern": 2,
+          "foreground": 16777215,
+          "background": 16777215
+        }
+      },
+      "label_field": "ID",
+      "link_field": "MC",
+      "visible": true
+    },
+    {
+      "name": "landline",
+      "geojson_path": "landline.geojson",
+      "style": {
+        "line": {
+          "pattern": 2,
+          "width": 2,
+          "color": 255
+        },
+        "fill": {
+          "pattern": 2,
+          "foreground": 16777215,
+          "background": 16777215
+        }
+      },
+      "label_field": "岸线二级类",
+      "link_field": "",
+      "visible": false
+    },
+    {
+      "name": "islandline",
+      "geojson_path": "islandline.geojson",
+      "style": {
+        "line": {
+          "pattern": 2,
+          "width": 2,
+          "color": 255
+        },
+        "fill": {
+          "pattern": 2,
+          "foreground": 16777215,
+          "background": 16777215
+        }
+      },
+      "label_field": "岸线二级类",
+      "link_field": "",
+      "visible": false
+    }
+  ]
+}
