@@ -113,12 +113,36 @@ map.on('click', function (evt) {
                 // 确保路径前缀以 / 结尾
                 const normalizedPrefix = pathPrefix.endsWith('/') ? pathPrefix : pathPrefix + '/';
                 const fullPath = normalizedPrefix + imgFile;
-                content = `
-                    <div class="popup-content">
-                        <b>${labelText}</b><br>
-                        <img src="${fullPath}" alt="照片" onerror="this.onerror=null; this.src='https://via.placeholder.com/250x150?text=图片未找到';">
-                    </div>
-                `;
+                
+                // 检测是否为本地文件路径
+                const isLocalPath = fullPath.startsWith('file:///') || /^[a-zA-Z]:[\\/]/.test(fullPath);
+                
+                if (isLocalPath) {
+                    // 本地文件路径，显示警告信息
+                    content = `
+                        <div class="popup-content">
+                            <b>${labelText}</b><br>
+                            <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; padding: 10px; margin-top: 8px; font-size: 12px; color: #856404;">
+                                <b>⚠️ 无法加载本地图片</b><br>
+                                浏览器安全策略阻止访问本地文件。<br><br>
+                                <b>解决方案：</b><br>
+                                1. 使用本地 Web 服务器访问<br>
+                                2. 将图片复制到网站 /pics/ 目录<br>
+                                3. 使用相对路径（如 ../pics/）<br><br>
+                                <b>当前路径：</b><br>
+                                ${fullPath}
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    // 网络路径，正常显示图片
+                    content = `
+                        <div class="popup-content">
+                            <b>${labelText}</b><br>
+                            <img src="${fullPath}" alt="照片" onerror="this.onerror=null; this.parentElement.innerHTML='<b>${labelText}</b><br><div style=\\'background:#f8d7da;border:1px solid #f5c6cb;border-radius:4px;padding:10px;margin-top:8px;font-size:12px;color:#721c24;\\'>❌ 图片加载失败<br>路径：${fullPath}</div>';">
+                        </div>
+                    `;
+                }
             } else {
                 const labelText = layer.labelField ? feature.get(layer.labelField) : '';
                 content = `<div><b>${labelText}</b></div>`;
@@ -1356,10 +1380,15 @@ function openLayerInfoEditor(item, index) {
     
     // 添加说明文字
     const pathHint = document.createElement('div');
-    pathHint.textContent = '提示: 如果图片在 pics 文件夹中，使用 /pics/；如果是本地绝对路径，使用 file:///C:/pics/';
-    pathHint.style.fontSize = '11px';
-    pathHint.style.color = '#999';
-    pathHint.style.marginTop = '3px';
+    pathHint.innerHTML = `
+        <div style="font-size: 11px; color: #999; margin-top: 3px;">
+            <b>常用路径格式：</b><br>
+            • <code>/pics/</code> - 网站 pics 目录（推荐）<br>
+            • <code>../images/</code> - 相对路径<br>
+            • <code>https://example.com/photos/</code> - 网络路径<br>
+            <span style="color: #d9534f;">⚠️ 本地绝对路径（如 C:/pics/）会被浏览器阻止</span>
+        </div>
+    `;
     
     linkSection.appendChild(pathPrefixInput);
     linkSection.appendChild(pathHint);
