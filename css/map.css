@@ -14,7 +14,7 @@ body {
     height: 100%;
 }
 
-/* 弹出框基础样式 */
+/* 弹出框基础样式 - 电脑端默认尺寸 */
 .ol-popup {
     position: absolute;
     background-color: white;
@@ -60,6 +60,34 @@ body {
     display: block;
     margin-top: 8px;
     border-radius: 4px;
+}
+
+/* 电脑端带照片的弹出框 - 增大一倍 */
+@media (min-width: 601px) {
+    .ol-popup:has(.popup-content img) {
+        min-width: 500px;
+        max-width: 700px;
+        padding: 20px;
+        font-size: 16px;
+    }
+
+    .ol-popup:has(.popup-content img):after,
+    .ol-popup:has(.popup-content img):before {
+        left: 50%;
+        transform: translateX(-50%);
+    }
+
+    .ol-popup:has(.popup-content img):after {
+        margin-left: 0;
+    }
+
+    .ol-popup:has(.popup-content img):before {
+        margin-left: 0;
+    }
+
+    .popup-content img {
+        max-height: 400px;
+    }
 }
 
 @media (max-width: 600px) {
