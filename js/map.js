@@ -108,10 +108,15 @@ map.on('click', function (evt) {
             const imgFile = feature.get(layer.linkField);
             if (imgFile) {
                 const labelText = layer.labelField ? feature.get(layer.labelField) : '';
+                // 使用路径前缀拼接完整路径，如果没有设置则默认使用 /pics/
+                const pathPrefix = layer.linkPathPrefix || '/pics/';
+                // 确保路径前缀以 / 结尾
+                const normalizedPrefix = pathPrefix.endsWith('/') ? pathPrefix : pathPrefix + '/';
+                const fullPath = normalizedPrefix + imgFile;
                 content = `
                     <div class="popup-content">
                         <b>${labelText}</b><br>
-                        <img src="/pics/${imgFile}" alt="照片" onerror="this.onerror=null; this.src='https://via.placeholder.com/250x150?text=图片未找到';">
+                        <img src="${fullPath}" alt="照片" onerror="this.onerror=null; this.src='https://via.placeholder.com/250x150?text=图片未找到';">
                     </div>
                 `;
             } else {
@@ -837,9 +842,22 @@ function createLayerControl() {
         localTitle.style.color = '#666';
         panel.appendChild(localTitle);
         
-        localGeoJsonLayers.forEach(item => {
+        localGeoJsonLayers.forEach((item, index) => {
             const div = document.createElement('div');
-            div.style.marginBottom = '5px';
+            div.style.marginBottom = '8px';
+            div.style.padding = '5px';
+            div.style.border = '1px solid #eee';
+            div.style.borderRadius = '4px';
+            
+            // 图层名称行
+            const layerHeader = document.createElement('div');
+            layerHeader.style.display = 'flex';
+            layerHeader.style.alignItems = 'center';
+            layerHeader.style.justifyContent = 'space-between';
+            
+            const leftSection = document.createElement('div');
+            leftSection.style.display = 'flex';
+            leftSection.style.alignItems = 'center';
             
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
@@ -854,9 +872,59 @@ function createLayerControl() {
             const label = document.createElement('label');
             label.textContent = item.name;
             label.style.marginLeft = '5px';
+            label.style.fontWeight = '500';
             
-            div.appendChild(checkbox);
-            div.appendChild(label);
+            leftSection.appendChild(checkbox);
+            leftSection.appendChild(label);
+            
+            // 信息管理按钮
+            const infoBtn = document.createElement('button');
+            infoBtn.textContent = '⚙️';
+            infoBtn.title = '设置字段信息';
+            infoBtn.style.background = 'none';
+            infoBtn.style.border = 'none';
+            infoBtn.style.cursor = 'pointer';
+            infoBtn.style.fontSize = '14px';
+            infoBtn.style.padding = '2px 4px';
+            infoBtn.addEventListener('click', () => {
+                openLayerInfoEditor(item, index);
+            });
+            
+            layerHeader.appendChild(leftSection);
+            layerHeader.appendChild(infoBtn);
+            div.appendChild(layerHeader);
+            
+            // 显示当前设置的字段信息
+            if (item.labelField || item.linkField) {
+                const fieldInfo = document.createElement('div');
+                fieldInfo.style.fontSize = '11px';
+                fieldInfo.style.color = '#666';
+                fieldInfo.style.marginTop = '3px';
+                fieldInfo.style.marginLeft = '20px';
+                
+                let infoText = '';
+                if (item.labelField) {
+                    infoText += `标签: ${item.labelField}`;
+                }
+                if (item.linkField) {
+                    if (infoText) infoText += ' | ';
+                    infoText += `链接: ${item.linkField}`;
+                }
+                fieldInfo.textContent = infoText;
+                div.appendChild(fieldInfo);
+                
+                // 显示路径前缀
+                if (item.linkField && item.linkPathPrefix) {
+                    const pathInfo = document.createElement('div');
+                    pathInfo.style.fontSize = '10px';
+                    pathInfo.style.color = '#999';
+                    pathInfo.style.marginTop = '2px';
+                    pathInfo.style.marginLeft = '20px';
+                    pathInfo.textContent = `路径: ${item.linkPathPrefix}`;
+                    div.appendChild(pathInfo);
+                }
+            }
+            
             panel.appendChild(div);
             console.log(`本地图层 ${item.name} visible: ${item.visible}`);
         });
@@ -1128,4 +1196,285 @@ function zoomToLayerExtent(layer) {
             duration: 500
         });
     }
+}
+
+/**
+ * 打开图层信息编辑器
+ * 允许用户设置 label 字段和 link 字段
+ * @param {Object} item - 图层对象
+ * @param {number} index - 图层索引
+ */
+function openLayerInfoEditor(item, index) {
+    // 获取图层的所有属性字段
+    const source = item.layer.getSource();
+    const features = source.getFeatures();
+    
+    if (features.length === 0) {
+        alert('该图层没有要素，无法获取属性字段');
+        return;
+    }
+    
+    // 收集所有可用的属性字段
+    const allFields = new Set();
+    features.forEach(feature => {
+        const properties = feature.getProperties();
+        Object.keys(properties).forEach(key => {
+            if (key !== 'geometry') {
+                allFields.add(key);
+            }
+        });
+    });
+    
+    const fieldList = Array.from(allFields).sort();
+    
+    if (fieldList.length === 0) {
+        alert('该图层没有可用的属性字段');
+        return;
+    }
+    
+    // 创建模态框
+    const modal = document.createElement('div');
+    modal.style.position = 'fixed';
+    modal.style.top = '0';
+    modal.style.left = '0';
+    modal.style.width = '100%';
+    modal.style.height = '100%';
+    modal.style.backgroundColor = 'rgba(0,0,0,0.5)';
+    modal.style.zIndex = '10000';
+    modal.style.display = 'flex';
+    modal.style.justifyContent = 'center';
+    modal.style.alignItems = 'center';
+    
+    const content = document.createElement('div');
+    content.style.backgroundColor = 'white';
+    content.style.borderRadius = '8px';
+    content.style.padding = '20px';
+    content.style.maxWidth = '400px';
+    content.style.width = '90%';
+    content.style.maxHeight = '80vh';
+    content.style.overflowY = 'auto';
+    
+    // 标题
+    const title = document.createElement('h3');
+    title.textContent = `设置图层字段 - ${item.name}`;
+    title.style.marginTop = '0';
+    title.style.marginBottom = '15px';
+    content.appendChild(title);
+    
+    // Label 字段选择
+    const labelSection = document.createElement('div');
+    labelSection.style.marginBottom = '15px';
+    
+    const labelLabel = document.createElement('label');
+    labelLabel.textContent = '标签字段 (Label):';
+    labelLabel.style.display = 'block';
+    labelLabel.style.marginBottom = '5px';
+    labelLabel.style.fontWeight = 'bold';
+    labelSection.appendChild(labelLabel);
+    
+    const labelSelect = document.createElement('select');
+    labelSelect.style.width = '100%';
+    labelSelect.style.padding = '8px';
+    labelSelect.style.borderRadius = '4px';
+    labelSelect.style.border = '1px solid #ddd';
+    
+    // 添加空选项
+    const emptyOption = document.createElement('option');
+    emptyOption.value = '';
+    emptyOption.textContent = '-- 不设置标签字段 --';
+    labelSelect.appendChild(emptyOption);
+    
+    // 添加所有可用字段
+    fieldList.forEach(field => {
+        const option = document.createElement('option');
+        option.value = field;
+        option.textContent = field;
+        if (item.labelField === field) {
+            option.selected = true;
+        }
+        labelSelect.appendChild(option);
+    });
+    
+    labelSection.appendChild(labelSelect);
+    content.appendChild(labelSection);
+    
+    // Link 字段选择
+    const linkSection = document.createElement('div');
+    linkSection.style.marginBottom = '15px';
+    
+    const linkLabel = document.createElement('label');
+    linkLabel.textContent = '链接字段 (Link):用于关联图片';
+    linkLabel.style.display = 'block';
+    linkLabel.style.marginBottom = '5px';
+    linkLabel.style.fontWeight = 'bold';
+    linkSection.appendChild(linkLabel);
+    
+    const linkSelect = document.createElement('select');
+    linkSelect.style.width = '100%';
+    linkSelect.style.padding = '8px';
+    linkSelect.style.borderRadius = '4px';
+    linkSelect.style.border = '1px solid #ddd';
+    linkSelect.style.marginBottom = '8px';
+    
+    // 添加空选项
+    const emptyLinkOption = document.createElement('option');
+    emptyLinkOption.value = '';
+    emptyLinkOption.textContent = '-- 不设置链接字段 --';
+    linkSelect.appendChild(emptyLinkOption);
+    
+    // 添加所有可用字段
+    fieldList.forEach(field => {
+        const option = document.createElement('option');
+        option.value = field;
+        option.textContent = field;
+        if (item.linkField === field) {
+            option.selected = true;
+        }
+        linkSelect.appendChild(option);
+    });
+    
+    linkSection.appendChild(linkSelect);
+    
+    // 路径前缀设置
+    const pathPrefixLabel = document.createElement('label');
+    pathPrefixLabel.textContent = '图片路径前缀:';
+    pathPrefixLabel.style.display = 'block';
+    pathPrefixLabel.style.marginBottom = '5px';
+    pathPrefixLabel.style.fontSize = '12px';
+    pathPrefixLabel.style.color = '#666';
+    linkSection.appendChild(pathPrefixLabel);
+    
+    const pathPrefixInput = document.createElement('input');
+    pathPrefixInput.type = 'text';
+    pathPrefixInput.value = item.linkPathPrefix || '/pics/';
+    pathPrefixInput.placeholder = '例如: /pics/ 或 C:/photos/';
+    pathPrefixInput.style.width = '100%';
+    pathPrefixInput.style.padding = '8px';
+    pathPrefixInput.style.borderRadius = '4px';
+    pathPrefixInput.style.border = '1px solid #ddd';
+    pathPrefixInput.style.boxSizing = 'border-box';
+    
+    // 添加说明文字
+    const pathHint = document.createElement('div');
+    pathHint.textContent = '提示: 如果图片在 pics 文件夹中，使用 /pics/；如果是本地绝对路径，使用 file:///C:/pics/';
+    pathHint.style.fontSize = '11px';
+    pathHint.style.color = '#999';
+    pathHint.style.marginTop = '3px';
+    
+    linkSection.appendChild(pathPrefixInput);
+    linkSection.appendChild(pathHint);
+    content.appendChild(linkSection);
+    
+    // 预览信息
+    const previewSection = document.createElement('div');
+    previewSection.style.marginBottom = '15px';
+    previewSection.style.padding = '10px';
+    previewSection.style.backgroundColor = '#f5f5f5';
+    previewSection.style.borderRadius = '4px';
+    previewSection.style.fontSize = '12px';
+    
+    const previewTitle = document.createElement('div');
+    previewTitle.textContent = '字段预览 (第一个要素):';
+    previewTitle.style.fontWeight = 'bold';
+    previewTitle.style.marginBottom = '5px';
+    previewSection.appendChild(previewTitle);
+    
+    const firstFeature = features[0];
+    const firstProps = firstFeature.getProperties();
+    let previewText = '';
+    fieldList.slice(0, 5).forEach(field => {
+        const value = firstProps[field];
+        const displayValue = value !== undefined ? String(value).substring(0, 30) : 'N/A';
+        previewText += `${field}: ${displayValue}\n`;
+    });
+    if (fieldList.length > 5) {
+        previewText += `... 还有 ${fieldList.length - 5} 个字段`;
+    }
+    
+    const previewContent = document.createElement('pre');
+    previewContent.textContent = previewText;
+    previewContent.style.margin = '0';
+    previewContent.style.whiteSpace = 'pre-wrap';
+    previewContent.style.wordBreak = 'break-all';
+    previewSection.appendChild(previewContent);
+    
+    content.appendChild(previewSection);
+    
+    // 按钮区域
+    const buttonSection = document.createElement('div');
+    buttonSection.style.display = 'flex';
+    buttonSection.style.justifyContent = 'flex-end';
+    buttonSection.style.gap = '10px';
+    
+    // 取消按钮
+    const cancelBtn = document.createElement('button');
+    cancelBtn.textContent = '取消';
+    cancelBtn.style.padding = '8px 16px';
+    cancelBtn.style.border = '1px solid #ddd';
+    cancelBtn.style.borderRadius = '4px';
+    cancelBtn.style.backgroundColor = '#fff';
+    cancelBtn.style.cursor = 'pointer';
+    cancelBtn.addEventListener('click', () => {
+        document.body.removeChild(modal);
+    });
+    buttonSection.appendChild(cancelBtn);
+    
+    // 确定按钮
+    const confirmBtn = document.createElement('button');
+    confirmBtn.textContent = '确定';
+    confirmBtn.style.padding = '8px 16px';
+    confirmBtn.style.border = 'none';
+    confirmBtn.style.borderRadius = '4px';
+    confirmBtn.style.backgroundColor = '#1890ff';
+    confirmBtn.style.color = 'white';
+    confirmBtn.style.cursor = 'pointer';
+    confirmBtn.addEventListener('click', () => {
+        // 保存设置
+        const selectedLabelField = labelSelect.value;
+        const selectedLinkField = linkSelect.value;
+        const pathPrefix = pathPrefixInput.value.trim();
+        
+        // 更新图层对象的字段设置
+        item.labelField = selectedLabelField;
+        item.linkField = selectedLinkField;
+        item.linkPathPrefix = pathPrefix;
+        
+        // 更新图层属性
+        item.layer.set('labelField', selectedLabelField);
+        item.layer.set('linkField', selectedLinkField);
+        item.layer.set('linkPathPrefix', pathPrefix);
+        
+        // 更新所有要素的 layer 属性
+        item.layer.getSource().getFeatures().forEach(feature => {
+            feature.set('layer', {
+                labelField: selectedLabelField,
+                linkField: selectedLinkField,
+                linkPathPrefix: pathPrefix
+            });
+        });
+        
+        // 关闭模态框
+        document.body.removeChild(modal);
+        
+        // 刷新图层控制面板
+        createLayerControl();
+        
+        console.log(`图层 ${item.name} 字段设置已更新:`, {
+            labelField: selectedLabelField,
+            linkField: selectedLinkField,
+            linkPathPrefix: pathPrefix
+        });
+    });
+    buttonSection.appendChild(confirmBtn);
+    
+    content.appendChild(buttonSection);
+    modal.appendChild(content);
+    document.body.appendChild(modal);
+    
+    // 点击模态框背景关闭
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            document.body.removeChild(modal);
+        }
+    });
 }
