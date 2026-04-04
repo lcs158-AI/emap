@@ -235,8 +235,8 @@
         // 底图配置
         const basemapConfig = {
             tianditu: {
-                url: 'https://t0.tianditu.gov.cn/vec_w/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=vec&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&TileMatrix={z}&TileCol={x}&TileRow={y}&tk=' + TIANDITU_KEY,
-                labelUrl: 'https://t0.tianditu.gov.cn/cva_w/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=cva&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&TileMatrix={z}&TileCol={x}&TileRow={y}&tk=' + TIANDITU_KEY,
+                url: 'https://t0.tianditu.gov.cn/DataServer?T=vec_w&x={x}&y={y}&l={z}&tk=' + TIANDITU_KEY,
+                labelUrl: 'https://t0.tianditu.gov.cn/DataServer?T=cva_w&x={x}&y={y}&l={z}&tk=' + TIANDITU_KEY,
                 maxZoom: 18,
                 zoomOffset: 1 // 天地图 zoom 从 1 开始
             },
@@ -390,8 +390,8 @@
                     }
                     
                     // 计算瓦片在画布上的位置
-                    const pixelX = centerPixelX + (startX + x - centerTile.x) * tileSize * mapData.scale;
-                    const pixelY = centerPixelY + (startY + y - centerTile.y) * tileSize * mapData.scale;
+                    const pixelX = centerPixelX + (tileX - centerTile.x) * tileSize * mapData.scale;
+                    const pixelY = centerPixelY + (tileY - centerTile.y) * tileSize * mapData.scale;
                     
                     // 检查瓦片是否在可视范围内
                     if (pixelX + tileSize * mapData.scale < 0 || 
