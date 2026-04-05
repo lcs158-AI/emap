@@ -135,11 +135,16 @@ map.on('click', function (evt) {
                         </div>
                     `;
                 } else {
-                    // 网络路径，正常显示图片
+                    // 网络路径，正常显示图片，添加点击查看大图功能
                     content = `
                         <div class="popup-content">
                             <b>${labelText}</b><br>
-                            <img src="${fullPath}" alt="照片" onerror="this.onerror=null; this.parentElement.innerHTML='<b>${labelText}</b><br><div style=\\'background:#f8d7da;border:1px solid #f5c6cb;border-radius:4px;padding:10px;margin-top:8px;font-size:12px;color:#721c24;\\'>❌ 图片加载失败<br>路径：${fullPath}</div>';">
+                            <div class="popup-image-container" style="position: relative; margin-top: 8px; cursor: zoom-in;" onclick="openImageViewer('${fullPath}', '${labelText}')">
+                                <img src="${fullPath}" alt="照片" style="max-width: 100%; max-height: 400px; border-radius: 4px; display: block;" onerror="this.onerror=null; this.parentElement.parentElement.innerHTML='<b>${labelText}</b><br><div style=\\'background:#f8d7da;border:1px solid #f5c6cb;border-radius:4px;padding:10px;margin-top:8px;font-size:12px;color:#721c24;\\'>❌ 图片加载失败<br>路径：${fullPath}</div>';">
+                                <div style="position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.6); color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; pointer-events: none;">
+                                    🔍 点击查看大图
+                                </div>
+                            </div>
                         </div>
                     `;
                 }
@@ -1180,7 +1185,8 @@ function loadLocalGeoJSON(geoJson, name) {
         localGeoJsonLayers.push({
             layer: vectorLayer,
             name: name,
-            visible: true
+            visible: true,
+            style: {} // 初始化空样式对象
         });
         
         // 更新图层控制面板
@@ -1394,6 +1400,204 @@ function openLayerInfoEditor(item, index) {
     linkSection.appendChild(pathHint);
     content.appendChild(linkSection);
     
+    // 检测图层几何类型
+    const geometryTypes = new Set();
+    features.forEach(feature => {
+        const geom = feature.getGeometry();
+        if (geom) {
+            const type = geom.getType();
+            if (type.includes('Point')) geometryTypes.add('Point');
+            else if (type.includes('LineString')) geometryTypes.add('LineString');
+            else if (type.includes('Polygon')) geometryTypes.add('Polygon');
+        }
+    });
+    const layerGeometryType = geometryTypes.size === 1 ? Array.from(geometryTypes)[0] : 'Mixed';
+    
+    // 样式设置部分
+    const styleSection = document.createElement('div');
+    styleSection.style.marginBottom = '15px';
+    styleSection.style.padding = '15px';
+    styleSection.style.backgroundColor = '#f8f9fa';
+    styleSection.style.borderRadius = '4px';
+    styleSection.style.border = '1px solid #e9ecef';
+    
+    const styleTitle = document.createElement('div');
+    styleTitle.textContent = '样式设置';
+    styleTitle.style.fontWeight = 'bold';
+    styleTitle.style.marginBottom = '10px';
+    styleTitle.style.fontSize = '14px';
+    styleSection.appendChild(styleTitle);
+    
+    // 显示几何类型
+    const geomTypeLabel = document.createElement('div');
+    geomTypeLabel.innerHTML = `<span style="color: #666; font-size: 12px;">几何类型: <b>${layerGeometryType}</b></span>`;
+    geomTypeLabel.style.marginBottom = '10px';
+    styleSection.appendChild(geomTypeLabel);
+    
+    // 获取当前样式
+    const currentStyle = item.style || {};
+    
+    // 点样式设置
+    if (layerGeometryType === 'Point' || layerGeometryType === 'Mixed') {
+        const pointStyleDiv = document.createElement('div');
+        pointStyleDiv.style.marginBottom = '10px';
+        pointStyleDiv.innerHTML = '<div style="font-size: 12px; margin-bottom: 5px;"><b>点样式</b></div>';
+        
+        // 点颜色
+        const pointColorLabel = document.createElement('label');
+        pointColorLabel.textContent = '颜色:';
+        pointColorLabel.style.fontSize = '11px';
+        pointColorLabel.style.marginRight = '5px';
+        pointStyleDiv.appendChild(pointColorLabel);
+        
+        const pointColorInput = document.createElement('input');
+        pointColorInput.type = 'color';
+        pointColorInput.value = currentStyle.pointColor || '#1890ff';
+        pointColorInput.id = 'stylePointColor';
+        pointColorInput.style.width = '50px';
+        pointColorInput.style.height = '25px';
+        pointColorInput.style.border = 'none';
+        pointColorInput.style.cursor = 'pointer';
+        pointStyleDiv.appendChild(pointColorInput);
+        
+        // 点大小
+        const pointSizeLabel = document.createElement('label');
+        pointSizeLabel.textContent = '大小:';
+        pointSizeLabel.style.fontSize = '11px';
+        pointSizeLabel.style.marginLeft = '10px';
+        pointSizeLabel.style.marginRight = '5px';
+        pointStyleDiv.appendChild(pointSizeLabel);
+        
+        const pointSizeInput = document.createElement('input');
+        pointSizeInput.type = 'number';
+        pointSizeInput.value = currentStyle.pointSize || '6';
+        pointSizeInput.id = 'stylePointSize';
+        pointSizeInput.style.width = '50px';
+        pointSizeInput.style.padding = '2px 5px';
+        pointSizeInput.style.fontSize = '11px';
+        pointStyleDiv.appendChild(pointSizeInput);
+        
+        styleSection.appendChild(pointStyleDiv);
+    }
+    
+    // 线样式设置
+    if (layerGeometryType === 'LineString' || layerGeometryType === 'Mixed') {
+        const lineStyleDiv = document.createElement('div');
+        lineStyleDiv.style.marginBottom = '10px';
+        lineStyleDiv.innerHTML = '<div style="font-size: 12px; margin-bottom: 5px;"><b>线样式</b></div>';
+        
+        // 线颜色
+        const lineColorLabel = document.createElement('label');
+        lineColorLabel.textContent = '颜色:';
+        lineColorLabel.style.fontSize = '11px';
+        lineColorLabel.style.marginRight = '5px';
+        lineStyleDiv.appendChild(lineColorLabel);
+        
+        const lineColorInput = document.createElement('input');
+        lineColorInput.type = 'color';
+        lineColorInput.value = currentStyle.lineColor || '#52c41a';
+        lineColorInput.id = 'styleLineColor';
+        lineColorInput.style.width = '50px';
+        lineColorInput.style.height = '25px';
+        lineColorInput.style.border = 'none';
+        lineColorInput.style.cursor = 'pointer';
+        lineStyleDiv.appendChild(lineColorInput);
+        
+        // 线宽
+        const lineWidthLabel = document.createElement('label');
+        lineWidthLabel.textContent = '宽度:';
+        lineWidthLabel.style.fontSize = '11px';
+        lineWidthLabel.style.marginLeft = '10px';
+        lineWidthLabel.style.marginRight = '5px';
+        lineStyleDiv.appendChild(lineWidthLabel);
+        
+        const lineWidthInput = document.createElement('input');
+        lineWidthInput.type = 'number';
+        lineWidthInput.value = currentStyle.lineWidth || '2';
+        lineWidthInput.id = 'styleLineWidth';
+        lineWidthInput.style.width = '50px';
+        lineWidthInput.style.padding = '2px 5px';
+        lineWidthInput.style.fontSize = '11px';
+        lineStyleDiv.appendChild(lineWidthInput);
+        
+        styleSection.appendChild(lineStyleDiv);
+    }
+    
+    // 面样式设置
+    if (layerGeometryType === 'Polygon' || layerGeometryType === 'Mixed') {
+        const polygonStyleDiv = document.createElement('div');
+        polygonStyleDiv.style.marginBottom = '10px';
+        polygonStyleDiv.innerHTML = '<div style="font-size: 12px; margin-bottom: 5px;"><b>面样式</b></div>';
+        
+        // 填充颜色
+        const fillColorLabel = document.createElement('label');
+        fillColorLabel.textContent = '填充:';
+        fillColorLabel.style.fontSize = '11px';
+        fillColorLabel.style.marginRight = '5px';
+        polygonStyleDiv.appendChild(fillColorLabel);
+        
+        const fillColorInput = document.createElement('input');
+        fillColorInput.type = 'color';
+        fillColorInput.value = currentStyle.fillColor || '#ffa500';
+        fillColorInput.id = 'styleFillColor';
+        fillColorInput.style.width = '50px';
+        fillColorInput.style.height = '25px';
+        fillColorInput.style.border = 'none';
+        fillColorInput.style.cursor = 'pointer';
+        polygonStyleDiv.appendChild(fillColorInput);
+        
+        // 边框颜色
+        const strokeColorLabel = document.createElement('label');
+        strokeColorLabel.textContent = '边框:';
+        strokeColorLabel.style.fontSize = '11px';
+        strokeColorLabel.style.marginLeft = '10px';
+        strokeColorLabel.style.marginRight = '5px';
+        polygonStyleDiv.appendChild(strokeColorLabel);
+        
+        const strokeColorInput = document.createElement('input');
+        strokeColorInput.type = 'color';
+        strokeColorInput.value = currentStyle.strokeColor || '#ffa500';
+        strokeColorInput.id = 'styleStrokeColor';
+        strokeColorInput.style.width = '50px';
+        strokeColorInput.style.height = '25px';
+        strokeColorInput.style.border = 'none';
+        strokeColorInput.style.cursor = 'pointer';
+        polygonStyleDiv.appendChild(strokeColorInput);
+        
+        // 透明度
+        const opacityLabel = document.createElement('label');
+        opacityLabel.textContent = '透明度:';
+        opacityLabel.style.fontSize = '11px';
+        opacityLabel.style.marginLeft = '10px';
+        opacityLabel.style.marginRight = '5px';
+        polygonStyleDiv.appendChild(opacityLabel);
+        
+        const opacityInput = document.createElement('input');
+        opacityInput.type = 'range';
+        opacityInput.min = '0';
+        opacityInput.max = '100';
+        opacityInput.value = currentStyle.opacity || '30';
+        opacityInput.id = 'styleOpacity';
+        opacityInput.style.width = '60px';
+        opacityInput.style.verticalAlign = 'middle';
+        polygonStyleDiv.appendChild(opacityInput);
+        
+        const opacityValue = document.createElement('span');
+        opacityValue.textContent = (currentStyle.opacity || '30') + '%';
+        opacityValue.id = 'opacityValue';
+        opacityValue.style.fontSize = '11px';
+        opacityValue.style.marginLeft = '3px';
+        polygonStyleDiv.appendChild(opacityValue);
+        
+        opacityInput.addEventListener('input', () => {
+            opacityValue.textContent = opacityInput.value + '%';
+        });
+        
+        styleSection.appendChild(polygonStyleDiv);
+    }
+    
+    content.appendChild(styleSection);
+    
     // 预览信息
     const previewSection = document.createElement('div');
     previewSection.style.marginBottom = '15px';
@@ -1482,16 +1686,52 @@ function openLayerInfoEditor(item, index) {
             });
         });
         
+        // 保存样式设置
+        const newStyle = {};
+        
+        // 点样式
+        if (layerGeometryType === 'Point' || layerGeometryType === 'Mixed') {
+            const pointColorInput = document.getElementById('stylePointColor');
+            const pointSizeInput = document.getElementById('stylePointSize');
+            if (pointColorInput) newStyle.pointColor = pointColorInput.value;
+            if (pointSizeInput) newStyle.pointSize = parseInt(pointSizeInput.value) || 6;
+        }
+        
+        // 线样式
+        if (layerGeometryType === 'LineString' || layerGeometryType === 'Mixed') {
+            const lineColorInput = document.getElementById('styleLineColor');
+            const lineWidthInput = document.getElementById('styleLineWidth');
+            if (lineColorInput) newStyle.lineColor = lineColorInput.value;
+            if (lineWidthInput) newStyle.lineWidth = parseInt(lineWidthInput.value) || 2;
+        }
+        
+        // 面样式
+        if (layerGeometryType === 'Polygon' || layerGeometryType === 'Mixed') {
+            const fillColorInput = document.getElementById('styleFillColor');
+            const strokeColorInput = document.getElementById('styleStrokeColor');
+            const opacityInput = document.getElementById('styleOpacity');
+            if (fillColorInput) newStyle.fillColor = fillColorInput.value;
+            if (strokeColorInput) newStyle.strokeColor = strokeColorInput.value;
+            if (opacityInput) newStyle.opacity = parseInt(opacityInput.value) || 30;
+        }
+        
+        // 保存样式到图层对象
+        item.style = newStyle;
+        
+        // 应用新样式到图层
+        applyLayerStyle(item.layer, newStyle, layerGeometryType);
+        
         // 关闭模态框
         document.body.removeChild(modal);
         
         // 刷新图层控制面板
         createLayerControl();
         
-        console.log(`图层 ${item.name} 字段设置已更新:`, {
+        console.log(`图层 ${item.name} 设置已更新:`, {
             labelField: selectedLabelField,
             linkField: selectedLinkField,
-            linkPathPrefix: pathPrefix
+            linkPathPrefix: pathPrefix,
+            style: newStyle
         });
     });
     buttonSection.appendChild(confirmBtn);
@@ -1506,4 +1746,358 @@ function openLayerInfoEditor(item, index) {
             document.body.removeChild(modal);
         }
     });
+}
+
+/**
+ * 应用样式到图层
+ * @param {ol.layer.Vector} layer - 矢量图层
+ * @param {Object} style - 样式对象
+ * @param {string} geometryType - 几何类型
+ */
+function applyLayerStyle(layer, style, geometryType) {
+    // 创建新的样式函数
+    const newStyleFunction = function(feature) {
+        const geomType = feature.getGeometry().getType();
+        const styles = [];
+        
+        // 点样式
+        if (geomType === 'Point' || geomType === 'MultiPoint') {
+            const pointColor = style.pointColor || '#1890ff';
+            const pointSize = style.pointSize || 6;
+            
+            // 转换颜色为 rgba
+            const r = parseInt(pointColor.slice(1, 3), 16);
+            const g = parseInt(pointColor.slice(3, 5), 16);
+            const b = parseInt(pointColor.slice(5, 7), 16);
+            
+            styles.push(new ol.style.Style({
+                image: new ol.style.Circle({
+                    radius: pointSize,
+                    fill: new ol.style.Fill({ color: `rgba(${r}, ${g}, ${b}, 0.8)` }),
+                    stroke: new ol.style.Stroke({ color: '#fff', width: 2 })
+                })
+            }));
+        }
+        
+        // 线样式
+        if (geomType === 'LineString' || geomType === 'MultiLineString') {
+            const lineColor = style.lineColor || '#52c41a';
+            const lineWidth = style.lineWidth || 2;
+            
+            styles.push(new ol.style.Style({
+                stroke: new ol.style.Stroke({
+                    color: lineColor,
+                    width: lineWidth
+                })
+            }));
+        }
+        
+        // 面样式
+        if (geomType === 'Polygon' || geomType === 'MultiPolygon') {
+            const fillColor = style.fillColor || '#ffa500';
+            const strokeColor = style.strokeColor || '#ffa500';
+            const opacity = (style.opacity || 30) / 100;
+            
+            // 转换填充颜色为 rgba
+            const r = parseInt(fillColor.slice(1, 3), 16);
+            const g = parseInt(fillColor.slice(3, 5), 16);
+            const b = parseInt(fillColor.slice(5, 7), 16);
+            
+            styles.push(new ol.style.Style({
+                fill: new ol.style.Fill({
+                    color: `rgba(${r}, ${g}, ${b}, ${opacity})`
+                }),
+                stroke: new ol.style.Stroke({
+                    color: strokeColor,
+                    width: 2
+                })
+            }));
+        }
+        
+        return styles;
+    };
+    
+    // 应用新样式
+    layer.setStyle(newStyleFunction);
+}
+
+// ==================== 图片查看器功能 ====================
+
+/**
+ * 打开图片查看器
+ * 支持放大、缩小、平移、旋转功能
+ * @param {string} imageSrc - 图片路径
+ * @param {string} title - 图片标题
+ */
+function openImageViewer(imageSrc, title) {
+    // 阻止事件冒泡，避免触发地图点击
+    if (event) {
+        event.stopPropagation();
+    }
+    
+    // 创建查看器容器
+    const viewer = document.createElement('div');
+    viewer.id = 'imageViewer';
+    viewer.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.95);
+        z-index: 100000;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    `;
+    
+    // 创建标题栏
+    const header = document.createElement('div');
+    header.style.cssText = `
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        padding: 15px 20px;
+        background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
+        color: white;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        z-index: 100001;
+    `;
+    
+    const titleEl = document.createElement('div');
+    titleEl.textContent = title || '图片查看';
+    titleEl.style.cssText = 'font-size: 16px; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60%;';
+    
+    const closeBtn = document.createElement('button');
+    closeBtn.innerHTML = '✕';
+    closeBtn.style.cssText = `
+        background: none;
+        border: none;
+        color: white;
+        font-size: 24px;
+        cursor: pointer;
+        padding: 5px 10px;
+        border-radius: 4px;
+        transition: background 0.2s;
+    `;
+    closeBtn.onmouseover = () => closeBtn.style.background = 'rgba(255,255,255,0.2)';
+    closeBtn.onmouseout = () => closeBtn.style.background = 'none';
+    closeBtn.onclick = () => document.body.removeChild(viewer);
+    
+    header.appendChild(titleEl);
+    header.appendChild(closeBtn);
+    viewer.appendChild(header);
+    
+    // 创建图片容器
+    const imageContainer = document.createElement('div');
+    imageContainer.style.cssText = `
+        position: relative;
+        width: 90%;
+        height: 80%;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: grab;
+    `;
+    
+    // 创建图片元素
+    const img = document.createElement('img');
+    img.src = imageSrc;
+    img.style.cssText = `
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+        transition: transform 0.1s ease-out;
+        user-select: none;
+        -webkit-user-drag: none;
+    `;
+    
+    // 图片状态
+    let scale = 1;
+    let translateX = 0;
+    let translateY = 0;
+    let isDragging = false;
+    let startX = 0;
+    let startY = 0;
+    let lastX = 0;
+    let lastY = 0;
+    
+    // 更新图片变换
+    function updateTransform() {
+        img.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+    }
+    
+    // 鼠标滚轮缩放
+    imageContainer.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? 0.9 : 1.1;
+        const newScale = Math.max(0.5, Math.min(5, scale * delta));
+        
+        if (newScale !== scale) {
+            scale = newScale;
+            updateTransform();
+        }
+    });
+    
+    // 鼠标拖拽
+    imageContainer.addEventListener('mousedown', (e) => {
+        if (e.button === 0) { // 左键
+            isDragging = true;
+            startX = e.clientX - translateX;
+            startY = e.clientY - translateY;
+            imageContainer.style.cursor = 'grabbing';
+        }
+    });
+    
+    document.addEventListener('mousemove', (e) => {
+        if (isDragging) {
+            translateX = e.clientX - startX;
+            translateY = e.clientY - startY;
+            updateTransform();
+        }
+    });
+    
+    document.addEventListener('mouseup', () => {
+        isDragging = false;
+        imageContainer.style.cursor = 'grab';
+    });
+    
+    // 触摸支持
+    let lastTouchDistance = 0;
+    let lastTouchCenter = { x: 0, y: 0 };
+    
+    imageContainer.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 1) {
+            isDragging = true;
+            startX = e.touches[0].clientX - translateX;
+            startY = e.touches[0].clientY - translateY;
+        } else if (e.touches.length === 2) {
+            const touch1 = e.touches[0];
+            const touch2 = e.touches[1];
+            lastTouchDistance = Math.hypot(touch2.clientX - touch1.clientX, touch2.clientY - touch1.clientY);
+            lastTouchCenter = {
+                x: (touch1.clientX + touch2.clientX) / 2,
+                y: (touch1.clientY + touch2.clientY) / 2
+            };
+        }
+    });
+    
+    imageContainer.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        if (e.touches.length === 1 && isDragging) {
+            translateX = e.touches[0].clientX - startX;
+            translateY = e.touches[0].clientY - startY;
+            updateTransform();
+        } else if (e.touches.length === 2) {
+            const touch1 = e.touches[0];
+            const touch2 = e.touches[1];
+            const distance = Math.hypot(touch2.clientX - touch1.clientX, touch2.clientY - touch1.clientY);
+            const delta = distance / lastTouchDistance;
+            scale = Math.max(0.5, Math.min(5, scale * delta));
+            lastTouchDistance = distance;
+            updateTransform();
+        }
+    });
+    
+    imageContainer.addEventListener('touchend', () => {
+        isDragging = false;
+    });
+    
+    // 双击重置
+    imageContainer.addEventListener('dblclick', () => {
+        scale = 1;
+        translateX = 0;
+        translateY = 0;
+        updateTransform();
+    });
+    
+    imageContainer.appendChild(img);
+    viewer.appendChild(imageContainer);
+    
+    // 创建控制栏
+    const controls = document.createElement('div');
+    controls.style.cssText = `
+        position: absolute;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 10px;
+        background: rgba(0, 0, 0, 0.7);
+        padding: 10px 20px;
+        border-radius: 30px;
+        z-index: 100001;
+    `;
+    
+    // 控制按钮
+    const buttons = [
+        { icon: '−', title: '缩小', action: () => { scale = Math.max(0.5, scale * 0.8); updateTransform(); } },
+        { icon: '100%', title: '原始大小', action: () => { scale = 1; translateX = 0; translateY = 0; updateTransform(); } },
+        { icon: '+', title: '放大', action: () => { scale = Math.min(5, scale * 1.2); updateTransform(); } },
+        { icon: '⟲', title: '逆时针旋转', action: () => { img.style.transform += ' rotate(-90deg)'; } },
+        { icon: '⟳', title: '顺时针旋转', action: () => { img.style.transform += ' rotate(90deg)'; } }
+    ];
+    
+    buttons.forEach(btn => {
+        const button = document.createElement('button');
+        button.innerHTML = btn.icon;
+        button.title = btn.title;
+        button.style.cssText = `
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        `;
+        button.onmouseover = () => button.style.background = 'rgba(255,255,255,0.4)';
+        button.onmouseout = () => button.style.background = 'rgba(255,255,255,0.2)';
+        button.onclick = btn.action;
+        controls.appendChild(button);
+    });
+    
+    viewer.appendChild(controls);
+    
+    // 提示信息
+    const hint = document.createElement('div');
+    hint.innerHTML = '滚轮缩放 | 拖拽移动 | 双击重置';
+    hint.style.cssText = `
+        position: absolute;
+        bottom: 80px;
+        left: 50%;
+        transform: translateX(-50%);
+        color: rgba(255, 255, 255, 0.6);
+        font-size: 12px;
+        pointer-events: none;
+    `;
+    viewer.appendChild(hint);
+    
+    // ESC 键关闭
+    const escHandler = (e) => {
+        if (e.key === 'Escape') {
+            document.body.removeChild(viewer);
+            document.removeEventListener('keydown', escHandler);
+        }
+    };
+    document.addEventListener('keydown', escHandler);
+    
+    // 点击背景关闭
+    viewer.addEventListener('click', (e) => {
+        if (e.target === viewer) {
+            document.body.removeChild(viewer);
+        }
+    });
+    
+    document.body.appendChild(viewer);
 }
