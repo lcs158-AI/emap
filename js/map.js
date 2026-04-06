@@ -1443,7 +1443,7 @@ function openLayerInfoEditor(item, index) {
         pointStyleDiv.style.marginBottom = '10px';
         pointStyleDiv.innerHTML = '<div style="font-size: 12px; margin-bottom: 5px;"><b>点样式</b></div>';
         
-        // 点颜色
+        // 点颜色 - 使用文本输入框以支持手机端
         const pointColorLabel = document.createElement('label');
         pointColorLabel.textContent = '颜色:';
         pointColorLabel.style.fontSize = '11px';
@@ -1451,14 +1451,34 @@ function openLayerInfoEditor(item, index) {
         pointStyleDiv.appendChild(pointColorLabel);
         
         const pointColorInput = document.createElement('input');
-        pointColorInput.type = 'color';
+        pointColorInput.type = 'text';
         pointColorInput.value = currentStyle.pointColor || '#1890ff';
         pointColorInput.id = 'stylePointColor';
-        pointColorInput.style.width = '50px';
-        pointColorInput.style.height = '25px';
-        pointColorInput.style.border = 'none';
-        pointColorInput.style.cursor = 'pointer';
+        pointColorInput.style.width = '70px';
+        pointColorInput.style.padding = '3px 5px';
+        pointColorInput.style.fontSize = '11px';
+        pointColorInput.style.border = '1px solid #ddd';
+        pointColorInput.style.borderRadius = '3px';
+        pointColorInput.placeholder = '#1890ff';
         pointStyleDiv.appendChild(pointColorInput);
+        
+        // 添加颜色预览块
+        const pointColorPreview = document.createElement('span');
+        pointColorPreview.id = 'pointColorPreview';
+        pointColorPreview.style.display = 'inline-block';
+        pointColorPreview.style.width = '20px';
+        pointColorPreview.style.height = '20px';
+        pointColorPreview.style.marginLeft = '5px';
+        pointColorPreview.style.backgroundColor = pointColorInput.value;
+        pointColorPreview.style.border = '1px solid #ddd';
+        pointColorPreview.style.borderRadius = '3px';
+        pointColorPreview.style.verticalAlign = 'middle';
+        pointStyleDiv.appendChild(pointColorPreview);
+        
+        // 实时更新预览
+        pointColorInput.addEventListener('input', () => {
+            pointColorPreview.style.backgroundColor = pointColorInput.value;
+        });
         
         // 点大小
         const pointSizeLabel = document.createElement('label');
@@ -1486,7 +1506,7 @@ function openLayerInfoEditor(item, index) {
         lineStyleDiv.style.marginBottom = '10px';
         lineStyleDiv.innerHTML = '<div style="font-size: 12px; margin-bottom: 5px;"><b>线样式</b></div>';
         
-        // 线颜色
+        // 线颜色 - 使用文本输入框以支持手机端
         const lineColorLabel = document.createElement('label');
         lineColorLabel.textContent = '颜色:';
         lineColorLabel.style.fontSize = '11px';
@@ -1494,14 +1514,34 @@ function openLayerInfoEditor(item, index) {
         lineStyleDiv.appendChild(lineColorLabel);
         
         const lineColorInput = document.createElement('input');
-        lineColorInput.type = 'color';
+        lineColorInput.type = 'text';
         lineColorInput.value = currentStyle.lineColor || '#52c41a';
         lineColorInput.id = 'styleLineColor';
-        lineColorInput.style.width = '50px';
-        lineColorInput.style.height = '25px';
-        lineColorInput.style.border = 'none';
-        lineColorInput.style.cursor = 'pointer';
+        lineColorInput.style.width = '70px';
+        lineColorInput.style.padding = '3px 5px';
+        lineColorInput.style.fontSize = '11px';
+        lineColorInput.style.border = '1px solid #ddd';
+        lineColorInput.style.borderRadius = '3px';
+        lineColorInput.placeholder = '#52c41a';
         lineStyleDiv.appendChild(lineColorInput);
+        
+        // 添加颜色预览块
+        const lineColorPreview = document.createElement('span');
+        lineColorPreview.id = 'lineColorPreview';
+        lineColorPreview.style.display = 'inline-block';
+        lineColorPreview.style.width = '20px';
+        lineColorPreview.style.height = '20px';
+        lineColorPreview.style.marginLeft = '5px';
+        lineColorPreview.style.backgroundColor = lineColorInput.value;
+        lineColorPreview.style.border = '1px solid #ddd';
+        lineColorPreview.style.borderRadius = '3px';
+        lineColorPreview.style.verticalAlign = 'middle';
+        lineStyleDiv.appendChild(lineColorPreview);
+        
+        // 实时更新预览
+        lineColorInput.addEventListener('input', () => {
+            lineColorPreview.style.backgroundColor = lineColorInput.value;
+        });
         
         // 线宽
         const lineWidthLabel = document.createElement('label');
@@ -1529,7 +1569,7 @@ function openLayerInfoEditor(item, index) {
         polygonStyleDiv.style.marginBottom = '10px';
         polygonStyleDiv.innerHTML = '<div style="font-size: 12px; margin-bottom: 5px;"><b>面样式</b></div>';
         
-        // 填充颜色
+        // 填充颜色 - 使用文本输入框以支持手机端
         const fillColorLabel = document.createElement('label');
         fillColorLabel.textContent = '填充:';
         fillColorLabel.style.fontSize = '11px';
@@ -1537,32 +1577,70 @@ function openLayerInfoEditor(item, index) {
         polygonStyleDiv.appendChild(fillColorLabel);
         
         const fillColorInput = document.createElement('input');
-        fillColorInput.type = 'color';
+        fillColorInput.type = 'text';
         fillColorInput.value = currentStyle.fillColor || '#ffa500';
         fillColorInput.id = 'styleFillColor';
-        fillColorInput.style.width = '50px';
-        fillColorInput.style.height = '25px';
-        fillColorInput.style.border = 'none';
-        fillColorInput.style.cursor = 'pointer';
+        fillColorInput.style.width = '60px';
+        fillColorInput.style.padding = '3px 5px';
+        fillColorInput.style.fontSize = '11px';
+        fillColorInput.style.border = '1px solid #ddd';
+        fillColorInput.style.borderRadius = '3px';
+        fillColorInput.placeholder = '#ffa500';
         polygonStyleDiv.appendChild(fillColorInput);
         
-        // 边框颜色
+        // 填充颜色预览
+        const fillColorPreview = document.createElement('span');
+        fillColorPreview.id = 'fillColorPreview';
+        fillColorPreview.style.display = 'inline-block';
+        fillColorPreview.style.width = '16px';
+        fillColorPreview.style.height = '16px';
+        fillColorPreview.style.marginLeft = '3px';
+        fillColorPreview.style.backgroundColor = fillColorInput.value;
+        fillColorPreview.style.border = '1px solid #ddd';
+        fillColorPreview.style.borderRadius = '3px';
+        fillColorPreview.style.verticalAlign = 'middle';
+        polygonStyleDiv.appendChild(fillColorPreview);
+        
+        fillColorInput.addEventListener('input', () => {
+            fillColorPreview.style.backgroundColor = fillColorInput.value;
+        });
+        
+        // 边框颜色 - 使用文本输入框以支持手机端
         const strokeColorLabel = document.createElement('label');
         strokeColorLabel.textContent = '边框:';
         strokeColorLabel.style.fontSize = '11px';
-        strokeColorLabel.style.marginLeft = '10px';
+        strokeColorLabel.style.marginLeft = '8px';
         strokeColorLabel.style.marginRight = '5px';
         polygonStyleDiv.appendChild(strokeColorLabel);
         
         const strokeColorInput = document.createElement('input');
-        strokeColorInput.type = 'color';
+        strokeColorInput.type = 'text';
         strokeColorInput.value = currentStyle.strokeColor || '#ffa500';
         strokeColorInput.id = 'styleStrokeColor';
-        strokeColorInput.style.width = '50px';
-        strokeColorInput.style.height = '25px';
-        strokeColorInput.style.border = 'none';
-        strokeColorInput.style.cursor = 'pointer';
+        strokeColorInput.style.width = '60px';
+        strokeColorInput.style.padding = '3px 5px';
+        strokeColorInput.style.fontSize = '11px';
+        strokeColorInput.style.border = '1px solid #ddd';
+        strokeColorInput.style.borderRadius = '3px';
+        strokeColorInput.placeholder = '#ffa500';
         polygonStyleDiv.appendChild(strokeColorInput);
+        
+        // 边框颜色预览
+        const strokeColorPreview = document.createElement('span');
+        strokeColorPreview.id = 'strokeColorPreview';
+        strokeColorPreview.style.display = 'inline-block';
+        strokeColorPreview.style.width = '16px';
+        strokeColorPreview.style.height = '16px';
+        strokeColorPreview.style.marginLeft = '3px';
+        strokeColorPreview.style.backgroundColor = strokeColorInput.value;
+        strokeColorPreview.style.border = '1px solid #ddd';
+        strokeColorPreview.style.borderRadius = '3px';
+        strokeColorPreview.style.verticalAlign = 'middle';
+        polygonStyleDiv.appendChild(strokeColorPreview);
+        
+        strokeColorInput.addEventListener('input', () => {
+            strokeColorPreview.style.backgroundColor = strokeColorInput.value;
+        });
         
         // 透明度
         const opacityLabel = document.createElement('label');
