@@ -3120,16 +3120,39 @@ let windContext = null;
 let particles = [];
 let windGridData = null;  // 存储风场网格数据用于插值
 
+// 流场（洋流）图层
+let currentLayer = null;
+let currentDataVisible = false;
+let currentAnimationId = null;
+let currentParticleCanvas = null;
+let currentContext = null;
+let currentParticles = [];
+let currentGridData = null;
+
 // 粒子风场配置
 const particleConfig = {
-    particleCount: 2000,      // 粒子数量
-    particleSpeed: 1.0,       // 粒子速度
-    particleTrailLength: 10,  // 拖尾长度
-    particleWidth: 1.5,       // 粒子宽度
+    particleCount: 1000,      // 粒子数量（减少一半）
+    particleSpeed: 0.2,       // 粒子速度
+    particleTrailLength: 20,  // 拖尾长度
+    particleWidth: 1.2,       // 粒子宽度
     maxSpeed: 20,            // 最大风速（用于颜色映射）
     gridResolution: 0.5,      // 网格分辨率
-    speedMultiplier: 3.0     // 风速倍乘系数（让慢速风也能明显流动）
+    speedMultiplier: 1.0     // 风速倍乘系数
 };
+
+// 流场配置
+const currentConfig = {
+    particleCount: 500,       // 粒子数量
+    particleSpeed: 1.2,       // 粒子速度（再加快一倍）
+    particleTrailLength: 25,  // 拖尾长度
+    particleWidth: 1.5,       // 粒子宽度
+    maxSpeed: 2,             // 最大流速（洋流通常较慢）
+    gridResolution: 0.5,
+    speedMultiplier: 1.0
+};
+
+// 地图交互状态
+let isMapInteracting = false;
 
 // 粒子类
 class WindParticle {
@@ -3175,12 +3198,13 @@ class WindParticle {
             this.currentDirection = wind.direction;
             this.hasRealData = true;
         } else {
-            // 没有真实风场数据，粒子静止不动
-            this.hasRealData = false;
+            // 移动到无数据区域，立即重置
+            this.reset();
+            return;
         }
-        
+
         this.age++;
-        
+
         // 如果粒子超出边界或寿命结束，重置
         const size = this.map.getSize();
         if (this.x < 0 || this.x > size[0] || this.y < 0 || this.y > size[1] || this.age > this.maxAge) {
@@ -3192,45 +3216,82 @@ class WindParticle {
         const alpha = 1 - (this.age / this.maxAge);
         
         if (this.hasRealData) {
-            // 有真实数据，显示彩色流动粒子
+            // 有真实数据，显示渐隐拖尾效果
             const speed = this.currentSpeed || 5;
-            const color = getSpeedColor(speed);
-            ctx.strokeStyle = color;
-            ctx.lineWidth = particleConfig.particleWidth;
-            ctx.globalAlpha = alpha * 0.8;
+            const baseColor = getSpeedColorRGB(speed);
+            const angleRad = (this.currentDirection - 90) * Math.PI / 180;
             
-            const dx = Math.cos((this.currentDirection - 90) * Math.PI / 180) * particleConfig.particleTrailLength;
-            const dy = Math.sin((this.currentDirection - 90) * Math.PI / 180) * particleConfig.particleTrailLength;
-            
-            ctx.beginPath();
-            ctx.moveTo(this.x, this.y);
-            ctx.lineTo(this.x - dx, this.y - dy);
-            ctx.stroke();
+            // 绘制渐隐拖尾
+            const segments = 8;
+            for (let i = 0; i < segments; i++) {
+                const t = i / segments;
+                const trailAlpha = alpha * (1 - t) * 0.6;
+                const segmentLength = particleConfig.particleTrailLength / segments;
+                
+                const x1 = this.x - Math.cos(angleRad) * segmentLength * i;
+                const y1 = this.y - Math.sin(angleRad) * segmentLength * i;
+                const x2 = this.x - Math.cos(angleRad) * segmentLength * (i + 1);
+                const y2 = this.y - Math.sin(angleRad) * segmentLength * (i + 1);
+                
+                ctx.strokeStyle = `rgba(${baseColor.r}, ${baseColor.g}, ${baseColor.b}, ${trailAlpha})`;
+                ctx.lineWidth = particleConfig.particleWidth * (1 - t * 0.5);
+                ctx.lineCap = 'round';
+                
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.stroke();
+            }
         } else {
-            // 无真实数据，显示灰色静止小点
-            ctx.fillStyle = 'rgba(128, 128, 128, 0.3)';
-            ctx.globalAlpha = alpha * 0.3;
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, 1, 0, Math.PI * 2);
-            ctx.fill();
+            // 无真实数据，不显示（减少视觉干扰）
         }
     }
 }
 
-// 根据风速获取颜色
+// 根据风速获取颜色（统一颜色，不随速度变化）
 function getSpeedColor(speed) {
-    // 从蓝色到绿色到黄色到红色（使用更不透明的颜色）
-    if (speed < 3) {
-        return 'rgba(100, 149, 237, 1.0)';  // 浅蓝
-    } else if (speed < 6) {
-        return 'rgba(144, 238, 144, 1.0)';  // 浅绿
-    } else if (speed < 10) {
-        return 'rgba(255, 215, 0, 1.0)';     // 金色
-    } else if (speed < 15) {
-        return 'rgba(255, 165, 0, 1.0)';     // 橙色
+    // 统一使用青绿色
+    return 'rgba(100, 220, 180, 1.0)';
+}
+
+// 根据风速获取 RGB 颜色对象（统一颜色）
+function getSpeedColorRGB(speed) {
+    // 统一使用青绿色
+    return {
+        r: 100,
+        g: 220,
+        b: 180
+    };
+}
+
+// HSL 转 RGB
+function hslToRgb(h, s, l) {
+    let r, g, b;
+    
+    if (s === 0) {
+        r = g = b = l;
     } else {
-        return 'rgba(255, 69, 0, 1.0)';     // 红色
+        const hue2rgb = (p, q, t) => {
+            if (t < 0) t += 1;
+            if (t > 1) t -= 1;
+            if (t < 1/6) return p + (q - p) * 6 * t;
+            if (t < 1/2) return q;
+            if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+            return p;
+        };
+        
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1/3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1/3);
     }
+    
+    return {
+        r: Math.round(r * 255),
+        g: Math.round(g * 255),
+        b: Math.round(b * 255)
+    };
 }
 
 // 获取指定点的风速和风向（使用双线性插值）
@@ -3360,23 +3421,29 @@ function createParticleWindLayer(map, windData) {
 
 // 粒子动画循环
 function animateParticles(map) {
-    // 清除画布（使用透明背景，只清除上一帧的粒子）
-    windContext.clearRect(0, 0, windParticleCanvas.width, windParticleCanvas.height);
-    
-    // 更新和绘制粒子
-    for (const particle of particles) {
-        const coord = map.getCoordinateFromPixel([particle.x, particle.y]);
-        if (coord) {
-            const lonLat = ol.proj.toLonLat(coord);
-            const wind = getWindAtPoint(lonLat[0], lonLat[1], windGridData);
-            if (wind) {
-                particle.currentSpeed = wind.speed;
-                particle.currentDirection = wind.direction;
-            }
-        }
+    // 如果地图正在交互，暂停更新但继续动画循环
+    if (!isMapInteracting) {
+        // 使用半透明清除创建拖尾效果（类似 nullschool）
+        windContext.globalCompositeOperation = 'destination-out';
+        windContext.fillStyle = 'rgba(0, 0, 0, 0.15)';
+        windContext.fillRect(0, 0, windParticleCanvas.width, windParticleCanvas.height);
+        windContext.globalCompositeOperation = 'source-over';
         
-        particle.update(windGridData, map);
-        particle.draw(windContext);
+        // 更新和绘制粒子
+        for (const particle of particles) {
+            const coord = map.getCoordinateFromPixel([particle.x, particle.y]);
+            if (coord) {
+                const lonLat = ol.proj.toLonLat(coord);
+                const wind = getWindAtPoint(lonLat[0], lonLat[1], windGridData);
+                if (wind) {
+                    particle.currentSpeed = wind.speed;
+                    particle.currentDirection = wind.direction;
+                }
+            }
+            
+            particle.update(windGridData, map);
+            particle.draw(windContext);
+        }
     }
     
     windAnimationId = requestAnimationFrame(() => animateParticles(map));
@@ -3453,9 +3520,9 @@ async function fetchWindData(bounds, zoom) {
     
     console.log('构建的网格点:', points.length, '个');
     
-    // 使用 Open-Meteo Marine API
-    // 注意：Open-Meteo 的 marine API 可能只支持特定的海洋区域
-    const url = `https://marine-api.open-meteo.com/v1/marine?latitude=${lats.join(',')}&longitude=${lons.join(',')}&hourly=wind_speed_10m,wind_direction_10m&timezone=auto&forecast_days=1`;
+    // 使用 Open-Meteo API（标准天气API，覆盖范围更广）
+    // 备选：marine-api 只覆盖海洋，普通 api 覆盖全球
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lats.join(',')}&longitude=${lons.join(',')}&hourly=windspeed_10m,winddirection_10m&timezone=auto&forecast_days=1`;
     
     console.log('请求风场数据:', url);
     console.log('网格点数量:', points.length, '纬度:', lats.length, '经度:', lons.length);
@@ -3491,13 +3558,39 @@ async function fetchWindData(bounds, zoom) {
             const speeds = [];
             const directions = [];
             
+            // 获取当前小时索引（根据本地时间）
+            const now = new Date();
+            const currentHour = now.getHours();
+            console.log('当前本地时间:', now.toLocaleString(), '小时:', currentHour);
+            
             for (const point of data) {
-                if (point.hourly && point.hourly.wind_speed_10m && point.hourly.wind_direction_10m) {
+                // 标准API使用 windspeed_10m 和 winddirection_10m（注意没有下划线）
+                const windSpeedArray = point.hourly?.windspeed_10m || point.hourly?.wind_speed_10m;
+                const windDirArray = point.hourly?.winddirection_10m || point.hourly?.wind_direction_10m;
+                
+                if (windSpeedArray && windDirArray) {
                     latArray.push(point.latitude);
                     lonArray.push(point.longitude);
-                    // 取第一个时间点的数据（当前小时）
-                    const speed = point.hourly.wind_speed_10m[0];
-                    const direction = point.hourly.wind_direction_10m[0];
+                    
+                    // 尝试获取当前小时的数据
+                    let speed = windSpeedArray[currentHour];
+                    let direction = windDirArray[currentHour];
+                    
+                    // 如果当前小时为null，尝试找最近的有效数据
+                    if (speed === null || direction === null || speed === undefined || direction === undefined) {
+                        for (let i = 0; i < 24; i++) {
+                            if (windSpeedArray[i] !== null && windSpeedArray[i] !== undefined && 
+                                windDirArray[i] !== null && windDirArray[i] !== undefined) {
+                                speed = windSpeedArray[i];
+                                direction = windDirArray[i];
+                                console.log(`使用第 ${i} 小时的数据: 风速=${speed.toFixed(1)}m/s, 风向=${direction}°`);
+                                break;
+                            }
+                        }
+                    } else {
+                        console.log(`当前小时数据: 风速=${speed.toFixed(1)}m/s, 风向=${direction}°`);
+                    }
+                    
                     speeds.push(speed);
                     directions.push(direction);
                 }
@@ -3849,3 +3942,610 @@ if (document.readyState === 'loading') {
     addWindControlButton();
     // setupAutoRefreshWind();
 }
+
+// ==================== 点击查询风速 ====================
+// 创建风速查询弹出框
+function createWindQueryPopup() {
+    // 检查是否已存在
+    if (document.getElementById('windQueryPopup')) return;
+    
+    const popup = document.createElement('div');
+    popup.id = 'windQueryPopup';
+    popup.style.cssText = `
+        position: absolute;
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 10px 15px;
+        border-radius: 6px;
+        font-size: 13px;
+        pointer-events: none;
+        z-index: 10000;
+        display: none;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        border: 1px solid rgba(255,255,255,0.2);
+        min-width: 150px;
+    `;
+    document.body.appendChild(popup);
+    return popup;
+}
+
+// 显示风速信息
+function showWindInfo(pixel, coordinate) {
+    const popup = document.getElementById('windQueryPopup') || createWindQueryPopup();
+    const lonLat = ol.proj.toLonLat(coordinate);
+    
+    // 查询该点的风速
+    const wind = getWindAtPoint(lonLat[0], lonLat[1], windGridData);
+    
+    if (wind && wind.speed !== null && wind.speed > 0.1) {
+        // 根据风速设置颜色
+        let color = '#ff3366';
+        if (wind.speed < 3) color = '#66cc66';
+        else if (wind.speed < 8) color = '#ffcc33';
+        else if (wind.speed < 15) color = '#ff9933';
+        
+        popup.innerHTML = `
+            <div style="font-weight: bold; margin-bottom: 5px;">🌬️ 风场信息</div>
+            <div>风速: <span style="color: ${color}; font-weight: bold;">${wind.speed.toFixed(1)} m/s</span></div>
+            <div>风向: ${wind.direction.toFixed(0)}°</div>
+            <div style="font-size: 11px; color: #aaa; margin-top: 5px;">
+                ${getWindDirectionText(wind.direction)}
+            </div>
+        `;
+    } else {
+        popup.innerHTML = `
+            <div style="font-weight: bold; margin-bottom: 5px;">🌬️ 风场信息</div>
+            <div style="color: #888;">该位置无风场数据</div>
+        `;
+    }
+    
+    // 设置位置
+    popup.style.left = (pixel[0] + 15) + 'px';
+    popup.style.top = (pixel[1] + 15) + 'px';
+    popup.style.display = 'block';
+}
+
+// 获取风向文字描述
+function getWindDirectionText(degree) {
+    const directions = ['北', '东北', '东', '东南', '南', '西南', '西', '西北'];
+    const index = Math.round(degree / 45) % 8;
+    return directions[index] + '风';
+}
+
+// 隐藏风速信息
+function hideWindInfo() {
+    const popup = document.getElementById('windQueryPopup');
+    if (popup) popup.style.display = 'none';
+}
+
+// 创建流场查询弹出框
+function createCurrentQueryPopup() {
+    if (document.getElementById('currentQueryPopup')) return;
+    
+    const popup = document.createElement('div');
+    popup.id = 'currentQueryPopup';
+    popup.style.cssText = `
+        position: absolute;
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 10px 15px;
+        border-radius: 6px;
+        font-size: 13px;
+        pointer-events: none;
+        z-index: 10000;
+        display: none;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        border: 1px solid rgba(255,255,255,0.2);
+        min-width: 150px;
+    `;
+    document.body.appendChild(popup);
+    return popup;
+}
+
+// 显示流场信息
+function showCurrentInfo(pixel, coordinate) {
+    const popup = document.getElementById('currentQueryPopup') || createCurrentQueryPopup();
+    const lonLat = ol.proj.toLonLat(coordinate);
+    
+    const current = getWindAtPoint(lonLat[0], lonLat[1], currentGridData);
+    
+    if (current && current.speed !== null && current.speed > 0.1) {
+        popup.innerHTML = `
+            <div style="font-weight: bold; margin-bottom: 5px;">🌀 洋流信息</div>
+            <div>流速: <span style="color: #66aaff; font-weight: bold;">${current.speed.toFixed(2)} m/s</span></div>
+            <div>流向: ${current.direction.toFixed(0)}°</div>
+            <div style="font-size: 11px; color: #aaa; margin-top: 5px;">
+                ${getCurrentDirectionText(current.direction)}
+            </div>
+        `;
+    } else {
+        popup.innerHTML = `
+            <div style="font-weight: bold; margin-bottom: 5px;">🌀 洋流信息</div>
+            <div style="color: #888;">该位置无洋流数据</div>
+        `;
+    }
+    
+    popup.style.left = (pixel[0] + 15) + 'px';
+    popup.style.top = (pixel[1] + 15) + 'px';
+    popup.style.display = 'block';
+}
+
+// 获取流向文字描述
+function getCurrentDirectionText(degree) {
+    const directions = ['北', '东北', '东', '东南', '南', '西南', '西', '西北'];
+    const index = Math.round(degree / 45) % 8;
+    return '向' + directions[index] + '流动';
+}
+
+// 隐藏流场信息
+function hideCurrentInfo() {
+    const popup = document.getElementById('currentQueryPopup');
+    if (popup) popup.style.display = 'none';
+}
+
+// 添加地图点击事件（风场或流场显示时启用）
+map.on('click', function(evt) {
+    if (windDataVisible) {
+        showWindInfo(evt.pixel, evt.coordinate);
+        setTimeout(hideWindInfo, 3000);
+    } else if (currentDataVisible) {
+        showCurrentInfo(evt.pixel, evt.coordinate);
+        setTimeout(hideCurrentInfo, 3000);
+    }
+});
+
+// 鼠标移动时更新位置（如果弹出框显示中）
+map.on('pointermove', function(evt) {
+    const windPopup = document.getElementById('windQueryPopup');
+    const currentPopup = document.getElementById('currentQueryPopup');
+    if (windPopup && windPopup.style.display === 'block' && windDataVisible) {
+        showWindInfo(evt.pixel, evt.coordinate);
+    } else if (currentPopup && currentPopup.style.display === 'block' && currentDataVisible) {
+        showCurrentInfo(evt.pixel, evt.coordinate);
+    }
+});
+
+// ==================== 海洋流场（洋流）可视化 ====================
+
+// 获取洋流数据
+async function fetchCurrentData(bounds, zoom) {
+    // 根据缩放级别调整网格密度
+    const gridSize = zoom > 8 ? 1.0 : (zoom > 6 ? 1.5 : 2.0);
+    
+    // 计算经纬度范围
+    const minLonLat = ol.proj.toLonLat([bounds[0], bounds[1]]);
+    const maxLonLat = ol.proj.toLonLat([bounds[2], bounds[3]]);
+    
+    const lonMin = Math.max(-180, minLonLat[0] - 2);
+    const lonMax = Math.min(180, maxLonLat[0] + 2);
+    const latMin = Math.max(-90, minLonLat[1] - 2);
+    const latMax = Math.min(90, maxLonLat[1] + 2);
+    
+    // 构建网格点列表
+    const points = [];
+    for (let lat = latMin; lat <= latMax; lat += gridSize) {
+        for (let lon = lonMin; lon <= lonMax; lon += gridSize) {
+            points.push({ lat: lat.toFixed(2), lon: lon.toFixed(2) });
+        }
+    }
+    
+    if (points.length === 0) return null;
+    
+    // 限制网格点数量
+    const maxPoints = 50;
+    if (points.length > maxPoints) {
+        const step = Math.ceil(points.length / maxPoints);
+        const sampledPoints = points.filter((_, i) => i % step === 0);
+        points.length = 0;
+        points.push(...sampledPoints);
+    }
+    
+    const lats = points.map(p => p.lat);
+    const lons = points.map(p => p.lon);
+    
+    // 使用 Open-Meteo Marine API 获取洋流数据
+    const url = `https://marine-api.open-meteo.com/v1/marine?latitude=${lats.join(',')}&longitude=${lons.join(',')}&hourly=ocean_current_velocity,ocean_current_direction&timezone=auto&forecast_days=1`;
+    
+    console.log('请求洋流数据:', url);
+    
+    try {
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: { 'Accept': 'application/json' }
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('API响应错误:', response.status, errorText);
+            throw new Error(`API请求失败: ${response.status}`);
+        }
+        
+        let data = await response.json();
+        console.log('洋流API响应:', data);
+        
+        if (Array.isArray(data)) {
+            const now = new Date();
+            const currentHour = now.getHours();
+            
+            const latArray = [];
+            const lonArray = [];
+            const speeds = [];
+            const directions = [];
+            
+            for (const point of data) {
+                const velocityArray = point.hourly?.ocean_current_velocity;
+                const dirArray = point.hourly?.ocean_current_direction;
+                
+                if (velocityArray && dirArray) {
+                    let speed = velocityArray[currentHour];
+                    let direction = dirArray[currentHour];
+                    
+                    // 如果当前小时为null，尝试找最近的有效数据
+                    if (speed === null || direction === null || speed === undefined || direction === undefined) {
+                        for (let i = 0; i < 24; i++) {
+                            if (velocityArray[i] !== null && velocityArray[i] !== undefined && 
+                                dirArray[i] !== null && dirArray[i] !== undefined) {
+                                speed = velocityArray[i];
+                                direction = dirArray[i];
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // 将 km/h 转换为 m/s (除以 3.6)
+                    const speedMs = speed / 3.6;
+                    
+                    // 过滤掉陆地数据（流速为0或非常小的点）
+                    // 海洋洋流通常 > 0.3 m/s，陆地通常为 0 或很小的值
+                    if (speedMs > 0.3) {
+                        latArray.push(point.latitude);
+                        lonArray.push(point.longitude);
+                        speeds.push(speedMs);  // 存储 m/s 单位
+                        directions.push(direction);
+                    }
+                }
+            }
+            
+            if (speeds.length === 0) {
+                throw new Error('所有点的洋流数据都为空');
+            }
+            
+            console.log('提取的洋流数据:', speeds.length, '条');
+            
+            return {
+                latitudes: latArray,
+                longitudes: lonArray,
+                流速: speeds,
+                流向: directions
+            };
+        }
+        
+        return null;
+    } catch (error) {
+        console.error('获取洋流数据失败:', error);
+        return null;
+    }
+}
+
+// 获取流速颜色（统一蓝色）
+function getCurrentColorRGB(speed) {
+    // 使用统一的蓝色，不随流速变化
+    return {
+        r: 100,
+        g: 180,
+        b: 255
+    };
+}
+
+// 创建洋流粒子类
+class CurrentParticle {
+    constructor(map) {
+        this.map = map;
+        this.reset();
+    }
+    
+    reset() {
+        const size = this.map.getSize();
+        this.x = Math.random() * size[0];
+        this.y = Math.random() * size[1];
+        this.age = 0;
+        this.maxAge = Math.floor(Math.random() * 150) + 100;
+    }
+    
+    update(currentGrid, map) {
+        const coord = map.getCoordinateFromPixel([this.x, this.y]);
+        if (!coord) {
+            this.reset();
+            return;
+        }
+        
+        const lonLat = ol.proj.toLonLat(coord);
+        const current = getWindAtPoint(lonLat[0], lonLat[1], currentGrid);
+        
+        if (current && current.speed !== null && current.speed > 0.3) {
+            const angleRad = (current.direction - 90) * Math.PI / 180;
+            const adjustedSpeed = Math.min(
+                current.speed * currentConfig.speedMultiplier,
+                currentConfig.maxSpeed
+            );
+            const dx = Math.cos(angleRad) * adjustedSpeed * currentConfig.particleSpeed;
+            const dy = Math.sin(angleRad) * adjustedSpeed * currentConfig.particleSpeed;
+            
+            this.x += dx;
+            this.y += dy;
+            
+            this.currentSpeed = current.speed;
+            this.currentDirection = current.direction;
+            this.hasRealData = true;
+        } else {
+            // 移动到无数据区域（陆地），立即重置
+            this.reset();
+            return;
+        }
+        
+        this.age++;
+        
+        const size = this.map.getSize();
+        if (this.x < 0 || this.x > size[0] || this.y < 0 || this.y > size[1] || this.age > this.maxAge) {
+            this.reset();
+        }
+    }
+    
+    draw(ctx) {
+        const alpha = 1 - (this.age / this.maxAge);
+        
+        if (this.hasRealData) {
+            const speed = this.currentSpeed || 0.5;
+            const baseColor = getCurrentColorRGB(speed);
+            const angleRad = (this.currentDirection - 90) * Math.PI / 180;
+            
+            const segments = 8;
+            for (let i = 0; i < segments; i++) {
+                const t = i / segments;
+                const trailAlpha = alpha * (1 - t) * 0.7;
+                const segmentLength = currentConfig.particleTrailLength / segments;
+                
+                const x1 = this.x - Math.cos(angleRad) * segmentLength * i;
+                const y1 = this.y - Math.sin(angleRad) * segmentLength * i;
+                const x2 = this.x - Math.cos(angleRad) * segmentLength * (i + 1);
+                const y2 = this.y - Math.sin(angleRad) * segmentLength * (i + 1);
+                
+                ctx.strokeStyle = `rgba(${baseColor.r}, ${baseColor.g}, ${baseColor.b}, ${trailAlpha})`;
+                ctx.lineWidth = currentConfig.particleWidth * (1 - t * 0.5);
+                ctx.lineCap = 'round';
+                
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.stroke();
+            }
+        }
+    }
+}
+
+// 创建洋流粒子图层
+function createCurrentParticleLayer(map, currentData) {
+    const points = [];
+    for (let i = 0; i < currentData.latitudes.length; i++) {
+        points.push({
+            lat: parseFloat(currentData.latitudes[i]),
+            lon: parseFloat(currentData.longitudes[i]),
+            speed: currentData.流速[i],
+            direction: currentData.流向[i]
+        });
+    }
+    
+    currentGridData = { points: points, bounds: map.getView().calculateExtent(map.getSize()) };
+    
+    if (currentParticleCanvas) {
+        currentParticleCanvas.parentNode.removeChild(currentParticleCanvas);
+    }
+    
+    currentParticleCanvas = document.createElement('canvas');
+    currentParticleCanvas.id = 'currentParticleCanvas';
+    currentParticleCanvas.style.position = 'absolute';
+    currentParticleCanvas.style.top = '0';
+    currentParticleCanvas.style.left = '0';
+    currentParticleCanvas.style.pointerEvents = 'none';
+    currentParticleCanvas.style.zIndex = '999';
+    currentParticleCanvas.style.backgroundColor = 'transparent';
+    
+    const mapElement = map.getTargetElement();
+    const size = map.getSize();
+    
+    if (!size || size[0] === 0 || size[1] === 0) {
+        console.error('地图尺寸无效');
+        return false;
+    }
+    
+    currentParticleCanvas.width = size[0];
+    currentParticleCanvas.height = size[1];
+    
+    mapElement.style.position = 'relative';
+    mapElement.appendChild(currentParticleCanvas);
+    
+    currentContext = currentParticleCanvas.getContext('2d');
+    
+    currentParticles = [];
+    for (let i = 0; i < currentConfig.particleCount; i++) {
+        currentParticles.push(new CurrentParticle(map));
+    }
+    
+    animateCurrentParticles(map);
+    
+    return true;
+}
+
+// 洋流粒子动画循环
+function animateCurrentParticles(map) {
+    currentContext.globalCompositeOperation = 'destination-out';
+    // 如果地图正在交互，暂停更新
+    if (!isMapInteracting) {
+        currentContext.globalCompositeOperation = 'destination-out';
+        currentContext.fillStyle = 'rgba(0, 0, 0, 0.12)';
+        currentContext.fillRect(0, 0, currentParticleCanvas.width, currentParticleCanvas.height);
+        currentContext.globalCompositeOperation = 'source-over';
+        
+        for (const particle of currentParticles) {
+            const coord = map.getCoordinateFromPixel([particle.x, particle.y]);
+            if (coord) {
+                const lonLat = ol.proj.toLonLat(coord);
+                const current = getWindAtPoint(lonLat[0], lonLat[1], currentGridData);
+                if (current) {
+                    particle.currentSpeed = current.speed;
+                    particle.currentDirection = current.direction;
+                }
+            }
+            
+            particle.update(currentGridData, map);
+            particle.draw(currentContext);
+        }
+    }
+    
+    currentAnimationId = requestAnimationFrame(() => animateCurrentParticles(map));
+}
+
+// 停止洋流动画
+function stopCurrentAnimation() {
+    if (currentAnimationId) {
+        cancelAnimationFrame(currentAnimationId);
+        currentAnimationId = null;
+    }
+    
+    if (currentParticleCanvas) {
+        currentParticleCanvas.parentNode.removeChild(currentParticleCanvas);
+        currentParticleCanvas = null;
+        currentContext = null;
+    }
+    
+    currentParticles = [];
+    currentGridData = null;
+}
+
+// 加载洋流数据
+async function loadCurrentData() {
+    const loadingPanel = document.getElementById('windLoadingPanel');
+    const loadingProgress = document.getElementById('windLoadingProgress');
+    
+    if (loadingPanel) {
+        loadingPanel.style.display = 'block';
+        loadingProgress.textContent = '正在获取洋流数据...';
+    }
+    
+    try {
+        const view = map.getView();
+        const extent = view.calculateExtent();
+        const zoom = view.getZoom();
+        
+        const currentData = await fetchCurrentData(extent, zoom);
+        
+        console.log('获取到的洋流数据:', currentData);
+        
+        if (currentData && currentData.流速 && currentData.流向) {
+            if (currentData.流速.length === 0 || currentData.流向.length === 0) {
+                throw new Error('洋流数据为空数组');
+            }
+            
+            stopCurrentAnimation();
+            
+            const success = createCurrentParticleLayer(map, currentData);
+            
+            if (success) {
+                currentDataVisible = true;
+                const currentBtn = document.getElementById('toggleCurrentBtn');
+                if (currentBtn) currentBtn.classList.add('active');
+                console.log('洋流数据加载成功');
+                if (loadingPanel) loadingPanel.style.display = 'none';
+            } else {
+                console.log('洋流图层未创建');
+                return;
+            }
+        } else {
+            console.error('洋流数据无效:', currentData);
+            throw new Error('未获取到有效数据');
+        }
+    } catch (error) {
+        console.error('加载洋流失败:', error);
+        if (loadingPanel) {
+            loadingProgress.textContent = '加载失败: ' + error.message;
+            setTimeout(() => {
+                loadingPanel.style.display = 'none';
+            }, 2000);
+        }
+        alert('获取洋流数据失败，请检查网络后重试');
+    }
+}
+
+// 关闭洋流图层
+function hideCurrentLayer() {
+    stopCurrentAnimation();
+    currentDataVisible = false;
+    
+    const currentBtn = document.getElementById('toggleCurrentBtn');
+    if (currentBtn) currentBtn.classList.remove('active');
+}
+
+// 切换洋流图层
+function toggleCurrentLayer() {
+    if (currentDataVisible) {
+        hideCurrentLayer();
+    } else {
+        loadCurrentData();
+    }
+}
+
+// 添加洋流控制按钮
+function addCurrentControlButton() {
+    const toolbar = document.querySelector('.toolbar');
+    if (!toolbar) return;
+    
+    if (document.getElementById('toggleCurrentBtn')) return;
+    
+    const currentBtn = document.createElement('button');
+    currentBtn.id = 'toggleCurrentBtn';
+    currentBtn.className = 'action-btn';
+    currentBtn.setAttribute('data-title', '海洋洋流');
+    currentBtn.innerHTML = '🌀';
+    currentBtn.addEventListener('click', toggleCurrentLayer);
+    
+    toolbar.appendChild(currentBtn);
+}
+
+// 页面加载完成后添加洋流按钮
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        addCurrentControlButton();
+    });
+} else {
+    addCurrentControlButton();
+}
+
+// ==================== 地图交互时暂停粒子动画 ====================
+// 监听地图交互开始
+map.on('movestart', function() {
+    isMapInteracting = true;
+});
+
+// 监听地图交互结束
+map.on('moveend', function() {
+    isMapInteracting = false;
+});
+
+// 监听拖拽开始
+map.on('pointerdrag', function() {
+    isMapInteracting = true;
+});
+
+// 监听缩放开始
+map.getView().on('change:resolution', function() {
+    isMapInteracting = true;
+});
+
+// 监听缩放结束（延迟恢复，避免连续缩放时的闪烁）
+let zoomEndTimer = null;
+map.getView().on('change:resolution', function() {
+    if (zoomEndTimer) clearTimeout(zoomEndTimer);
+    zoomEndTimer = setTimeout(() => {
+        isMapInteracting = false;
+    }, 300);
+});

@@ -295,3 +295,11 @@ body {
     color: white;
     box-shadow: 0 0 0 2px rgba(255, 51, 102, 0.3);
 }
+
+/* 洋流按钮特殊样式 */
+#toggleCurrentBtn.active {
+    background-color: #3366ff;
+    border-color: #0033cc;
+    color: white;
+    box-shadow: 0 0 0 2px rgba(51, 102, 255, 0.3);
+}
