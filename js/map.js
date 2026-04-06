@@ -3107,3 +3107,745 @@ function openImageViewer(imageSrc, title) {
     
     document.body.appendChild(viewer);
 }
+// ==================== 海洋风场可视化（Open-Meteo API） ====================
+// 风场图层
+let windLayer = null;
+let windDataVisible = false;
+
+// 粒子风场
+let windParticlesLayer = null;
+let windAnimationId = null;
+let windParticleCanvas = null;
+let windContext = null;
+let particles = [];
+let windGridData = null;  // 存储风场网格数据用于插值
+
+// 粒子风场配置
+const particleConfig = {
+    particleCount: 2000,      // 粒子数量
+    particleSpeed: 1.0,       // 粒子速度
+    particleTrailLength: 10,  // 拖尾长度
+    particleWidth: 1.5,       // 粒子宽度
+    maxSpeed: 20,            // 最大风速（用于颜色映射）
+    gridResolution: 0.5,      // 网格分辨率
+    speedMultiplier: 3.0     // 风速倍乘系数（让慢速风也能明显流动）
+};
+
+// 粒子类
+class WindParticle {
+    constructor(map) {
+        this.map = map;
+        this.reset();
+    }
+    
+    reset() {
+        const size = this.map.getSize();
+        this.x = Math.random() * size[0];
+        this.y = Math.random() * size[1];
+        this.age = 0;
+        this.maxAge = Math.floor(Math.random() * 100) + 50;
+    }
+    
+    update(windGrid, map) {
+        const coord = map.getCoordinateFromPixel([this.x, this.y]);
+        if (!coord) {
+            this.reset();
+            return;
+        }
+        
+        const lonLat = ol.proj.toLonLat(coord);
+        const wind = getWindAtPoint(lonLat[0], lonLat[1], windGrid);
+        
+        if (wind && wind.speed !== null && wind.speed > 0.1) {
+            // 有真实风场数据，按实际风速流动（应用倍乘系数让慢速风也能明显流动）
+            const angleRad = (wind.direction - 90) * Math.PI / 180;
+            // 应用倍乘系数，但限制最大速度
+            const adjustedSpeed = Math.min(
+                wind.speed * particleConfig.speedMultiplier, 
+                particleConfig.maxSpeed
+            );
+            const dx = Math.cos(angleRad) * adjustedSpeed * particleConfig.particleSpeed;
+            const dy = Math.sin(angleRad) * adjustedSpeed * particleConfig.particleSpeed;
+            
+            this.x += dx;
+            this.y += dy;
+            
+            // 保存原始风速和风向用于绘制（显示真实风速颜色）
+            this.currentSpeed = wind.speed;
+            this.currentDirection = wind.direction;
+            this.hasRealData = true;
+        } else {
+            // 没有真实风场数据，粒子静止不动
+            this.hasRealData = false;
+        }
+        
+        this.age++;
+        
+        // 如果粒子超出边界或寿命结束，重置
+        const size = this.map.getSize();
+        if (this.x < 0 || this.x > size[0] || this.y < 0 || this.y > size[1] || this.age > this.maxAge) {
+            this.reset();
+        }
+    }
+    
+    draw(ctx) {
+        const alpha = 1 - (this.age / this.maxAge);
+        
+        if (this.hasRealData) {
+            // 有真实数据，显示彩色流动粒子
+            const speed = this.currentSpeed || 5;
+            const color = getSpeedColor(speed);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = particleConfig.particleWidth;
+            ctx.globalAlpha = alpha * 0.8;
+            
+            const dx = Math.cos((this.currentDirection - 90) * Math.PI / 180) * particleConfig.particleTrailLength;
+            const dy = Math.sin((this.currentDirection - 90) * Math.PI / 180) * particleConfig.particleTrailLength;
+            
+            ctx.beginPath();
+            ctx.moveTo(this.x, this.y);
+            ctx.lineTo(this.x - dx, this.y - dy);
+            ctx.stroke();
+        } else {
+            // 无真实数据，显示灰色静止小点
+            ctx.fillStyle = 'rgba(128, 128, 128, 0.3)';
+            ctx.globalAlpha = alpha * 0.3;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, 1, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+}
+
+// 根据风速获取颜色
+function getSpeedColor(speed) {
+    // 从蓝色到绿色到黄色到红色（使用更不透明的颜色）
+    if (speed < 3) {
+        return 'rgba(100, 149, 237, 1.0)';  // 浅蓝
+    } else if (speed < 6) {
+        return 'rgba(144, 238, 144, 1.0)';  // 浅绿
+    } else if (speed < 10) {
+        return 'rgba(255, 215, 0, 1.0)';     // 金色
+    } else if (speed < 15) {
+        return 'rgba(255, 165, 0, 1.0)';     // 橙色
+    } else {
+        return 'rgba(255, 69, 0, 1.0)';     // 红色
+    }
+}
+
+// 获取指定点的风速和风向（使用双线性插值）
+function getWindAtPoint(lon, lat, windGrid) {
+    if (!windGrid || !windGrid.points || windGrid.points.length === 0) {
+        return null;
+    }
+    
+    const points = windGrid.points;
+    let minDist = Infinity;
+    let nearest = null;
+    
+    // 找到最近的点
+    for (const point of points) {
+        if (point.speed === null || point.direction === null) continue;
+        const dist = Math.sqrt(Math.pow(point.lon - lon, 2) + Math.pow(point.lat - lat, 2));
+        if (dist < minDist) {
+            minDist = dist;
+            nearest = point;
+        }
+    }
+    
+    if (!nearest) return null;
+    
+    // 如果距离太远，返回最近点的风场
+    if (minDist > 2) return { speed: nearest.speed, direction: nearest.direction };
+    
+    // 双线性插值
+    let totalWeight = 0;
+    let weightedSpeed = 0;
+    let weightedDirX = 0;
+    let weightedDirY = 0;
+    
+    for (const point of points) {
+        if (point.speed === null || point.direction === null) continue;
+        const dist = Math.max(0.01, Math.sqrt(Math.pow(point.lon - lon, 2) + Math.pow(point.lat - lat, 2)));
+        const weight = 1 / (dist * dist);
+        
+        totalWeight += weight;
+        weightedSpeed += point.speed * weight;
+        
+        const dirRad = (point.direction - 90) * Math.PI / 180;
+        weightedDirX += Math.cos(dirRad) * weight;
+        weightedDirY += Math.sin(dirRad) * weight;
+    }
+    
+    if (totalWeight === 0) return null;
+    
+    const avgSpeed = weightedSpeed / totalWeight;
+    let avgDir = Math.atan2(weightedDirY, weightedDirX) * 180 / Math.PI + 90;
+    if (avgDir < 0) avgDir += 360;
+    
+    return { speed: avgSpeed, direction: avgDir };
+}
+
+// 创建粒子风场图层
+function createParticleWindLayer(map, windData) {
+    // 转换风场数据为网格格式
+    const points = [];
+    for (let i = 0; i < windData.latitudes.length; i++) {
+        points.push({
+            lat: parseFloat(windData.latitudes[i]),
+            lon: parseFloat(windData.longitudes[i]),
+            speed: windData.风速[i],
+            direction: windData.风向[i]
+        });
+    }
+    
+    windGridData = { points: points, bounds: map.getView().calculateExtent(map.getSize()) };
+    
+    // 创建 Canvas
+    if (windParticleCanvas) {
+        windParticleCanvas.parentNode.removeChild(windParticleCanvas);
+    }
+    
+    windParticleCanvas = document.createElement('canvas');
+    windParticleCanvas.id = 'windParticleCanvas';
+    windParticleCanvas.style.position = 'absolute';
+    windParticleCanvas.style.top = '0';
+    windParticleCanvas.style.left = '0';
+    windParticleCanvas.style.pointerEvents = 'none';
+    windParticleCanvas.style.zIndex = '1000';
+    windParticleCanvas.style.backgroundColor = 'transparent';
+    
+    const mapElement = map.getTargetElement();
+    const size = map.getSize();
+    
+    console.log('地图尺寸:', size);
+    
+    // 确保尺寸有效
+    if (!size || size[0] === 0 || size[1] === 0) {
+        console.error('地图尺寸无效');
+        return false;
+    }
+    
+    windParticleCanvas.width = size[0];
+    windParticleCanvas.height = size[1];
+    
+    console.log('Canvas尺寸:', windParticleCanvas.width, 'x', windParticleCanvas.height);
+    
+    // 将 canvas 插入到地图容器内
+    mapElement.style.position = 'relative';
+    mapElement.appendChild(windParticleCanvas);
+    
+    windContext = windParticleCanvas.getContext('2d');
+    
+    // 测试绘制一个红点确认 canvas 正常工作
+    windContext.fillStyle = 'red';
+    windContext.beginPath();
+    windContext.arc(50, 50, 5, 0, Math.PI * 2);
+    windContext.fill();
+    console.log('测试绘制完成');
+    
+    // 创建粒子
+    particles = [];
+    for (let i = 0; i < particleConfig.particleCount; i++) {
+        particles.push(new WindParticle(map));
+    }
+    
+    console.log('创建了', particles.length, '个粒子');
+    
+    // 开始动画
+    animateParticles(map);
+    
+    return true;
+}
+
+// 粒子动画循环
+function animateParticles(map) {
+    // 清除画布（使用透明背景，只清除上一帧的粒子）
+    windContext.clearRect(0, 0, windParticleCanvas.width, windParticleCanvas.height);
+    
+    // 更新和绘制粒子
+    for (const particle of particles) {
+        const coord = map.getCoordinateFromPixel([particle.x, particle.y]);
+        if (coord) {
+            const lonLat = ol.proj.toLonLat(coord);
+            const wind = getWindAtPoint(lonLat[0], lonLat[1], windGridData);
+            if (wind) {
+                particle.currentSpeed = wind.speed;
+                particle.currentDirection = wind.direction;
+            }
+        }
+        
+        particle.update(windGridData, map);
+        particle.draw(windContext);
+    }
+    
+    windAnimationId = requestAnimationFrame(() => animateParticles(map));
+}
+
+// 停止粒子动画
+function stopParticleAnimation() {
+    if (windAnimationId) {
+        cancelAnimationFrame(windAnimationId);
+        windAnimationId = null;
+    }
+    
+    if (windParticleCanvas) {
+        windParticleCanvas.parentNode.removeChild(windParticleCanvas);
+        windParticleCanvas = null;
+        windContext = null;
+    }
+    
+    particles = [];
+    windGridData = null;
+}
+
+// 风场样式配置
+const windStyle = {
+    arrowLength: 30,      // 箭头长度（像素）
+    arrowColor: '#ff3366',
+    arrowWidth: 2,
+    showSpeed: true,      // 是否显示风速数值
+    useParticles: true    // 是否使用粒子效果
+};
+
+// 获取风场数据
+async function fetchWindData(bounds, zoom) {
+    // 根据缩放级别调整网格密度（zoom越大，网格越密）
+    const gridSize = zoom > 8 ? 1.0 : (zoom > 6 ? 1.5 : 2.0);
+    
+    // 计算经纬度范围（bounds 是 EPSG:3857 投影坐标）
+    const minLonLat = ol.proj.toLonLat([bounds[0], bounds[1]]);
+    const maxLonLat = ol.proj.toLonLat([bounds[2], bounds[3]]);
+    
+    // 扩展一点范围，让边缘也有数据
+    const lonMin = Math.max(-180, minLonLat[0] - 2);
+    const lonMax = Math.min(180, maxLonLat[0] + 2);
+    const latMin = Math.max(-90, minLonLat[1] - 2);
+    const latMax = Math.min(90, maxLonLat[1] + 2);
+    
+    // 构建网格点列表
+    // Open-Meteo API 要求纬度和经度数组长度相同，需要构建配对点
+    const points = [];
+    for (let lat = latMin; lat <= latMax; lat += gridSize) {
+        for (let lon = lonMin; lon <= lonMax; lon += gridSize) {
+            points.push({
+                lat: lat.toFixed(2),
+                lon: lon.toFixed(2)
+            });
+        }
+    }
+    
+    if (points.length === 0) return null;
+    
+    // 限制网格点数量，避免URL过长
+    // Open-Meteo API 对 URL 长度有限制，同时 marine API 可能只支持特定区域
+    const maxPoints = 50;  // 减少点数以提高成功率
+    if (points.length > maxPoints) {
+        const step = Math.ceil(points.length / maxPoints);
+        const sampledPoints = points.filter((_, i) => i % step === 0);
+        points.length = 0;
+        points.push(...sampledPoints);
+    }
+    
+    // 分离纬度和经度数组（确保长度相同）
+    const lats = points.map(p => p.lat);
+    const lons = points.map(p => p.lon);
+    
+    console.log('构建的网格点:', points.length, '个');
+    
+    // 使用 Open-Meteo Marine API
+    // 注意：Open-Meteo 的 marine API 可能只支持特定的海洋区域
+    const url = `https://marine-api.open-meteo.com/v1/marine?latitude=${lats.join(',')}&longitude=${lons.join(',')}&hourly=wind_speed_10m,wind_direction_10m&timezone=auto&forecast_days=1`;
+    
+    console.log('请求风场数据:', url);
+    console.log('网格点数量:', points.length, '纬度:', lats.length, '经度:', lons.length);
+    console.log('经纬度范围:', latMin, latMax, lonMin, lonMax);
+    
+    try {
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
+        
+        console.log('API响应状态:', response.status, response.statusText);
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('API响应错误:', response.status, errorText);
+            throw new Error(`API请求失败: ${response.status} - ${errorText.substring(0, 200)}`);
+        }
+        let data = await response.json();
+        
+        console.log('风场API响应:', data);
+        
+        // Open-Meteo API 当请求多个点时，返回的是数组格式
+        // 每个数组元素代表一个经纬度点的数据
+        if (Array.isArray(data)) {
+            console.log('API返回数组格式，点数:', data.length);
+            
+            // 处理数组格式的响应
+            const latArray = [];
+            const lonArray = [];
+            const speeds = [];
+            const directions = [];
+            
+            for (const point of data) {
+                if (point.hourly && point.hourly.wind_speed_10m && point.hourly.wind_direction_10m) {
+                    latArray.push(point.latitude);
+                    lonArray.push(point.longitude);
+                    // 取第一个时间点的数据（当前小时）
+                    const speed = point.hourly.wind_speed_10m[0];
+                    const direction = point.hourly.wind_direction_10m[0];
+                    speeds.push(speed);
+                    directions.push(direction);
+                }
+            }
+            
+            if (speeds.length === 0) {
+                throw new Error('所有点的风场数据都为空（可能是陆地位置）');
+            }
+            
+            console.log('提取的风速数据:', speeds.length, '条');
+            console.log('提取的风向数据:', directions.length, '条');
+            
+            return {
+                latitudes: latArray,
+                longitudes: lonArray,
+                风速: speeds,
+                风向: directions
+            };
+        }
+        
+        // 单点情况（对象格式）
+        if (!data.hourly || !data.hourly.wind_speed_10m || !data.hourly.wind_direction_10m) {
+            console.error('API返回数据格式不正确:', data);
+            throw new Error('API返回数据格式不正确');
+        }
+        
+        // 单点情况
+        const windSpeedData = data.hourly.wind_speed_10m;
+        const windDirData = data.hourly.wind_direction_10m;
+        
+        return {
+            latitudes: [data.latitude],
+            longitudes: [data.longitude],
+            风速: [windSpeedData[0]],
+            风向: [windDirData[0]]
+        };
+    } catch (error) {
+        console.error('获取风场数据失败:', error);
+        return null;
+    }
+}
+
+// 创建风场矢量图层
+function createWindLayer(windData) {
+    if (!windData || !windData.风速 || !windData.风向) return null;
+    
+    const features = [];
+    const speeds = windData.风速;
+    const directions = windData.风向;
+    const lats = windData.latitudes;
+    const lons = windData.longitudes;
+    
+    // 确保数据是数组格式
+    const speedArray = Array.isArray(speeds) ? speeds : [speeds];
+    const dirArray = Array.isArray(directions) ? directions : [directions];
+    const latArray = Array.isArray(lats) ? lats : [lats];
+    const lonArray = Array.isArray(lons) ? lons : [lons];
+    
+    console.log('创建风场图层:', speedArray.length, '个点');
+    
+    let validPointCount = 0;
+    let nullPointCount = 0;
+    
+    // 为每个点创建箭头
+    // 注意：API返回的是一维数组格式，每个点对应一个 lat/lon/speed/direction
+    for (let idx = 0; idx < speedArray.length; idx++) {
+        const speed = speedArray[idx];
+        const direction = dirArray[idx];
+        const lat = latArray[idx];
+        const lon = lonArray[idx];
+        
+        // 跳过无效数据
+        if (speed === undefined || direction === undefined) continue;
+        if (speed === null || direction === null) {
+            nullPointCount++;
+            continue;
+        }
+        if (speed < 0.1) continue; // 风速太小不显示
+        
+        validPointCount++;
+        console.log(`点 ${idx}: lat=${lat}, lon=${lon}, speed=${speed}, dir=${direction}`);
+        
+        // 计算箭头终点（根据风向和风速调整箭头长度）
+        const angleRad = (direction - 90) * Math.PI / 180;
+        const arrowScale = Math.min(1, speed / 15); // 最大风速15m/s时箭头最长
+        const arrowLen = windStyle.arrowLength * (0.3 + arrowScale * 0.7);
+        
+        const dx = Math.cos(angleRad) * arrowLen;
+        const dy = Math.sin(angleRad) * arrowLen;
+        
+        // 起点坐标（投影坐标）
+        const startPoint = ol.proj.fromLonLat([lon, lat]);
+        const endPoint = [startPoint[0] + dx, startPoint[1] + dy];
+        
+        // 创建箭头线
+        const lineFeature = new ol.Feature({
+            geometry: new ol.geom.LineString([startPoint, endPoint]),
+            speed: speed,
+            direction: direction,
+            lat: lat,
+            lon: lon
+        });
+        features.push(lineFeature);
+        
+        // 添加箭头头部（三角形）
+        const arrowHeadLen = 8;
+        const arrowHeadAngle = Math.PI / 6; // 30度
+        
+        const headX = endPoint[0];
+        const headY = endPoint[1];
+        const backAngle = angleRad + Math.PI;
+        
+        const leftX = headX + Math.cos(backAngle - arrowHeadAngle) * arrowHeadLen;
+        const leftY = headY + Math.sin(backAngle - arrowHeadAngle) * arrowHeadLen;
+        const rightX = headX + Math.cos(backAngle + arrowHeadAngle) * arrowHeadLen;
+        const rightY = headY + Math.sin(backAngle + arrowHeadAngle) * arrowHeadLen;
+        
+        const arrowFeature = new ol.Feature({
+            geometry: new ol.geom.Polygon([[
+                [headX, headY],
+                [leftX, leftY],
+                [rightX, rightY],
+                [headX, headY]
+            ]]),
+            speed: speed,
+            direction: direction
+        });
+        features.push(arrowFeature);
+    }
+    
+    console.log(`风场数据汇总: 总点数=${speedArray.length}, 有效点=${validPointCount}, null点=${nullPointCount}`);
+    
+    // 如果没有有效数据，显示提示
+    if (features.length === 0) {
+        console.warn('没有有效的风场数据可显示');
+        // 显示提示信息
+        const loadingPanel = document.getElementById('windLoadingPanel');
+        if (loadingPanel) {
+            const loadingProgress = document.getElementById('windLoadingProgress');
+            if (loadingProgress) {
+                if (nullPointCount > 0) {
+                    loadingProgress.innerHTML = '<span style="color: #ff9800;">⚠️ 当前区域无海洋风场数据</span><br><span style="font-size: 12px;">Open-Meteo Marine API 仅提供海洋区域数据<br>请尝试缩放至海洋区域（如南海、东海等）</span>';
+                } else {
+                    loadingProgress.innerHTML = '<span style="color: #ff9800;">⚠️ 未找到有效的风场数据</span>';
+                }
+            }
+            setTimeout(() => {
+                loadingPanel.style.display = 'none';
+            }, 4000);
+        }
+        return null;
+    }
+    
+    // 创建矢量图层
+    const source = new ol.source.Vector({ features: features });
+    
+    const layer = new ol.layer.Vector({
+        source: source,
+        style: function(feature) {
+            const geomType = feature.getGeometry().getType();
+            const speed = feature.get('speed');
+            
+            // 根据风速设置颜色
+            let color = '#ff3366';
+            if (speed < 3) color = '#66cc66';      // 微风 绿色
+            else if (speed < 8) color = '#ffcc33';  // 和风 黄色
+            else if (speed < 15) color = '#ff9933'; // 强风 橙色
+            else color = '#ff3366';                  // 大风 红色
+            
+            if (geomType === 'LineString') {
+                return new ol.style.Style({
+                    stroke: new ol.style.Stroke({
+                        color: color,
+                        width: windStyle.arrowWidth
+                    })
+                });
+            } else if (geomType === 'Polygon') {
+                return new ol.style.Style({
+                    fill: new ol.style.Fill({
+                        color: color
+                    }),
+                    stroke: new ol.style.Stroke({
+                        color: color,
+                        width: 1
+                    })
+                });
+            }
+            return new ol.style.Style();
+        }
+    });
+    
+    return layer;
+}
+
+// 加载并显示风场
+async function loadWindData() {
+    const loadingPanel = document.getElementById('loadingPanel');
+    const loadingProgress = document.getElementById('loadingProgress');
+    
+    if (loadingPanel) {
+        loadingPanel.style.display = 'block';
+        loadingProgress.textContent = '正在获取海洋风场数据...';
+    }
+    
+    try {
+        // 获取当前地图视图范围
+        const view = map.getView();
+        const extent = view.calculateExtent();
+        const zoom = view.getZoom();
+        
+        const windData = await fetchWindData(extent, zoom);
+        
+        console.log('获取到的风场数据:', windData);
+        
+        if (windData && windData.风速 && windData.风向) {
+            // 检查数据有效性
+            if (windData.风速.length === 0 || windData.风向.length === 0) {
+                throw new Error('风场数据为空数组');
+            }
+            
+            // 移除旧图层
+            if (windLayer) {
+                map.removeLayer(windLayer);
+                windLayer = null;
+            }
+            
+            // 停止旧的粒子动画
+            stopParticleAnimation();
+            
+            // 根据配置选择显示方式
+            if (windStyle.useParticles) {
+                // 使用粒子效果
+                const success = createParticleWindLayer(map, windData);
+                if (success) {
+                    windDataVisible = true;
+                    const windBtn = document.getElementById('toggleWindBtn');
+                    if (windBtn) windBtn.classList.add('active');
+                    console.log('粒子风场加载成功');
+                    if (loadingPanel) loadingPanel.style.display = 'none';
+                } else {
+                    console.log('粒子风场未创建');
+                    return;
+                }
+            } else {
+                // 使用箭头效果
+                windLayer = createWindLayer(windData);
+                
+                if (windLayer) {
+                    map.addLayer(windLayer);
+                    windDataVisible = true;
+                    
+                    // 更新按钮状态
+                    const windBtn = document.getElementById('toggleWindBtn');
+                    if (windBtn) windBtn.classList.add('active');
+                    
+                    console.log('风场数据加载成功');
+                    if (loadingPanel) loadingPanel.style.display = 'none';
+                } else {
+                    // createWindLayer 返回 null 表示没有有效数据（已在函数内显示提示）
+                    console.log('风场图层未创建，可能是当前区域无海洋数据');
+                    // 不要抛出错误，因为提示信息已经在 createWindLayer 中显示
+                    return;
+                }
+            }
+        } else {
+            console.error('风场数据无效:', windData);
+            throw new Error('未获取到有效数据，API可能返回了空数据或格式不正确');
+        }
+    } catch (error) {
+        console.error('加载风场失败:', error);
+        if (loadingPanel) {
+            loadingProgress.textContent = '加载失败: ' + error.message;
+            setTimeout(() => {
+                loadingPanel.style.display = 'none';
+            }, 2000);
+        }
+        alert('获取风场数据失败，请检查网络后重试');
+    }
+}
+
+// 关闭风场图层
+function hideWindLayer() {
+    // 移除箭头图层
+    if (windLayer) {
+        map.removeLayer(windLayer);
+        windLayer = null;
+    }
+    
+    // 停止粒子动画
+    stopParticleAnimation();
+    
+    windDataVisible = false;
+    
+    const windBtn = document.getElementById('toggleWindBtn');
+    if (windBtn) windBtn.classList.remove('active');
+}
+
+// 切换风场显示
+async function toggleWindLayer() {
+    if (windDataVisible) {
+        hideWindLayer();
+    } else {
+        await loadWindData();
+    }
+}
+
+// ==================== 添加风场控制按钮 ====================
+// 在工具栏添加风场切换按钮
+function addWindControlButton() {
+    const toolbar = document.querySelector('.toolbar');
+    if (!toolbar) return;
+    
+    // 检查是否已存在
+    if (document.getElementById('toggleWindBtn')) return;
+    
+    const windBtn = document.createElement('button');
+    windBtn.id = 'toggleWindBtn';
+    windBtn.className = 'action-btn';
+    windBtn.setAttribute('data-title', '海洋风场');
+    windBtn.innerHTML = '🌬️';
+    windBtn.addEventListener('click', toggleWindLayer);
+    
+    toolbar.appendChild(windBtn);
+}
+
+// 地图移动/缩放后自动刷新风场（可选，需要时取消注释）
+let refreshTimer = null;
+function setupAutoRefreshWind() {
+    map.getView().on('change', function() {
+        if (windDataVisible) {
+            // 防抖：移动停止后0.5秒再刷新
+            if (refreshTimer) clearTimeout(refreshTimer);
+            refreshTimer = setTimeout(() => {
+                loadWindData();
+            }, 500);
+        }
+    });
+}
+
+// ==================== 初始化风场功能 ====================
+// 页面加载完成后添加按钮
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        addWindControlButton();
+        // 如果需要自动刷新，取消下面注释
+        // setupAutoRefreshWind();
+    });
+} else {
+    addWindControlButton();
+    // setupAutoRefreshWind();
+}

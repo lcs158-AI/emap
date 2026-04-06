@@ -288,3 +288,10 @@ body {
         margin-right: 4px;
     }
 }
+/* 风场按钮特殊样式 */
+#toggleWindBtn.active {
+    background-color: #ff3366;
+    border-color: #cc0033;
+    color: white;
+    box-shadow: 0 0 0 2px rgba(255, 51, 102, 0.3);
+}
