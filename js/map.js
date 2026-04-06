@@ -1443,41 +1443,47 @@ function openLayerInfoEditor(item, index) {
         pointStyleDiv.style.marginBottom = '10px';
         pointStyleDiv.innerHTML = '<div style="font-size: 12px; margin-bottom: 5px;"><b>点样式</b></div>';
         
-        // 点颜色 - 使用文本输入框以支持手机端
+        // 点颜色 - 使用颜色选择器（手机端友好）
         const pointColorLabel = document.createElement('label');
         pointColorLabel.textContent = '颜色:';
         pointColorLabel.style.fontSize = '11px';
         pointColorLabel.style.marginRight = '5px';
         pointStyleDiv.appendChild(pointColorLabel);
         
+        // 创建颜色选择按钮
+        const pointColorBtn = document.createElement('button');
+        pointColorBtn.id = 'stylePointColorBtn';
+        pointColorBtn.style.width = '40px';
+        pointColorBtn.style.height = '25px';
+        pointColorBtn.style.backgroundColor = currentStyle.pointColor || '#1890ff';
+        pointColorBtn.style.border = '2px solid #ddd';
+        pointColorBtn.style.borderRadius = '4px';
+        pointColorBtn.style.cursor = 'pointer';
+        pointStyleDiv.appendChild(pointColorBtn);
+        
+        // 创建隐藏的颜色输入
         const pointColorInput = document.createElement('input');
-        pointColorInput.type = 'text';
+        pointColorInput.type = 'color';
         pointColorInput.value = currentStyle.pointColor || '#1890ff';
         pointColorInput.id = 'stylePointColor';
-        pointColorInput.style.width = '70px';
-        pointColorInput.style.padding = '3px 5px';
-        pointColorInput.style.fontSize = '11px';
-        pointColorInput.style.border = '1px solid #ddd';
-        pointColorInput.style.borderRadius = '3px';
-        pointColorInput.placeholder = '#1890ff';
+        pointColorInput.style.position = 'absolute';
+        pointColorInput.style.opacity = '0';
+        pointColorInput.style.width = '0';
+        pointColorInput.style.height = '0';
+        pointColorInput.style.pointerEvents = 'none';
         pointStyleDiv.appendChild(pointColorInput);
         
-        // 添加颜色预览块
-        const pointColorPreview = document.createElement('span');
-        pointColorPreview.id = 'pointColorPreview';
-        pointColorPreview.style.display = 'inline-block';
-        pointColorPreview.style.width = '20px';
-        pointColorPreview.style.height = '20px';
-        pointColorPreview.style.marginLeft = '5px';
-        pointColorPreview.style.backgroundColor = pointColorInput.value;
-        pointColorPreview.style.border = '1px solid #ddd';
-        pointColorPreview.style.borderRadius = '3px';
-        pointColorPreview.style.verticalAlign = 'middle';
-        pointStyleDiv.appendChild(pointColorPreview);
+        // 点击按钮触发颜色选择
+        pointColorBtn.addEventListener('click', () => {
+            pointColorInput.click();
+        });
         
-        // 实时更新预览
+        // 颜色变化时更新按钮和值
         pointColorInput.addEventListener('input', () => {
-            pointColorPreview.style.backgroundColor = pointColorInput.value;
+            pointColorBtn.style.backgroundColor = pointColorInput.value;
+        });
+        pointColorInput.addEventListener('change', () => {
+            pointColorBtn.style.backgroundColor = pointColorInput.value;
         });
         
         // 点大小
@@ -1497,6 +1503,71 @@ function openLayerInfoEditor(item, index) {
         pointSizeInput.style.fontSize = '11px';
         pointStyleDiv.appendChild(pointSizeInput);
         
+        // 点符号选择
+        const pointSymbolDiv = document.createElement('div');
+        pointSymbolDiv.style.marginTop = '8px';
+        
+        const pointSymbolLabel = document.createElement('label');
+        pointSymbolLabel.textContent = '符号:';
+        pointSymbolLabel.style.fontSize = '11px';
+        pointSymbolLabel.style.marginRight = '5px';
+        pointSymbolDiv.appendChild(pointSymbolLabel);
+        
+        // 定义符号选项（包括 Emoji）
+        const symbols = [
+            { value: 'circle', label: '● 圆形', emoji: '●' },
+            { value: 'square', label: '■ 方形', emoji: '■' },
+            { value: 'triangle', label: '▲ 三角形', emoji: '▲' },
+            { value: 'star', label: '★ 星形', emoji: '★' },
+            { value: 'diamond', label: '◆ 菱形', emoji: '◆' },
+            { value: 'cross', label: '✚ 十字', emoji: '✚' },
+            { value: 'x', label: '✕ 叉号', emoji: '✕' },
+            { value: '📍', label: '📍 定位', emoji: '📍' },
+            { value: '📌', label: '📌 图钉', emoji: '📌' },
+            { value: '🚩', label: '🚩 旗帜', emoji: '🚩' },
+            { value: '🔴', label: '🔴 红圈', emoji: '🔴' },
+            { value: '🟢', label: '🟢 绿圈', emoji: '🟢' },
+            { value: '🔵', label: '🔵 蓝圈', emoji: '🔵' },
+            { value: '🟡', label: '🟡 黄圈', emoji: '🟡' },
+            { value: '⚠️', label: '⚠️ 警告', emoji: '⚠️' },
+            { value: '❌', label: '❌ 错误', emoji: '❌' },
+            { value: '✅', label: '✅ 正确', emoji: '✅' },
+            { value: '❓', label: '❓ 问题', emoji: '❓' },
+            { value: '💡', label: '💡 提示', emoji: '💡' },
+            { value: '🔥', label: '🔥 热点', emoji: '🔥' },
+            { value: '🏠', label: '🏠 房屋', emoji: '🏠' },
+            { value: '🏢', label: '🏢 建筑', emoji: '🏢' },
+            { value: '🚗', label: '🚗 汽车', emoji: '🚗' },
+            { value: '🚢', label: '🚢 船只', emoji: '🚢' },
+            { value: '✈️', label: '✈️ 飞机', emoji: '✈️' },
+            { value: '📷', label: '📷 相机', emoji: '📷' },
+            { value: '🎯', label: '🎯 目标', emoji: '🎯' },
+            { value: '🌟', label: '🌟 星星', emoji: '🌟' },
+            { value: '💎', label: '💎 钻石', emoji: '💎' },
+            { value: '🌲', label: '🌲 树木', emoji: '🌲' }
+        ];
+        
+        const pointSymbolSelect = document.createElement('select');
+        pointSymbolSelect.id = 'stylePointSymbol';
+        pointSymbolSelect.style.width = '120px';
+        pointSymbolSelect.style.padding = '3px';
+        pointSymbolSelect.style.fontSize = '11px';
+        pointSymbolSelect.style.border = '1px solid #ddd';
+        pointSymbolSelect.style.borderRadius = '3px';
+        
+        symbols.forEach(symbol => {
+            const option = document.createElement('option');
+            option.value = symbol.value;
+            option.textContent = symbol.label;
+            if (currentStyle.pointSymbol === symbol.value) {
+                option.selected = true;
+            }
+            pointSymbolSelect.appendChild(option);
+        });
+        
+        pointSymbolDiv.appendChild(pointSymbolSelect);
+        pointStyleDiv.appendChild(pointSymbolDiv);
+        
         styleSection.appendChild(pointStyleDiv);
     }
     
@@ -1506,41 +1577,47 @@ function openLayerInfoEditor(item, index) {
         lineStyleDiv.style.marginBottom = '10px';
         lineStyleDiv.innerHTML = '<div style="font-size: 12px; margin-bottom: 5px;"><b>线样式</b></div>';
         
-        // 线颜色 - 使用文本输入框以支持手机端
+        // 线颜色 - 使用颜色选择器（手机端友好）
         const lineColorLabel = document.createElement('label');
         lineColorLabel.textContent = '颜色:';
         lineColorLabel.style.fontSize = '11px';
         lineColorLabel.style.marginRight = '5px';
         lineStyleDiv.appendChild(lineColorLabel);
         
+        // 创建颜色选择按钮
+        const lineColorBtn = document.createElement('button');
+        lineColorBtn.id = 'styleLineColorBtn';
+        lineColorBtn.style.width = '40px';
+        lineColorBtn.style.height = '25px';
+        lineColorBtn.style.backgroundColor = currentStyle.lineColor || '#52c41a';
+        lineColorBtn.style.border = '2px solid #ddd';
+        lineColorBtn.style.borderRadius = '4px';
+        lineColorBtn.style.cursor = 'pointer';
+        lineStyleDiv.appendChild(lineColorBtn);
+        
+        // 创建隐藏的颜色输入
         const lineColorInput = document.createElement('input');
-        lineColorInput.type = 'text';
+        lineColorInput.type = 'color';
         lineColorInput.value = currentStyle.lineColor || '#52c41a';
         lineColorInput.id = 'styleLineColor';
-        lineColorInput.style.width = '70px';
-        lineColorInput.style.padding = '3px 5px';
-        lineColorInput.style.fontSize = '11px';
-        lineColorInput.style.border = '1px solid #ddd';
-        lineColorInput.style.borderRadius = '3px';
-        lineColorInput.placeholder = '#52c41a';
+        lineColorInput.style.position = 'absolute';
+        lineColorInput.style.opacity = '0';
+        lineColorInput.style.width = '0';
+        lineColorInput.style.height = '0';
+        lineColorInput.style.pointerEvents = 'none';
         lineStyleDiv.appendChild(lineColorInput);
         
-        // 添加颜色预览块
-        const lineColorPreview = document.createElement('span');
-        lineColorPreview.id = 'lineColorPreview';
-        lineColorPreview.style.display = 'inline-block';
-        lineColorPreview.style.width = '20px';
-        lineColorPreview.style.height = '20px';
-        lineColorPreview.style.marginLeft = '5px';
-        lineColorPreview.style.backgroundColor = lineColorInput.value;
-        lineColorPreview.style.border = '1px solid #ddd';
-        lineColorPreview.style.borderRadius = '3px';
-        lineColorPreview.style.verticalAlign = 'middle';
-        lineStyleDiv.appendChild(lineColorPreview);
+        // 点击按钮触发颜色选择
+        lineColorBtn.addEventListener('click', () => {
+            lineColorInput.click();
+        });
         
-        // 实时更新预览
+        // 颜色变化时更新按钮和值
         lineColorInput.addEventListener('input', () => {
-            lineColorPreview.style.backgroundColor = lineColorInput.value;
+            lineColorBtn.style.backgroundColor = lineColorInput.value;
+        });
+        lineColorInput.addEventListener('change', () => {
+            lineColorBtn.style.backgroundColor = lineColorInput.value;
         });
         
         // 线宽
@@ -1569,43 +1646,48 @@ function openLayerInfoEditor(item, index) {
         polygonStyleDiv.style.marginBottom = '10px';
         polygonStyleDiv.innerHTML = '<div style="font-size: 12px; margin-bottom: 5px;"><b>面样式</b></div>';
         
-        // 填充颜色 - 使用文本输入框以支持手机端
+        // 填充颜色 - 使用颜色选择器（手机端友好）
         const fillColorLabel = document.createElement('label');
         fillColorLabel.textContent = '填充:';
         fillColorLabel.style.fontSize = '11px';
         fillColorLabel.style.marginRight = '5px';
         polygonStyleDiv.appendChild(fillColorLabel);
         
+        // 填充颜色选择按钮
+        const fillColorBtn = document.createElement('button');
+        fillColorBtn.id = 'styleFillColorBtn';
+        fillColorBtn.style.width = '35px';
+        fillColorBtn.style.height = '22px';
+        fillColorBtn.style.backgroundColor = currentStyle.fillColor || '#ffa500';
+        fillColorBtn.style.border = '2px solid #ddd';
+        fillColorBtn.style.borderRadius = '4px';
+        fillColorBtn.style.cursor = 'pointer';
+        polygonStyleDiv.appendChild(fillColorBtn);
+        
+        // 隐藏的颜色输入
         const fillColorInput = document.createElement('input');
-        fillColorInput.type = 'text';
+        fillColorInput.type = 'color';
         fillColorInput.value = currentStyle.fillColor || '#ffa500';
         fillColorInput.id = 'styleFillColor';
-        fillColorInput.style.width = '60px';
-        fillColorInput.style.padding = '3px 5px';
-        fillColorInput.style.fontSize = '11px';
-        fillColorInput.style.border = '1px solid #ddd';
-        fillColorInput.style.borderRadius = '3px';
-        fillColorInput.placeholder = '#ffa500';
+        fillColorInput.style.position = 'absolute';
+        fillColorInput.style.opacity = '0';
+        fillColorInput.style.width = '0';
+        fillColorInput.style.height = '0';
+        fillColorInput.style.pointerEvents = 'none';
         polygonStyleDiv.appendChild(fillColorInput);
         
-        // 填充颜色预览
-        const fillColorPreview = document.createElement('span');
-        fillColorPreview.id = 'fillColorPreview';
-        fillColorPreview.style.display = 'inline-block';
-        fillColorPreview.style.width = '16px';
-        fillColorPreview.style.height = '16px';
-        fillColorPreview.style.marginLeft = '3px';
-        fillColorPreview.style.backgroundColor = fillColorInput.value;
-        fillColorPreview.style.border = '1px solid #ddd';
-        fillColorPreview.style.borderRadius = '3px';
-        fillColorPreview.style.verticalAlign = 'middle';
-        polygonStyleDiv.appendChild(fillColorPreview);
-        
-        fillColorInput.addEventListener('input', () => {
-            fillColorPreview.style.backgroundColor = fillColorInput.value;
+        fillColorBtn.addEventListener('click', () => {
+            fillColorInput.click();
         });
         
-        // 边框颜色 - 使用文本输入框以支持手机端
+        fillColorInput.addEventListener('input', () => {
+            fillColorBtn.style.backgroundColor = fillColorInput.value;
+        });
+        fillColorInput.addEventListener('change', () => {
+            fillColorBtn.style.backgroundColor = fillColorInput.value;
+        });
+        
+        // 边框颜色 - 使用颜色选择器（手机端友好）
         const strokeColorLabel = document.createElement('label');
         strokeColorLabel.textContent = '边框:';
         strokeColorLabel.style.fontSize = '11px';
@@ -1613,33 +1695,38 @@ function openLayerInfoEditor(item, index) {
         strokeColorLabel.style.marginRight = '5px';
         polygonStyleDiv.appendChild(strokeColorLabel);
         
+        // 边框颜色选择按钮
+        const strokeColorBtn = document.createElement('button');
+        strokeColorBtn.id = 'styleStrokeColorBtn';
+        strokeColorBtn.style.width = '35px';
+        strokeColorBtn.style.height = '22px';
+        strokeColorBtn.style.backgroundColor = currentStyle.strokeColor || '#ffa500';
+        strokeColorBtn.style.border = '2px solid #ddd';
+        strokeColorBtn.style.borderRadius = '4px';
+        strokeColorBtn.style.cursor = 'pointer';
+        polygonStyleDiv.appendChild(strokeColorBtn);
+        
+        // 隐藏的颜色输入
         const strokeColorInput = document.createElement('input');
-        strokeColorInput.type = 'text';
+        strokeColorInput.type = 'color';
         strokeColorInput.value = currentStyle.strokeColor || '#ffa500';
         strokeColorInput.id = 'styleStrokeColor';
-        strokeColorInput.style.width = '60px';
-        strokeColorInput.style.padding = '3px 5px';
-        strokeColorInput.style.fontSize = '11px';
-        strokeColorInput.style.border = '1px solid #ddd';
-        strokeColorInput.style.borderRadius = '3px';
-        strokeColorInput.placeholder = '#ffa500';
+        strokeColorInput.style.position = 'absolute';
+        strokeColorInput.style.opacity = '0';
+        strokeColorInput.style.width = '0';
+        strokeColorInput.style.height = '0';
+        strokeColorInput.style.pointerEvents = 'none';
         polygonStyleDiv.appendChild(strokeColorInput);
         
-        // 边框颜色预览
-        const strokeColorPreview = document.createElement('span');
-        strokeColorPreview.id = 'strokeColorPreview';
-        strokeColorPreview.style.display = 'inline-block';
-        strokeColorPreview.style.width = '16px';
-        strokeColorPreview.style.height = '16px';
-        strokeColorPreview.style.marginLeft = '3px';
-        strokeColorPreview.style.backgroundColor = strokeColorInput.value;
-        strokeColorPreview.style.border = '1px solid #ddd';
-        strokeColorPreview.style.borderRadius = '3px';
-        strokeColorPreview.style.verticalAlign = 'middle';
-        polygonStyleDiv.appendChild(strokeColorPreview);
+        strokeColorBtn.addEventListener('click', () => {
+            strokeColorInput.click();
+        });
         
         strokeColorInput.addEventListener('input', () => {
-            strokeColorPreview.style.backgroundColor = strokeColorInput.value;
+            strokeColorBtn.style.backgroundColor = strokeColorInput.value;
+        });
+        strokeColorInput.addEventListener('change', () => {
+            strokeColorBtn.style.backgroundColor = strokeColorInput.value;
         });
         
         // 透明度
@@ -1771,8 +1858,10 @@ function openLayerInfoEditor(item, index) {
         if (layerGeometryType === 'Point' || layerGeometryType === 'Mixed') {
             const pointColorInput = document.getElementById('stylePointColor');
             const pointSizeInput = document.getElementById('stylePointSize');
+            const pointSymbolSelect = document.getElementById('stylePointSymbol');
             if (pointColorInput) newStyle.pointColor = pointColorInput.value;
             if (pointSizeInput) newStyle.pointSize = parseInt(pointSizeInput.value) || 6;
+            if (pointSymbolSelect) newStyle.pointSymbol = pointSymbolSelect.value;
         }
         
         // 线样式
@@ -1842,19 +1931,108 @@ function applyLayerStyle(layer, style, geometryType) {
         if (geomType === 'Point' || geomType === 'MultiPoint') {
             const pointColor = style.pointColor || '#1890ff';
             const pointSize = style.pointSize || 6;
+            const pointSymbol = style.pointSymbol || 'circle';
             
             // 转换颜色为 rgba
             const r = parseInt(pointColor.slice(1, 3), 16);
             const g = parseInt(pointColor.slice(3, 5), 16);
             const b = parseInt(pointColor.slice(5, 7), 16);
+            const color = `rgba(${r}, ${g}, ${b}, 0.8)`;
+            const strokeColor = '#fff';
             
-            styles.push(new ol.style.Style({
-                image: new ol.style.Circle({
-                    radius: pointSize,
-                    fill: new ol.style.Fill({ color: `rgba(${r}, ${g}, ${b}, 0.8)` }),
-                    stroke: new ol.style.Stroke({ color: '#fff', width: 2 })
-                })
-            }));
+            // 根据符号类型创建不同的样式
+            if (pointSymbol.length === 2 && pointSymbol.charCodeAt(0) > 255) {
+                // Emoji 符号 - 使用文本样式
+                styles.push(new ol.style.Style({
+                    text: new ol.style.Text({
+                        text: pointSymbol,
+                        font: `${pointSize * 3}px Arial`,
+                        fill: new ol.style.Fill({ color: pointColor }),
+                        stroke: new ol.style.Stroke({ color: strokeColor, width: 1 })
+                    })
+                }));
+            } else {
+                // 几何符号
+                switch (pointSymbol) {
+                    case 'square':
+                        styles.push(new ol.style.Style({
+                            image: new ol.style.RegularShape({
+                                fill: new ol.style.Fill({ color: color }),
+                                stroke: new ol.style.Stroke({ color: strokeColor, width: 2 }),
+                                points: 4,
+                                radius: pointSize,
+                                angle: Math.PI / 4
+                            })
+                        }));
+                        break;
+                    case 'triangle':
+                        styles.push(new ol.style.Style({
+                            image: new ol.style.RegularShape({
+                                fill: new ol.style.Fill({ color: color }),
+                                stroke: new ol.style.Stroke({ color: strokeColor, width: 2 }),
+                                points: 3,
+                                radius: pointSize,
+                                rotation: 0
+                            })
+                        }));
+                        break;
+                    case 'star':
+                        styles.push(new ol.style.Style({
+                            image: new ol.style.RegularShape({
+                                fill: new ol.style.Fill({ color: color }),
+                                stroke: new ol.style.Stroke({ color: strokeColor, width: 2 }),
+                                points: 5,
+                                radius: pointSize,
+                                radius2: pointSize / 2,
+                                angle: 0
+                            })
+                        }));
+                        break;
+                    case 'diamond':
+                        styles.push(new ol.style.Style({
+                            image: new ol.style.RegularShape({
+                                fill: new ol.style.Fill({ color: color }),
+                                stroke: new ol.style.Stroke({ color: strokeColor, width: 2 }),
+                                points: 4,
+                                radius: pointSize,
+                                angle: Math.PI / 4
+                            })
+                        }));
+                        break;
+                    case 'cross':
+                        styles.push(new ol.style.Style({
+                            image: new ol.style.RegularShape({
+                                fill: new ol.style.Fill({ color: color }),
+                                stroke: new ol.style.Stroke({ color: strokeColor, width: 2 }),
+                                points: 4,
+                                radius: pointSize,
+                                radius2: 0,
+                                angle: 0
+                            })
+                        }));
+                        break;
+                    case 'x':
+                        styles.push(new ol.style.Style({
+                            image: new ol.style.RegularShape({
+                                fill: new ol.style.Fill({ color: color }),
+                                stroke: new ol.style.Stroke({ color: strokeColor, width: 2 }),
+                                points: 4,
+                                radius: pointSize,
+                                radius2: 0,
+                                angle: Math.PI / 4
+                            })
+                        }));
+                        break;
+                    default: // circle
+                        styles.push(new ol.style.Style({
+                            image: new ol.style.Circle({
+                                radius: pointSize,
+                                fill: new ol.style.Fill({ color: color }),
+                                stroke: new ol.style.Stroke({ color: strokeColor, width: 2 })
+                            })
+                        }));
+                }
+            }
         }
         
         // 线样式
