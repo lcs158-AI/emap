@@ -120,7 +120,8 @@ map.on('click', function (evt) {
                 if (isLocalPath) {
                     // 本地文件路径，显示警告信息
                     content = `
-                        <div class="popup-content">
+                        <div class="popup-content" style="position: relative;">
+                            <button onclick="closePopup()" style="position: absolute; top: -10px; right: -10px; width: 24px; height: 24px; border: none; background: #ff4d4f; color: white; border-radius: 50%; cursor: pointer; font-size: 14px; line-height: 24px; text-align: center; padding: 0; z-index: 10;">×</button>
                             <b>${labelText}</b><br>
                             <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; padding: 10px; margin-top: 8px; font-size: 12px; color: #856404;">
                                 <b>⚠️ 无法加载本地图片</b><br>
@@ -137,10 +138,11 @@ map.on('click', function (evt) {
                 } else {
                     // 网络路径，正常显示图片，添加点击查看大图功能
                     content = `
-                        <div class="popup-content">
+                        <div class="popup-content" style="text-align: center; position: relative;">
+                            <button onclick="closePopup()" style="position: absolute; top: -10px; right: -10px; width: 24px; height: 24px; border: none; background: #ff4d4f; color: white; border-radius: 50%; cursor: pointer; font-size: 14px; line-height: 24px; text-align: center; padding: 0; z-index: 10;">×</button>
                             <b>${labelText}</b><br>
-                            <div class="popup-image-container" style="position: relative; margin-top: 8px; cursor: zoom-in;" onclick="openImageViewer('${fullPath}', '${labelText}')">
-                                <img src="${fullPath}" alt="照片" style="max-width: 100%; max-height: 400px; border-radius: 4px; display: block;" onerror="this.onerror=null; this.parentElement.parentElement.innerHTML='<b>${labelText}</b><br><div style=\\'background:#f8d7da;border:1px solid #f5c6cb;border-radius:4px;padding:10px;margin-top:8px;font-size:12px;color:#721c24;\\'>❌ 图片加载失败<br>路径：${fullPath}</div>';">
+                            <div class="popup-image-container" style="position: relative; margin-top: 8px; cursor: zoom-in; display: inline-block;" onclick="openImageViewer('${fullPath}', '${labelText}')">
+                                <img src="${fullPath}" alt="照片" style="max-width: 100%; max-height: 400px; border-radius: 4px; display: block; margin: 0 auto;" onerror="this.onerror=null; this.parentElement.parentElement.innerHTML='<button onclick=\\'closePopup()\\' style=\\'position:absolute;top:-10px;right:-10px;width:24px;height:24px;border:none;background:#ff4d4f;color:white;border-radius:50%;cursor:pointer;font-size:14px;line-height:24px;text-align:center;padding:0;z-index:10;\\'>×</button><b>${labelText}</b><br><div style=\\'background:#f8d7da;border:1px solid #f5c6cb;border-radius:4px;padding:10px;margin-top:8px;font-size:12px;color:#721c24;\\'>❌ 图片加载失败<br>路径：${fullPath}</div>';">
                                 <div style="position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.6); color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; pointer-events: none;">
                                     🔍 点击查看大图
                                 </div>
@@ -150,16 +152,17 @@ map.on('click', function (evt) {
                 }
             } else {
                 const labelText = layer.labelField ? feature.get(layer.labelField) : '';
-                content = `<div><b>${labelText}</b></div>`;
+                content = `<div style="position: relative; padding-top: 5px;"><button onclick="closePopup()" style="position: absolute; top: -15px; right: -15px; width: 24px; height: 24px; border: none; background: #ff4d4f; color: white; border-radius: 50%; cursor: pointer; font-size: 14px; line-height: 24px; text-align: center; padding: 0; z-index: 10;">×</button><b>${labelText}</b></div>`;
             }
         }
         else if (layer && layer.labelField) {
             const labelText = feature.get(layer.labelField);
-            content = `<div><b>${labelText}</b></div>`;
+            content = `<div style="position: relative; padding-top: 5px;"><button onclick="closePopup()" style="position: absolute; top: -15px; right: -15px; width: 24px; height: 24px; border: none; background: #ff4d4f; color: white; border-radius: 50%; cursor: pointer; font-size: 14px; line-height: 24px; text-align: center; padding: 0; z-index: 10;">×</button><b>${labelText}</b></div>`;
         } else if (feature.get('DD')) {
-            content = `<div><b>${feature.get('DD')}</b></div>`;
+            const labelText = feature.get('DD');
+            content = `<div style="position: relative; padding-top: 5px;"><button onclick="closePopup()" style="position: absolute; top: -15px; right: -15px; width: 24px; height: 24px; border: none; background: #ff4d4f; color: white; border-radius: 50%; cursor: pointer; font-size: 14px; line-height: 24px; text-align: center; padding: 0; z-index: 10;">×</button><b>${labelText}</b></div>`;
         } else {
-            content = `<div><b>要素</b></div>`;
+            content = `<div style="position: relative; padding-top: 5px;"><button onclick="closePopup()" style="position: absolute; top: -15px; right: -15px; width: 24px; height: 24px; border: none; background: #ff4d4f; color: white; border-radius: 50%; cursor: pointer; font-size: 14px; line-height: 24px; text-align: center; padding: 0; z-index: 10;">×</button><b>要素</b></div>`;
         }
 
         popup.getElement().innerHTML = content;
@@ -176,6 +179,14 @@ map.on('dblclick', function () {
     popup.setPosition(undefined);
     popup.getElement().style.display = 'none';
 });
+
+/**
+ * 关闭弹出框
+ */
+function closePopup() {
+    popup.setPosition(undefined);
+    popup.getElement().style.display = 'none';
+}
 
 // ==================== 定位功能 ====================
 const positionLayer = new ol.layer.Vector({
@@ -1761,6 +1772,676 @@ function openLayerInfoEditor(item, index) {
         styleSection.appendChild(polygonStyleDiv);
     }
     
+    // 分类样式设置
+    const categoryStyleSection = document.createElement('div');
+    categoryStyleSection.style.marginBottom = '15px';
+    categoryStyleSection.style.padding = '15px';
+    categoryStyleSection.style.backgroundColor = '#f0f8ff';
+    categoryStyleSection.style.borderRadius = '4px';
+    categoryStyleSection.style.border = '1px solid #b0d4f1';
+    
+    const categoryStyleTitle = document.createElement('div');
+    categoryStyleTitle.textContent = '分类样式设置';
+    categoryStyleTitle.style.fontWeight = 'bold';
+    categoryStyleTitle.style.marginBottom = '10px';
+    categoryStyleTitle.style.fontSize = '14px';
+    categoryStyleTitle.style.color = '#1890ff';
+    categoryStyleSection.appendChild(categoryStyleTitle);
+    
+    // 分类字段选择
+    const categoryFieldDiv = document.createElement('div');
+    categoryFieldDiv.style.marginBottom = '10px';
+    
+    const categoryFieldLabel = document.createElement('label');
+    categoryFieldLabel.textContent = '分类字段:';
+    categoryFieldLabel.style.fontSize = '11px';
+    categoryFieldLabel.style.marginRight = '5px';
+    categoryFieldDiv.appendChild(categoryFieldLabel);
+    
+    const categoryFieldSelect = document.createElement('select');
+    categoryFieldSelect.id = 'categoryField';
+    categoryFieldSelect.style.width = '120px';
+    categoryFieldSelect.style.padding = '3px';
+    categoryFieldSelect.style.fontSize = '11px';
+    categoryFieldSelect.style.border = '1px solid #ddd';
+    categoryFieldSelect.style.borderRadius = '3px';
+    
+    // 添加空选项
+    const emptyCategoryOption = document.createElement('option');
+    emptyCategoryOption.value = '';
+    emptyCategoryOption.textContent = '-- 不分类 --';
+    categoryFieldSelect.appendChild(emptyCategoryOption);
+    
+    // 辅助函数：检测字段类型
+    function getFieldType(fieldName) {
+        let hasNumeric = false;
+        let hasString = false;
+        let hasBoolean = false;
+        let hasOther = false;
+        
+        features.forEach(feature => {
+            const value = feature.get(fieldName);
+            if (value === undefined || value === null || value === '') return;
+            
+            const type = typeof value;
+            if (type === 'number') {
+                hasNumeric = true;
+            } else if (type === 'boolean') {
+                hasBoolean = true;
+            } else if (type === 'string') {
+                // 检查字符串是否可以转换为数字
+                if (!isNaN(parseFloat(value)) && isFinite(value)) {
+                    hasNumeric = true;
+                } else {
+                    hasString = true;
+                }
+            } else {
+                hasOther = true;
+            }
+        });
+        
+        if (hasBoolean && !hasNumeric && !hasString && !hasOther) return 'boolean';
+        if (hasNumeric && !hasString && !hasOther) return 'numeric';
+        if (hasString || hasOther) return 'string';
+        return 'unknown';
+    }
+    
+    // 添加符合条件的字段（字符型、数值型、逻辑型）
+    fieldList.forEach(field => {
+        const fieldType = getFieldType(field);
+        // 只允许字符型、数值型和逻辑型字段
+        if (fieldType === 'string' || fieldType === 'numeric' || fieldType === 'boolean') {
+            const option = document.createElement('option');
+            option.value = field;
+            // 显示字段名和类型
+            const typeLabel = fieldType === 'numeric' ? '(数值)' : fieldType === 'boolean' ? '(逻辑)' : '(字符)';
+            option.textContent = field + ' ' + typeLabel;
+            option.dataset.fieldType = fieldType;
+            if (item.categoryField === field) {
+                option.selected = true;
+            }
+            categoryFieldSelect.appendChild(option);
+        }
+    });
+    
+    categoryFieldDiv.appendChild(categoryFieldSelect);
+    categoryStyleSection.appendChild(categoryFieldDiv);
+    
+    // 分类值和样式设置区域
+    const categoryValuesDiv = document.createElement('div');
+    categoryValuesDiv.id = 'categoryValuesDiv';
+    categoryValuesDiv.style.maxHeight = '200px';
+    categoryValuesDiv.style.overflowY = 'auto';
+    categoryValuesDiv.style.border = '1px solid #e8e8e8';
+    categoryValuesDiv.style.borderRadius = '4px';
+    categoryValuesDiv.style.padding = '8px';
+    categoryValuesDiv.style.backgroundColor = '#fafafa';
+    
+    // 存储分类样式的对象 - 使用对象确保引用不变
+    const categoryStyles = item.categoryStyles || {};
+    
+    // 当选择分类字段时，显示该字段的所有唯一值
+    categoryFieldSelect.addEventListener('change', () => {
+        const selectedField = categoryFieldSelect.value;
+        const selectedOption = categoryFieldSelect.options[categoryFieldSelect.selectedIndex];
+        const fieldType = selectedOption ? selectedOption.dataset.fieldType : 'string';
+        
+        categoryValuesDiv.innerHTML = '';
+        
+        if (!selectedField) {
+            categoryValuesDiv.style.display = 'none';
+            return;
+        }
+        
+        categoryValuesDiv.style.display = 'block';
+        
+        // 预设颜色列表
+        const presetColors = ['#ff4d4f', '#52c41a', '#1890ff', '#faad14', '#722ed1', '#eb2f96', '#13c2c2', '#fa8c16', '#a0d911', '#2f54eb'];
+        
+        // 数值型字段：提供数值段分类选项
+        if (fieldType === 'numeric') {
+            // 收集所有数值
+            const numericValues = [];
+            features.forEach(feature => {
+                const value = feature.get(selectedField);
+                if (value !== undefined && value !== null && value !== '') {
+                    const numValue = parseFloat(value);
+                    if (!isNaN(numValue)) {
+                        numericValues.push(numValue);
+                    }
+                }
+            });
+            
+            if (numericValues.length === 0) {
+                categoryValuesDiv.innerHTML = '<div style="color: #999; font-size: 11px;">该字段没有可用数值</div>';
+                return;
+            }
+            
+            // 计算数值范围
+            const minValue = Math.min(...numericValues);
+            const maxValue = Math.max(...numericValues);
+            
+            // 创建数值段设置区域
+            const rangeSection = document.createElement('div');
+            rangeSection.style.marginBottom = '15px';
+            rangeSection.style.padding = '10px';
+            rangeSection.style.backgroundColor = '#e6f7ff';
+            rangeSection.style.borderRadius = '4px';
+            rangeSection.style.border = '1px solid #91d5ff';
+            
+            const rangeTitle = document.createElement('div');
+            rangeTitle.textContent = `数值范围: ${minValue.toFixed(2)} - ${maxValue.toFixed(2)}`;
+            rangeTitle.style.fontWeight = 'bold';
+            rangeTitle.style.fontSize = '12px';
+            rangeTitle.style.marginBottom = '10px';
+            rangeTitle.style.color = '#1890ff';
+            rangeSection.appendChild(rangeTitle);
+            
+            // 数值段列表容器
+            const rangesContainer = document.createElement('div');
+            rangesContainer.id = 'numericRangesContainer';
+            rangeSection.appendChild(rangesContainer);
+            
+            // 添加数值段按钮
+            const addRangeBtn = document.createElement('button');
+            addRangeBtn.textContent = '+ 添加数值段';
+            addRangeBtn.style.marginTop = '10px';
+            addRangeBtn.style.padding = '5px 10px';
+            addRangeBtn.style.border = '1px solid #1890ff';
+            addRangeBtn.style.backgroundColor = '#fff';
+            addRangeBtn.style.color = '#1890ff';
+            addRangeBtn.style.borderRadius = '3px';
+            addRangeBtn.style.cursor = 'pointer';
+            addRangeBtn.style.fontSize = '11px';
+            
+            let rangeIndex = 0;
+            
+            // 存储数值段样式
+            if (!categoryStyles._numericRanges) {
+                categoryStyles._numericRanges = [];
+            }
+            
+            // 添加数值段函数
+            function addRangeRow(min, max, color, symbol, size) {
+                const rangeId = rangeIndex++;
+                const rangeRow = document.createElement('div');
+                rangeRow.className = 'numeric-range-row';
+                rangeRow.dataset.rangeId = rangeId;
+                rangeRow.style.marginBottom = '10px';
+                rangeRow.style.padding = '8px';
+                rangeRow.style.backgroundColor = 'white';
+                rangeRow.style.borderRadius = '3px';
+                rangeRow.style.border = '1px solid #d9d9d9';
+                
+                // 范围输入
+                const rangeInputRow = document.createElement('div');
+                rangeInputRow.style.display = 'flex';
+                rangeInputRow.style.alignItems = 'center';
+                rangeInputRow.style.marginBottom = '8px';
+                rangeInputRow.style.gap = '5px';
+                
+                const minInput = document.createElement('input');
+                minInput.type = 'number';
+                minInput.value = min !== undefined ? min : '';
+                minInput.placeholder = '最小值';
+                minInput.style.width = '60px';
+                minInput.style.padding = '3px';
+                minInput.style.fontSize = '11px';
+                minInput.style.border = '1px solid #ddd';
+                minInput.style.borderRadius = '3px';
+                
+                const sepLabel = document.createElement('span');
+                sepLabel.textContent = '-';
+                sepLabel.style.fontSize = '11px';
+                
+                const maxInput = document.createElement('input');
+                maxInput.type = 'number';
+                maxInput.value = max !== undefined ? max : '';
+                maxInput.placeholder = '最大值';
+                maxInput.style.width = '60px';
+                maxInput.style.padding = '3px';
+                maxInput.style.fontSize = '11px';
+                maxInput.style.border = '1px solid #ddd';
+                maxInput.style.borderRadius = '3px';
+                
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = '×';
+                deleteBtn.style.marginLeft = '5px';
+                deleteBtn.style.width = '20px';
+                deleteBtn.style.height = '20px';
+                deleteBtn.style.border = 'none';
+                deleteBtn.style.backgroundColor = '#ff4d4f';
+                deleteBtn.style.color = 'white';
+                deleteBtn.style.borderRadius = '50%';
+                deleteBtn.style.cursor = 'pointer';
+                deleteBtn.style.fontSize = '12px';
+                deleteBtn.style.lineHeight = '20px';
+                deleteBtn.style.padding = '0';
+                
+                deleteBtn.addEventListener('click', () => {
+                    rangeRow.remove();
+                    // 从数组中移除
+                    const idx = categoryStyles._numericRanges.findIndex(r => r.id === rangeId);
+                    if (idx > -1) {
+                        categoryStyles._numericRanges.splice(idx, 1);
+                    }
+                });
+                
+                rangeInputRow.appendChild(minInput);
+                rangeInputRow.appendChild(sepLabel);
+                rangeInputRow.appendChild(maxInput);
+                rangeInputRow.appendChild(deleteBtn);
+                rangeRow.appendChild(rangeInputRow);
+                
+                // 样式设置行
+                const styleRow = document.createElement('div');
+                styleRow.style.display = 'flex';
+                styleRow.style.alignItems = 'center';
+                styleRow.style.gap = '10px';
+                
+                // 颜色选择
+                const colorLabel = document.createElement('label');
+                colorLabel.textContent = '颜色:';
+                colorLabel.style.fontSize = '10px';
+                styleRow.appendChild(colorLabel);
+                
+                const colorBtn = document.createElement('button');
+                colorBtn.style.width = '30px';
+                colorBtn.style.height = '20px';
+                colorBtn.style.backgroundColor = color || presetColors[rangeId % presetColors.length];
+                colorBtn.style.border = '1px solid #ddd';
+                colorBtn.style.borderRadius = '3px';
+                colorBtn.style.cursor = 'pointer';
+                styleRow.appendChild(colorBtn);
+                
+                const colorInput = document.createElement('input');
+                colorInput.type = 'color';
+                colorInput.value = color || presetColors[rangeId % presetColors.length];
+                colorInput.style.position = 'fixed';
+                colorInput.style.top = '50%';
+                colorInput.style.left = '50%';
+                colorInput.style.transform = 'translate(-50%, -50%)';
+                colorInput.style.zIndex = '100000';
+                styleRow.appendChild(colorInput);
+                
+                colorBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    colorInput.click();
+                });
+                
+                colorInput.addEventListener('change', () => {
+                    colorBtn.style.backgroundColor = colorInput.value;
+                });
+                
+                // 符号选择（仅点数据）
+                let symbolSelect = null;
+                if (layerGeometryType === 'Point' || layerGeometryType === 'Mixed') {
+                    const symbolLabel = document.createElement('label');
+                    symbolLabel.textContent = '符号:';
+                    symbolLabel.style.fontSize = '10px';
+                    symbolLabel.style.marginLeft = '5px';
+                    styleRow.appendChild(symbolLabel);
+                    
+                    symbolSelect = document.createElement('select');
+                    symbolSelect.style.width = '70px';
+                    symbolSelect.style.padding = '2px';
+                    symbolSelect.style.fontSize = '10px';
+                    symbolSelect.style.border = '1px solid #ddd';
+                    symbolSelect.style.borderRadius = '3px';
+                    
+                    const symbols = [
+                        { value: 'circle', label: '● 圆' },
+                        { value: 'square', label: '■ 方' },
+                        { value: 'triangle', label: '▲ 三角' },
+                        { value: 'diamond', label: '◆ 菱形' },
+                        { value: 'star', label: '★ 星形' },
+                        { value: '✈️', label: '✈️ 飞机' },
+                        { value: '📷', label: '📷 相机' },
+                        { value: '🚁', label: '🚁 直升机' },
+                        { value: '📍', label: '📍 标记' },
+                        { value: '📡', label: '📡 雷达' },
+                        { value: '🎯', label: '🎯 目标' },
+                        { value: '⚓', label: '⚓ 锚点' },
+                        { value: '🚢', label: '🚢 船只' },
+                        { value: '🏠', label: '🏠 房屋' },
+                        { value: '🌲', label: '🌲 树木' },
+                        { value: '⛽', label: '⛽ 加油站' },
+                        { value: '🏥', label: '🏥 医院' },
+                        { value: '🏫', label: '🏫 学校' },
+                        { value: '🏢', label: '🏢 办公楼' },
+                        { value: '🚗', label: '🚗 汽车' },
+                        { value: '🚲', label: '🚲 自行车' },
+                        { value: '🚶', label: '🚶 行人' },
+                        { value: '⚠️', label: '⚠️ 警告' },
+                        { value: '❌', label: '❌ 禁止' },
+                        { value: '✅', label: '✅ 确认' },
+                        { value: '⭐', label: '⭐ 星星' },
+                        { value: '❤️', label: '❤️ 爱心' },
+                        { value: '🔥', label: '🔥 火焰' },
+                        { value: '💧', label: '💧 水滴' },
+                        { value: '⚡', label: '⚡ 闪电' }
+                    ];
+                    
+                    symbols.forEach(sym => {
+                        const option = document.createElement('option');
+                        option.value = sym.value;
+                        option.textContent = sym.label;
+                        if (symbol === sym.value) {
+                            option.selected = true;
+                        }
+                        symbolSelect.appendChild(option);
+                    });
+                    
+                    if (!symbol) {
+                        symbolSelect.selectedIndex = 0;
+                    }
+                    
+                    styleRow.appendChild(symbolSelect);
+                    
+                    // 符号大小设置
+                    const sizeLabel = document.createElement('label');
+                    sizeLabel.textContent = '大小:';
+                    sizeLabel.style.fontSize = '10px';
+                    sizeLabel.style.marginLeft = '10px';
+                    styleRow.appendChild(sizeLabel);
+                    
+                    const sizeInput = document.createElement('input');
+                    sizeInput.type = 'number';
+                    sizeInput.value = size || 6;
+                    sizeInput.min = '1';
+                    sizeInput.max = '50';
+                    sizeInput.style.width = '40px';
+                    sizeInput.style.padding = '2px';
+                    sizeInput.style.fontSize = '10px';
+                    sizeInput.style.border = '1px solid #ddd';
+                    sizeInput.style.borderRadius = '3px';
+                    styleRow.appendChild(sizeInput);
+                    
+                    // 符号选择事件监听
+                    symbolSelect.addEventListener('change', () => {
+                        const data = categoryStyles._numericRanges.find(r => r.id === rangeId);
+                        if (data) data.symbol = symbolSelect.value;
+                    });
+                    
+                    // 符号大小事件监听
+                    sizeInput.addEventListener('change', () => {
+                        const data = categoryStyles._numericRanges.find(r => r.id === rangeId);
+                        if (data) data.size = parseInt(sizeInput.value) || 6;
+                    });
+                    sizeInput.addEventListener('input', () => {
+                        const data = categoryStyles._numericRanges.find(r => r.id === rangeId);
+                        if (data) data.size = parseInt(sizeInput.value) || 6;
+                    });
+                }
+                
+                rangeRow.appendChild(styleRow);
+                rangesContainer.appendChild(rangeRow);
+                
+                // 保存数值段数据
+                const rangeData = { 
+                    id: rangeId, 
+                    min: min, 
+                    max: max, 
+                    color: color || presetColors[rangeId % presetColors.length],
+                    symbol: symbol || 'circle',
+                    size: size || 6
+                };
+                categoryStyles._numericRanges.push(rangeData);
+                
+                // 监听输入变化
+                minInput.addEventListener('change', () => {
+                    const data = categoryStyles._numericRanges.find(r => r.id === rangeId);
+                    if (data) data.min = parseFloat(minInput.value);
+                });
+                minInput.addEventListener('input', () => {
+                    const data = categoryStyles._numericRanges.find(r => r.id === rangeId);
+                    if (data) data.min = parseFloat(minInput.value);
+                });
+                
+                maxInput.addEventListener('change', () => {
+                    const data = categoryStyles._numericRanges.find(r => r.id === rangeId);
+                    if (data) data.max = parseFloat(maxInput.value);
+                });
+                maxInput.addEventListener('input', () => {
+                    const data = categoryStyles._numericRanges.find(r => r.id === rangeId);
+                    if (data) data.max = parseFloat(maxInput.value);
+                });
+                
+                colorInput.addEventListener('change', () => {
+                    const data = categoryStyles._numericRanges.find(r => r.id === rangeId);
+                    if (data) data.color = colorInput.value;
+                });
+            }
+            
+            // 恢复已有的数值段
+            if (categoryStyles._numericRanges && categoryStyles._numericRanges.length > 0) {
+                categoryStyles._numericRanges.forEach(range => {
+                    addRangeRow(range.min, range.max, range.color, range.symbol, range.size);
+                });
+            } else {
+                // 默认添加5个数值段示例
+                const step = (maxValue - minValue) / 5;
+                for (let i = 0; i < 5; i++) {
+                    const rangeMin = minValue + step * i;
+                    const rangeMax = minValue + step * (i + 1);
+                    addRangeRow(
+                        parseFloat(rangeMin.toFixed(2)), 
+                        parseFloat(rangeMax.toFixed(2)), 
+                        presetColors[i % presetColors.length],
+                        'circle',
+                        6 + i * 2  // 符号大小递增
+                    );
+                }
+            }
+            
+            addRangeBtn.addEventListener('click', () => {
+                addRangeRow(undefined, undefined, presetColors[rangeIndex % presetColors.length], 'circle', 6);
+            });
+            
+            rangeSection.appendChild(addRangeBtn);
+            categoryValuesDiv.appendChild(rangeSection);
+            
+            // 标记为数值型分类
+            categoryStyles._isNumeric = true;
+            
+        } else {
+            // 非数值型字段：使用原有的唯一值分类方式
+            categoryStyles._isNumeric = false;
+            delete categoryStyles._numericRanges;
+            
+            // 收集该字段的所有唯一值
+            const uniqueValues = new Set();
+            features.forEach(feature => {
+                const value = feature.get(selectedField);
+                if (value !== undefined && value !== null && value !== '') {
+                    uniqueValues.add(String(value));
+                }
+            });
+            
+            // 为每个唯一值创建样式设置
+            const valuesArray = Array.from(uniqueValues).sort();
+            
+            if (valuesArray.length === 0) {
+                categoryValuesDiv.innerHTML = '<div style="color: #999; font-size: 11px;">该字段没有可用值</div>';
+                return;
+            }
+            
+            valuesArray.forEach((value, index) => {
+                const valueDiv = document.createElement('div');
+                valueDiv.style.marginBottom = '8px';
+                valueDiv.style.padding = '5px';
+                valueDiv.style.backgroundColor = 'white';
+                valueDiv.style.borderRadius = '3px';
+                valueDiv.style.border = '1px solid #e8e8e8';
+                
+                // 值名称
+                const valueName = document.createElement('div');
+                valueName.textContent = value;
+                valueName.style.fontWeight = 'bold';
+                valueName.style.fontSize = '11px';
+                valueName.style.marginBottom = '5px';
+                valueDiv.appendChild(valueName);
+                
+                // 获取或初始化该值的样式 - 保留已有设置
+                if (!categoryStyles[value]) {
+                    categoryStyles[value] = {};
+                }
+                if (!categoryStyles[value].color) {
+                    categoryStyles[value].color = presetColors[index % presetColors.length];
+                }
+                
+                // 颜色选择行
+                const colorRow = document.createElement('div');
+                colorRow.style.display = 'flex';
+                colorRow.style.alignItems = 'center';
+                colorRow.style.marginBottom = '5px';
+                
+                const colorLabel = document.createElement('label');
+                colorLabel.textContent = '颜色:';
+                colorLabel.style.fontSize = '10px';
+                colorLabel.style.marginRight = '5px';
+                colorRow.appendChild(colorLabel);
+                
+                const colorBtn = document.createElement('button');
+                colorBtn.className = 'category-color-btn';
+                colorBtn.dataset.value = value;
+                colorBtn.style.width = '30px';
+                colorBtn.style.height = '20px';
+                colorBtn.style.backgroundColor = categoryStyles[value].color;
+                colorBtn.style.border = '1px solid #ddd';
+                colorBtn.style.borderRadius = '3px';
+                colorBtn.style.cursor = 'pointer';
+                colorRow.appendChild(colorBtn);
+                
+                const colorInput = document.createElement('input');
+                colorInput.type = 'color';
+                colorInput.value = categoryStyles[value].color;
+                // 使用fixed定位确保取色器在视口中正确显示
+                colorInput.style.position = 'fixed';
+                colorInput.style.top = '50%';
+                colorInput.style.left = '50%';
+                colorInput.style.transform = 'translate(-50%, -50%)';
+                colorInput.style.zIndex = '100000';
+                colorRow.appendChild(colorInput);
+                
+                colorBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    colorInput.click();
+                });
+                
+                // 使用闭包捕获当前value
+                (function(currentValue) {
+                    colorInput.addEventListener('change', () => {
+                        colorBtn.style.backgroundColor = colorInput.value;
+                        categoryStyles[currentValue] = categoryStyles[currentValue] || {};
+                        categoryStyles[currentValue].color = colorInput.value;
+                        console.log('分类颜色已更新:', currentValue, colorInput.value);
+                    });
+                })(value);
+                
+                valueDiv.appendChild(colorRow);
+                
+                // 符号选择（仅点数据）
+                if (layerGeometryType === 'Point' || layerGeometryType === 'Mixed') {
+                    const symbolRow = document.createElement('div');
+                    symbolRow.style.display = 'flex';
+                    symbolRow.style.alignItems = 'center';
+                    
+                    const symbolLabel = document.createElement('label');
+                    symbolLabel.textContent = '符号:';
+                    symbolLabel.style.fontSize = '10px';
+                    symbolLabel.style.marginRight = '5px';
+                    symbolRow.appendChild(symbolLabel);
+                    
+                    const symbolSelect = document.createElement('select');
+                    symbolSelect.className = 'category-symbol-select';
+                    symbolSelect.dataset.value = value;
+                    symbolSelect.style.width = '80px';
+                    symbolSelect.style.padding = '2px';
+                    symbolSelect.style.fontSize = '10px';
+                    symbolSelect.style.border = '1px solid #ddd';
+                    symbolSelect.style.borderRadius = '3px';
+                    
+                    // 符号选项
+                    const symbols = [
+                        { value: 'circle', label: '● 圆形' },
+                        { value: 'square', label: '■ 方形' },
+                        { value: 'triangle', label: '▲ 三角' },
+                        { value: 'diamond', label: '◆ 菱形' },
+                        { value: 'star', label: '★ 星形' },
+                        { value: '✈️', label: '✈️ 飞机' },
+                        { value: '📷', label: '📷 相机' },
+                        { value: '🚁', label: '🚁 直升机' },
+                        { value: '📍', label: '📍 标记' },
+                        { value: '📡', label: '📡 雷达' },
+                        { value: '🎯', label: '🎯 目标' },
+                        { value: '⚓', label: '⚓ 锚点' },
+                        { value: '🚢', label: '🚢 船只' },
+                        { value: '🏠', label: '🏠 房屋' },
+                        { value: '🌲', label: '🌲 树木' },
+                        { value: '⛽', label: '⛽ 加油站' },
+                        { value: '🏥', label: '🏥 医院' },
+                        { value: '🏫', label: '🏫 学校' },
+                        { value: '🏢', label: '🏢 办公楼' },
+                        { value: '🚗', label: '🚗 汽车' },
+                        { value: '🚲', label: '🚲 自行车' },
+                        { value: '🚶', label: '🚶 行人' },
+                        { value: '⚠️', label: '⚠️ 警告' },
+                        { value: '❌', label: '❌ 禁止' },
+                        { value: '✅', label: '✅ 确认' },
+                        { value: '⭐', label: '⭐ 星星' },
+                        { value: '❤️', label: '❤️ 爱心' },
+                        { value: '🔥', label: '🔥 火焰' },
+                        { value: '💧', label: '💧 水滴' },
+                        { value: '⚡', label: '⚡ 闪电' }
+                    ];
+                    
+                    symbols.forEach(sym => {
+                        const option = document.createElement('option');
+                        option.value = sym.value;
+                        option.textContent = sym.label;
+                        if (categoryStyles[value].symbol === sym.value) {
+                            option.selected = true;
+                        }
+                        symbolSelect.appendChild(option);
+                    });
+                    
+                    // 如果没有设置符号，默认选择圆形
+                    if (!categoryStyles[value].symbol) {
+                        categoryStyles[value].symbol = 'circle';
+                    }
+                    
+                    symbolSelect.addEventListener('change', (function(currentValue) {
+                        return function() {
+                            categoryStyles[currentValue] = categoryStyles[currentValue] || {};
+                            categoryStyles[currentValue].symbol = this.value;
+                            console.log('分类符号已更新:', currentValue, this.value);
+                        };
+                    })(value));
+                    
+                    symbolRow.appendChild(symbolSelect);
+                    valueDiv.appendChild(symbolRow);
+                }
+                
+                categoryValuesDiv.appendChild(valueDiv);
+            });
+        }
+    });
+    
+    // 如果已有分类字段设置，触发change事件显示分类值
+    if (item.categoryField) {
+        setTimeout(() => {
+            categoryFieldSelect.dispatchEvent(new Event('change'));
+        }, 0);
+    } else {
+        categoryValuesDiv.style.display = 'none';
+    }
+    
+    categoryStyleSection.appendChild(categoryValuesDiv);
+    styleSection.appendChild(categoryStyleSection);
+    
     content.appendChild(styleSection);
     
     // 预览信息
@@ -1882,6 +2563,26 @@ function openLayerInfoEditor(item, index) {
             if (opacityInput) newStyle.opacity = parseInt(opacityInput.value) || 30;
         }
         
+        // 保存分类样式设置
+        const categoryFieldSelect = document.getElementById('categoryField');
+        if (categoryFieldSelect) {
+            const selectedCategoryField = categoryFieldSelect.value;
+            item.categoryField = selectedCategoryField;
+            newStyle.categoryField = selectedCategoryField;
+            
+            // 只有选择了分类字段时才保存分类样式
+            if (selectedCategoryField) {
+                item.categoryStyles = categoryStyles;
+                // 深拷贝分类样式对象，确保数据被正确保存
+                newStyle.categoryStyles = JSON.parse(JSON.stringify(categoryStyles));
+                console.log('保存分类样式:', selectedCategoryField, categoryStyles);
+            } else {
+                // 清空分类样式
+                item.categoryStyles = null;
+                newStyle.categoryStyles = null;
+            }
+        }
+        
         // 保存样式到图层对象
         item.style = newStyle;
         
@@ -1922,16 +2623,63 @@ function openLayerInfoEditor(item, index) {
  * @param {string} geometryType - 几何类型
  */
 function applyLayerStyle(layer, style, geometryType) {
+    console.log('应用样式到图层:', style);
+    
     // 创建新的样式函数
     const newStyleFunction = function(feature) {
         const geomType = feature.getGeometry().getType();
         const styles = [];
         
+        // 检查是否有分类样式设置
+        const categoryField = style.categoryField;
+        const categoryStyles = style.categoryStyles;
+        let categoryColor = null;
+        let categorySymbol = null;
+        let categorySize = null;
+        
+        if (categoryField && categoryStyles && typeof categoryStyles === 'object') {
+            const fieldValue = feature.get(categoryField);
+            console.log('检查分类样式:', categoryField, fieldValue, categoryStyles);
+            
+            if (fieldValue !== undefined && fieldValue !== null) {
+                // 检查是否是数值型分类（使用数值段）
+                if (categoryStyles._isNumeric && categoryStyles._numericRanges) {
+                    const numValue = parseFloat(fieldValue);
+                    if (!isNaN(numValue)) {
+                        // 查找匹配的数值段
+                        for (const range of categoryStyles._numericRanges) {
+                            const min = range.min !== undefined ? parseFloat(range.min) : -Infinity;
+                            const max = range.max !== undefined ? parseFloat(range.max) : Infinity;
+                            if (numValue >= min && numValue < max) {
+                                categoryColor = range.color;
+                                categorySymbol = range.symbol;
+                                categorySize = range.size;
+                                console.log('应用数值段样式:', numValue, `[${min}, ${max})`, range.color, range.symbol, range.size);
+                                break;
+                            }
+                        }
+                    }
+                } else {
+                    // 非数值型分类（使用精确匹配）
+                    const valueKey = String(fieldValue);
+                    if (categoryStyles[valueKey] && categoryStyles[valueKey].color) {
+                        categoryColor = categoryStyles[valueKey].color;
+                        categorySymbol = categoryStyles[valueKey].symbol;
+                        console.log('应用分类样式:', valueKey, categoryColor, categorySymbol);
+                    }
+                }
+            }
+        }
+        
         // 点样式
         if (geomType === 'Point' || geomType === 'MultiPoint') {
-            const pointColor = style.pointColor || '#1890ff';
-            const pointSize = style.pointSize || 6;
-            const pointSymbol = style.pointSymbol || 'circle';
+            // 优先使用分类颜色，否则使用默认颜色
+            const pointColor = categoryColor || style.pointColor || '#1890ff';
+            // 优先使用分类大小（数值型字段），否则使用默认大小
+            const pointSize = categorySize || style.pointSize || 6;
+            
+            // 优先使用分类符号，否则使用默认符号
+            const pointSymbol = categorySymbol || style.pointSymbol || 'circle';
             
             // 转换颜色为 rgba
             const r = parseInt(pointColor.slice(1, 3), 16);
@@ -2037,7 +2785,8 @@ function applyLayerStyle(layer, style, geometryType) {
         
         // 线样式
         if (geomType === 'LineString' || geomType === 'MultiLineString') {
-            const lineColor = style.lineColor || '#52c41a';
+            // 优先使用分类颜色
+            const lineColor = categoryColor || style.lineColor || '#52c41a';
             const lineWidth = style.lineWidth || 2;
             
             styles.push(new ol.style.Style({
@@ -2050,8 +2799,9 @@ function applyLayerStyle(layer, style, geometryType) {
         
         // 面样式
         if (geomType === 'Polygon' || geomType === 'MultiPolygon') {
-            const fillColor = style.fillColor || '#ffa500';
-            const strokeColor = style.strokeColor || '#ffa500';
+            // 优先使用分类颜色
+            const fillColor = categoryColor || style.fillColor || '#ffa500';
+            const strokeColor = categoryColor || style.strokeColor || '#ffa500';
             const opacity = (style.opacity || 30) / 100;
             
             // 转换填充颜色为 rgba
