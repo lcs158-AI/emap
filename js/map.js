@@ -4800,8 +4800,8 @@ function addDrawToolbar() {
         <div class="dropdown">
             <button id="drawMainBtn" class="action-btn" data-title="图形编辑">✏️</button>
             <div id="drawDropdownMenu" class="dropdown-menu" style="display: none;">
-                <button id="drawPointBtn" class="dropdown-btn" data-title="绘制点">📍 绘制点</button>
-                <button id="drawLineBtn" class="dropdown-btn" data-title="绘制线">📏 绘制线</button>
+                <button id="drawPointBtn" class="dropdown-btn" data-title="绘制点">📌 绘制点</button>
+                <button id="drawLineBtn" class="dropdown-btn" data-title="绘制线">✍️ 绘制线</button>
                 <button id="drawPolygonBtn" class="dropdown-btn" data-title="绘制面">⬟ 绘制面</button>
                 <div class="draw-menu-divider"></div>
                 <button id="drawStopBtn" class="dropdown-btn" data-title="结束绘制">⏹️ 结束绘制</button>
@@ -4815,6 +4815,26 @@ function addDrawToolbar() {
                 height: 1px;
                 background: #eee;
                 margin: 4px 0;
+            }
+            /* 鼠标悬停提示 */
+            .action-btn[data-title], .dropdown-btn[data-title] {
+                position: relative;
+                cursor: pointer;
+            }
+            .action-btn[data-title]:hover::after, .dropdown-btn[data-title]:hover::after {
+                content: attr(data-title);
+                position: absolute;
+                bottom: 100%;
+                left: 50%;
+                transform: translateX(-50%);
+                background: rgba(0, 0, 0, 0.8);
+                color: white;
+                padding: 4px 8px;
+                border-radius: 4px;
+                font-size: 12px;
+                white-space: nowrap;
+                z-index: 1000;
+                margin-bottom: 5px;
             }
         </style>
     `;
