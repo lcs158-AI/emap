@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes">
-    <title>My AI emap2.7</title>
+    <title>My AI emap2.8</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.5.2/ol.css">
     <script src="/js/chart.umd.min.js"></script>
     <link rel="stylesheet" href="css/map.css">
@@ -15,12 +15,55 @@
     <div class="toolbar">
         <button id="locateBtn" class="action-btn" data-title="显示我的位置">📍</button>
         <button id="switchBaseMapBtn" class="action-btn" data-title="切换底图">🗺️</button>
-        <button id="measureLengthBtn" class="action-btn measure-btn" data-title="测量长度">📏</button>
-        <button id="measureAreaBtn" class="action-btn measure-btn" data-title="测量面积">🔲</button>
-        <button id="tideBtn" class="action-btn" data-title="查潮汐">🌊</button>
+        <div class="dropdown">
+            <button id="measureMainBtn" class="action-btn" data-title="测量工具">📐</button>
+            <div id="measureDropdown" class="dropdown-menu" style="display: none;">
+                <button id="measureLengthBtn" class="dropdown-btn" data-title="测量长度">📏 测量长度</button>
+                <button id="measureAreaBtn" class="dropdown-btn" data-title="测量面积">🔲 测量面积</button>
+            </div>
+        </div>
+        <div class="dropdown">
+            <button id="weatherMainBtn" class="action-btn" data-title="天气工具">🌤️</button>
+            <div id="weatherDropdown" class="dropdown-menu" style="display: none;">
+                <button id="tideBtn" class="dropdown-btn" data-title="查潮汐">🌊 查潮汐</button>
+                <button id="toggleWindBtn" class="dropdown-btn" data-title="海洋风场">🌬️ 海洋风场</button>
+            </div>
+        </div>
         <button id="toggleLayerPanelBtn" class="action-btn" data-title="图层管理">🗂️</button>
         <button id="loadGeoJsonBtn" class="action-btn" data-title="加载 GeoJSON">📁</button>
     </div>
+    <style>
+        .dropdown {
+            position: relative;
+            display: inline-block;
+        }
+        .dropdown-menu {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            z-index: 1000;
+            min-width: 120px;
+            margin-top: 5px;
+        }
+        .dropdown-btn {
+            display: block;
+            width: 100%;
+            padding: 8px 12px;
+            text-align: left;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 14px;
+            color: #333;
+        }
+        .dropdown-btn:hover {
+            background-color: #f0f0f0;
+        }
+    </style>
     <!-- 隐藏的 GeoJSON 文件上传输入框 -->
     <input type="file" id="geoJsonFileInput" accept=".geojson,.json" style="display: none;" />
     <div class="layer-control">
@@ -67,7 +110,7 @@
         const keyPart2 = '4eda4f3ebbcc';
         const keyPart3 = '3f3977d64820';
         const QWEATHER_KEY = keyPart1 + keyPart2 + keyPart3;
-        const APIhost = 'mg2tupq435.re.qweatherapi.com';
+        const APIhost = 'api.qweather.com'; // 使用官方API主机地址
     </script>
     <!-- 引入工具函数 -->
     <script src="js/utils.js"></script>
