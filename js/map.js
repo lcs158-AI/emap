@@ -112,7 +112,16 @@ map.on('click', function (evt) {
                 const pathPrefix = layer.linkPathPrefix || '/pics/';
                 // 确保路径前缀以 / 结尾
                 const normalizedPrefix = pathPrefix.endsWith('/') ? pathPrefix : pathPrefix + '/';
-                const fullPath = normalizedPrefix + imgFile;
+                
+                // 检查imgFile是否已经包含路径前缀，如果包含则直接使用
+                let fullPath;
+                if (imgFile.startsWith('/') || imgFile.includes('/')) {
+                    // 如果imgFile已经是完整路径或包含路径，则直接使用
+                    fullPath = imgFile;
+                } else {
+                    // 否则添加路径前缀
+                    fullPath = normalizedPrefix + imgFile;
+                }
                 
                 // 检测是否为本地文件路径
                 const isLocalPath = fullPath.startsWith('file:///') || /^[a-zA-Z]:[\\/]/.test(fullPath);
@@ -3609,7 +3618,8 @@ class WindParticle {
         
         if (wind && wind.speed !== null && wind.speed > 0.1) {
             // 有真实风场数据，按实际风速流动（应用倍乘系数让慢速风也能明显流动）
-            const angleRad = (wind.direction - 90) * Math.PI / 180;
+            // 风向转换：API返回的是风从哪里来的方向，需要转换为风往哪里去的方向
+            const angleRad = ((wind.direction + 180) % 360 - 90) * Math.PI / 180;
             // 应用倍乘系数，但限制最大速度
             const adjustedSpeed = Math.min(
                 wind.speed * particleConfig.speedMultiplier, 
@@ -4102,7 +4112,8 @@ function createWindLayer(windData) {
         console.log(`点 ${idx}: lat=${lat}, lon=${lon}, speed=${speed}, dir=${direction}`);
         
         // 计算箭头终点（根据风向和风速调整箭头长度）
-        const angleRad = (direction - 90) * Math.PI / 180;
+        // 风向转换：API返回的是风从哪里来的方向，需要转换为风往哪里去的方向
+        const angleRad = ((direction + 180) % 360 - 90) * Math.PI / 180;
         const arrowScale = Math.min(1, speed / 15); // 最大风速15m/s时箭头最长
         const arrowLen = windStyle.arrowLength * (0.3 + arrowScale * 0.7);
         
@@ -4562,6 +4573,7 @@ let drawLayer = null;
 let drawSource = null;
 let drawInteraction = null;
 let drawFeatures = [];
+let featureFields = null; // 存储字段结构（字段名称列表）
 
 // 初始化绘制图层
 function initDrawLayer() {
@@ -4667,16 +4679,34 @@ function showFeatureEditDialog(feature) {
         feature.set('name', name);
     }
     
-    // 添加自定义属性
-    const addMore = confirm('是否添加自定义属性?');
-    if (addMore) {
-        addCustomProperties(feature);
+    // 检查是否是第一个对象
+    if (drawFeatures.length === 1) {
+        // 第一个对象，询问是否添加自定义属性
+        const addMore = confirm('是否添加自定义属性?');
+        if (addMore) {
+            addCustomProperties(feature);
+            // 存储字段结构（只存储字段名称）
+            const properties = feature.getProperties();
+            featureFields = [];
+            Object.keys(properties).forEach(key => {
+                if (key !== 'geometry' && key !== 'id' && key !== 'type' && key !== 'name') {
+                    featureFields.push(key);
+                }
+            });
+        }
+    } else if (featureFields && featureFields.length > 0) {
+        // 不是第一个对象，根据字段结构提示用户输入值
+        featureFields.forEach(field => {
+            const value = prompt(`请输入 ${field} 的值:`, '');
+            if (value !== null) {
+                feature.set(field, value);
+            }
+        });
     }
 }
 
 // 添加自定义属性
 function addCustomProperties(feature) {
-    const props = {};
     let addMore = true;
     
     while (addMore) {
@@ -4685,13 +4715,11 @@ function addCustomProperties(feature) {
         
         const value = prompt('属性值:');
         if (value !== null) {
-            props[key] = value;
+            feature.set(key, value);
         }
         
         addMore = confirm('继续添加属性?');
     }
-    
-    feature.set('properties', props);
 }
 
 // 删除选中的要素
@@ -4709,6 +4737,7 @@ function clearDrawLayer() {
     if (confirm('确定要清空所有绘制的要素吗?')) {
         drawSource.clear();
         drawFeatures = [];
+        featureFields = null; // 重置字段结构
     }
 }
 
