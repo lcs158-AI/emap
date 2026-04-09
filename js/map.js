@@ -1173,14 +1173,22 @@ if (geoJsonFileInput) {
         const loadingProgress = document.getElementById('loadingProgress');
         if (loadingPanel) {
             loadingPanel.style.display = 'block';
-            loadingProgress.textContent = '正在加载 GeoJSON 文件...';
+            loadingProgress.textContent = '正在加载文件...';
         }
         
         const reader = new FileReader();
         reader.onload = function(event) {
             try {
-                const geoJson = JSON.parse(event.target.result);
-                loadLocalGeoJSON(geoJson, file.name.replace(/\.(geojson|json)$/i, ''));
+                const fileName = file.name.toLowerCase();
+                
+                if (fileName.endsWith('.geojson') || fileName.endsWith('.json')) {
+                    // 加载 GeoJSON
+                    const geoJson = JSON.parse(event.target.result);
+                    loadLocalGeoJSON(geoJson, file.name.replace(/\.(geojson|json)$/i, ''));
+                } else if (fileName.endsWith('.kml')) {
+                    // 加载 KML
+                    loadLocalKML(event.target.result, file.name.replace(/\.kml$/i, ''));
+                }
                 
                 // 隐藏加载提示
                 if (loadingPanel) {
@@ -1190,8 +1198,8 @@ if (geoJsonFileInput) {
                 // 清空 input，允许重复加载同一文件
                 geoJsonFileInput.value = '';
             } catch (error) {
-                console.error('解析 GeoJSON 失败:', error);
-                alert('GeoJSON 文件解析失败：' + error.message);
+                console.error('解析文件失败:', error);
+                alert('文件解析失败：' + error.message);
                 
                 // 隐藏加载提示
                 if (loadingPanel) {
@@ -1202,7 +1210,7 @@ if (geoJsonFileInput) {
         
         reader.onerror = function() {
             console.error('读取文件失败');
-            alert('读取 GeoJSON 文件失败');
+            alert('读取文件失败');
             
             // 隐藏加载提示
             if (loadingPanel) {
@@ -1296,6 +1304,126 @@ function loadLocalGeoJSON(geoJson, name) {
         console.log('本地 GeoJSON 图层已添加:', name);
     } catch (error) {
         console.error('加载本地 GeoJSON 失败:', error);
+        throw error;
+    }
+}
+
+/**
+ * 加载本地 KML 数据到地图
+ * @param {string} kmlText - KML 文本内容
+ * @param {string} name - 图层名称
+ */
+function loadLocalKML(kmlText, name) {
+    try {
+        // 使用 OpenLayers KML 解析器
+        const kmlFormat = new ol.format.KML({
+            extractStyles: false, // 禁用 KML 样式，使用自定义样式
+            extractAttributes: true, // 提取 KML 中的属性
+            writeStyle: false
+        });
+        
+        // 解析 KML 数据
+        const features = kmlFormat.readFeatures(kmlText, {
+            dataProjection: 'EPSG:4326',
+            featureProjection: 'EPSG:3857'
+        });
+        
+        console.log('成功加载本地 KML:', name, '要素数量:', features.length);
+        
+        // 为每个要素设置图层信息
+        features.forEach(feature => {
+            feature.set('layer', {
+                labelField: 'name', // KML 通常使用 name 字段作为标签
+                linkField: ''
+            });
+            
+            // 打印要素属性，用于调试
+            console.log('KML要素:', feature.get('name'), feature.getGeometry().getType());
+        });
+        
+        // 创建矢量图层
+        const vectorLayer = new ol.layer.Vector({
+            source: new ol.source.Vector({ features }),
+            style: function(feature) {
+                // 强制使用自定义样式，确保点可见
+                const geometryType = feature.getGeometry().getType();
+                
+                if (geometryType === 'Point') {
+                    return new ol.style.Style({
+                        image: new ol.style.Circle({
+                            radius: 8, // 增大半径
+                            fill: new ol.style.Fill({ color: 'rgba(255, 0, 0, 0.8)' }), // 红色
+                            stroke: new ol.style.Stroke({ color: '#fff', width: 2 })
+                        }),
+                        text: new ol.style.Text({
+                            text: feature.get('name') || '',
+                            offsetY: -15,
+                            fill: new ol.style.Fill({ color: '#333' }),
+                            stroke: new ol.style.Stroke({ color: '#fff', width: 2 })
+                        })
+                    });
+                } else if (geometryType === 'LineString' || geometryType === 'MultiLineString') {
+                    return new ol.style.Style({
+                        stroke: new ol.style.Stroke({
+                            color: 'rgba(54, 162, 235, 0.9)',
+                            width: 3
+                        })
+                    });
+                } else if (geometryType === 'Polygon' || geometryType === 'MultiPolygon') {
+                    return new ol.style.Style({
+                        fill: new ol.style.Fill({
+                            color: 'rgba(75, 192, 192, 0.3)'
+                        }),
+                        stroke: new ol.style.Stroke({
+                            color: 'rgba(75, 192, 192, 0.9)',
+                            width: 2
+                        })
+                    });
+                }
+                
+                return new ol.style.Style();
+            },
+            visible: true,
+            properties: {
+                labelField: 'name', // KML 通常使用 name 字段作为标签
+                linkField: ''
+            },
+            name: name
+        });
+        
+        // 添加到地图
+        map.addLayer(vectorLayer);
+        
+        // 记录到本地图层数组
+        localGeoJsonLayers.push({
+            layer: vectorLayer,
+            name: name,
+            visible: true,
+            style: {}, // 初始化空样式对象
+            labelField: 'name' // 默认使用 name 字段作为标签
+        });
+        
+        // 更新图层控制面板
+        createLayerControl();
+        
+        // 自动缩放到图层范围
+        zoomToLayerExtent(vectorLayer);
+        
+        console.log('本地 KML 图层已添加:', name);
+        console.log('图层可见性:', vectorLayer.getVisible());
+        console.log('图层源要素数量:', vectorLayer.getSource().getFeatures().length);
+        
+        // 检查图层是否在地图中
+        const layers = map.getLayers().getArray();
+        console.log('地图中的图层数量:', layers.length);
+        layers.forEach((layer, index) => {
+            if (layer === vectorLayer) {
+                console.log('KML图层在地图中的索引:', index);
+            }
+        });
+        
+    } catch (error) {
+        console.error('加载本地 KML 失败:', error);
         throw error;
     }
 }
