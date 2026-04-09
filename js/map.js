@@ -42,6 +42,12 @@ esriImagery.setVisible(false);
 map.addLayer(vecLayer);
 map.addLayer(cvaLayer);
 
+// 确保标注层始终在最上面
+function bringCvaLayerToTop() {
+    map.removeLayer(cvaLayer);
+    map.addLayer(cvaLayer);
+}
+
 // ----- 悬浮提示 -----
 let tooltip = null;
 if (!isTouchDevice) {
@@ -266,11 +272,15 @@ const switchBtn = document.getElementById('switchBaseMapBtn');
 switchBtn.addEventListener('click', function () {
     const isVectorVisible = vecLayer.getVisible();
     if (isVectorVisible) {
+        // 切换到影像图
         vecLayer.setVisible(false);
-        cvaLayer.setVisible(false);
+        cvaLayer.setVisible(true); // 保持标注层可见
         esriImagery.setVisible(true);
+        // 确保标注层在影像层上面
+        bringCvaLayerToTop();
         this.classList.add('active');
     } else {
+        // 切换到矢量图
         vecLayer.setVisible(true);
         cvaLayer.setVisible(true);
         esriImagery.setVisible(false);
