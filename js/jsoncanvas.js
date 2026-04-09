@@ -183,7 +183,7 @@ function init() {
         loadLayerConfigFromUrl(configUrl);
     } else {
         // 默认加载 data/begin.json
-        loadLayerConfigFromUrl('data/begin.json');
+        loadLayerConfigFromUrl('data/tw.json);
     }
 }
 

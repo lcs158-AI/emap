@@ -881,6 +881,7 @@ function createLayerControl() {
     header.style.marginBottom = '8px';
     header.style.borderBottom = '1px solid #eee';
     header.style.paddingBottom = '5px';
+    header.style.cursor = 'move';
     
     const title = document.createElement('div');
     title.textContent = '图层管理';
@@ -904,6 +905,43 @@ function createLayerControl() {
     header.appendChild(title);
     header.appendChild(closeBtn);
     panel.appendChild(header);
+    
+    // 实现面板拖动功能
+    let isDragging = false;
+    let startX, startY, startLeft, startTop;
+    
+    header.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        startX = e.clientX;
+        startY = e.clientY;
+        startLeft = parseInt(panel.style.left) || (window.innerWidth - panel.offsetWidth - 20);
+        startTop = parseInt(panel.style.top) || (window.innerHeight - panel.offsetHeight - 20);
+        panel.style.cursor = 'grabbing';
+    });
+    
+    document.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        
+        const newLeft = startLeft + dx;
+        const newTop = startTop + dy;
+        
+        // 限制面板在视窗内
+        const maxLeft = window.innerWidth - panel.offsetWidth;
+        const maxTop = window.innerHeight - panel.offsetHeight;
+        
+        panel.style.left = Math.max(0, Math.min(newLeft, maxLeft)) + 'px';
+        panel.style.top = Math.max(0, Math.min(newTop, maxTop)) + 'px';
+        panel.style.bottom = 'auto';
+        panel.style.right = 'auto';
+    });
+    
+    document.addEventListener('mouseup', () => {
+        isDragging = false;
+        panel.style.cursor = 'default';
+    });
     
     // 添加本地 GeoJSON 图层列表
     if (localGeoJsonLayers.length > 0) {
@@ -1072,26 +1110,28 @@ function createLayerControl() {
             console.log(`图层 ${item.name} visible: ${item.visible}`);
         });
         
-        // 添加导出配置按钮
-        const exportConfigDiv = document.createElement('div');
-        exportConfigDiv.style.marginTop = '15px';
-        exportConfigDiv.style.paddingTop = '10px';
-        exportConfigDiv.style.borderTop = '1px solid #eee';
-        
-        const exportConfigBtn = document.createElement('button');
-        exportConfigBtn.textContent = '💾 导出图层配置';
-        exportConfigBtn.style.width = '100%';
-        exportConfigBtn.style.padding = '8px';
-        exportConfigBtn.style.backgroundColor = '#52c41a';
-        exportConfigBtn.style.color = 'white';
-        exportConfigBtn.style.border = 'none';
-        exportConfigBtn.style.borderRadius = '4px';
-        exportConfigBtn.style.cursor = 'pointer';
-        exportConfigBtn.style.fontSize = '12px';
-        exportConfigBtn.addEventListener('click', exportLayerConfig);
-        
-        exportConfigDiv.appendChild(exportConfigBtn);
-        panel.appendChild(exportConfigDiv);
+        // 添加导出配置按钮（只有当有动态图层时显示）
+        if (dynamicLayers.length > 0) {
+            const exportConfigDiv = document.createElement('div');
+            exportConfigDiv.style.marginTop = '15px';
+            exportConfigDiv.style.paddingTop = '10px';
+            exportConfigDiv.style.borderTop = '1px solid #eee';
+            
+            const exportConfigBtn = document.createElement('button');
+            exportConfigBtn.textContent = '💾 导出图层配置';
+            exportConfigBtn.style.width = '100%';
+            exportConfigBtn.style.padding = '8px';
+            exportConfigBtn.style.backgroundColor = '#52c41a';
+            exportConfigBtn.style.color = 'white';
+            exportConfigBtn.style.border = 'none';
+            exportConfigBtn.style.borderRadius = '4px';
+            exportConfigBtn.style.cursor = 'pointer';
+            exportConfigBtn.style.fontSize = '12px';
+            exportConfigBtn.addEventListener('click', exportLayerConfig);
+            
+            exportConfigDiv.appendChild(exportConfigBtn);
+            panel.appendChild(exportConfigDiv);
+        }
     }
     
     // 添加工具栏按钮事件（如果不存在则添加）
