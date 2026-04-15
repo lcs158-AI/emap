@@ -244,6 +244,34 @@ body {
     display: none;
 }
 
+/* 绘制菜单分隔线 */
+.draw-menu-divider {
+    height: 1px;
+    background: #eee;
+    margin: 4px 0;
+}
+
+/* 鼠标悬停提示 */
+.action-btn[data-title], .dropdown-btn[data-title] {
+    position: relative;
+    cursor: pointer;
+}
+.action-btn[data-title]:hover::after, .dropdown-btn[data-title]:hover::after {
+    content: attr(data-title);
+    position: absolute;
+    right: 100%;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    z-index: 1000;
+    margin-right: 10px;
+}
+
 /* 潮汐面板位置 */
 #tidePanel {
     position: absolute;

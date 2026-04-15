@@ -1,4 +1,4 @@
-// ==================== 地图初始化 ====================
+﻿﻿﻿﻿﻿﻿// ==================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
@@ -38,15 +38,465 @@ const map = new ol.Map({ target: 'map', layers: [], view: view });
 
 // 按顺序添加图层
 map.addLayer(esriImagery);
-esriImagery.setVisible(false);
-map.addLayer(vecLayer);
-map.addLayer(cvaLayer);
+
+// 检查是否在 lzywhy.com 域名下运行
+function isOnLzywhyDomain() {
+    const hostname = window.location.hostname;
+    return hostname === 'lzywhy.com' || hostname.endsWith('.lzywhy.com');
+}
+
+// 只有在 lzywhy.com 域名下才加载天地图
+if (isOnLzywhyDomain()) {
+    console.log("在 lzywhy.com 域名下运行，加载天地图");
+    esriImagery.setVisible(false);
+    map.addLayer(vecLayer);
+    map.addLayer(cvaLayer);
+} else {
+    console.log("不在 lzywhy.com 域名下运行，跳过加载天地图，使用 Esri 影像图层");
+    esriImagery.setVisible(true);
+}
 
 // 确保标注层始终在最上面
 function bringCvaLayerToTop() {
-    map.removeLayer(cvaLayer);
-    map.addLayer(cvaLayer);
+    if (isOnLzywhyDomain()) {
+        map.removeLayer(cvaLayer);
+        map.addLayer(cvaLayer);
+    }
 }
+
+// ==================== 从 uploadpic.json 加载用户数据 ====================
+// 标记是否已加载 uploadpic.json
+let uploadpicLoaded = false;
+
+// 从 URL 参数中获取用户名
+function getUsernameFromUrl() {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('user');
+}
+
+// 检查用户登录状态并加载 uploadpic.json
+function checkLoginAndLoadUploadpic() {
+    const token = localStorage.getItem('access_token');
+    const username = localStorage.getItem('username');
+    const urlUsername = getUsernameFromUrl();
+    
+    if (urlUsername || token || username) {
+        console.log("用户已登录，加载 uploadpic.json");
+        loadUploadpicData();
+    } else {
+        console.log("用户未登录，跳过 uploadpic.json 加载");
+    }
+}
+
+// 加载 uploadpic.json 数据
+function loadUploadpicData() {
+    // 每次调用都重新加载，确保获取最新数据
+    console.log("重新加载 uploadpic.json");
+    uploadpicLoaded = false;
+    
+    const uploadpicUrl = 'http://localhost:8082/DATA/uploadpic.json';
+    console.log("从 DATA 目录加载 uploadpic.json:", uploadpicUrl);
+    
+    fetch(uploadpicUrl)
+        .then(response => {
+            if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            return response.json();
+        })
+        .then(config => {
+            console.log("成功从 DATA 目录加载 uploadpic.json");
+            loadLayersFromUploadpicConfig(config);
+        })
+        .catch(error => {
+            console.error("从 DATA 目录加载 uploadpic.json 失败:", error);
+        });
+}
+
+// 从 uploadpic.json 加载图层
+function loadLayersFromUploadpicConfig(config) {
+    const basePath = 'http://localhost:8082/DATA/';
+    const layers = config.layers || [];
+    const token = localStorage.getItem('access_token') || localStorage.getItem('token');
+    let username = 'unknown';
+    
+    const urlUsername = getUsernameFromUrl();
+    if (urlUsername) {
+        username = urlUsername;
+    } else if (token) {
+        try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            username = payload.sub || 'unknown';
+        } catch (e) {
+            const storedUsername = localStorage.getItem('username');
+            if (storedUsername) username = storedUsername;
+        }
+    } else {
+        const storedUsername = localStorage.getItem('username');
+        if (storedUsername) username = storedUsername;
+    }
+    
+    console.log("当前登录用户:", username);
+    
+    layers.forEach(layer => {
+        if (layer.geojson_path) {
+            let geoJsonUrl = layer.geojson_path.startsWith('http') ? layer.geojson_path : basePath + layer.geojson_path;
+            const timestamp = new Date().getTime();
+            const cacheBustingUrl = `${geoJsonUrl}?t=${timestamp}`;
+            
+            fetch(cacheBustingUrl)
+                .then(response => {
+                    if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    return response.json();
+                })
+                .then(geoJson => {
+                    const filteredFeatures = geoJson.features.filter(feature => {
+                        if (feature.properties && feature.properties.uploader) {
+                            return feature.properties.uploader === username;
+                        }
+                        return true;
+                    });
+                    
+                    const filteredGeoJson = { ...geoJson, features: filteredFeatures };
+                    
+                    // 创建图层配置
+                    const layerConfig = {
+                        name: layer.name,
+                        geojson_path: null, // 已经加载了数据
+                        label_field: layer.label_field || 'datetime',
+                        link_field: layer.link_field || 'filename',
+                        style: layer.style || {}
+                    };
+                    
+                    // 使用 loadLayersFromConfig 的内部逻辑
+                    const features = new ol.format.GeoJSON().readFeatures(filteredGeoJson, {
+                        dataProjection: 'EPSG:4326',
+                        featureProjection: 'EPSG:3857'
+                    });
+                    
+                    features.forEach(f => {
+                        f.set('layer', {
+                            labelField: layerConfig.label_field || '',
+                            linkField: layerConfig.link_field || '',
+                            linkPathPrefix: 'http://localhost:8082/PICS/'
+                        });
+                    });
+                    
+                    const source = new ol.source.Vector({ features });
+                    
+                    // 直接创建样式函数，使用图层管理中设置的样式
+                    const style = function(feature) {
+                        const geometryType = feature.getGeometry().getType();
+                        const styles = [];
+                        
+                        if (geometryType === 'Point') {
+                            // 使用配置的样式，或者默认样式
+                            const pointColor = layerConfig.style?.pointColor || '#1890ff';
+                            const pointSize = layerConfig.style?.pointSize || 6;
+                            const pointType = layerConfig.style?.pointType || 'circle';
+                            
+                            // 根据点类型创建不同的样式
+                            let pointStyle;
+                            switch (pointType) {
+                                case 'circle':
+                                    pointStyle = new ol.style.Style({
+                                        image: new ol.style.Circle({
+                                            radius: pointSize,
+                                            fill: new ol.style.Fill({ color: pointColor }),
+                                            stroke: new ol.style.Stroke({ color: '#ffffff', width: 2 })
+                                        })
+                                    });
+                                    break;
+                                case 'square':
+                                    pointStyle = new ol.style.Style({
+                                        image: new ol.style.RegularShape({
+                                            points: 4,
+                                            radius: pointSize,
+                                            angle: Math.PI / 4,
+                                            fill: new ol.style.Fill({ color: pointColor }),
+                                            stroke: new ol.style.Stroke({ color: '#ffffff', width: 2 })
+                                        })
+                                    });
+                                    break;
+                                case 'triangle':
+                                    pointStyle = new ol.style.Style({
+                                        image: new ol.style.RegularShape({
+                                            points: 3,
+                                            radius: pointSize,
+                                            angle: 0,
+                                            fill: new ol.style.Fill({ color: pointColor }),
+                                            stroke: new ol.style.Stroke({ color: '#ffffff', width: 2 })
+                                        })
+                                    });
+                                    break;
+                                case 'star':
+                                    pointStyle = new ol.style.Style({
+                                        image: new ol.style.RegularShape({
+                                            points: 5,
+                                            radius: pointSize,
+                                            radius2: pointSize / 2,
+                                            angle: 0,
+                                            fill: new ol.style.Fill({ color: pointColor }),
+                                            stroke: new ol.style.Stroke({ color: '#ffffff', width: 2 })
+                                        })
+                                    });
+                                    break;
+                                default:
+                                    pointStyle = new ol.style.Style({
+                                        image: new ol.style.Circle({
+                                            radius: pointSize,
+                                            fill: new ol.style.Fill({ color: pointColor }),
+                                            stroke: new ol.style.Stroke({ color: '#ffffff', width: 2 })
+                                        })
+                                    });
+                            }
+                            styles.push(pointStyle);
+                        } else if (geometryType === 'Polygon') {
+                            // 面样式
+                            const fillColor = layerConfig.style?.fillColor || 'rgba(0, 128, 255, 0.3)';
+                            const strokeColor = layerConfig.style?.strokeColor || '#0066cc';
+                            const strokeWidth = layerConfig.style?.strokeWidth || 2;
+                            
+                            styles.push(new ol.style.Style({
+                                fill: new ol.style.Fill({ color: fillColor }),
+                                stroke: new ol.style.Stroke({ color: strokeColor, width: strokeWidth })
+                            }));
+                        }
+                        
+                        if (styles.length === 0) {
+                            styles.push(new ol.style.Style());
+                        }
+                        
+                        return styles;
+                    };
+                    
+                    const vectorLayer = new ol.layer.Vector({
+                        source: source,
+                        style: style,
+                        visible: true,
+                        properties: {
+                            labelField: layerConfig.label_field || '',
+                            linkField: layerConfig.link_field || ''
+                        },
+                        name: layerConfig.name
+                    });
+                    
+                    map.addLayer(vectorLayer);
+                    dynamicLayers.push({
+                        layer: vectorLayer,
+                        name: layerConfig.name,
+                        visible: true,
+                        labelField: layerConfig.label_field || 'datetime',
+                        linkField: layerConfig.link_field || 'filename',
+                        linkPathPrefix: 'http://localhost:8082/PICS/',
+                        style: layerConfig.style || {}
+                    });
+                    
+                    createLayerControl();
+                    console.log(`图层 ${layer.name} 已加载，要素数量：${filteredFeatures.length}`);
+                    
+                    // 如果是 photo_points 图层，定位到最新上传的照片
+                    if (layer.name === 'photo_points' && filteredFeatures.length > 0) {
+                        // 按上传时间排序，找到最新的照片
+                        const sortedFeatures = [...filteredFeatures].sort((a, b) => {
+                            const timeA = a.properties?.upload_time || '';
+                            const timeB = b.properties?.upload_time || '';
+                            return timeB.localeCompare(timeA); // 降序排列
+                        });
+                        
+                        // 获取最新的照片
+                        const latestFeature = sortedFeatures[0];
+                        if (latestFeature) {
+                            const geometry = latestFeature.getGeometry();
+                            if (geometry) {
+                                const coords = geometry.getCoordinates();
+                                const lonLat = ol.proj.toLonLat(coords);
+                                console.log(`定位到最新上传的照片：${lonLat[0]}, ${lonLat[1]}`);
+                                // 定位到最新照片的位置
+                                map.getView().animate({
+                                    center: coords,
+                                    zoom: 15,
+                                    duration: 1000
+                                });
+                            }
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error(`加载 ${layer.name} 失败:`, error);
+                });
+        }
+    });
+}
+
+// 页面加载时立即检查登录状态
+window.addEventListener('load', function() {
+    console.log("页面加载完成，检查登录状态");
+    checkLoginAndLoadUploadpic();
+    
+    // 检查是否有上传标记
+    const urlParams = new URLSearchParams(window.location.search);
+    const uploaded = urlParams.get('uploaded');
+    if (uploaded === '1') {
+        console.log("检测到上传标记，准备跳转到上传的数据位置");
+        // 延迟一点时间，确保数据已经加载
+        setTimeout(() => {
+            centerMapToUploadedData();
+        }, 1000);
+    }
+});
+
+// 跳转到上传的数据位置
+function centerMapToUploadedData() {
+    console.log("尝试跳转到上传的数据位置");
+    console.log("当前动态图层数量:", dynamicLayers.length);
+    
+    // 遍历所有动态图层
+    let allCoordinates = [];
+    
+    dynamicLayers.forEach((layerItem, index) => {
+        console.log(`处理图层 ${index + 1}: ${layerItem.name}`);
+        const layer = layerItem.layer;
+        const source = layer.getSource();
+        const features = source.getFeatures();
+        console.log(`图层 ${layerItem.name} 要素数量:`, features.length);
+        
+        features.forEach((feature, featureIndex) => {
+            const geometry = feature.getGeometry();
+            if (geometry && (geometry.getType() === 'Point' || geometry.getType() === 'MultiPoint')) {
+                const coordinates = geometry.getCoordinates();
+                console.log(`要素 ${featureIndex} 坐标:`, coordinates);
+                if (Array.isArray(coordinates)) {
+                    // 处理 MultiPoint
+                    if (Array.isArray(coordinates[0])) {
+                        allCoordinates.push(...coordinates);
+                        console.log(`添加 MultiPoint 坐标:`, coordinates);
+                    } else {
+                        allCoordinates.push(coordinates);
+                        console.log(`添加 Point 坐标:`, coordinates);
+                    }
+                }
+            }
+        });
+    });
+    
+    console.log("找到的坐标点数量:", allCoordinates.length);
+    console.log("坐标点详情:", allCoordinates);
+    
+    if (allCoordinates.length > 0) {
+        // 转换为地图投影
+        const projectedCoordinates = allCoordinates.map(coord => {
+            const projected = ol.proj.fromLonLat(coord);
+            console.log(`坐标 ${coord} 转换为投影坐标:`, projected);
+            return projected;
+        });
+        
+        // 创建边界范围
+        const olExtent = ol.extent.boundingExtent(projectedCoordinates);
+        console.log("计算的边界范围:", olExtent);
+        
+        // 检查边界范围是否有效
+        if (ol.extent.getWidth(olExtent) > 0 && ol.extent.getHeight(olExtent) > 0) {
+            // 调整地图视图
+            view.fit(olExtent, {
+                padding: [50, 50, 50, 50],
+                duration: 1000
+            });
+            
+            console.log("地图已跳转到上传的数据位置");
+        } else {
+            console.log("边界范围无效，无法调整视图");
+            // 如果边界范围无效，使用第一个点作为中心
+            if (projectedCoordinates.length > 0) {
+                view.setCenter(projectedCoordinates[0]);
+                view.setZoom(15);
+                console.log("使用第一个点作为中心，设置缩放级别为 15");
+            }
+        }
+    } else {
+        console.log("没有找到上传的数据点");
+        // 尝试重新加载数据
+        console.log("尝试重新加载 uploadpic.json");
+        loadUploadpicData();
+        
+        // 延迟后再次尝试
+        setTimeout(() => {
+            centerMapToUploadedData();
+        }, 2000);
+    }
+}
+
+// 添加 GeoJSON 图层到地图
+function addGeoJsonLayer(geoJson, name, config) {
+    try {
+        // 将 GeoJSON 转换为 OpenLayers 要素
+        const features = new ol.format.GeoJSON().readFeatures(geoJson, {
+            dataProjection: 'EPSG:4326',
+            featureProjection: 'EPSG:3857'
+        });
+        
+        console.log('成功加载 GeoJSON:', name, '要素数量:', features.length);
+        
+        // 创建矢量图层
+        const vectorLayer = new ol.layer.Vector({
+            source: new ol.source.Vector({ features: features }),
+            style: function(feature) {
+                // 使用配置中的样式，或者默认样式
+                const styleConfig = config.style || {};
+                
+                if (feature.getGeometry().getType() === 'Point') {
+                    return new ol.style.Style({
+                        image: new ol.style.Circle({
+                            radius: styleConfig.pointRadius || 8,
+                            fill: new ol.style.Fill({
+                                color: styleConfig.fillColor || '#ff0000'
+                            }),
+                            stroke: new ol.style.Stroke({
+                                color: styleConfig.strokeColor || '#ffffff',
+                                width: styleConfig.strokeWidth || 2
+                            })
+                        })
+                    });
+                } else if (feature.getGeometry().getType() === 'Polygon') {
+                    return new ol.style.Style({
+                        fill: new ol.style.Fill({
+                            color: styleConfig.fillColor || 'rgba(0, 128, 255, 0.3)'
+                        }),
+                        stroke: new ol.style.Stroke({
+                            color: styleConfig.strokeColor || '#0066cc',
+                            width: styleConfig.strokeWidth || 2
+                        })
+                    });
+                }
+                return new ol.style.Style();
+            }
+        });
+        
+        // 设置图层属性
+        vectorLayer.set('name', name);
+        vectorLayer.set('linkField', config.link_field || 'filename');
+        vectorLayer.set('linkPathPrefix', 'http://localhost:8082/PICS/');
+        vectorLayer.set('labelField', config.label_field || 'datetime');
+        
+        // 添加到地图
+        map.addLayer(vectorLayer);
+        
+        // 添加到动态图层列表（用于图层管理）
+        dynamicLayers.push({
+            name: name,
+            layer: vectorLayer,
+            visible: true,
+            linkField: config.link_field || 'filename',
+            linkPathPrefix: 'http://localhost:8082/PICS/',
+            labelField: config.label_field || 'datetime',
+            style: config.style || {}
+        });
+        
+        console.log('GeoJSON 图层已添加:', name);
+        
+    } catch (error) {
+        console.error('加载 GeoJSON 失败:', error);
+    }
+}
+
 
 // ----- 悬浮提示 -----
 let tooltip = null;
@@ -220,6 +670,49 @@ let watching = false;
 let firstPosition = true;
 let watchId = null;
 
+// 我的按钮下拉菜单
+const myBtn = document.getElementById('myBtn');
+const myDropdown = document.getElementById('myDropdown');
+
+if (myBtn && myDropdown) {
+    myBtn.addEventListener('click', function() {
+        myDropdown.style.display = myDropdown.style.display === 'block' ? 'none' : 'block';
+    });
+}
+
+// 点击页面其他地方关闭下拉菜单
+window.addEventListener('click', function(event) {
+    if (!event.target.closest('.dropdown')) {
+        if (myDropdown) {
+            myDropdown.style.display = 'none';
+        }
+        if (measureDropdown) {
+            measureDropdown.style.display = 'none';
+        }
+        if (weatherDropdown) {
+            weatherDropdown.style.display = 'none';
+        }
+    }
+});
+
+// 上传按钮事件
+const uploadBtn = document.getElementById('uploadBtn');
+if (uploadBtn) {
+    uploadBtn.addEventListener('click', function() {
+        // 调用 AIsea.html 中定义的打开侧边栏函数
+        if (typeof window.openUploadSidebar === 'function') {
+            window.openUploadSidebar();
+        } else {
+            console.warn('侧边栏未初始化');
+        }
+        
+        // 关闭下拉菜单
+        if (myDropdown) {
+            myDropdown.style.display = 'none';
+        }
+    });
+}
+
 document.getElementById('locateBtn').addEventListener('click', function () {
     if (!watching) {
         if ('geolocation' in navigator) {
@@ -341,18 +834,43 @@ function activateMeasurement(type) {
         return;
     }
 
-    if (measureActive) deactivateMeasurement();
-    if (dblClickZoomInteraction) dblClickZoomInteraction.setActive(false);
-
-    measureActive = true;
-    currentMeasureType = type;
-
-    if (type === 'length') {
-        measureLengthBtn.classList.add('active');
-        measureAreaBtn.classList.remove('active');
+    if (measureActive) {
+        // 如果已经激活了测量功能，只需要更换测量类型，不清除之前的测量结果
+        if (currentMeasureType !== type) {
+            // 更换测量类型时，只需要移除当前的绘制交互，不需要清除图层
+            if (measureDraw) {
+                map.removeInteraction(measureDraw);
+                measureDraw = null;
+            }
+            currentMeasureType = type;
+            
+            // 更新按钮状态
+            if (type === 'length') {
+                measureLengthBtn.classList.add('active');
+                measureAreaBtn.classList.remove('active');
+            } else {
+                measureAreaBtn.classList.add('active');
+                measureLengthBtn.classList.remove('active');
+            }
+        } else {
+            // 如果是相同类型，直接返回
+            return;
+        }
     } else {
-        measureAreaBtn.classList.add('active');
-        measureLengthBtn.classList.remove('active');
+        // 首次激活测量功能
+        measureActive = true;
+        currentMeasureType = type;
+        
+        // 更新按钮状态
+        if (type === 'length') {
+            measureLengthBtn.classList.add('active');
+            measureAreaBtn.classList.remove('active');
+        } else {
+            measureAreaBtn.classList.add('active');
+            measureLengthBtn.classList.remove('active');
+        }
+        
+        if (dblClickZoomInteraction) dblClickZoomInteraction.setActive(false);
     }
 
     measureResult.style.display = 'block';
@@ -1099,21 +1617,21 @@ function createLayerControl() {
             leftSection.appendChild(checkbox);
             leftSection.appendChild(label);
             
-            // 样式设置按钮
-            const styleBtn = document.createElement('button');
-            styleBtn.textContent = '🎨';
-            styleBtn.title = '设置样式';
-            styleBtn.style.background = 'none';
-            styleBtn.style.border = 'none';
-            styleBtn.style.cursor = 'pointer';
-            styleBtn.style.fontSize = '14px';
-            styleBtn.style.padding = '2px 4px';
-            styleBtn.addEventListener('click', () => {
-                openLayerStyleEditor(item, index);
+            // 信息管理按钮
+            const infoBtn = document.createElement('button');
+            infoBtn.textContent = '⚙️';
+            infoBtn.title = '设置字段信息';
+            infoBtn.style.background = 'none';
+            infoBtn.style.border = 'none';
+            infoBtn.style.cursor = 'pointer';
+            infoBtn.style.fontSize = '14px';
+            infoBtn.style.padding = '2px 4px';
+            infoBtn.addEventListener('click', () => {
+                openLayerInfoEditor(item, index);
             });
             
             layerHeader.appendChild(leftSection);
-            layerHeader.appendChild(styleBtn);
+            layerHeader.appendChild(infoBtn);
             div.appendChild(layerHeader);
             
             panel.appendChild(div);
@@ -2957,11 +3475,111 @@ function openLayerStyleEditor(item, index) {
     styleSection.style.borderRadius = '4px';
     styleSection.style.border = '1px solid #e9ecef';
     
+    // 获取所有属性字段
+    const allFields = new Set();
+    features.forEach(feature => {
+        const properties = feature.getProperties();
+        Object.keys(properties).forEach(key => {
+            if (key !== 'geometry') {
+                allFields.add(key);
+            }
+        });
+    });
+    const fieldList = Array.from(allFields);
+    
+    // 分类设置
+    const categorySection = document.createElement('div');
+    categorySection.style.marginBottom = '15px';
+    categorySection.style.padding = '15px';
+    categorySection.style.backgroundColor = '#f8f9fa';
+    categorySection.style.borderRadius = '4px';
+    categorySection.style.border = '1px solid #e9ecef';
+    categorySection.innerHTML = '<div style="font-size: 14px; margin-bottom: 10px; font-weight: bold;">分类设置</div>';
+    
+    // 分类字段选择
+    const categoryFieldRow = document.createElement('div');
+    categoryFieldRow.style.display = 'flex';
+    categoryFieldRow.style.alignItems = 'center';
+    categoryFieldRow.style.marginBottom = '10px';
+    
+    const categoryFieldLabel = document.createElement('label');
+    categoryFieldLabel.textContent = '分类字段:';
+    categoryFieldLabel.style.fontSize = '12px';
+    categoryFieldLabel.style.marginRight = '10px';
+    categoryFieldLabel.style.width = '80px';
+    categoryFieldRow.appendChild(categoryFieldLabel);
+    
+    const categoryFieldSelect = document.createElement('select');
+    categoryFieldSelect.id = 'configCategoryField';
+    categoryFieldSelect.style.width = '150px';
+    categoryFieldSelect.style.padding = '5px';
+    categoryFieldSelect.style.border = '1px solid #ddd';
+    categoryFieldSelect.style.borderRadius = '4px';
+    
+    // 添加空选项
+    const emptyOption = document.createElement('option');
+    emptyOption.value = '';
+    emptyOption.textContent = '无（统一样式）';
+    categoryFieldSelect.appendChild(emptyOption);
+    
+    // 添加所有字段选项
+    fieldList.forEach(field => {
+        const option = document.createElement('option');
+        option.value = field;
+        option.textContent = field;
+        if (currentStyle.categoryField === field) {
+            option.selected = true;
+        }
+        categoryFieldSelect.appendChild(option);
+    });
+    categoryFieldRow.appendChild(categoryFieldSelect);
+    categorySection.appendChild(categoryFieldRow);
+    content.appendChild(categorySection);
+    
     // 点样式设置
     if (layerGeometryType === 'Point' || layerGeometryType === 'Mixed') {
         const pointStyleDiv = document.createElement('div');
         pointStyleDiv.style.marginBottom = '15px';
         pointStyleDiv.innerHTML = '<div style="font-size: 14px; margin-bottom: 10px; font-weight: bold;">点样式</div>';
+        
+        // 点样式类型
+        const pointTypeRow = document.createElement('div');
+        pointTypeRow.style.display = 'flex';
+        pointTypeRow.style.alignItems = 'center';
+        pointTypeRow.style.marginBottom = '10px';
+        
+        const pointTypeLabel = document.createElement('label');
+        pointTypeLabel.textContent = '样式:';
+        pointTypeLabel.style.fontSize = '12px';
+        pointTypeLabel.style.marginRight = '10px';
+        pointTypeLabel.style.width = '50px';
+        pointTypeRow.appendChild(pointTypeLabel);
+        
+        const pointTypeSelect = document.createElement('select');
+        pointTypeSelect.id = 'configPointType';
+        pointTypeSelect.style.width = '120px';
+        pointTypeSelect.style.padding = '5px';
+        pointTypeSelect.style.border = '1px solid #ddd';
+        pointTypeSelect.style.borderRadius = '4px';
+        
+        const pointTypes = [
+            { value: 'circle', label: '圆形' },
+            { value: 'square', label: '方形' },
+            { value: 'triangle', label: '三角形' },
+            { value: 'star', label: '星形' }
+        ];
+        
+        pointTypes.forEach(type => {
+            const option = document.createElement('option');
+            option.value = type.value;
+            option.textContent = type.label;
+            if (currentStyle.pointType === type.value) {
+                option.selected = true;
+            }
+            pointTypeSelect.appendChild(option);
+        });
+        pointTypeRow.appendChild(pointTypeSelect);
+        pointStyleDiv.appendChild(pointTypeRow);
         
         // 点颜色
         const pointColorRow = document.createElement('div');
@@ -3198,10 +3816,18 @@ function openLayerStyleEditor(item, index) {
         // 保存样式设置
         const newStyle = {};
         
+        // 分类设置
+        const categoryFieldSelect = document.getElementById('configCategoryField');
+        if (categoryFieldSelect) {
+            newStyle.categoryField = categoryFieldSelect.value;
+        }
+        
         // 点样式
         if (layerGeometryType === 'Point' || layerGeometryType === 'Mixed') {
+            const pointTypeSelect = document.getElementById('configPointType');
             const pointColorInput = document.getElementById('configPointColor');
             const pointSizeInput = document.getElementById('configPointSize');
+            if (pointTypeSelect) newStyle.pointType = pointTypeSelect.value;
             if (pointColorInput) newStyle.pointColor = pointColorInput.value;
             if (pointSizeInput) newStyle.pointSize = parseInt(pointSizeInput.value) || 6;
         }
@@ -3310,7 +3936,7 @@ function applyLayerStyle(layer, style, geometryType) {
             const pointSize = categorySize || style.pointSize || 6;
             
             // 优先使用分类符号，否则使用默认符号
-            const pointSymbol = categorySymbol || style.pointSymbol || 'circle';
+            const pointSymbol = categorySymbol || style.pointType || 'circle';
             
             // 转换颜色为 rgba
             const r = parseInt(pointColor.slice(1, 3), 16);
@@ -5017,33 +5643,7 @@ function addDrawToolbar() {
                 <button id="drawExportBtn" class="dropdown-btn" data-title="导出">💾 导出</button>
             </div>
         </div>
-        <style>
-            .draw-menu-divider {
-                height: 1px;
-                background: #eee;
-                margin: 4px 0;
-            }
-            /* 鼠标悬停提示 */
-            .action-btn[data-title], .dropdown-btn[data-title] {
-                position: relative;
-                cursor: pointer;
-            }
-            .action-btn[data-title]:hover::after, .dropdown-btn[data-title]:hover::after {
-                content: attr(data-title);
-                position: absolute;
-                bottom: 100%;
-                left: 50%;
-                transform: translateX(-50%);
-                background: rgba(0, 0, 0, 0.8);
-                color: white;
-                padding: 4px 8px;
-                border-radius: 4px;
-                font-size: 12px;
-                white-space: nowrap;
-                z-index: 1000;
-                margin-bottom: 5px;
-            }
-        </style>
+
     `;
     
     toolbar.appendChild(drawDiv);
@@ -5250,3 +5850,28 @@ function showLayerConfigExportDialog(content) {
         document.body.removeChild(dialog);
     };
 }
+// ==================== 集成侧边栏上传功能 ====================
+(function() {
+    const uploadBtn = document.getElementById('uploadBtn');
+    
+    if (uploadBtn) {
+        uploadBtn.addEventListener('click', function(e) {
+            e.stopPropagation(); // 防止冒泡关闭下拉菜单
+            
+            // 检查 AIsea.html 中是否已定义打开侧边栏的函数
+            if (typeof window.openUploadSidebar === 'function') {
+                window.openUploadSidebar();
+            } else {
+                console.warn('未找到 openUploadSidebar 函数，请检查 AIsea.html 是否正确加载了侧边栏脚本。');
+                // 备选方案：如果侧边栏没好，可以暂时 alert 提示
+                // alert('侧边栏功能暂未就绪');
+            }
+            
+            // 手动关闭“我的”下拉菜单（因为 stopPropagation 阻止了全局点击关闭）
+            const myDropdown = document.getElementById('myDropdown');
+            if (myDropdown) {
+                myDropdown.style.display = 'none';
+            }
+        });
+    }
+})();

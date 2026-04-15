@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes">
-    <title>跬步地图2.82</title>
+    <title>跬步地图2.831</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.5.2/ol.css">
     <script src="/js/chart.umd.min.js"></script>
     <link rel="stylesheet" href="css/map.css">
@@ -13,7 +13,13 @@
 <body>
     <div id="map"></div>
     <div class="toolbar">
-        <button id="locateBtn" class="action-btn" data-title="显示我的位置">📍</button>
+        <div class="dropdown">
+            <button id="myBtn" class="action-btn" data-title="我的">👤</button>
+            <div id="myDropdown" class="dropdown-menu" style="display: none;">
+                <button id="locateBtn" class="dropdown-btn" data-title="显示我的位置">📍 定位</button>
+                <button id="uploadBtn" class="dropdown-btn" data-title="上传图片">📤 上传</button>
+            </div>
+        </div>
         <button id="switchBaseMapBtn" class="action-btn" data-title="切换底图">🗺️</button>
         <div class="dropdown">
             <button id="measureMainBtn" class="action-btn" data-title="测量工具">📐</button>
@@ -99,6 +105,230 @@
         </div>
         <div style="margin-top: 8px; font-size: 11px; color: #aaa; text-align: right;">⏱️ 数据：和风天气</div>
     </div>
+    <!-- ==================== 集成上传/认证侧边栏 ==================== -->
+    <div id="sidebarOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.3); z-index:1999;"></div>
+    
+    <div id="uploadSidebar" style="position:fixed; top:0; right:-400px; width:400px; height:100%; background:white; box-shadow:-2px 0 10px rgba(0,0,0,0.1); z-index:2000; transition:right 0.3s ease; display:flex; flex-direction:column;">
+        <!-- 侧边栏头部 -->
+        <div style="padding:15px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center; background:#f9f9f9;">
+            <h3 style="margin:0; font-size:16px;">用户中心 & 上传</h3>
+            <button id="closeSidebarBtn" style="background:none; border:none; font-size:20px; cursor:pointer; color:#666;">×</button>
+        </div>
+        
+        <!-- 侧边栏内容区 (这里放置原本 upload.html 的核心表单) -->
+        <div style="flex:1; overflow-y:auto; padding:20px;">
+            
+            <!-- 1. 用户状态显示 -->
+            <div id="sidebarUserStatus" style="margin-bottom:20px; padding:10px; background:#f0f9ff; border-radius:4px; display:none;">
+                <p style="margin:0; color:#0066cc;">当前用户: <span id="sidebarUsername">--</span></p>
+                <button id="sidebarLogoutBtn" style="margin-top:5px; padding:5px 10px; background:#ff4d4f; color:white; border:none; border-radius:4px; cursor:pointer;">退出登录</button>
+            </div>
+
+            <!-- 2. 登录/注册表单 (未登录时显示) -->
+            <div id="sidebarAuthForm">
+                <h4 style="margin-top:0;">登录 / 注册</h4>
+                <input type="text" id="sidebarUsernameInput" placeholder="用户名" style="width:100%; padding:8px; margin-bottom:10px; box-sizing:border-box; border:1px solid #ddd; border-radius:4px;">
+                <input type="password" id="sidebarPasswordInput" placeholder="密码" style="width:100%; padding:8px; margin-bottom:10px; box-sizing:border-box; border:1px solid #ddd; border-radius:4px;">
+                <input type="text" id="sidebarRealNameInput" placeholder="真实姓名" style="width:100%; padding:8px; margin-bottom:10px; box-sizing:border-box; border:1px solid #ddd; border-radius:4px;">
+                <input type="text" id="sidebarWorkUnitInput" placeholder="工作单位" style="width:100%; padding:8px; margin-bottom:10px; box-sizing:border-box; border:1px solid #ddd; border-radius:4px;">
+                <input type="text" id="sidebarPhoneInput" placeholder="手机号码" style="width:100%; padding:8px; margin-bottom:10px; box-sizing:border-box; border:1px solid #ddd; border-radius:4px;">
+                <div style="display:flex; gap:10px;">
+                    <button id="sidebarLoginBtn" style="flex:1; padding:10px; background:#1890ff; color:white; border:none; border-radius:4px; cursor:pointer;">登录</button>
+                    <button id="sidebarRegisterBtn" style="flex:1; padding:10px; background:#52c41a; color:white; border:none; border-radius:4px; cursor:pointer;">注册</button>
+                </div>
+                <div id="sidebarAuthMsg" style="color:red; font-size:12px; margin-top:5px; text-align:center;"></div>
+            </div>
+
+            <!-- 3. 上传表单 (登录后显示) -->
+            <div id="sidebarUploadForm" style="display:none; margin-top:20px; border-top:1px solid #eee; padding-top:20px;">
+                <h4 style="margin-top:0;">上传图片</h4>
+                <input type="file" id="sidebarFileInput" multiple accept=".jpg,.jpeg,.png,.tif" style="width:100%; margin-bottom:10px;">
+                <button id="sidebarUploadBtn" style="width:100%; padding:10px; background:#1890ff; color:white; border:none; border-radius:4px; cursor:pointer;">开始上传</button>
+                <div id="sidebarUploadProgress" style="margin-top:10px; font-size:12px; color:#666;"></div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // --- 侧边栏控制逻辑 ---
+        const sidebar = document.getElementById('uploadSidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        const closeSidebarBtn = document.getElementById('closeSidebarBtn');
+
+        function openUploadSidebar() {
+            sidebar.style.right = '0';
+            overlay.style.display = 'block';
+            updateSidebarUI(); // 打开时刷新状态
+        }
+
+        function closeUploadSidebar() {
+            sidebar.style.right = '-400px';
+            overlay.style.display = 'none';
+        }
+
+        closeSidebarBtn.addEventListener('click', closeUploadSidebar);
+        overlay.addEventListener('click', closeUploadSidebar);
+
+        // 暴露给全局，供 map.js 调用
+        window.openUploadSidebar = openUploadSidebar;
+        window.closeUploadSidebar = closeUploadSidebar;
+
+        // --- 简单的 UI 更新逻辑 (后续可完善) ---
+        function updateSidebarUI() {
+            const token = localStorage.getItem('gis_token') || localStorage.getItem('access_token');
+            const authForm = document.getElementById('sidebarAuthForm');
+            const uploadForm = document.getElementById('sidebarUploadForm');
+            const userStatus = document.getElementById('sidebarUserStatus');
+            const usernameSpan = document.getElementById('sidebarUsername');
+
+            if (token) {
+                // 已登录
+                authForm.style.display = 'none';
+                uploadForm.style.display = 'block';
+                userStatus.style.display = 'block';
+                
+                // 从 localStorage 中获取用户名
+                const username = localStorage.getItem('username');
+                usernameSpan.innerText = username || 'User';
+            } else {
+                // 未登录
+                authForm.style.display = 'block';
+                uploadForm.style.display = 'none';
+                userStatus.style.display = 'none';
+            }
+        }
+         // --- 整合后的认证与上传逻辑 ---
+        // 动态设置API_BASE_URL
+        const API_BASE_URL = window.location.origin.includes('localhost') ? 'http://localhost:8082' : 'https://lzy-fastapi.onrender.com'; // 替换为实际的render后端URL
+
+        // 1. 登录
+        document.getElementById('sidebarLoginBtn').addEventListener('click', async () => {
+            const username = document.getElementById('sidebarUsernameInput').value;
+            const password = document.getElementById('sidebarPasswordInput').value;
+            const msgEl = document.getElementById('sidebarAuthMsg');
+            
+            if (!username || !password) { msgEl.innerText = '请输入用户名和密码'; return; }
+            
+            try {
+                // 登录接口使用 JSON 格式
+                const res = await fetch(`${API_BASE_URL}/api/login/json`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    localStorage.setItem('gis_token', data.access_token || 'user_token'); // 设置默认值
+                    localStorage.setItem('access_token', data.access_token || 'user_token'); // 同时保存为 access_token，设置默认值
+                    localStorage.setItem('username', username); // 保存用户名
+                    msgEl.innerText = '';
+                    msgEl.style.color = 'green';
+                    msgEl.innerText = '登录成功';
+                    updateSidebarUI();
+                    // 可选：登录成功后刷新地图图层
+                    if (typeof window.loadRemoteLayers === 'function') window.loadRemoteLayers();
+                } else {
+                    msgEl.style.color = 'red';
+                    msgEl.innerText = data.detail || '登录失败';
+                }
+            } catch (e) {
+                console.error('登录错误:', e);
+                msgEl.style.color = 'red';
+                msgEl.innerText = '网络错误: ' + e.message;
+            }
+        });
+
+        // 2. 注册 (逻辑类似登录，接口改为 /api/register)
+        document.getElementById('sidebarRegisterBtn').addEventListener('click', async () => {
+            const username = document.getElementById('sidebarUsernameInput').value;
+            const password = document.getElementById('sidebarPasswordInput').value;
+            const realName = document.getElementById('sidebarRealNameInput').value;
+            const workUnit = document.getElementById('sidebarWorkUnitInput').value;
+            const phone = document.getElementById('sidebarPhoneInput').value;
+            const msgEl = document.getElementById('sidebarAuthMsg');
+            
+            if (!username || !password || !realName || !workUnit || !phone) { msgEl.innerText = '请填写所有字段'; return; }
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        username, 
+                        password, 
+                        real_name: realName, 
+                        work_unit: workUnit, 
+                        phone 
+                    })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    msgEl.style.color = 'green';
+                    msgEl.innerText = '注册成功，等待管理员审核';
+                } else {
+                    msgEl.style.color = 'red';
+                    msgEl.innerText = data.detail || '注册失败';
+                }
+            } catch (e) {
+                console.error('注册错误:', e);
+                msgEl.style.color = 'red';
+                msgEl.innerText = '网络错误: ' + e.message;
+            }
+        });
+
+        // 3. 退出登录
+        document.getElementById('sidebarLogoutBtn').addEventListener('click', () => {
+            localStorage.removeItem('gis_token');
+            localStorage.removeItem('access_token');
+            updateSidebarUI();
+            alert('已退出登录');
+        });
+
+        // 4. 上传文件
+        document.getElementById('sidebarUploadBtn').addEventListener('click', async () => {
+            const fileInput = document.getElementById('sidebarFileInput');
+            const progressEl = document.getElementById('sidebarUploadProgress');
+            const token = localStorage.getItem('gis_token') || localStorage.getItem('access_token');
+            const username = localStorage.getItem('username');
+            
+            if (!fileInput.files.length) { progressEl.innerText = '请选择文件'; return; }
+            if (!token) { progressEl.innerText = '请先登录'; return; }
+            if (!username) { progressEl.innerText = '用户信息缺失'; return; }
+
+            const formData = new FormData();
+            for (let file of fileInput.files) formData.append('files', file);
+            formData.append('username', username); // 添加用户名参数
+
+            progressEl.innerText = '上传中...';
+            
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/upload`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    body: formData
+                });
+                const result = await res.json();
+                if (res.ok) {
+                    progressEl.innerText = `上传完成! 处理了 ${result.processed} 个文件`;
+                    progressEl.style.color = 'green';
+                    fileInput.value = ''; // 清空
+                    // 上传成功后刷新图层
+                    if (typeof window.loadRemoteLayers === 'function') window.loadRemoteLayers();
+                    // 重新加载 uploadpic.json
+                    if (typeof loadUploadpicData === 'function') loadUploadpicData();
+                } else {
+                    console.error('上传失败:', result);
+                    progressEl.innerText = '上传失败: ' + (result.detail || 'Unknown');
+                    progressEl.style.color = 'red';
+                }
+            } catch (e) {
+                console.error('上传错误:', e);
+                progressEl.innerText = '上传出错: ' + e.message;
+                progressEl.style.color = 'red';
+            }
+        });
+    </script>
 
     <script src="https://cdn.jsdelivr.net/npm/ol@v7.5.2/dist/ol.js"></script>
     <!-- 配置变量（全局） -->
