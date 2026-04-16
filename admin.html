@@ -265,6 +265,22 @@
             <button class="btn btn-primary" onclick="createAdminAccount()">创建管理员账号</button>
         </div>
         
+        <!-- 管理员登录表单 -->
+        <div id="loginForm" style="display: none; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 5px; background: #f9f9f9;">
+            <h2>管理员登录</h2>
+            <p>请输入管理员账号和密码</p>
+            <div class="form-group">
+                <label for="loginUsername">用户名</label>
+                <input type="text" id="loginUsername" required>
+            </div>
+            <div class="form-group">
+                <label for="loginPassword">密码</label>
+                <input type="password" id="loginPassword" required>
+            </div>
+            <div id="loginMsg" style="margin-bottom: 10px; text-align: center;"></div>
+            <button class="btn btn-primary" onclick="login()">登录</button>
+        </div>
+        
         <!-- 导航标签 -->
         <div id="navTabs" class="nav-tabs">
             <div class="nav-tab active" onclick="switchTab('users-tab', event)">用户管理</div>
@@ -903,6 +919,72 @@
             }
         }
         
+        // 显示登录界面
+        function showLoginForm() {
+            document.getElementById('adminSetupForm').style.display = 'none';
+            document.getElementById('loginForm').style.display = 'block';
+            document.getElementById('navTabs').style.display = 'none';
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.style.display = 'none';
+            });
+        }
+        
+        // 显示管理界面
+        function showAdminPanel() {
+            document.getElementById('adminSetupForm').style.display = 'none';
+            document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('navTabs').style.display = 'flex';
+            document.getElementById('users-tab').style.display = 'block';
+        }
+        
+        // 登录功能
+        async function login() {
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+            const loginMsg = document.getElementById('loginMsg');
+            
+            if (!username || !password) {
+                loginMsg.innerText = '请输入用户名和密码';
+                loginMsg.style.color = 'red';
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/login/json`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        password: password
+                    })
+                });
+                
+                const data = await response.json();
+                if (response.ok) {
+                    localStorage.setItem('access_token', 'admin_token');
+                    localStorage.setItem('username', username);
+                    loginMsg.innerText = '登录成功';
+                    loginMsg.style.color = 'green';
+                    
+                    // 显示管理界面
+                    setTimeout(() => {
+                        showUserInfo(username);
+                        showAdminPanel();
+                        loadUsers();
+                    }, 1000);
+                } else {
+                    loginMsg.innerText = data.detail || '登录失败';
+                    loginMsg.style.color = 'red';
+                }
+            } catch (error) {
+                console.error('登录错误:', error);
+                loginMsg.innerText = '网络错误: ' + error.message;
+                loginMsg.style.color = 'red';
+            }
+        }
+        
         // 页面加载时检查登录状态和用户数量
         window.addEventListener('DOMContentLoaded', async () => {
             const hasUsers = await checkUsers();
@@ -910,6 +992,7 @@
             if (!hasUsers) {
                 // 没有用户，显示管理员账号创建表单
                 document.getElementById('adminSetupForm').style.display = 'block';
+                document.getElementById('loginForm').style.display = 'none';
                 document.getElementById('navTabs').style.display = 'none';
                 document.querySelectorAll('.tab-content').forEach(content => {
                     content.style.display = 'none';
@@ -921,11 +1004,12 @@
                 
                 if (token && username) {
                     showUserInfo(username);
+                    showAdminPanel();
                     // 默认加载用户数据
                     loadUsers();
                 } else {
-                    // 未登录，跳转到登录页面
-                    window.location.href = 'AIsea.html';
+                    // 未登录，显示登录界面
+                    showLoginForm();
                 }
             }
         });
