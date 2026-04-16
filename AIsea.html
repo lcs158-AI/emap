@@ -350,9 +350,11 @@
             
             // 添加用户点图层
             if (userData.points && userData.points.length > 0) {
+                // 创建GeoJSON格式实例
+                const geoJsonFormat = new window.ol.format.GeoJSON();
                 // 创建点数据源
                 const pointSource = new window.ol.source.Vector({
-                    features: window.ol.format.GeoJSON().readFeatures(userData.points, {
+                    features: geoJsonFormat.readFeatures(userData.points, {
                         dataProjection: 'EPSG:4326',
                         featureProjection: 'EPSG:3857'
                     })
@@ -419,9 +421,11 @@
             
             // 添加用户视域图层
             if (userData.footprints && userData.footprints.length > 0) {
+                // 创建GeoJSON格式实例
+                const geoJsonFormat = new window.ol.format.GeoJSON();
                 // 创建面数据源
                 const footprintSource = new window.ol.source.Vector({
-                    features: window.ol.format.GeoJSON().readFeatures(userData.footprints, {
+                    features: geoJsonFormat.readFeatures(userData.footprints, {
                         dataProjection: 'EPSG:4326',
                         featureProjection: 'EPSG:3857'
                     })
