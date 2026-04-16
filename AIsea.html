@@ -381,6 +381,11 @@
                     }
                 });
                 
+                // 设置图层属性，用于图层管理和弹出窗口
+                userPointLayer.set('labelField', 'datetime'); // 使用 datetime 作为标签
+                userPointLayer.set('linkField', 'filename'); // 使用 filename 作为链接
+                userPointLayer.set('linkPathPrefix', window.API_BASE_URL + '/PICS/'); // 设置图片路径前缀
+                
                 // 添加图层到地图
                 window.map.addLayer(userPointLayer);
                 
@@ -393,36 +398,8 @@
                     });
                 }
                 
-                // 点击事件 - 使用 map.js 中已有的 popup
-                window.map.on('click', function(evt) {
-                    const feature = window.map.forEachFeatureAtPixel(evt.pixel, function(feature) {
-                        return feature;
-                    });
-                    
-                    if (feature) {
-                        const properties = feature.getProperties();
-                        const popupContent = `
-                            <h3>${properties.filename}</h3>
-                            <p>上传时间: ${properties.upload_time}</p>
-                            <p>拍摄时间: ${properties.datetime}</p>
-                            <p>设备类型: ${properties.device_type}</p>
-                            <img src="${window.API_BASE_URL}/PICS/${properties.filename}" style="max-width: 200px; max-height: 200px;">
-                        `;
-                        
-                        // 使用 map.js 中已有的 popup
-                        if (window.popup) {
-                            window.popup.getElement().innerHTML = popupContent;
-                            window.popup.setPosition(evt.coordinate);
-                            window.popup.getElement().style.display = 'block';
-                        }
-                    } else {
-                        // 隐藏 popup
-                        if (window.popup) {
-                            window.popup.setPosition(undefined);
-                            window.popup.getElement().style.display = 'none';
-                        }
-                    }
-                });
+                // 不需要自定义点击事件，map.js 会自动处理
+                // 已经设置了 labelField 和 linkField 属性，弹出窗口会自动显示正确的信息
             }
             
             // 添加用户视域图层
@@ -458,6 +435,11 @@
                         });
                     }
                 });
+                
+                // 设置图层属性，用于图层管理和弹出窗口
+                userFootprintLayer.set('labelField', 'datetime'); // 使用 datetime 作为标签
+                userFootprintLayer.set('linkField', 'filename'); // 使用 filename 作为链接
+                userFootprintLayer.set('linkPathPrefix', window.API_BASE_URL + '/PICS/'); // 设置图片路径前缀
                 
                 // 添加图层到地图
                 window.map.addLayer(userFootprintLayer);
