@@ -108,7 +108,7 @@
     <!-- ==================== 集成上传/认证侧边栏 ==================== -->
     <div id="sidebarOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.3); z-index:1999;"></div>
     
-    <div id="uploadSidebar" style="position:fixed; top:0; right:-400px; width:400px; height:100%; background:white; box-shadow:-2px 0 10px rgba(0,0,0,0.1); z-index:2000; transition:right 0.3s ease; display:flex; flex-direction:column;">
+    <div id="uploadSidebar" style="position:fixed; top:0; right:-90%; width:80%; max-width:400px; height:100%; background:white; box-shadow:-2px 0 10px rgba(0,0,0,0.1); z-index:2000; transition:right 0.3s ease; display:flex; flex-direction:column;">
         <!-- 侧边栏头部 -->
         <div style="padding:15px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center; background:#f9f9f9;">
             <h3 style="margin:0; font-size:16px;">用户中心 & 上传</h3>
@@ -129,9 +129,12 @@
                 <h4 style="margin-top:0;">登录 / 注册</h4>
                 <input type="text" id="sidebarUsernameInput" placeholder="用户名" style="width:100%; padding:8px; margin-bottom:10px; box-sizing:border-box; border:1px solid #ddd; border-radius:4px;">
                 <input type="password" id="sidebarPasswordInput" placeholder="密码" style="width:100%; padding:8px; margin-bottom:10px; box-sizing:border-box; border:1px solid #ddd; border-radius:4px;">
-                <input type="text" id="sidebarRealNameInput" placeholder="真实姓名" style="width:100%; padding:8px; margin-bottom:10px; box-sizing:border-box; border:1px solid #ddd; border-radius:4px;">
-                <input type="text" id="sidebarWorkUnitInput" placeholder="工作单位" style="width:100%; padding:8px; margin-bottom:10px; box-sizing:border-box; border:1px solid #ddd; border-radius:4px;">
-                <input type="text" id="sidebarPhoneInput" placeholder="手机号码" style="width:100%; padding:8px; margin-bottom:10px; box-sizing:border-box; border:1px solid #ddd; border-radius:4px;">
+                <!-- 注册专用字段 -->
+                <div id="registerFields" style="display: none;">
+                    <input type="text" id="sidebarRealNameInput" placeholder="真实姓名" style="width:100%; padding:8px; margin-bottom:10px; box-sizing:border-box; border:1px solid #ddd; border-radius:4px;">
+                    <input type="text" id="sidebarWorkUnitInput" placeholder="工作单位" style="width:100%; padding:8px; margin-bottom:10px; box-sizing:border-box; border:1px solid #ddd; border-radius:4px;">
+                    <input type="text" id="sidebarPhoneInput" placeholder="手机号码" style="width:100%; padding:8px; margin-bottom:10px; box-sizing:border-box; border:1px solid #ddd; border-radius:4px;">
+                </div>
                 <div style="display:flex; gap:10px;">
                     <button id="sidebarLoginBtn" style="flex:1; padding:10px; background:#1890ff; color:white; border:none; border-radius:4px; cursor:pointer;">登录</button>
                     <button id="sidebarRegisterBtn" style="flex:1; padding:10px; background:#52c41a; color:white; border:none; border-radius:4px; cursor:pointer;">注册</button>
@@ -163,7 +166,7 @@
         }
 
         function closeUploadSidebar() {
-            sidebar.style.right = '-400px';
+            sidebar.style.right = '-90%';
             overlay.style.display = 'none';
         }
 
@@ -249,6 +252,17 @@
 
         // 2. 注册 (逻辑类似登录，接口改为 /api/register)
         document.getElementById('sidebarRegisterBtn').addEventListener('click', async () => {
+            const registerFields = document.getElementById('registerFields');
+            const isRegisterMode = registerFields.style.display === 'block';
+            
+            if (!isRegisterMode) {
+                // 切换到注册模式，显示注册专用字段
+                registerFields.style.display = 'block';
+                document.getElementById('sidebarRegisterBtn').textContent = '提交注册';
+                return;
+            }
+            
+            // 提交注册
             const username = document.getElementById('sidebarUsernameInput').value;
             const password = document.getElementById('sidebarPasswordInput').value;
             const realName = document.getElementById('sidebarRealNameInput').value;
@@ -256,7 +270,16 @@
             const phone = document.getElementById('sidebarPhoneInput').value;
             const msgEl = document.getElementById('sidebarAuthMsg');
             
-            if (!username || !password || !realName || !workUnit || !phone) { msgEl.innerText = '请填写所有字段'; return; }
+            if (!username || !password || !realName || !workUnit || !phone) { 
+                msgEl.innerText = '请填写所有字段'; 
+                return;
+            }
+            
+            // 注册成功后，切换回登录模式
+            function resetRegisterForm() {
+                registerFields.style.display = 'none';
+                document.getElementById('sidebarRegisterBtn').textContent = '注册';
+            }
 
             try {
                 const res = await fetch(`${window.API_BASE_URL}/api/register`, {
@@ -274,6 +297,8 @@
                 if (res.ok) {
                     msgEl.style.color = 'green';
                     msgEl.innerText = '注册成功，等待管理员审核';
+                    // 注册成功后，切换回登录模式
+                    resetRegisterForm();
                 } else {
                     msgEl.style.color = 'red';
                     msgEl.innerText = data.detail || '注册失败';
