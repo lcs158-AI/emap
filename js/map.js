@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ==================== 地图初始化 ====================
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ==================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
@@ -35,6 +35,8 @@ const view = new ol.View({
 
 // 地图
 const map = new ol.Map({ target: 'map', layers: [], view: view });
+// 将地图实例赋值给window对象，以便在其他文件中访问
+window.map = map;
 
 // 按顺序添加图层
 map.addLayer(esriImagery);
