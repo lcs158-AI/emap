@@ -343,22 +343,58 @@
                 return;
             }
             
+            if (!window.map || !window.ol) {
+                console.error('地图或OpenLayers未初始化');
+                return;
+            }
+            
             // 添加用户点图层
             if (userData.points && userData.points.length > 0) {
-                userPointLayer = L.geoJSON(userData.points, {
-                    pointToLayer: function (feature, latlng) {
-                        return L.marker(latlng, {
-                            icon: L.icon({
-                                iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-                                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-                                iconSize: [25, 41],
-                                iconAnchor: [12, 41],
-                                popupAnchor: [1, -34]
+                // 创建点数据源
+                const pointSource = new window.ol.source.Vector({
+                    features: window.ol.format.GeoJSON().readFeatures(userData.points, {
+                        dataProjection: 'EPSG:4326',
+                        featureProjection: 'EPSG:3857'
+                    })
+                });
+                
+                // 创建点图层
+                userPointLayer = new window.ol.layer.Vector({
+                    source: pointSource,
+                    style: function(feature) {
+                        return new window.ol.style.Style({
+                            image: new window.ol.style.Icon({
+                                src: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+                                scale: 0.5,
+                                anchor: [12, 41],
+                                anchorXUnits: 'pixels',
+                                anchorYUnits: 'pixels'
                             })
                         });
-                    },
-                    onEachFeature: function (feature, layer) {
-                        const properties = feature.properties;
+                    }
+                });
+                
+                // 添加图层到地图
+                window.map.addLayer(userPointLayer);
+                
+                // 添加弹窗
+                const popup = new window.ol.Overlay({
+                    element: document.createElement('div'),
+                    autoPan: true,
+                    autoPanAnimation: {
+                        duration: 250
+                    }
+                });
+                window.map.addOverlay(popup);
+                
+                // 点击事件
+                window.map.on('click', function(evt) {
+                    const feature = window.map.forEachFeatureAtPixel(evt.pixel, function(feature) {
+                        return feature;
+                    });
+                    
+                    if (feature) {
+                        const properties = feature.getProperties();
                         const popupContent = `
                             <h3>${properties.filename}</h3>
                             <p>上传时间: ${properties.upload_time}</p>
@@ -366,32 +402,50 @@
                             <p>设备类型: ${properties.device_type}</p>
                             <img src="${window.API_BASE_URL}/PICS/${properties.filename}" style="max-width: 200px; max-height: 200px;">
                         `;
-                        layer.bindPopup(popupContent);
+                        
+                        const element = popup.getElement();
+                        element.innerHTML = popupContent;
+                        element.style.backgroundColor = 'white';
+                        element.style.padding = '10px';
+                        element.style.borderRadius = '5px';
+                        element.style.boxShadow = '0 2px 10px rgba(0,0,0,0.2)';
+                        
+                        popup.setPosition(evt.coordinate);
+                    } else {
+                        popup.setPosition(undefined);
                     }
-                }).addTo(window.map);
+                });
             }
             
             // 添加用户视域图层
             if (userData.footprints && userData.footprints.length > 0) {
-                userFootprintLayer = L.geoJSON(userData.footprints, {
-                    style: function (feature) {
-                        return {
-                            color: '#ff7800',
-                            weight: 2,
-                            opacity: 0.7,
-                            fillOpacity: 0.2
-                        };
-                    },
-                    onEachFeature: function (feature, layer) {
-                        const properties = feature.properties;
-                        const popupContent = `
-                            <h3>${properties.filename}</h3>
-                            <p>上传时间: ${properties.upload_time}</p>
-                            <p>拍摄时间: ${properties.datetime}</p>
-                        `;
-                        layer.bindPopup(popupContent);
+                // 创建面数据源
+                const footprintSource = new window.ol.source.Vector({
+                    features: window.ol.format.GeoJSON().readFeatures(userData.footprints, {
+                        dataProjection: 'EPSG:4326',
+                        featureProjection: 'EPSG:3857'
+                    })
+                });
+                
+                // 创建面图层
+                userFootprintLayer = new window.ol.layer.Vector({
+                    source: footprintSource,
+                    style: function(feature) {
+                        return new window.ol.style.Style({
+                            stroke: new window.ol.style.Stroke({
+                                color: '#ff7800',
+                                width: 2,
+                                opacity: 0.7
+                            }),
+                            fill: new window.ol.style.Fill({
+                                color: 'rgba(255, 120, 0, 0.2)'
+                            })
+                        });
                     }
-                }).addTo(window.map);
+                });
+                
+                // 添加图层到地图
+                window.map.addLayer(userFootprintLayer);
             }
         }
         
