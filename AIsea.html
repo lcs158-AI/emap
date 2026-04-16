@@ -384,17 +384,16 @@
                 // 添加图层到地图
                 window.map.addLayer(userPointLayer);
                 
-                // 添加弹窗
-                const popup = new window.ol.Overlay({
-                    element: document.createElement('div'),
-                    autoPan: true,
-                    autoPanAnimation: {
-                        duration: 250
-                    }
-                });
-                window.map.addOverlay(popup);
+                // 添加到动态图层列表，用于图层管理
+                if (window.dynamicLayers) {
+                    window.dynamicLayers.push({
+                        name: '用户点图层',
+                        layer: userPointLayer,
+                        visible: true
+                    });
+                }
                 
-                // 点击事件
+                // 点击事件 - 使用 map.js 中已有的 popup
                 window.map.on('click', function(evt) {
                     const feature = window.map.forEachFeatureAtPixel(evt.pixel, function(feature) {
                         return feature;
@@ -410,16 +409,18 @@
                             <img src="${window.API_BASE_URL}/PICS/${properties.filename}" style="max-width: 200px; max-height: 200px;">
                         `;
                         
-                        const element = popup.getElement();
-                        element.innerHTML = popupContent;
-                        element.style.backgroundColor = 'white';
-                        element.style.padding = '10px';
-                        element.style.borderRadius = '5px';
-                        element.style.boxShadow = '0 2px 10px rgba(0,0,0,0.2)';
-                        
-                        popup.setPosition(evt.coordinate);
+                        // 使用 map.js 中已有的 popup
+                        if (window.popup) {
+                            window.popup.getElement().innerHTML = popupContent;
+                            window.popup.setPosition(evt.coordinate);
+                            window.popup.getElement().style.display = 'block';
+                        }
                     } else {
-                        popup.setPosition(undefined);
+                        // 隐藏 popup
+                        if (window.popup) {
+                            window.popup.setPosition(undefined);
+                            window.popup.getElement().style.display = 'none';
+                        }
                     }
                 });
             }
@@ -460,6 +461,15 @@
                 
                 // 添加图层到地图
                 window.map.addLayer(userFootprintLayer);
+                
+                // 添加到动态图层列表，用于图层管理
+                if (window.dynamicLayers) {
+                    window.dynamicLayers.push({
+                        name: '用户视域图层',
+                        layer: userFootprintLayer,
+                        visible: true
+                    });
+                }
             }
         }
         
