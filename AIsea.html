@@ -427,8 +427,11 @@
                     // 定位到最新上传数据的中心位置
                     if (result.latest_center) {
                         const { lat, lon, zoom } = result.latest_center;
-                        if (window.map) {
-                            window.map.setView([lat, lon], zoom);
+                        if (window.map && window.ol) {
+                            // 使用OpenLayers的正确方法设置视图
+                            const center = window.ol.proj.fromLonLat([lon, lat]);
+                            window.map.getView().setCenter(center);
+                            window.map.getView().setZoom(zoom);
                         }
                     }
                     
