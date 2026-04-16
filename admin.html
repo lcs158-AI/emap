@@ -916,7 +916,7 @@
                 });
             } else {
                 // 有用户，检查登录状态
-                const token = localStorage.getItem('access_token');
+                const token = localStorage.getItem('access_token') || localStorage.getItem('gis_token');
                 const username = localStorage.getItem('username');
                 
                 if (token && username) {
