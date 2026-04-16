@@ -197,10 +197,10 @@
                 uploadForm.style.display = 'none';
                 userStatus.style.display = 'none';
             }
-        }
+        }        
          // --- 整合后的认证与上传逻辑 ---
         // 动态设置API_BASE_URL
-        const API_BASE_URL = window.location.origin.includes('localhost') ? 'http://localhost:8082' : 'https://lzy-fastapi.onrender.com'; // 替换为实际的render后端URL
+        window.API_BASE_URL = window.location.origin.includes('localhost') ? 'http://localhost:8082' : 'https://lzy-fastapi.onrender.com'; // 替换为实际的render后端URL
 
         // 1. 登录
         document.getElementById('sidebarLoginBtn').addEventListener('click', async () => {
@@ -212,7 +212,7 @@
             
             try {
                 // 登录接口使用 JSON 格式
-                const res = await fetch(`${API_BASE_URL}/api/login/json`, {
+                const res = await fetch(`${window.API_BASE_URL}/api/login/json`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username, password })
@@ -251,7 +251,7 @@
             if (!username || !password || !realName || !workUnit || !phone) { msgEl.innerText = '请填写所有字段'; return; }
 
             try {
-                const res = await fetch(`${API_BASE_URL}/api/register`, {
+                const res = await fetch(`${window.API_BASE_URL}/api/register`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
@@ -331,7 +331,7 @@
                             <p>上传时间: ${properties.upload_time}</p>
                             <p>拍摄时间: ${properties.datetime}</p>
                             <p>设备类型: ${properties.device_type}</p>
-                            <img src="${API_BASE_URL}/PICS/${properties.filename}" style="max-width: 200px; max-height: 200px;">
+                            <img src="${window.API_BASE_URL}/PICS/${properties.filename}" style="max-width: 200px; max-height: 200px;">
                         `;
                         layer.bindPopup(popupContent);
                     }
@@ -380,7 +380,7 @@
             progressEl.innerText = '上传中...';
             
             try {
-                const res = await fetch(`${API_BASE_URL}/api/upload`, {
+                const res = await fetch(`${window.API_BASE_URL}/api/upload`, {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${token}` },
                     body: formData
