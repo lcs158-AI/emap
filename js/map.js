@@ -1,9 +1,11 @@
-﻿﻿﻿﻿﻿﻿// ==================== 地图初始化 ====================
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ==================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
 // 存储动态加载的图层（用于图层管理）
 let dynamicLayers = [];
+// 动态设置API_BASE_URL
+const API_BASE_URL = window.location.origin.includes('localhost') ? 'http://localhost:8082' : 'https://lzy-fastapi.onrender.com';
 // 天地图图层
 const vecLayer = new ol.layer.Tile({
     source: new ol.source.XYZ({
@@ -94,7 +96,7 @@ function loadUploadpicData() {
     console.log("重新加载 uploadpic.json");
     uploadpicLoaded = false;
     
-    const uploadpicUrl = 'http://localhost:8082/DATA/uploadpic.json';
+    const uploadpicUrl = `${API_BASE_URL}/DATA/uploadpic.json`;
     console.log("从 DATA 目录加载 uploadpic.json:", uploadpicUrl);
     
     fetch(uploadpicUrl)
@@ -113,7 +115,7 @@ function loadUploadpicData() {
 
 // 从 uploadpic.json 加载图层
 function loadLayersFromUploadpicConfig(config) {
-    const basePath = 'http://localhost:8082/DATA/';
+    const basePath = `${API_BASE_URL}/DATA/`;
     const layers = config.layers || [];
     const token = localStorage.getItem('access_token') || localStorage.getItem('token');
     let username = 'unknown';
@@ -176,7 +178,7 @@ function loadLayersFromUploadpicConfig(config) {
                         f.set('layer', {
                             labelField: layerConfig.label_field || '',
                             linkField: layerConfig.link_field || '',
-                            linkPathPrefix: 'http://localhost:8082/PICS/'
+                            linkPathPrefix: `${API_BASE_URL}/PICS/`
                         });
                     });
                     
@@ -286,7 +288,7 @@ function loadLayersFromUploadpicConfig(config) {
                         visible: true,
                         labelField: layerConfig.label_field || 'datetime',
                         linkField: layerConfig.link_field || 'filename',
-                        linkPathPrefix: 'http://localhost:8082/PICS/',
+                        linkPathPrefix: `${API_BASE_URL}/PICS/`,
                         style: layerConfig.style || {}
                     });
                     
