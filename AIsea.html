@@ -353,8 +353,13 @@
                 // 创建GeoJSON格式实例
                 const geoJsonFormat = new window.ol.format.GeoJSON();
                 // 创建点数据源
+                // 将Feature数组转换为FeatureCollection格式
+                const pointsGeoJSON = {
+                    type: 'FeatureCollection',
+                    features: userData.points
+                };
                 const pointSource = new window.ol.source.Vector({
-                    features: geoJsonFormat.readFeatures(userData.points, {
+                    features: geoJsonFormat.readFeatures(pointsGeoJSON, {
                         dataProjection: 'EPSG:4326',
                         featureProjection: 'EPSG:3857'
                     })
@@ -424,8 +429,13 @@
                 // 创建GeoJSON格式实例
                 const geoJsonFormat = new window.ol.format.GeoJSON();
                 // 创建面数据源
+                // 将Feature数组转换为FeatureCollection格式
+                const footprintsGeoJSON = {
+                    type: 'FeatureCollection',
+                    features: userData.footprints
+                };
                 const footprintSource = new window.ol.source.Vector({
-                    features: geoJsonFormat.readFeatures(userData.footprints, {
+                    features: geoJsonFormat.readFeatures(footprintsGeoJSON, {
                         dataProjection: 'EPSG:4326',
                         featureProjection: 'EPSG:3857'
                     })
