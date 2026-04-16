@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ==================== 地图初始化 ====================
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ==================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
@@ -64,9 +64,9 @@ function bringCvaLayerToTop() {
     }
 }
 
-// ==================== 从 uploadpic.json 加载用户数据 ====================
-// 标记是否已加载 uploadpic.json
-let uploadpicLoaded = false;
+// ==================== 从后端API加载用户数据 ====================
+// 标记是否已加载用户数据
+let userDataLoaded = false;
 
 // 从 URL 参数中获取用户名
 function getUsernameFromUrl() {
@@ -74,263 +74,23 @@ function getUsernameFromUrl() {
     return urlParams.get('user');
 }
 
-// 检查用户登录状态并加载 uploadpic.json
-function checkLoginAndLoadUploadpic() {
+// 检查用户登录状态
+function checkLoginStatus() {
     const token = localStorage.getItem('access_token');
     const username = localStorage.getItem('username');
     const urlUsername = getUsernameFromUrl();
     
     if (urlUsername || token || username) {
-        console.log("用户已登录，加载 uploadpic.json");
-        loadUploadpicData();
+        console.log("用户已登录");
     } else {
-        console.log("用户未登录，跳过 uploadpic.json 加载");
+        console.log("用户未登录");
     }
-}
-
-// 加载 uploadpic.json 数据
-function loadUploadpicData() {
-    // 每次调用都重新加载，确保获取最新数据
-    console.log("重新加载 uploadpic.json");
-    uploadpicLoaded = false;
-    
-    const uploadpicUrl = `${window.API_BASE_URL}/DATA/uploadpic.json`;
-    console.log("从 DATA 目录加载 uploadpic.json:", uploadpicUrl);
-    
-    fetch(uploadpicUrl)
-        .then(response => {
-            if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            return response.json();
-        })
-        .then(config => {
-            console.log("成功从 DATA 目录加载 uploadpic.json");
-            loadLayersFromUploadpicConfig(config);
-        })
-        .catch(error => {
-            console.error("从 DATA 目录加载 uploadpic.json 失败:", error);
-        });
-}
-
-// 从 uploadpic.json 加载图层
-function loadLayersFromUploadpicConfig(config) {
-    const basePath = `${window.API_BASE_URL}/DATA/`;
-    const layers = config.layers || [];
-    const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-    let username = 'unknown';
-    
-    const urlUsername = getUsernameFromUrl();
-    if (urlUsername) {
-        username = urlUsername;
-    } else if (token) {
-        try {
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            username = payload.sub || 'unknown';
-        } catch (e) {
-            const storedUsername = localStorage.getItem('username');
-            if (storedUsername) username = storedUsername;
-        }
-    } else {
-        const storedUsername = localStorage.getItem('username');
-        if (storedUsername) username = storedUsername;
-    }
-    
-    console.log("当前登录用户:", username);
-    
-    layers.forEach(layer => {
-        if (layer.geojson_path) {
-            let geoJsonUrl = layer.geojson_path.startsWith('http') ? layer.geojson_path : basePath + layer.geojson_path;
-            const timestamp = new Date().getTime();
-            const cacheBustingUrl = `${geoJsonUrl}?t=${timestamp}`;
-            
-            fetch(cacheBustingUrl)
-                .then(response => {
-                    if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                    return response.json();
-                })
-                .then(geoJson => {
-                    const filteredFeatures = geoJson.features.filter(feature => {
-                        if (feature.properties && feature.properties.uploader) {
-                            return feature.properties.uploader === username;
-                        }
-                        return true;
-                    });
-                    
-                    const filteredGeoJson = { ...geoJson, features: filteredFeatures };
-                    
-                    // 创建图层配置
-                    const layerConfig = {
-                        name: layer.name,
-                        geojson_path: null, // 已经加载了数据
-                        label_field: layer.label_field || 'datetime',
-                        link_field: layer.link_field || 'filename',
-                        style: layer.style || {}
-                    };
-                    
-                    // 使用 loadLayersFromConfig 的内部逻辑
-                    const features = new ol.format.GeoJSON().readFeatures(filteredGeoJson, {
-                        dataProjection: 'EPSG:4326',
-                        featureProjection: 'EPSG:3857'
-                    });
-                    
-                    features.forEach(f => {
-                        f.set('layer', {
-                            labelField: layerConfig.label_field || '',
-                            linkField: layerConfig.link_field || '',
-                            linkPathPrefix: `${window.API_BASE_URL}/PICS/`
-                        });
-                    });
-                    
-                    const source = new ol.source.Vector({ features });
-                    
-                    // 直接创建样式函数，使用图层管理中设置的样式
-                    const style = function(feature) {
-                        const geometryType = feature.getGeometry().getType();
-                        const styles = [];
-                        
-                        if (geometryType === 'Point') {
-                            // 使用配置的样式，或者默认样式
-                            const pointColor = layerConfig.style?.pointColor || '#1890ff';
-                            const pointSize = layerConfig.style?.pointSize || 6;
-                            const pointType = layerConfig.style?.pointType || 'circle';
-                            
-                            // 根据点类型创建不同的样式
-                            let pointStyle;
-                            switch (pointType) {
-                                case 'circle':
-                                    pointStyle = new ol.style.Style({
-                                        image: new ol.style.Circle({
-                                            radius: pointSize,
-                                            fill: new ol.style.Fill({ color: pointColor }),
-                                            stroke: new ol.style.Stroke({ color: '#ffffff', width: 2 })
-                                        })
-                                    });
-                                    break;
-                                case 'square':
-                                    pointStyle = new ol.style.Style({
-                                        image: new ol.style.RegularShape({
-                                            points: 4,
-                                            radius: pointSize,
-                                            angle: Math.PI / 4,
-                                            fill: new ol.style.Fill({ color: pointColor }),
-                                            stroke: new ol.style.Stroke({ color: '#ffffff', width: 2 })
-                                        })
-                                    });
-                                    break;
-                                case 'triangle':
-                                    pointStyle = new ol.style.Style({
-                                        image: new ol.style.RegularShape({
-                                            points: 3,
-                                            radius: pointSize,
-                                            angle: 0,
-                                            fill: new ol.style.Fill({ color: pointColor }),
-                                            stroke: new ol.style.Stroke({ color: '#ffffff', width: 2 })
-                                        })
-                                    });
-                                    break;
-                                case 'star':
-                                    pointStyle = new ol.style.Style({
-                                        image: new ol.style.RegularShape({
-                                            points: 5,
-                                            radius: pointSize,
-                                            radius2: pointSize / 2,
-                                            angle: 0,
-                                            fill: new ol.style.Fill({ color: pointColor }),
-                                            stroke: new ol.style.Stroke({ color: '#ffffff', width: 2 })
-                                        })
-                                    });
-                                    break;
-                                default:
-                                    pointStyle = new ol.style.Style({
-                                        image: new ol.style.Circle({
-                                            radius: pointSize,
-                                            fill: new ol.style.Fill({ color: pointColor }),
-                                            stroke: new ol.style.Stroke({ color: '#ffffff', width: 2 })
-                                        })
-                                    });
-                            }
-                            styles.push(pointStyle);
-                        } else if (geometryType === 'Polygon') {
-                            // 面样式
-                            const fillColor = layerConfig.style?.fillColor || 'rgba(0, 128, 255, 0.3)';
-                            const strokeColor = layerConfig.style?.strokeColor || '#0066cc';
-                            const strokeWidth = layerConfig.style?.strokeWidth || 2;
-                            
-                            styles.push(new ol.style.Style({
-                                fill: new ol.style.Fill({ color: fillColor }),
-                                stroke: new ol.style.Stroke({ color: strokeColor, width: strokeWidth })
-                            }));
-                        }
-                        
-                        if (styles.length === 0) {
-                            styles.push(new ol.style.Style());
-                        }
-                        
-                        return styles;
-                    };
-                    
-                    const vectorLayer = new ol.layer.Vector({
-                        source: source,
-                        style: style,
-                        visible: true,
-                        properties: {
-                            labelField: layerConfig.label_field || '',
-                            linkField: layerConfig.link_field || ''
-                        },
-                        name: layerConfig.name
-                    });
-                    
-                    map.addLayer(vectorLayer);
-                    dynamicLayers.push({
-                        layer: vectorLayer,
-                        name: layerConfig.name,
-                        visible: true,
-                        labelField: layerConfig.label_field || 'datetime',
-                        linkField: layerConfig.link_field || 'filename',
-                        linkPathPrefix: `${window.API_BASE_URL}/PICS/`,
-                        style: layerConfig.style || {}
-                    });
-                    
-                    createLayerControl();
-                    console.log(`图层 ${layer.name} 已加载，要素数量：${filteredFeatures.length}`);
-                    
-                    // 如果是 photo_points 图层，定位到最新上传的照片
-                    if (layer.name === 'photo_points' && filteredFeatures.length > 0) {
-                        // 按上传时间排序，找到最新的照片
-                        const sortedFeatures = [...filteredFeatures].sort((a, b) => {
-                            const timeA = a.properties?.upload_time || '';
-                            const timeB = b.properties?.upload_time || '';
-                            return timeB.localeCompare(timeA); // 降序排列
-                        });
-                        
-                        // 获取最新的照片
-                        const latestFeature = sortedFeatures[0];
-                        if (latestFeature) {
-                            const geometry = latestFeature.getGeometry();
-                            if (geometry) {
-                                const coords = geometry.getCoordinates();
-                                const lonLat = ol.proj.toLonLat(coords);
-                                console.log(`定位到最新上传的照片：${lonLat[0]}, ${lonLat[1]}`);
-                                // 定位到最新照片的位置
-                                map.getView().animate({
-                                    center: coords,
-                                    zoom: 15,
-                                    duration: 1000
-                                });
-                            }
-                        }
-                    }
-                })
-                .catch(error => {
-                    console.error(`加载 ${layer.name} 失败:`, error);
-                });
-        }
-    });
 }
 
 // 页面加载时立即检查登录状态
 window.addEventListener('load', function() {
     console.log("页面加载完成，检查登录状态");
-    checkLoginAndLoadUploadpic();
+    checkLoginStatus();
     
     // 检查是否有上传标记
     const urlParams = new URLSearchParams(window.location.search);
