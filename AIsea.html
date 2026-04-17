@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes">
-    <title>跬步地图2.831</title>
+    <title>跬步地图2.832</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.5.2/ol.css">
     <script src="/js/chart.umd.min.js"></script>
     <link rel="stylesheet" href="css/map.css">
@@ -479,8 +479,9 @@
                     body: formData
                 });
                 const result = await res.json();
+                console.log('上传结果:', result);
                 if (res.ok) {
-                    progressEl.innerText = `上传完成! 处理了 ${result.processed} 个文件`;
+                    progressEl.innerText = `上传完成! 成功: ${result.success}, 失败: ${result.failed}, 重复: ${result.duplicate}`;
                     progressEl.style.color = 'green';
                     fileInput.value = ''; // 清空
                     
@@ -493,11 +494,16 @@
                             window.map.getView().setCenter(center);
                             window.map.getView().setZoom(zoom);
                         }
+                    } else {
+                        console.log('没有最新中心位置信息');
                     }
                     
                     // 加载用户数据到地图
                     if (result.user_data) {
+                        console.log('用户数据:', result.user_data);
                         loadUserDataToMap(result.user_data);
+                    } else {
+                        console.log('没有用户数据');
                     }
                     
                     // 上传成功后刷新图层
