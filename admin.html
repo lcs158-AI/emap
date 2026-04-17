@@ -485,23 +485,62 @@
                 
                 users.forEach(user => {
                     const row = document.createElement('tr');
-                    row.innerHTML = `
-                        <td>${user.username}</td>
-                        <td>${user.real_name || '-'}</td>
-                        <td>${user.work_unit || '-'}</td>
-                        <td>${user.phone || '-'}</td>
-                        <td>${user.status || 'pending'}</td>
-                        <td>
-                            <button class="btn btn-primary" onclick="editUser(\"${user.username}\")">编辑</button>
-                            <button class="btn btn-danger" onclick="deleteUser(\"${user.username}\")">删除</button>
-                            ${user.status === 'pending' ? 
-                                '<button class="btn btn-success" onclick="activateUser(\"${user.username}\")">激活</button>' : 
-                                user.status === 'active' ? 
-                                '<button class="btn btn-warning" onclick="deactivateUser(\"${user.username}\")">禁用</button>' : 
-                                '<button class="btn btn-success" onclick="activateUser(\"${user.username}\")">激活</button>'
-                            }
-                        </td>
-                    `;
+                    
+                    const usernameCell = document.createElement('td');
+                    usernameCell.textContent = user.username;
+                    row.appendChild(usernameCell);
+                    
+                    const realNameCell = document.createElement('td');
+                    realNameCell.textContent = user.real_name || '-';
+                    row.appendChild(realNameCell);
+                    
+                    const workUnitCell = document.createElement('td');
+                    workUnitCell.textContent = user.work_unit || '-';
+                    row.appendChild(workUnitCell);
+                    
+                    const phoneCell = document.createElement('td');
+                    phoneCell.textContent = user.phone || '-';
+                    row.appendChild(phoneCell);
+                    
+                    const statusCell = document.createElement('td');
+                    statusCell.textContent = user.status || 'pending';
+                    row.appendChild(statusCell);
+                    
+                    const actionCell = document.createElement('td');
+                    
+                    const editButton = document.createElement('button');
+                    editButton.className = 'btn btn-primary';
+                    editButton.textContent = '编辑';
+                    editButton.addEventListener('click', () => editUser(user.username));
+                    actionCell.appendChild(editButton);
+                    
+                    const deleteButton = document.createElement('button');
+                    deleteButton.className = 'btn btn-danger';
+                    deleteButton.textContent = '删除';
+                    deleteButton.addEventListener('click', () => deleteUser(user.username));
+                    actionCell.appendChild(deleteButton);
+                    
+                    if (user.status === 'pending') {
+                        const activateButton = document.createElement('button');
+                        activateButton.className = 'btn btn-success';
+                        activateButton.textContent = '激活';
+                        activateButton.addEventListener('click', () => activateUser(user.username));
+                        actionCell.appendChild(activateButton);
+                    } else if (user.status === 'active') {
+                        const deactivateButton = document.createElement('button');
+                        deactivateButton.className = 'btn btn-warning';
+                        deactivateButton.textContent = '禁用';
+                        deactivateButton.addEventListener('click', () => deactivateUser(user.username));
+                        actionCell.appendChild(deactivateButton);
+                    } else {
+                        const activateButton = document.createElement('button');
+                        activateButton.className = 'btn btn-success';
+                        activateButton.textContent = '激活';
+                        activateButton.addEventListener('click', () => activateUser(user.username));
+                        actionCell.appendChild(activateButton);
+                    }
+                    
+                    row.appendChild(actionCell);
                     tableBody.appendChild(row);
                 });
             } catch (error) {
@@ -527,21 +566,53 @@
                     const properties = feature.properties || {};
                     const geometry = feature.geometry || {};
                     const coordinates = geometry.coordinates || [0, 0];
+                    const filename = properties.filename || '';
                     
                     const row = document.createElement('tr');
-                    row.innerHTML = `
-                        <td>${properties.filename || '-'}</td>
-                        <td>${properties.uploader || '-'}</td>
-                        <td>${properties.upload_time || '-'}</td>
-                        <td>${properties.datetime || '-'}</td>
-                        <td>${coordinates[1] || 0}</td>
-                        <td>${coordinates[0] || 0}</td>
-                        <td>${properties.device_type || '-'}</td>
-                        <td>
-                            <button class="btn btn-primary" onclick="editPhoto(\"${properties.filename}\")">编辑</button>
-                            <button class="btn btn-danger" onclick="deletePhoto(\"${properties.filename}\")">删除</button>
-                        </td>
-                    `;
+                    
+                    const filenameCell = document.createElement('td');
+                    filenameCell.textContent = filename || '-';
+                    row.appendChild(filenameCell);
+                    
+                    const uploaderCell = document.createElement('td');
+                    uploaderCell.textContent = properties.uploader || '-';
+                    row.appendChild(uploaderCell);
+                    
+                    const uploadTimeCell = document.createElement('td');
+                    uploadTimeCell.textContent = properties.upload_time || '-';
+                    row.appendChild(uploadTimeCell);
+                    
+                    const datetimeCell = document.createElement('td');
+                    datetimeCell.textContent = properties.datetime || '-';
+                    row.appendChild(datetimeCell);
+                    
+                    const latCell = document.createElement('td');
+                    latCell.textContent = coordinates[1] || 0;
+                    row.appendChild(latCell);
+                    
+                    const lonCell = document.createElement('td');
+                    lonCell.textContent = coordinates[0] || 0;
+                    row.appendChild(lonCell);
+                    
+                    const deviceTypeCell = document.createElement('td');
+                    deviceTypeCell.textContent = properties.device_type || '-';
+                    row.appendChild(deviceTypeCell);
+                    
+                    const actionCell = document.createElement('td');
+                    
+                    const editButton = document.createElement('button');
+                    editButton.className = 'btn btn-primary';
+                    editButton.textContent = '编辑';
+                    editButton.addEventListener('click', () => editPhoto(filename));
+                    actionCell.appendChild(editButton);
+                    
+                    const deleteButton = document.createElement('button');
+                    deleteButton.className = 'btn btn-danger';
+                    deleteButton.textContent = '删除';
+                    deleteButton.addEventListener('click', () => deletePhoto(filename));
+                    actionCell.appendChild(deleteButton);
+                    
+                    row.appendChild(actionCell);
                     tableBody.appendChild(row);
                 });
             } catch (error) {
@@ -553,29 +624,52 @@
         // 加载无人机视域数据
         async function loadFootprints() {
             try {
-                const response = await fetch(`${API_BASE_URL}/api/drone-footprints`);
+                const response = await fetch(`${API_BASE_URL}/api/photos`);
                 if (!response.ok) {
-                    throw new Error('Failed to load footprints');
+                    throw new Error('Failed to load photos');
                 }
                 const data = await response.json();
                 const features = data.features || [];
                 
+                // 过滤出有视域数据的照片
+                const footprintFeatures = features.filter(feature => {
+                    const properties = feature.properties || {};
+                    return properties.footprints && properties.footprints !== '';
+                });
+                
                 const tableBody = document.querySelector('#footprints-table tbody');
                 tableBody.innerHTML = '';
                 
-                features.forEach(feature => {
+                footprintFeatures.forEach(feature => {
                     const properties = feature.properties || {};
+                    const filename = properties.filename || '';
                     
                     const row = document.createElement('tr');
-                    row.innerHTML = `
-                        <td>${properties.filename || '-'}</td>
-                        <td>${properties.uploader || '-'}</td>
-                        <td>${properties.upload_time || '-'}</td>
-                        <td>${properties.datetime || '-'}</td>
-                        <td>
-                            <button class="btn btn-danger" onclick="deleteFootprint(\"${properties.filename}\")">删除</button>
-                        </td>
-                    `;
+                    
+                    const filenameCell = document.createElement('td');
+                    filenameCell.textContent = filename || '-';
+                    row.appendChild(filenameCell);
+                    
+                    const uploaderCell = document.createElement('td');
+                    uploaderCell.textContent = properties.uploader || '-';
+                    row.appendChild(uploaderCell);
+                    
+                    const uploadTimeCell = document.createElement('td');
+                    uploadTimeCell.textContent = properties.upload_time || '-';
+                    row.appendChild(uploadTimeCell);
+                    
+                    const datetimeCell = document.createElement('td');
+                    datetimeCell.textContent = properties.datetime || '-';
+                    row.appendChild(datetimeCell);
+                    
+                    const actionCell = document.createElement('td');
+                    const deleteButton = document.createElement('button');
+                    deleteButton.className = 'btn btn-danger';
+                    deleteButton.textContent = '删除';
+                    deleteButton.addEventListener('click', () => deleteFootprint(filename));
+                    actionCell.appendChild(deleteButton);
+                    row.appendChild(actionCell);
+                    
                     tableBody.appendChild(row);
                 });
             } catch (error) {
@@ -793,8 +887,14 @@
             }
             
             try {
-                const response = await fetch(`${API_BASE_URL}/api/drone-footprints/${filename}`, {
-                    method: 'DELETE'
+                const response = await fetch(`${API_BASE_URL}/api/photos/${filename}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        footprints: null
+                    })
                 });
                 
                 if (!response.ok) {
