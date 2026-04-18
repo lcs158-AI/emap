@@ -265,8 +265,12 @@
                     loadUserDataToMap(userData);
                     
                     // 刷新图层管理界面
-                    if (typeof window.updateLayerControl === 'function') {
+                    if (typeof window.createLayerControl === 'function') {
+                        window.createLayerControl();
+                    } else if (typeof window.updateLayerControl === 'function') {
                         window.updateLayerControl();
+                    } else if (typeof window.initLayerControl === 'function') {
+                        window.initLayerControl();
                     }
                 } else {
                     console.error('获取用户数据失败:', res.status);
@@ -447,10 +451,12 @@
                 return;
             }
             
-            // 确保 window.dynamicLayers 存在
-            if (!window.dynamicLayers) {
+            // 确保 dynamicLayers 存在（与map.js保持一致）
+            if (typeof dynamicLayers === 'undefined') {
                 window.dynamicLayers = [];
             }
+            // 使用与map.js相同的变量名
+            const dynamicLayers = window.dynamicLayers;
             
             // 添加用户点图层
             if (userData.points && userData.points.length > 0) {
@@ -494,12 +500,12 @@
                 window.map.addLayer(userPointLayer);
                 
                 // 移除旧的用户图层（如果存在）
-                window.dynamicLayers = window.dynamicLayers.filter(item => 
+                dynamicLayers = dynamicLayers.filter(item => 
                     item.name !== '用户点图层' && item.name !== '用户视域图层'
                 );
                 
                 // 添加到动态图层列表，用于图层管理
-                window.dynamicLayers.push({
+                dynamicLayers.push({
                     name: '用户点图层',
                     layer: userPointLayer,
                     visible: true,
@@ -555,7 +561,7 @@
                 window.map.addLayer(userFootprintLayer);
                 
                 // 添加到动态图层列表，用于图层管理
-                window.dynamicLayers.push({
+                dynamicLayers.push({
                     name: '用户视域图层',
                     layer: userFootprintLayer,
                     visible: true,
@@ -565,8 +571,13 @@
                 });
             }
             
+            // 同步回window.dynamicLayers
+            window.dynamicLayers = dynamicLayers;
+            
             // 刷新图层管理界面
-            if (typeof window.updateLayerControl === 'function') {
+            if (typeof window.createLayerControl === 'function') {
+                window.createLayerControl();
+            } else if (typeof window.updateLayerControl === 'function') {
                 window.updateLayerControl();
             } else if (typeof window.initLayerControl === 'function') {
                 window.initLayerControl();

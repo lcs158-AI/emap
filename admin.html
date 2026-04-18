@@ -30,10 +30,27 @@
             flex: 1;
         }
         
+        .login-container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 400px;
+            margin: 100px auto;
+            padding: 30px;
+            flex: 1;
+        }
+        
         h1 {
             text-align: center;
             color: #333;
             margin-bottom: 30px;
+        }
+        
+        h2 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
         }
         
         .nav-tabs {
@@ -442,51 +459,76 @@
         })();
         console.log('API_BASE_URL:', API_BASE_URL);
         
-        // 页面加载时检查登录状态和权限
-        window.onload = function() {
-            checkAdminAccess();
-        };
-        
-        // 检查管理员访问权限
-        async function checkAdminAccess() {
-            // 获取登录信息
-            const username = localStorage.getItem('username');
-            const token = localStorage.getItem('gis_token');
+        // 页面加载时检查登录状态和用户数量
+        window.addEventListener('DOMContentLoaded', async () => {
+            const hasUsers = await checkUsers();
             
-            // 检查是否已登录
-            if (!username || !token) {
-                // 未登录，跳转到AIsea.html
-                window.location.href = 'AIsea.html';
-                return;
-            }
-            
-            // 检查是否是管理员
-            try {
-                const response = await fetch(`${API_BASE_URL}/api/users`);
-                if (!response.ok) {
-                    throw new Error('Failed to load users');
+            if (!hasUsers) {
+                // 没有用户，显示管理员账号创建表单
+                document.getElementById('adminSetupForm').style.display = 'block';
+                document.getElementById('loginForm').style.display = 'none';
+                document.getElementById('navTabs').style.display = 'none';
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.style.display = 'none';
+                });
+            } else {
+                // 有用户，检查登录状态
+                const token = localStorage.getItem('access_token') || localStorage.getItem('gis_token');
+                const username = localStorage.getItem('username');
+                
+                if (token && username) {
+                    // 检查是否是管理员
+                    try {
+                        const response = await fetch(`${API_BASE_URL}/api/users`);
+                        if (response.ok) {
+                            const data = await response.json();
+                            const users = data.users || [];
+                            const currentUser = users.find(user => user.username === username);
+                            
+                            if (currentUser && currentUser.role === 'admin') {
+                                showUserInfo(username);
+                                showAdminPanel();
+                                // 默认加载用户数据
+                                loadUsers();
+                            } else {
+                                // 不是管理员，显示登录表单
+                                document.getElementById('loginForm').style.display = 'block';
+                                document.getElementById('adminSetupForm').style.display = 'none';
+                                document.getElementById('navTabs').style.display = 'none';
+                                document.querySelectorAll('.tab-content').forEach(content => {
+                                    content.style.display = 'none';
+                                });
+                            }
+                        } else {
+                            // 加载用户失败，显示登录表单
+                            document.getElementById('loginForm').style.display = 'block';
+                            document.getElementById('adminSetupForm').style.display = 'none';
+                            document.getElementById('navTabs').style.display = 'none';
+                            document.querySelectorAll('.tab-content').forEach(content => {
+                                content.style.display = 'none';
+                            });
+                        }
+                    } catch (error) {
+                        console.error('检查管理员权限失败:', error);
+                        // 出错时显示登录表单
+                        document.getElementById('loginForm').style.display = 'block';
+                        document.getElementById('adminSetupForm').style.display = 'none';
+                        document.getElementById('navTabs').style.display = 'none';
+                        document.querySelectorAll('.tab-content').forEach(content => {
+                            content.style.display = 'none';
+                        });
+                    }
+                } else {
+                    // 未登录，显示登录表单
+                    document.getElementById('loginForm').style.display = 'block';
+                    document.getElementById('adminSetupForm').style.display = 'none';
+                    document.getElementById('navTabs').style.display = 'none';
+                    document.querySelectorAll('.tab-content').forEach(content => {
+                        content.style.display = 'none';
+                    });
                 }
-                const data = await response.json();
-                const users = data.users || [];
-                
-                // 查找当前用户
-                const currentUser = users.find(user => user.username === username);
-                
-                // 检查是否是管理员
-                if (!currentUser || currentUser.role !== 'admin') {
-                    // 不是管理员，跳转到AIsea.html
-                    window.location.href = 'AIsea.html';
-                    return;
-                }
-                
-                // 是管理员，加载默认标签页
-                switchTab('users-tab');
-            } catch (error) {
-                console.error('检查管理员权限失败:', error);
-                // 出错时跳转到AIsea.html
-                window.location.href = 'AIsea.html';
             }
-        }
+        });
         
         // 切换标签
         function switchTab(tabId, event) {
