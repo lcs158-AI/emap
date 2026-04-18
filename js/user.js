@@ -404,6 +404,7 @@ function initLogout() {
     document.getElementById('sidebarLogoutBtn').addEventListener('click', () => {
         localStorage.removeItem('gis_token');
         localStorage.removeItem('access_token');
+        localStorage.removeItem('username');
         updateSidebarUI();
         alert('已退出登录');
     });
