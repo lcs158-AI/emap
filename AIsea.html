@@ -590,6 +590,25 @@
             if (!token) { progressEl.innerText = '请先登录'; return; }
             if (!username) { progressEl.innerText = '用户信息缺失'; return; }
 
+            // 检查是否是管理员
+            try {
+                const response = await fetch(`${window.API_BASE_URL}/api/users`);
+                if (response.ok) {
+                    const data = await response.json();
+                    const users = data.users || [];
+                    const currentUser = users.find(user => user.username === username);
+                    
+                    if (currentUser && currentUser.role === 'admin') {
+                        progressEl.innerText = '管理员用户不能上传图片，请使用普通用户上传';
+                        progressEl.style.color = 'red';
+                        return;
+                    }
+                }
+            } catch (error) {
+                console.error('检查用户角色失败:', error);
+                // 出错时继续上传，避免影响用户体验
+            }
+
             const formData = new FormData();
             for (let file of fileInput.files) formData.append('files', file);
             formData.append('username', username); // 添加用户名参数
@@ -626,11 +645,15 @@
                         console.log('用户数据:', result.user_data);
                         loadUserDataToMap(result.user_data);
                     } else {
-                        console.log('没有用户数据');
+                        // 如果没有返回用户数据，重新加载用户数据
+                        console.log('没有用户数据，重新加载');
+                        loadUserUploadedData();
                     }
                     
-                    // 上传成功后刷新图层
-                    if (typeof window.loadRemoteLayers === 'function') window.loadRemoteLayers();
+                    // 上传成功后刷新图层管理
+                    if (typeof window.createLayerControl === 'function') {
+                        window.createLayerControl();
+                    }
                 } else {
                     console.error('上传失败:', result);
                     progressEl.innerText = '上传失败: ' + (result.detail || 'Unknown');

@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ==================== 地图初始化 ====================
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ==================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
@@ -1292,8 +1292,28 @@ function createLayerControl() {
                 openLayerInfoEditor(item, index);
             });
             
+            // 移除图层按钮
+            const removeBtn = document.createElement('button');
+            removeBtn.textContent = '🗑️';
+            removeBtn.title = '移除图层';
+            removeBtn.style.background = 'none';
+            removeBtn.style.border = 'none';
+            removeBtn.style.cursor = 'pointer';
+            removeBtn.style.fontSize = '14px';
+            removeBtn.style.padding = '2px 4px';
+            removeBtn.style.marginLeft = '5px';
+            removeBtn.addEventListener('click', () => {
+                // 从地图中移除图层
+                map.removeLayer(item.layer);
+                // 从本地图层列表中移除
+                localGeoJsonLayers.splice(index, 1);
+                // 重新创建图层控制面板
+                createLayerControl();
+            });
+            
             layerHeader.appendChild(leftSection);
             layerHeader.appendChild(infoBtn);
+            layerHeader.appendChild(removeBtn);
             div.appendChild(layerHeader);
             
             // 显示当前设置的字段信息
@@ -1392,8 +1412,28 @@ function createLayerControl() {
                 openLayerInfoEditor(item, index);
             });
             
+            // 移除图层按钮
+            const removeBtn = document.createElement('button');
+            removeBtn.textContent = '🗑️';
+            removeBtn.title = '移除图层';
+            removeBtn.style.background = 'none';
+            removeBtn.style.border = 'none';
+            removeBtn.style.cursor = 'pointer';
+            removeBtn.style.fontSize = '14px';
+            removeBtn.style.padding = '2px 4px';
+            removeBtn.style.marginLeft = '5px';
+            removeBtn.addEventListener('click', () => {
+                // 从地图中移除图层
+                map.removeLayer(item.layer);
+                // 从动态图层列表中移除
+                dynamicLayers.splice(index, 1);
+                // 重新创建图层控制面板
+                createLayerControl();
+            });
+            
             layerHeader.appendChild(leftSection);
             layerHeader.appendChild(infoBtn);
+            layerHeader.appendChild(removeBtn);
             div.appendChild(layerHeader);
             
             panel.appendChild(div);
