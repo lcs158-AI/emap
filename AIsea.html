@@ -451,12 +451,10 @@
                 return;
             }
             
-            // 确保 dynamicLayers 存在（与map.js保持一致）
-            if (typeof dynamicLayers === 'undefined') {
+            // 确保 window.dynamicLayers 存在（与map.js保持一致）
+            if (typeof window.dynamicLayers === 'undefined') {
                 window.dynamicLayers = [];
             }
-            // 使用与map.js相同的变量名
-            const dynamicLayers = window.dynamicLayers;
             
             // 添加用户点图层
             if (userData.points && userData.points.length > 0) {
@@ -500,12 +498,12 @@
                 window.map.addLayer(userPointLayer);
                 
                 // 移除旧的用户图层（如果存在）
-                dynamicLayers = dynamicLayers.filter(item => 
+                window.dynamicLayers = window.dynamicLayers.filter(item => 
                     item.name !== '用户点图层' && item.name !== '用户视域图层'
                 );
                 
                 // 添加到动态图层列表，用于图层管理
-                dynamicLayers.push({
+                window.dynamicLayers.push({
                     name: '用户点图层',
                     layer: userPointLayer,
                     visible: true,
@@ -561,7 +559,7 @@
                 window.map.addLayer(userFootprintLayer);
                 
                 // 添加到动态图层列表，用于图层管理
-                dynamicLayers.push({
+                window.dynamicLayers.push({
                     name: '用户视域图层',
                     layer: userFootprintLayer,
                     visible: true,
@@ -570,9 +568,6 @@
                     linkPathPrefix: window.API_BASE_URL + '/PICS/'
                 });
             }
-            
-            // 同步回window.dynamicLayers
-            window.dynamicLayers = dynamicLayers;
             
             // 刷新图层管理界面
             if (typeof window.createLayerControl === 'function') {
