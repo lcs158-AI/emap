@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ==================== 地图初始化 ====================
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ==================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
@@ -1510,42 +1510,74 @@ if (geoJsonFileInput) {
         reader.onload = function(event) {
             try {
                 const fileName = file.name.toLowerCase();
+                console.log('开始加载本地文件:', file.name);
                 
                 if (fileName.endsWith('.geojson') || fileName.endsWith('.json')) {
                     // 加载 GeoJSON
-                    const geoJson = JSON.parse(event.target.result);
-                    loadLocalGeoJSON(geoJson, file.name.replace(/\.(geojson|json)$/i, ''));
+                    try {
+                        const geoJson = JSON.parse(event.target.result);
+                        console.log('GeoJSON 解析成功，准备加载到地图');
+                        loadLocalGeoJSON(geoJson, file.name.replace(/\.(geojson|json)$/i, ''));
+                    } catch (parseError) {
+                        console.error('GeoJSON 解析失败:', parseError);
+                        throw new Error('GeoJSON 文件解析失败: ' + parseError.message);
+                    }
                 } else if (fileName.endsWith('.kml')) {
                     // 加载 KML
-                    loadLocalKML(event.target.result, file.name.replace(/\.kml$/i, ''));
+                    try {
+                        console.log('KML 文件读取成功，准备加载到地图');
+                        loadLocalKML(event.target.result, file.name.replace(/\.kml$/i, ''));
+                    } catch (parseError) {
+                        console.error('KML 解析失败:', parseError);
+                        throw new Error('KML 文件解析失败: ' + parseError.message);
+                    }
+                } else {
+                    throw new Error('不支持的文件格式，请选择 .geojson、.json 或 .kml 文件');
                 }
                 
                 // 隐藏加载提示
                 if (loadingPanel) {
-                    loadingPanel.style.display = 'none';
+                    loadingProgress.textContent = '加载完成';
+                    setTimeout(() => {
+                        loadingPanel.style.display = 'none';
+                    }, 1000);
                 }
                 
                 // 清空 input，允许重复加载同一文件
                 geoJsonFileInput.value = '';
+                
+                console.log('本地文件加载完成:', file.name);
             } catch (error) {
                 console.error('解析文件失败:', error);
-                alert('文件解析失败：' + error.message);
-                
-                // 隐藏加载提示
-                if (loadingPanel) {
-                    loadingPanel.style.display = 'none';
+                // 显示错误提示
+                if (loadingPanel && loadingProgress) {
+                    loadingProgress.textContent = '加载失败: ' + error.message;
+                    setTimeout(() => {
+                        loadingPanel.style.display = 'none';
+                    }, 2000);
+                } else {
+                    alert('文件解析失败：' + error.message);
                 }
+                
+                // 清空 input
+                geoJsonFileInput.value = '';
             }
         };
         
         reader.onerror = function() {
             console.error('读取文件失败');
-            alert('读取文件失败');
-            
-            // 隐藏加载提示
-            if (loadingPanel) {
-                loadingPanel.style.display = 'none';
+            // 显示错误提示
+            if (loadingPanel && loadingProgress) {
+                loadingProgress.textContent = '读取文件失败';
+                setTimeout(() => {
+                    loadingPanel.style.display = 'none';
+                }, 2000);
+            } else {
+                alert('读取文件失败');
             }
+            
+            // 清空 input
+            geoJsonFileInput.value = '';
         };
         
         reader.readAsText(file);

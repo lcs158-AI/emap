@@ -429,7 +429,18 @@
     <script>
         // API配置
         // 动态设置API_BASE_URL
-        const API_BASE_URL = window.location.origin.includes('localhost') ? 'http://localhost:8082' : 'https://lzy-fastapi.onrender.com'; // 替换为实际的render后端URL
+        const API_BASE_URL = (function() {
+            // 检测当前环境
+            const hostname = window.location.hostname;
+            // 如果是本地开发环境
+            if (hostname === 'localhost' || hostname === '127.0.0.1') {
+                return 'http://localhost:8086'; // 本地开发测试
+            } else {
+                // 部署到Render的环境
+                return 'https://lzy-fastapi.onrender.com'; // Render部署
+            }
+        })();
+        console.log('API_BASE_URL:', API_BASE_URL);
         
         // 切换标签
         function switchTab(tabId, event) {

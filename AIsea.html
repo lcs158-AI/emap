@@ -203,9 +203,104 @@
         }        
          // --- 整合后的认证与上传逻辑 ---
         // 动态设置API_BASE_URL
-        window.API_BASE_URL = window.location.origin.includes('localhost') ? 'http://localhost:8082' : 'https://lzy-fastapi.onrender.com'; // 替换为实际的render后端URL
+        window.API_BASE_URL = (function() {
+            // 检测当前环境
+            const hostname = window.location.hostname;
+            // 如果是本地开发环境
+            if (hostname === 'localhost' || hostname === '127.0.0.1') {
+                return 'http://localhost:8086'; // 本地开发测试
+            } else {
+                // 部署到Render的环境
+                return 'https://lzy-fastapi.onrender.com'; // Render部署
+            }
+        })();
+        console.log('API_BASE_URL:', window.API_BASE_URL);
 
-        // 1. 登录
+        // 加载用户上传的数据
+        async function loadUserUploadedData() {
+            const token = localStorage.getItem('gis_token') || localStorage.getItem('access_token');
+            const username = localStorage.getItem('username');
+            
+            if (!token || !username) {
+                console.log('用户未登录，跳过加载用户数据');
+                return;
+            }
+            
+            // 显示加载提示
+            const loadingPanel = document.getElementById('loadingPanel');
+            const loadingProgress = document.getElementById('loadingProgress');
+            if (loadingPanel) {
+                loadingPanel.style.display = 'block';
+                loadingProgress.textContent = '加载用户数据...';
+            }
+            
+            try {
+                // 确保 window.dynamicLayers 存在
+                if (!window.dynamicLayers) {
+                    window.dynamicLayers = [];
+                }
+                
+                console.log('开始加载用户数据，用户名:', username);
+                const res = await fetch(`${window.API_BASE_URL}/api/photos`, {
+                    method: 'GET'
+                });
+                
+                if (res.ok) {
+                    const data = await res.json();
+                    console.log('获取到所有照片数据，要素数量:', data.features ? data.features.length : 0);
+                    
+                    // 严格过滤出当前用户的照片
+                    const userFeatures = (data.features || []).filter(feature => {
+                        return feature.properties && feature.properties.uploader === username;
+                    });
+                    
+                    console.log('过滤后用户照片数量:', userFeatures.length);
+                    
+                    // 转换数据格式为前端需要的格式
+                    const userData = {
+                        points: userFeatures,
+                        footprints: [] // 暂时不处理视域数据
+                    };
+                    
+                    loadUserDataToMap(userData);
+                    
+                    // 刷新图层管理界面
+                    if (typeof window.updateLayerControl === 'function') {
+                        window.updateLayerControl();
+                    }
+                } else {
+                    console.error('获取用户数据失败:', res.status);
+                    // 显示错误提示
+                    if (loadingProgress) {
+                        loadingProgress.textContent = '获取数据失败';
+                    }
+                }
+            } catch (e) {
+                console.error('加载用户数据出错:', e);
+                // 显示错误提示
+                if (loadingProgress) {
+                    loadingProgress.textContent = '加载出错: ' + e.message;
+                }
+            } finally {
+                // 隐藏加载提示
+                if (loadingPanel) {
+                    setTimeout(() => {
+                        loadingPanel.style.display = 'none';
+                    }, 1000);
+                }
+            }
+        }
+        
+        // 页面加载时检查登录状态并加载用户数据
+        window.addEventListener('load', () => {
+            const token = localStorage.getItem('gis_token') || localStorage.getItem('access_token');
+            if (token) {
+                // 延迟加载，确保地图已经初始化
+                setTimeout(loadUserUploadedData, 1000);
+            }
+        });
+        
+        // 2. 登录
         document.getElementById('sidebarLoginBtn').addEventListener('click', async () => {
             const username = document.getElementById('sidebarUsernameInput').value;
             const password = document.getElementById('sidebarPasswordInput').value;
@@ -222,13 +317,17 @@
                 });
                 const data = await res.json();
                 if (res.ok) {
-                    localStorage.setItem('gis_token', data.access_token || 'user_token'); // 设置默认值
-                    localStorage.setItem('access_token', data.access_token || 'user_token'); // 同时保存为 access_token，设置默认值
+                    // 后端没有返回access_token，直接使用用户名作为token
+                    localStorage.setItem('gis_token', username);
+                    localStorage.setItem('access_token', username);
                     localStorage.setItem('username', username); // 保存用户名
                     msgEl.innerText = '';
                     msgEl.style.color = 'green';
                     msgEl.innerText = '登录成功';
                     updateSidebarUI();
+                    // 登录成功后加载用户数据
+                    loadUserUploadedData();
+                    
                     // 可选：登录成功后刷新地图图层
                     if (typeof window.loadRemoteLayers === 'function') window.loadRemoteLayers();
                     
@@ -348,6 +447,11 @@
                 return;
             }
             
+            // 确保 window.dynamicLayers 存在
+            if (!window.dynamicLayers) {
+                window.dynamicLayers = [];
+            }
+            
             // 添加用户点图层
             if (userData.points && userData.points.length > 0) {
                 // 创建GeoJSON格式实例
@@ -389,14 +493,17 @@
                 // 添加图层到地图
                 window.map.addLayer(userPointLayer);
                 
+                // 移除旧的用户图层（如果存在）
+                window.dynamicLayers = window.dynamicLayers.filter(item => 
+                    item.name !== '用户点图层' && item.name !== '用户视域图层'
+                );
+                
                 // 添加到动态图层列表，用于图层管理
-                if (window.dynamicLayers) {
-                    window.dynamicLayers.push({
-                        name: '用户点图层',
-                        layer: userPointLayer,
-                        visible: true
-                    });
-                }
+                window.dynamicLayers.push({
+                    name: '用户点图层',
+                    layer: userPointLayer,
+                    visible: true
+                });
                 
                 // 不需要自定义点击事件，map.js 会自动处理
                 // 已经设置了 labelField 和 linkField 属性，弹出窗口会自动显示正确的信息
@@ -445,13 +552,18 @@
                 window.map.addLayer(userFootprintLayer);
                 
                 // 添加到动态图层列表，用于图层管理
-                if (window.dynamicLayers) {
-                    window.dynamicLayers.push({
-                        name: '用户视域图层',
-                        layer: userFootprintLayer,
-                        visible: true
-                    });
-                }
+                window.dynamicLayers.push({
+                    name: '用户视域图层',
+                    layer: userFootprintLayer,
+                    visible: true
+                });
+            }
+            
+            // 刷新图层管理界面
+            if (typeof window.updateLayerControl === 'function') {
+                window.updateLayerControl();
+            } else if (typeof window.initLayerControl === 'function') {
+                window.initLayerControl();
             }
         }
         
@@ -475,7 +587,6 @@
             try {
                 const res = await fetch(`${window.API_BASE_URL}/api/upload`, {
                     method: 'POST',
-                    headers: { 'Authorization': `Bearer ${token}` },
                     body: formData
                 });
                 const result = await res.json();
