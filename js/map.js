@@ -1,9 +1,9 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ==================== 地图初始化 ====================
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ==================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
 // 存储动态加载的图层（用于图层管理）
-let dynamicLayers = [];
+window.dynamicLayers = [];
 // 天地图图层
 const vecLayer = new ol.layer.Tile({
     source: new ol.source.XYZ({
@@ -109,12 +109,12 @@ window.addEventListener('load', function() {
 // 跳转到上传的数据位置
 function centerMapToUploadedData() {
     console.log("尝试跳转到上传的数据位置");
-    console.log("当前动态图层数量:", dynamicLayers.length);
+    console.log("当前动态图层数量:", window.dynamicLayers.length);
     
     // 遍历所有动态图层
     let allCoordinates = [];
     
-    dynamicLayers.forEach((layerItem, index) => {
+    window.dynamicLayers.forEach((layerItem, index) => {
         console.log(`处理图层 ${index + 1}: ${layerItem.name}`);
         const layer = layerItem.layer;
         const source = layer.getSource();
@@ -242,7 +242,7 @@ function addGeoJsonLayer(geoJson, name, config) {
         map.addLayer(vectorLayer);
         
         // 添加到动态图层列表（用于图层管理）
-        dynamicLayers.push({
+        window.dynamicLayers.push({
             name: name,
             layer: vectorLayer,
             visible: true,
@@ -1024,8 +1024,8 @@ async function loadLayersFromConfig(configUrl) {
         }
 
         // 清空已有动态图层
-        dynamicLayers.forEach(item => map.removeLayer(item.layer));
-        dynamicLayers = [];
+        window.dynamicLayers.forEach(item => map.removeLayer(item.layer));
+        window.dynamicLayers = [];
 
         const layersToAdd = []; // 临时存储图层对象
 
@@ -1111,7 +1111,7 @@ async function loadLayersFromConfig(configUrl) {
         for (let i = layersToAdd.length - 1; i >= 0; i--) {
             const item = layersToAdd[i];
             map.addLayer(item.layer);
-            dynamicLayers.push(item); // 保持顺序与配置文件一致（正序）
+            window.dynamicLayers.push(item); // 保持顺序与配置文件一致（正序）
         }
 
         // 创建图层控制面板
@@ -1125,8 +1125,8 @@ async function loadLayersFromConfig(configUrl) {
     } catch (err) {
         console.error('加载配置文件失败:', err);
         // 清理已加载的图层，回到无参数导入状态
-        dynamicLayers.forEach(item => map.removeLayer(item.layer));
-        dynamicLayers = [];
+        window.dynamicLayers.forEach(item => map.removeLayer(item.layer));
+        window.dynamicLayers = [];
         // 清除图层控制面板
         const layerControl = document.getElementById('layerControl');
         if (layerControl) {
@@ -1354,7 +1354,7 @@ function createLayerControl() {
     
     // 遍历动态图层生成列表
     // 按地图显示顺序（倒序）生成列表
-    if (dynamicLayers.length > 0) {
+    if (window.dynamicLayers.length > 0) {
         const dynamicTitle = document.createElement('div');
         dynamicTitle.textContent = '配置图层';
         dynamicTitle.style.fontWeight = 'bold';
@@ -1364,7 +1364,7 @@ function createLayerControl() {
         dynamicTitle.style.color = '#666';
         panel.appendChild(dynamicTitle);
         
-        dynamicLayers.reverse().forEach((item, index) => {
+        window.dynamicLayers.reverse().forEach((item, index) => {
             const div = document.createElement('div');
             div.style.marginBottom = '8px';
             div.style.padding = '5px';
