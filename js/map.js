@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ==================== 地图初始化 ====================
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ==================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
@@ -5339,7 +5339,7 @@ function clearDrawLayer() {
     }
 }
 
-// 导出为 GeoJSON
+// 导出为 GeoJSON 或 KML
 function exportDrawLayer() {
     if (drawFeatures.length === 0) {
         alert('没有可导出的要素');
@@ -5347,17 +5347,63 @@ function exportDrawLayer() {
     }
     
     const features = drawSource.getFeatures();
-    const geojson = new ol.format.GeoJSON().writeFeatures(features, {
-        featureProjection: 'EPSG:3857',
-        dataProjection: 'EPSG:4326'
-    });
     
-    // 显示导出对话框
-    showExportDialog(geojson, 'draw_layer.geojson');
+    // 显示导出格式选择对话框
+    const dialog = document.createElement('div');
+    dialog.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        z-index: 100000;
+        max-width: 400px;
+        width: 90%;
+    `;
+    
+    dialog.innerHTML = `
+        <h3 style="margin-top: 0;">选择导出格式</h3>
+        <div style="margin: 20px 0;">
+            <button id="exportGeoJSON" style="width: 100%; padding: 10px; margin-bottom: 10px;">导出为 GeoJSON</button>
+            <button id="exportKML" style="width: 100%; padding: 10px;">导出为 KML</button>
+        </div>
+        <div style="text-align: right;">
+            <button id="closeExportDialog" style="padding: 8px 16px;">取消</button>
+        </div>
+    `;
+    
+    document.body.appendChild(dialog);
+    
+    // 导出为 GeoJSON
+    document.getElementById('exportGeoJSON').onclick = () => {
+        const geojson = new ol.format.GeoJSON().writeFeatures(features, {
+            featureProjection: 'EPSG:3857',
+            dataProjection: 'EPSG:4326'
+        });
+        showExportDialog(geojson, 'draw_layer.geojson', 'GeoJSON');
+        document.body.removeChild(dialog);
+    };
+    
+    // 导出为 KML
+    document.getElementById('exportKML').onclick = () => {
+        const kml = new ol.format.KML().writeFeatures(features, {
+            featureProjection: 'EPSG:3857'
+        });
+        showExportDialog(kml, 'draw_layer.kml', 'KML');
+        document.body.removeChild(dialog);
+    };
+    
+    // 关闭按钮
+    document.getElementById('closeExportDialog').onclick = () => {
+        document.body.removeChild(dialog);
+    };
 }
 
 // 显示导出对话框
-function showExportDialog(content, filename) {
+function showExportDialog(content, filename, format = 'GeoJSON') {
     const dialog = document.createElement('div');
     dialog.style.cssText = `
         position: fixed;
@@ -5374,11 +5420,11 @@ function showExportDialog(content, filename) {
     `;
     
     dialog.innerHTML = `
-        <h3 style="margin-top: 0;">导出 GeoJSON</h3>
+        <h3 style="margin-top: 0;">导出 ${format}</h3>
         <textarea style="width: 100%; height: 300px; font-family: monospace; font-size: 11px;" readonly>${content}</textarea>
         <div style="margin-top: 15px; text-align: right;">
-            <button id="copyGeojson" style="margin-right: 10px; padding: 8px 16px;">复制</button>
-            <button id="downloadGeojson" style="margin-right: 10px; padding: 8px 16px;">下载</button>
+            <button id="copyData" style="margin-right: 10px; padding: 8px 16px;">复制</button>
+            <button id="downloadData" style="margin-right: 10px; padding: 8px 16px;">下载</button>
             <button id="closeDialog" style="padding: 8px 16px;">关闭</button>
         </div>
     `;
@@ -5386,15 +5432,16 @@ function showExportDialog(content, filename) {
     document.body.appendChild(dialog);
     
     // 复制按钮
-    document.getElementById('copyGeojson').onclick = () => {
+    document.getElementById('copyData').onclick = () => {
         navigator.clipboard.writeText(content).then(() => {
             alert('已复制到剪贴板');
         });
     };
     
     // 下载按钮
-    document.getElementById('downloadGeojson').onclick = () => {
-        const blob = new Blob([content], { type: 'application/json' });
+    document.getElementById('downloadData').onclick = () => {
+        const mimeType = format === 'KML' ? 'application/vnd.google-earth.kml+xml' : 'application/json';
+        const blob = new Blob([content], { type: mimeType });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;

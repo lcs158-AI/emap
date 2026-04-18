@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes">
-    <title>跬步地图2.832</title>
+    <title>跬步地图2.84</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.5.2/ol.css">
     <script src="/js/chart.umd.min.js"></script>
     <link rel="stylesheet" href="css/map.css">
@@ -502,7 +502,10 @@
                 window.dynamicLayers.push({
                     name: '用户点图层',
                     layer: userPointLayer,
-                    visible: true
+                    visible: true,
+                    labelField: 'datetime',
+                    linkField: 'filename',
+                    linkPathPrefix: window.API_BASE_URL + '/PICS/'
                 });
                 
                 // 不需要自定义点击事件，map.js 会自动处理
@@ -555,7 +558,10 @@
                 window.dynamicLayers.push({
                     name: '用户视域图层',
                     layer: userFootprintLayer,
-                    visible: true
+                    visible: true,
+                    labelField: 'datetime',
+                    linkField: 'filename',
+                    linkPathPrefix: window.API_BASE_URL + '/PICS/'
                 });
             }
             
