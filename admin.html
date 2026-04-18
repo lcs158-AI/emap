@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>数据库管理</title>
+    <title>数据库管理2.843</title>
     <style>
         * {
             margin: 0;
@@ -459,76 +459,7 @@
         })();
         console.log('API_BASE_URL:', API_BASE_URL);
         
-        // 页面加载时检查登录状态和用户数量
-        window.addEventListener('DOMContentLoaded', async () => {
-            const hasUsers = await checkUsers();
-            
-            if (!hasUsers) {
-                // 没有用户，显示管理员账号创建表单
-                document.getElementById('adminSetupForm').style.display = 'block';
-                document.getElementById('loginForm').style.display = 'none';
-                document.getElementById('navTabs').style.display = 'none';
-                document.querySelectorAll('.tab-content').forEach(content => {
-                    content.style.display = 'none';
-                });
-            } else {
-                // 有用户，检查登录状态
-                const token = localStorage.getItem('access_token') || localStorage.getItem('gis_token');
-                const username = localStorage.getItem('username');
-                
-                if (token && username) {
-                    // 检查是否是管理员
-                    try {
-                        const response = await fetch(`${API_BASE_URL}/api/users`);
-                        if (response.ok) {
-                            const data = await response.json();
-                            const users = data.users || [];
-                            const currentUser = users.find(user => user.username === username);
-                            
-                            if (currentUser && currentUser.role === 'admin') {
-                                showUserInfo(username);
-                                showAdminPanel();
-                                // 默认加载用户数据
-                                loadUsers();
-                            } else {
-                                // 不是管理员，显示登录表单
-                                document.getElementById('loginForm').style.display = 'block';
-                                document.getElementById('adminSetupForm').style.display = 'none';
-                                document.getElementById('navTabs').style.display = 'none';
-                                document.querySelectorAll('.tab-content').forEach(content => {
-                                    content.style.display = 'none';
-                                });
-                            }
-                        } else {
-                            // 加载用户失败，显示登录表单
-                            document.getElementById('loginForm').style.display = 'block';
-                            document.getElementById('adminSetupForm').style.display = 'none';
-                            document.getElementById('navTabs').style.display = 'none';
-                            document.querySelectorAll('.tab-content').forEach(content => {
-                                content.style.display = 'none';
-                            });
-                        }
-                    } catch (error) {
-                        console.error('检查管理员权限失败:', error);
-                        // 出错时显示登录表单
-                        document.getElementById('loginForm').style.display = 'block';
-                        document.getElementById('adminSetupForm').style.display = 'none';
-                        document.getElementById('navTabs').style.display = 'none';
-                        document.querySelectorAll('.tab-content').forEach(content => {
-                            content.style.display = 'none';
-                        });
-                    }
-                } else {
-                    // 未登录，显示登录表单
-                    document.getElementById('loginForm').style.display = 'block';
-                    document.getElementById('adminSetupForm').style.display = 'none';
-                    document.getElementById('navTabs').style.display = 'none';
-                    document.querySelectorAll('.tab-content').forEach(content => {
-                        content.style.display = 'none';
-                    });
-                }
-            }
-        });
+
         
         // 切换标签
         function switchTab(tabId, event) {
