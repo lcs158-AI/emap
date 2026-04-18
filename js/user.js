@@ -126,16 +126,30 @@ function loadUserDataToMap(userData) {
         // 创建GeoJSON格式实例
         const geoJsonFormat = new window.ol.format.GeoJSON();
         // 创建面数据源
-        // 将Feature数组转换为FeatureCollection格式
-        const footprintsGeoJSON = {
-            type: 'FeatureCollection',
-            features: userData.footprints
-        };
+        
+        // 处理不同格式的视域数据，确保它们都是Feature对象
+        const features = [];
+        userData.footprints.forEach(footprint => {
+            if (footprint.type === 'Feature') {
+                // 如果是Feature对象，直接使用
+                features.push(geoJsonFormat.readFeature(footprint, {
+                    dataProjection: 'EPSG:4326',
+                    featureProjection: 'EPSG:3857'
+                }));
+            } else if (footprint.type) {
+                // 如果是Geometry对象，创建一个Feature
+                const feature = new window.ol.Feature({
+                    geometry: geoJsonFormat.readGeometry(footprint, {
+                        dataProjection: 'EPSG:4326',
+                        featureProjection: 'EPSG:3857'
+                    })
+                });
+                features.push(feature);
+            }
+        });
+        
         const footprintSource = new window.ol.source.Vector({
-            features: geoJsonFormat.readFeatures(footprintsGeoJSON, {
-                dataProjection: 'EPSG:4326',
-                featureProjection: 'EPSG:3857'
-            })
+            features: features
         });
         
         // 创建面图层
@@ -242,8 +256,16 @@ async function loadUserUploadedData() {
                         } else {
                             footprints = properties.footprints;
                         }
-                        if (footprints && footprints.features) {
-                            userData.footprints = userData.footprints.concat(footprints.features);
+                        
+                        // 处理不同格式的视域数据
+                        if (footprints) {
+                            if (footprints.features) {
+                                // 如果是FeatureCollection，添加所有features
+                                userData.footprints = userData.footprints.concat(footprints.features);
+                            } else if (footprints.type) {
+                                // 如果是单个Feature或Geometry，直接添加
+                                userData.footprints.push(footprints);
+                            }
                         }
                     } catch (e) {
                         console.error('解析视域数据失败:', e);
