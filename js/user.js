@@ -235,7 +235,13 @@ async function loadUserUploadedData() {
                 const properties = feature.properties || {};
                 if (properties.footprints) {
                     try {
-                        const footprints = JSON.parse(properties.footprints);
+                        let footprints;
+                        // 检查footprints的类型，如果是字符串则解析，否则直接使用
+                        if (typeof properties.footprints === 'string') {
+                            footprints = JSON.parse(properties.footprints);
+                        } else {
+                            footprints = properties.footprints;
+                        }
                         if (footprints && footprints.features) {
                             userData.footprints = userData.footprints.concat(footprints.features);
                         }
