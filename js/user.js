@@ -144,6 +144,15 @@ function loadUserDataToMap(userData) {
                         featureProjection: 'EPSG:3857'
                     })
                 });
+                // 从对应的点数据中获取属性信息
+                if (userData.points && userData.points.length > 0) {
+                    // 这里可以根据实际情况匹配对应的点数据
+                    // 暂时使用第一个点的属性
+                    const pointFeature = userData.points[0];
+                    if (pointFeature && pointFeature.properties) {
+                        feature.setProperties(pointFeature.properties);
+                    }
+                }
                 features.push(feature);
             }
         });
