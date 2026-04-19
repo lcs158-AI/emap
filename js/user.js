@@ -71,11 +71,23 @@ function loadUserDataToMap(userData) {
             type: 'FeatureCollection',
             features: userData.points
         };
+        const features = geoJsonFormat.readFeatures(pointsGeoJSON, {
+            dataProjection: 'EPSG:4326',
+            featureProjection: 'EPSG:3857'
+        });
+        
+        // 为每个feature设置layer属性
+        const layerInfo = {
+            labelField: 'datetime',
+            linkField: 'filename',
+            linkPathPrefix: window.API_BASE_URL + '/PICS/'
+        };
+        features.forEach(feature => {
+            feature.set('layer', layerInfo);
+        });
+        
         const pointSource = new window.ol.source.Vector({
-            features: geoJsonFormat.readFeatures(pointsGeoJSON, {
-                dataProjection: 'EPSG:4326',
-                featureProjection: 'EPSG:3857'
-            })
+            features: features
         });
         
         // 创建点图层
@@ -129,13 +141,22 @@ function loadUserDataToMap(userData) {
         
         // 处理不同格式的视域数据，确保它们都是Feature对象
         const features = [];
+        // 为每个feature设置layer属性
+        const layerInfo = {
+            labelField: 'datetime',
+            linkField: 'filename',
+            linkPathPrefix: window.API_BASE_URL + '/PICS/'
+        };
         userData.footprints.forEach(footprint => {
             if (footprint.type === 'Feature') {
                 // 如果是Feature对象，直接使用
-                features.push(geoJsonFormat.readFeature(footprint, {
+                const feature = geoJsonFormat.readFeature(footprint, {
                     dataProjection: 'EPSG:4326',
                     featureProjection: 'EPSG:3857'
-                }));
+                });
+                // 为feature设置layer属性
+                feature.set('layer', layerInfo);
+                features.push(feature);
             } else if (footprint.type) {
                 // 如果是Geometry对象，创建一个Feature
                 const feature = new window.ol.Feature({
@@ -153,6 +174,8 @@ function loadUserDataToMap(userData) {
                         feature.setProperties(pointFeature.properties);
                     }
                 }
+                // 为feature设置layer属性
+                feature.set('layer', layerInfo);
                 features.push(feature);
             }
         });
