@@ -1,9 +1,5 @@
 // 用户相关的功能
 
-// 全局变量，用于存储用户图层
-let userPointLayer = null;
-let userFootprintLayer = null;
-
 // 更新侧边栏UI
 function updateSidebarUI() {
     const authForm = document.getElementById('sidebarAuthForm');
@@ -32,13 +28,21 @@ function updateSidebarUI() {
 
 // 移除用户图层
 function removeUserLayers() {
-    if (userPointLayer && window.map) {
-        window.map.removeLayer(userPointLayer);
-        userPointLayer = null;
-    }
-    if (userFootprintLayer && window.map) {
-        window.map.removeLayer(userFootprintLayer);
-        userFootprintLayer = null;
+    if (window.map) {
+        // 遍历所有图层，移除用户点图层和用户视域图层
+        window.map.getLayers().forEach(layer => {
+            const layerName = layer.get('name');
+            if (layerName === '用户点图层' || layerName === '用户视域图层') {
+                window.map.removeLayer(layer);
+            }
+        });
+        
+        // 从dynamicLayers中移除用户图层
+        if (window.dynamicLayers) {
+            window.dynamicLayers = window.dynamicLayers.filter(item => 
+                item.name !== '用户点图层' && item.name !== '用户视域图层'
+            );
+        }
     }
 }
 
@@ -91,7 +95,7 @@ function loadUserDataToMap(userData) {
         });
         
         // 创建点图层
-        userPointLayer = new window.ol.layer.Vector({
+        const userPointLayer = new window.ol.layer.Vector({
             source: pointSource,
             style: function(feature) {
                 return new window.ol.style.Style({
@@ -107,17 +111,13 @@ function loadUserDataToMap(userData) {
         });
         
         // 设置图层属性，用于图层管理和弹出窗口
+        userPointLayer.set('name', '用户点图层'); // 设置图层名称
         userPointLayer.set('labelField', 'datetime'); // 使用 datetime 作为标签
         userPointLayer.set('linkField', 'filename'); // 使用 filename 作为链接
         userPointLayer.set('linkPathPrefix', window.API_BASE_URL + '/PICS/'); // 设置图片路径前缀
         
         // 添加图层到地图
         window.map.addLayer(userPointLayer);
-        
-        // 移除旧的用户图层（如果存在）
-        window.dynamicLayers = window.dynamicLayers.filter(item => 
-            item.name !== '用户点图层' && item.name !== '用户视域图层'
-        );
         
         // 添加到动态图层列表，用于图层管理
         window.dynamicLayers.push({
@@ -128,9 +128,6 @@ function loadUserDataToMap(userData) {
             linkField: 'filename',
             linkPathPrefix: window.API_BASE_URL + '/PICS/'
         });
-        
-        // 不需要自定义点击事件，map.js 会自动处理
-        // 已经设置了 labelField 和 linkField 属性，弹出窗口会自动显示正确的信息
     }
     
     // 添加用户视域图层
@@ -185,7 +182,7 @@ function loadUserDataToMap(userData) {
         });
         
         // 创建面图层
-        userFootprintLayer = new window.ol.layer.Vector({
+        const userFootprintLayer = new window.ol.layer.Vector({
             source: footprintSource,
             style: function(feature) {
                 return new window.ol.style.Style({
@@ -202,6 +199,7 @@ function loadUserDataToMap(userData) {
         });
         
         // 设置图层属性，用于图层管理和弹出窗口
+        userFootprintLayer.set('name', '用户视域图层'); // 设置图层名称
         userFootprintLayer.set('labelField', 'datetime'); // 使用 datetime 作为标签
         userFootprintLayer.set('linkField', 'filename'); // 使用 filename 作为链接
         userFootprintLayer.set('linkPathPrefix', window.API_BASE_URL + '/PICS/'); // 设置图片路径前缀
@@ -308,15 +306,6 @@ async function loadUserUploadedData() {
             console.log('提取到视域数据数量:', userData.footprints.length);
             
             loadUserDataToMap(userData);
-            
-            // 刷新图层管理界面
-            if (typeof window.createLayerControl === 'function') {
-                window.createLayerControl();
-            } else if (typeof window.updateLayerControl === 'function') {
-                window.updateLayerControl();
-            } else if (typeof window.initLayerControl === 'function') {
-                window.initLayerControl();
-            }
         } else {
             console.error('获取用户数据失败:', res.status);
             // 显示错误提示

@@ -78,10 +78,7 @@ function initUpload() {
                     }
                 }
                 
-                // 上传成功后刷新图层管理
-                if (typeof window.createLayerControl === 'function') {
-                    window.createLayerControl();
-                }
+
             } else {
                 console.error('上传失败:', result);
                 progressEl.innerText = '上传失败: ' + (result.detail || 'Unknown');
