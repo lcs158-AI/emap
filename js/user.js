@@ -31,8 +31,8 @@ function removeUserLayers() {
     if (window.map) {
         // 遍历所有图层，移除用户点图层和用户视域图层
         window.map.getLayers().forEach(layer => {
-            // 检查图层是否有 get 方法，避免 TypeError
-            if (typeof layer.get === 'function') {
+            // 检查图层是否存在且有 get 方法，避免 TypeError
+            if (layer && typeof layer.get === 'function') {
                 const layerName = layer.get('name');
                 if (layerName === '用户点图层' || layerName === '用户视域图层') {
                     window.map.removeLayer(layer);
