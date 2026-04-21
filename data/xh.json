@@ -5,7 +5,7 @@
     22.15354936
   ],
   "camera_altitude_km": 855.7718591,
-  "geojson_base_path": "..",
+  "geojson_base_path": "../geojson",
   "layers": [
     {
       "name": "选点",
