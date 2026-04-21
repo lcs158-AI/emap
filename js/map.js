@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ==================== 地图初始化 ====================
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ==================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
@@ -1548,8 +1548,10 @@ if (geoJsonFileInput) {
         
         const fileName = file.name.toLowerCase();
         console.log('开始加载本地文件:', file.name);
+        console.log('文件扩展名检查:', fileName);
         
-        if (fileName.endsWith('.kmz')) {
+        // 使用正则表达式检查文件扩展名，更可靠
+        if (/\.kmz$/.test(fileName)) {
             // 处理 KMZ 文件
             const reader = new FileReader();
             reader.onload = function(event) {
@@ -1595,7 +1597,7 @@ if (geoJsonFileInput) {
             const reader = new FileReader();
             reader.onload = function(event) {
                 try {
-                    if (fileName.endsWith('.geojson') || fileName.endsWith('.json')) {
+                    if (/\.(geojson|json)$/.test(fileName)) {
                         // 加载 GeoJSON
                         try {
                             const geoJson = JSON.parse(event.target.result);
@@ -1605,7 +1607,7 @@ if (geoJsonFileInput) {
                             console.error('GeoJSON 解析失败:', parseError);
                             throw new Error('GeoJSON 文件解析失败: ' + parseError.message);
                         }
-                    } else if (fileName.endsWith('.kml')) {
+                    } else if (/\.kml$/.test(fileName)) {
                         // 加载 KML
                         try {
                             console.log('KML 文件读取成功，准备加载到地图');
