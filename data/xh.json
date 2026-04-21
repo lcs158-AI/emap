@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "map_center": [
+    113.5720065,
+    22.15354936
+  ],
+  "camera_altitude_km": 855.7718591,
+  "geojson_base_path": "..",
+  "layers": [
+    {
+      "name": "选点",
+      "tab_path": "C:\\业务\\沙滩调研\\海岸监测202604\\粤东粤西现场\\选点.tab",
+      "geojson_path": "选点.geojson",
+      "style": {
+        "line": {
+          "pattern": 1,
+          "width": 2,
+          "color": 0
+        },
+        "fill": {
+          "pattern": 2,
+          "foreground": 16777215,
+          "background": 16777215
+        }
+      },
+      "label_field": "Id",
+      "link_field": "",
+      "visible": true
+    },
+    {
+      "name": "岸段",
+      "tab_path": "C:\\业务\\沙滩调研\\海岸监测202604\\粤东粤西现场\\岸段.tab",
+      "geojson_path": "岸段.geojson",
+      "style": {
+        "line": {
+          "pattern": 3,
+          "width": 2,
+          "color": 255
+        },
+        "fill": {
+          "pattern": 2,
+          "foreground": 16777215,
+          "background": 16777215
+        }
+      },
+      "label_field": "名称",
+      "link_field": "",
+      "visible": true
+    }
+  ]
+}
