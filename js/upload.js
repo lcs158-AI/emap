@@ -3,14 +3,31 @@
 // 初始化上传功能
 function initUpload() {
     document.getElementById('sidebarUploadBtn').addEventListener('click', async () => {
-        const fileInput = document.getElementById('sidebarFileInput');
+        const cameraInput = document.getElementById('cameraInput');
+        const localImageInput = document.getElementById('localImageInput');
+        const localFileInput = document.getElementById('localFileInput');
         const progressEl = document.getElementById('sidebarUploadProgress');
         const token = localStorage.getItem('gis_token') || localStorage.getItem('access_token');
         const username = localStorage.getItem('username');
         
-        if (!fileInput.files.length) { progressEl.innerText = '请选择文件'; return; }
-        if (!token) { progressEl.innerText = '请先登录'; return; }
-        if (!username) { progressEl.innerText = '用户信息缺失'; return; }
+        // 检查是否选择了文件
+        const hasCameraFiles = cameraInput.files.length > 0;
+        const hasLocalImageFiles = localImageInput.files.length > 0;
+        const hasLocalFiles = localFileInput.files.length > 0;
+        
+        if (!hasCameraFiles && !hasLocalImageFiles && !hasLocalFiles) {
+            progressEl.innerText = '请选择文件';
+            return;
+        }
+        
+        if (!token) { 
+            progressEl.innerText = '请先登录'; 
+            return; 
+        }
+        if (!username) { 
+            progressEl.innerText = '用户信息缺失'; 
+            return; 
+        }
 
         // 检查是否是管理员
         try {
@@ -31,7 +48,32 @@ function initUpload() {
             // 出错时继续上传，避免影响用户体验
         }
 
-        // 获取位置信息
+        // 处理本地文件上传（GeoJSON、KML、KMZ）
+        if (hasLocalFiles) {
+            console.log('处理本地文件上传');
+            // 模拟点击原有的文件输入，触发现有的本地文件加载逻辑
+            const geoJsonFileInput = document.getElementById('geoJsonFileInput');
+            if (geoJsonFileInput) {
+                // 复制文件到原有的输入元素
+                // 注意：由于安全限制，不能直接设置files属性，需要触发change事件
+                // 这里我们使用一种间接的方法，创建一个新的change事件
+                const file = localFileInput.files[0];
+                if (file) {
+                    // 临时存储文件名，以便在map.js中处理
+                    window.tempLocalFileName = file.name;
+                    
+                    // 触发原有的文件输入点击，让用户重新选择文件
+                    // 这是一种变通方法，因为直接设置files属性会受到浏览器安全限制
+                    geoJsonFileInput.click();
+                }
+            }
+            
+            // 清空本地文件输入
+            localFileInput.value = '';
+            return;
+        }
+
+        // 获取位置信息（仅用于拍照和本地图片上传）
         let locationData = null;
         try {
             progressEl.innerText = '正在获取位置信息...';
@@ -44,7 +86,17 @@ function initUpload() {
         }
 
         const formData = new FormData();
-        for (let file of fileInput.files) formData.append('files', file);
+        
+        // 添加相机拍摄的文件
+        for (let file of cameraInput.files) {
+            formData.append('files', file);
+        }
+        
+        // 添加本地图片文件
+        for (let file of localImageInput.files) {
+            formData.append('files', file);
+        }
+        
         formData.append('username', username); // 添加用户名参数
         
         // 添加位置和时间信息
@@ -65,9 +117,16 @@ function initUpload() {
             const result = await res.json();
             console.log('上传结果:', result);
             if (res.ok) {
-                progressEl.innerText = `上传完成! 成功: ${result.success}, 失败: ${result.failed}, 重复: ${result.duplicate}`;
+                let message = `上传完成! 成功: ${result.success}, 失败: ${result.failed}, 重复: ${result.duplicate}`;
+                if (result.no_location && result.no_location > 0) {
+                    message += `, 无定位图片: ${result.no_location} (未入库)`;
+                }
+                progressEl.innerText = message;
                 progressEl.style.color = 'green';
-                fileInput.value = ''; // 清空
+                
+                // 清空输入
+                cameraInput.value = '';
+                localImageInput.value = '';
                 
                 // 定位到最新上传数据的中心位置
                 if (result.latest_center) {

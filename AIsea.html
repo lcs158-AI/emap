@@ -145,8 +145,29 @@
 
             <!-- 3. 上传表单 (登录后显示) -->
             <div id="sidebarUploadForm" style="display:none; margin-top:20px; border-top:1px solid #eee; padding-top:20px;">
-                <h4 style="margin-top:0;">上传图片</h4>
-                <input type="file" id="sidebarFileInput" multiple accept=".jpg,.jpeg,.png,.tif" capture="camera" style="width:100%; margin-bottom:10px;">
+                <h4 style="margin-top:0;">上传选项</h4>
+                
+                <!-- 拍照选项 -->
+                <div style="margin-bottom:10px;">
+                    <label style="display:block; margin-bottom:5px; font-weight:bold;">📷 拍照</label>
+                    <input type="file" id="cameraInput" accept=".jpg,.jpeg,.png,.tif" capture="camera" style="width:100%; margin-bottom:5px;">
+                    <div style="font-size:12px; color:#666;">点击拍照并上传</div>
+                </div>
+                
+                <!-- 上传本地图片选项 -->
+                <div style="margin-bottom:10px;">
+                    <label style="display:block; margin-bottom:5px; font-weight:bold;">📁 上传本地图片</label>
+                    <input type="file" id="localImageInput" multiple accept=".jpg,.jpeg,.png,.tif" style="width:100%; margin-bottom:5px;">
+                    <div style="font-size:12px; color:#666;">选择本地图片文件上传</div>
+                </div>
+                
+                <!-- 上传本地文件选项 -->
+                <div style="margin-bottom:10px;">
+                    <label style="display:block; margin-bottom:5px; font-weight:bold;">🗂️ 上传本地文件</label>
+                    <input type="file" id="localFileInput" accept=".geojson,.json,.kml,.kmz" style="width:100%; margin-bottom:5px;">
+                    <div style="font-size:12px; color:#666;">选择GeoJSON、KML或KMZ文件</div>
+                </div>
+                
                 <button id="sidebarUploadBtn" style="width:100%; padding:10px; background:#1890ff; color:white; border:none; border-radius:4px; cursor:pointer;">开始上传</button>
                 <div id="sidebarUploadProgress" style="margin-top:10px; font-size:12px; color:#666;"></div>
             </div>
