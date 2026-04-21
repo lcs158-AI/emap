@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ==================== 地图初始化 ====================
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ==================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
@@ -1546,81 +1546,125 @@ if (geoJsonFileInput) {
             loadingProgress.textContent = '正在加载文件...';
         }
         
-        const reader = new FileReader();
-        reader.onload = function(event) {
-            try {
-                const fileName = file.name.toLowerCase();
-                console.log('开始加载本地文件:', file.name);
-                
-                if (fileName.endsWith('.geojson') || fileName.endsWith('.json')) {
-                    // 加载 GeoJSON
-                    try {
-                        const geoJson = JSON.parse(event.target.result);
-                        console.log('GeoJSON 解析成功，准备加载到地图');
-                        loadLocalGeoJSON(geoJson, file.name.replace(/\.(geojson|json)$/i, ''));
-                    } catch (parseError) {
-                        console.error('GeoJSON 解析失败:', parseError);
-                        throw new Error('GeoJSON 文件解析失败: ' + parseError.message);
+        const fileName = file.name.toLowerCase();
+        console.log('开始加载本地文件:', file.name);
+        
+        if (fileName.endsWith('.kmz')) {
+            // 处理 KMZ 文件
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                try {
+                    console.log('KMZ 文件读取成功，准备解压');
+                    loadLocalKMZ(event.target.result, file.name.replace(/\.kmz$/i, ''), loadingPanel, loadingProgress);
+                } catch (error) {
+                    console.error('KMZ 处理失败:', error);
+                    // 显示错误提示
+                    if (loadingPanel && loadingProgress) {
+                        loadingProgress.textContent = '加载失败: ' + error.message;
+                        setTimeout(() => {
+                            loadingPanel.style.display = 'none';
+                        }, 2000);
+                    } else {
+                        alert('文件解析失败：' + error.message);
                     }
-                } else if (fileName.endsWith('.kml')) {
-                    // 加载 KML
-                    try {
-                        console.log('KML 文件读取成功，准备加载到地图');
-                        loadLocalKML(event.target.result, file.name.replace(/\.kml$/i, ''));
-                    } catch (parseError) {
-                        console.error('KML 解析失败:', parseError);
-                        throw new Error('KML 文件解析失败: ' + parseError.message);
-                    }
-                } else {
-                    throw new Error('不支持的文件格式，请选择 .geojson、.json 或 .kml 文件');
+                    
+                    // 清空 input
+                    geoJsonFileInput.value = '';
                 }
-                
-                // 隐藏加载提示
-                if (loadingPanel) {
-                    loadingProgress.textContent = '加载完成';
-                    setTimeout(() => {
-                        loadingPanel.style.display = 'none';
-                    }, 1000);
-                }
-                
-                // 清空 input，允许重复加载同一文件
-                geoJsonFileInput.value = '';
-                
-                console.log('本地文件加载完成:', file.name);
-            } catch (error) {
-                console.error('解析文件失败:', error);
+            };
+            
+            reader.onerror = function() {
+                console.error('读取文件失败');
                 // 显示错误提示
                 if (loadingPanel && loadingProgress) {
-                    loadingProgress.textContent = '加载失败: ' + error.message;
+                    loadingProgress.textContent = '读取文件失败';
                     setTimeout(() => {
                         loadingPanel.style.display = 'none';
                     }, 2000);
                 } else {
-                    alert('文件解析失败：' + error.message);
+                    alert('读取文件失败');
                 }
                 
                 // 清空 input
                 geoJsonFileInput.value = '';
-            }
-        };
-        
-        reader.onerror = function() {
-            console.error('读取文件失败');
-            // 显示错误提示
-            if (loadingPanel && loadingProgress) {
-                loadingProgress.textContent = '读取文件失败';
-                setTimeout(() => {
-                    loadingPanel.style.display = 'none';
-                }, 2000);
-            } else {
-                alert('读取文件失败');
-            }
+            };
             
-            // 清空 input
-            geoJsonFileInput.value = '';
-        };
-        
-        reader.readAsText(file);
+            reader.readAsArrayBuffer(file);
+        } else {
+            // 处理其他文件格式
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                try {
+                    if (fileName.endsWith('.geojson') || fileName.endsWith('.json')) {
+                        // 加载 GeoJSON
+                        try {
+                            const geoJson = JSON.parse(event.target.result);
+                            console.log('GeoJSON 解析成功，准备加载到地图');
+                            loadLocalGeoJSON(geoJson, file.name.replace(/\.(geojson|json)$/i, ''));
+                        } catch (parseError) {
+                            console.error('GeoJSON 解析失败:', parseError);
+                            throw new Error('GeoJSON 文件解析失败: ' + parseError.message);
+                        }
+                    } else if (fileName.endsWith('.kml')) {
+                        // 加载 KML
+                        try {
+                            console.log('KML 文件读取成功，准备加载到地图');
+                            loadLocalKML(event.target.result, file.name.replace(/\.kml$/i, ''));
+                        } catch (parseError) {
+                            console.error('KML 解析失败:', parseError);
+                            throw new Error('KML 文件解析失败: ' + parseError.message);
+                        }
+                    } else {
+                        throw new Error('不支持的文件格式，请选择 .geojson、.json、.kml 或 .kmz 文件');
+                    }
+                    
+                    // 隐藏加载提示
+                    if (loadingPanel) {
+                        loadingProgress.textContent = '加载完成';
+                        setTimeout(() => {
+                            loadingPanel.style.display = 'none';
+                        }, 1000);
+                    }
+                    
+                    // 清空 input，允许重复加载同一文件
+                    geoJsonFileInput.value = '';
+                    
+                    console.log('本地文件加载完成:', file.name);
+                } catch (error) {
+                    console.error('解析文件失败:', error);
+                    // 显示错误提示
+                    if (loadingPanel && loadingProgress) {
+                        loadingProgress.textContent = '加载失败: ' + error.message;
+                        setTimeout(() => {
+                            loadingPanel.style.display = 'none';
+                        }, 2000);
+                    } else {
+                        alert('文件解析失败：' + error.message);
+                    }
+                    
+                    // 清空 input
+                    geoJsonFileInput.value = '';
+                }
+            };
+            
+            reader.onerror = function() {
+                console.error('读取文件失败');
+                // 显示错误提示
+                if (loadingPanel && loadingProgress) {
+                    loadingProgress.textContent = '读取文件失败';
+                    setTimeout(() => {
+                        loadingPanel.style.display = 'none';
+                    }, 2000);
+                } else {
+                    alert('读取文件失败');
+                }
+                
+                // 清空 input
+                geoJsonFileInput.value = '';
+            };
+            
+            reader.readAsText(file);
+        }
     });
 }
 
@@ -1827,6 +1871,95 @@ function loadLocalKML(kmlText, name) {
     } catch (error) {
         console.error('加载本地 KML 失败:', error);
         throw error;
+    }
+}
+
+/**
+ * 加载本地 KMZ 数据到地图
+ * @param {ArrayBuffer} kmzData - KMZ 文件的 ArrayBuffer
+ * @param {string} name - 图层名称
+ * @param {HTMLElement} loadingPanel - 加载提示面板
+ * @param {HTMLElement} loadingProgress - 加载进度元素
+ */
+function loadLocalKMZ(kmzData, name, loadingPanel, loadingProgress) {
+    try {
+        // 检查是否有解压库
+        if (typeof JSZip === 'undefined') {
+            throw new Error('KMZ 解析需要 JSZip 库，请确保已加载该库');
+        }
+        
+        console.log('开始解压 KMZ 文件');
+        if (loadingProgress) {
+            loadingProgress.textContent = '正在解压 KMZ 文件...';
+        }
+        
+        // 使用 JSZip 解压
+        JSZip.loadAsync(kmzData).then(function(zip) {
+            console.log('KMZ 解压成功，查找 KML 文件');
+            
+            // 查找 KML 文件
+            let kmlFileFound = false;
+            zip.forEach(function(relativePath, zipEntry) {
+                if (!kmlFileFound && zipEntry.name.toLowerCase().endsWith('.kml')) {
+                    console.log('找到 KML 文件:', zipEntry.name);
+                    kmlFileFound = true;
+                    
+                    // 读取 KML 文件内容
+                    zipEntry.async('string').then(function(kmlText) {
+                        console.log('KML 文件读取成功，准备加载到地图');
+                        if (loadingProgress) {
+                            loadingProgress.textContent = '正在加载 KML 数据...';
+                        }
+                        
+                        // 使用现有的 KML 加载函数
+                        loadLocalKML(kmlText, name);
+                        
+                        // 隐藏加载提示
+                        if (loadingPanel) {
+                            loadingProgress.textContent = '加载完成';
+                            setTimeout(() => {
+                                loadingPanel.style.display = 'none';
+                            }, 1000);
+                        }
+                        
+                        // 清空 input
+                        const geoJsonFileInput = document.getElementById('geoJsonFileInput');
+                        if (geoJsonFileInput) {
+                            geoJsonFileInput.value = '';
+                        }
+                        
+                        console.log('KMZ 文件加载完成:', name);
+                    }).catch(function(error) {
+                        console.error('读取 KML 文件失败:', error);
+                        throw error;
+                    });
+                }
+            });
+            
+            if (!kmlFileFound) {
+                throw new Error('KMZ 文件中未找到 KML 文件');
+            }
+        }).catch(function(error) {
+            console.error('KMZ 解压失败:', error);
+            throw error;
+        });
+    } catch (error) {
+        console.error('加载本地 KMZ 失败:', error);
+        // 显示错误提示
+        if (loadingPanel && loadingProgress) {
+            loadingProgress.textContent = '加载失败: ' + error.message;
+            setTimeout(() => {
+                loadingPanel.style.display = 'none';
+            }, 2000);
+        } else {
+            alert('文件解析失败：' + error.message);
+        }
+        
+        // 清空 input
+        const geoJsonFileInput = document.getElementById('geoJsonFileInput');
+        if (geoJsonFileInput) {
+            geoJsonFileInput.value = '';
+        }
     }
 }
 

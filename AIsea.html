@@ -7,6 +7,7 @@
     <title>跬步地图2.8431</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.5.2/ol.css">
     <script src="/js/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
     <link rel="stylesheet" href="css/map.css">
 </head>
 
@@ -70,8 +71,8 @@
             background-color: #f0f0f0;
         }
     </style>
-    <!-- 隐藏的 GeoJSON 和 KML 文件上传输入框 -->
-    <input type="file" id="geoJsonFileInput" accept=".geojson,.json,.kml" style="display: none;" />
+    <!-- 隐藏的 GeoJSON、KML 和 KMZ 文件上传输入框 -->
+    <input type="file" id="geoJsonFileInput" accept=".geojson,.json,.kml,.kmz" style="display: none;" />
     <div class="layer-control">
         <button id="toggleLayerPanel" class="action-btn" data-title="图层管理">📂</button>
         <div id="layerPanel"
@@ -145,7 +146,7 @@
             <!-- 3. 上传表单 (登录后显示) -->
             <div id="sidebarUploadForm" style="display:none; margin-top:20px; border-top:1px solid #eee; padding-top:20px;">
                 <h4 style="margin-top:0;">上传图片</h4>
-                <input type="file" id="sidebarFileInput" multiple accept=".jpg,.jpeg,.png,.tif" style="width:100%; margin-bottom:10px;">
+                <input type="file" id="sidebarFileInput" multiple accept=".jpg,.jpeg,.png,.tif" capture="camera" style="width:100%; margin-bottom:10px;">
                 <button id="sidebarUploadBtn" style="width:100%; padding:10px; background:#1890ff; color:white; border:none; border-radius:4px; cursor:pointer;">开始上传</button>
                 <div id="sidebarUploadProgress" style="margin-top:10px; font-size:12px; color:#666;"></div>
             </div>

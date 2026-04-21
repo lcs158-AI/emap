@@ -31,9 +31,29 @@ function initUpload() {
             // 出错时继续上传，避免影响用户体验
         }
 
+        // 获取位置信息
+        let locationData = null;
+        try {
+            progressEl.innerText = '正在获取位置信息...';
+            locationData = await getCurrentLocation();
+            console.log('获取到位置信息:', locationData);
+        } catch (error) {
+            console.error('获取位置信息失败:', error);
+            progressEl.innerText = '获取位置信息失败，将继续上传...';
+            // 位置获取失败不阻止上传
+        }
+
         const formData = new FormData();
         for (let file of fileInput.files) formData.append('files', file);
         formData.append('username', username); // 添加用户名参数
+        
+        // 添加位置和时间信息
+        if (locationData) {
+            formData.append('latitude', locationData.lat);
+            formData.append('longitude', locationData.lon);
+        }
+        formData.append('capture_time', new Date().toISOString()); // 添加拍照时间
+        formData.append('device_type', 'phone'); // 按要求设置为phone类型
 
         progressEl.innerText = '上传中...';
         
@@ -89,6 +109,34 @@ function initUpload() {
             progressEl.innerText = '上传出错: ' + e.message;
             progressEl.style.color = 'red';
         }
+    });
+}
+
+// 获取当前位置信息
+function getCurrentLocation() {
+    return new Promise((resolve, reject) => {
+        if (!navigator.geolocation) {
+            reject(new Error('浏览器不支持地理定位'));
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                resolve({
+                    lat: position.coords.latitude,
+                    lon: position.coords.longitude,
+                    accuracy: position.coords.accuracy
+                });
+            },
+            (error) => {
+                reject(new Error('获取位置失败: ' + error.message));
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0
+            }
+        );
     });
 }
 
