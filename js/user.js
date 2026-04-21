@@ -256,66 +256,102 @@ async function loadUserUploadedData() {
         }
         
         console.log('开始加载用户数据，用户名:', username);
-        const res = await fetch(`${window.API_BASE_URL}/api/photos`, {
-            method: 'GET'
-        });
         
-        if (res.ok) {
-            const data = await res.json();
-            console.log('获取到所有照片数据，要素数量:', data.features ? data.features.length : 0);
-            
-            // 严格过滤出当前用户的照片
-            const userFeatures = (data.features || []).filter(feature => {
-                return feature.properties && feature.properties.uploader === username;
-            });
-            
-            console.log('过滤后用户照片数量:', userFeatures.length);
-            
-            // 转换数据格式为前端需要的格式
-            const userData = {
-                points: userFeatures,
-                footprints: []
-            };
-            
-            // 从用户数据中提取视域信息
-            userFeatures.forEach(feature => {
-                const properties = feature.properties || {};
-                if (properties.footprints) {
-                    try {
-                        let footprints;
-                        // 检查footprints的类型，如果是字符串则解析，否则直接使用
-                        if (typeof properties.footprints === 'string') {
-                            footprints = JSON.parse(properties.footprints);
-                        } else {
-                            footprints = properties.footprints;
-                        }
-                        
-                        // 处理不同格式的视域数据
-                        if (footprints) {
-                            if (footprints.features) {
-                                // 如果是FeatureCollection，添加所有features
-                                userData.footprints = userData.footprints.concat(footprints.features);
-                            } else if (footprints.type) {
-                                // 如果是单个Feature或Geometry，直接添加
-                                userData.footprints.push(footprints);
-                            }
-                        }
-                    } catch (e) {
-                        console.error('解析视域数据失败:', e);
+        // 尝试多次请求，提高可靠性
+        let res;
+        let retries = 3;
+        let success = false;
+        
+        while (retries > 0 && !success) {
+            try {
+                console.log(`尝试请求用户数据 (${4-retries}/3)...`);
+                res = await fetch(`${window.API_BASE_URL}/api/photos`, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json'
+                    },
+                    cache: 'no-cache',
+                    credentials: 'include'
+                });
+                
+                if (res.ok) {
+                    console.log('请求成功:', res.status);
+                    success = true;
+                } else {
+                    console.warn(`请求失败，${retries-1}次重试机会:`, res.status, res.statusText);
+                    retries--;
+                    if (retries > 0) {
+                        // 等待一段时间后重试
+                        await new Promise(resolve => setTimeout(resolve, 1000));
                     }
                 }
-            });
-            
-            console.log('提取到视域数据数量:', userData.footprints.length);
-            
-            loadUserDataToMap(userData);
-        } else {
-            console.error('获取用户数据失败:', res.status);
-            // 显示错误提示
-            if (loadingProgress) {
-                loadingProgress.textContent = '获取数据失败';
+            } catch (error) {
+                console.warn(`请求错误，${retries-1}次重试机会:`, error.message);
+                retries--;
+                if (retries > 0) {
+                    // 等待一段时间后重试
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
             }
         }
+        
+        if (!success) {
+            console.error('多次尝试后仍无法加载用户数据');
+            // 显示错误提示
+            if (loadingProgress) {
+                loadingProgress.textContent = '网络连接失败，请稍后重试';
+            }
+            return;
+        }
+        
+        const data = await res.json();
+        console.log('获取到所有照片数据，要素数量:', data.features ? data.features.length : 0);
+        
+        // 严格过滤出当前用户的照片
+        const userFeatures = (data.features || []).filter(feature => {
+            return feature.properties && feature.properties.uploader === username;
+        });
+        
+        console.log('过滤后用户照片数量:', userFeatures.length);
+        
+        // 转换数据格式为前端需要的格式
+        const userData = {
+            points: userFeatures,
+            footprints: []
+        };
+        
+        // 从用户数据中提取视域信息
+        userFeatures.forEach(feature => {
+            const properties = feature.properties || {};
+            if (properties.footprints) {
+                try {
+                    let footprints;
+                    // 检查footprints的类型，如果是字符串则解析，否则直接使用
+                    if (typeof properties.footprints === 'string') {
+                        footprints = JSON.parse(properties.footprints);
+                    } else {
+                        footprints = properties.footprints;
+                    }
+                    
+                    // 处理不同格式的视域数据
+                    if (footprints) {
+                        if (footprints.features) {
+                            // 如果是FeatureCollection，添加所有features
+                            userData.footprints = userData.footprints.concat(footprints.features);
+                        } else if (footprints.type) {
+                            // 如果是单个Feature或Geometry，直接添加
+                            userData.footprints.push(footprints);
+                        }
+                    }
+                } catch (e) {
+                    console.error('解析视域数据失败:', e);
+                }
+            }
+        });
+        
+        console.log('提取到视域数据数量:', userData.footprints.length);
+        
+        loadUserDataToMap(userData);
     } catch (e) {
         console.error('加载用户数据出错:', e);
         // 显示错误提示
