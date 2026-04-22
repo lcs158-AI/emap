@@ -77,7 +77,8 @@ function initUpload() {
         let locationData = null;
         try {
             progressEl.innerText = '正在获取位置信息...';
-            locationData = await getCurrentLocation();
+            // 强制获取最新位置信息，不使用缓存
+            locationData = await getCurrentLocation(true);
             console.log('获取到位置信息:', locationData);
         } catch (error) {
             console.error('获取位置信息失败:', error);
@@ -104,7 +105,7 @@ function initUpload() {
             formData.append('latitude', locationData.lat);
             formData.append('longitude', locationData.lon);
         }
-        formData.append('capture_time', new Date().toISOString()); // 添加拍照时间
+        formData.append('capture_time', getBeijingTime().toISOString()); // 添加北京时间
         formData.append('device_type', 'phone'); // 按要求设置为phone类型
 
         progressEl.innerText = '上传中...';
@@ -172,7 +173,7 @@ function initUpload() {
 }
 
 // 获取当前位置信息
-function getCurrentLocation() {
+function getCurrentLocation(forceNew = false) {
     return new Promise((resolve, reject) => {
         if (!navigator.geolocation) {
             reject(new Error('浏览器不支持地理定位'));
@@ -193,10 +194,18 @@ function getCurrentLocation() {
             {
                 enableHighAccuracy: true,
                 timeout: 10000,
-                maximumAge: 0
+                maximumAge: forceNew ? 0 : 60000 // 强制获取新位置时设置为0，否则保留1分钟缓存
             }
         );
     });
+}
+
+// 获取北京时间
+function getBeijingTime() {
+    const now = new Date();
+    const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+    const beijingTime = new Date(utc + (8 * 60 * 60 * 1000));
+    return beijingTime;
 }
 
 // 暴露函数到全局
