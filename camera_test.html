@@ -331,8 +331,8 @@
             const pitchStatus = document.getElementById('pitchStatus');
             const captureBtn = document.getElementById('capture');
             
-            // 检查俯仰角是否在-30到-60度范围内
-            if (pitch >= -60 && pitch <= -30) {
+            // 检查俯仰角是否在30到60度范围内（向下倾斜）
+            if (pitch >= 30 && pitch <= 60) {
                 // 俯仰角在有效范围内
                 if (pitchStatus) {
                     pitchStatus.textContent = '✓ 俯仰角合适';
@@ -346,7 +346,7 @@
             } else {
                 // 俯仰角不在有效范围内
                 if (pitchStatus) {
-                    pitchStatus.textContent = '✗ 俯仰角应在-30°到-60°之间';
+                    pitchStatus.textContent = '✗ 俯仰角应在30°到60°之间';
                     pitchStatus.style.color = '#ff4d4f';
                 }
                 if (captureBtn) {
