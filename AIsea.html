@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes">
-    <title>跬步地图2.851</title>
+    <title>跬步地图2.86</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.5.2/ol.css">
     <script src="/js/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
@@ -172,14 +172,48 @@
                 <div style="margin-bottom:10px;">
                     <label style="display:block; margin-bottom:5px; font-weight:bold;">🔍 问题类型</label>
                     <select id="problemTypeSelect" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px;">
-                        <option value="">请选择问题类型</option>
-                        <option value="排水口">排水口</option>
-                        <option value="取排水管">取排水管</option>
-                        <option value="抽水井">抽水井</option>
-                        <option value="冲沟">冲沟</option>
-                        <option value="污水坑">污水坑</option>
+                        <option value="">加载中...</option>
                     </select>
                 </div>
+                <script>
+                    // 加载问题类型
+                    async function loadProblemTypes() {
+                        const select = document.getElementById('problemTypeSelect');
+                        try {
+                            const response = await fetch('problems.json');
+                            if (response.ok) {
+                                const data = await response.json();
+                                if (data.problems && Array.isArray(data.problems)) {
+                                    // 清空现有选项
+                                    select.innerHTML = '<option value="">请选择问题类型</option>';
+                                    // 添加问题类型选项
+                                    data.problems.forEach(problem => {
+                                        const option = document.createElement('option');
+                                        option.value = problem.name;
+                                        option.textContent = problem.name;
+                                        select.appendChild(option);
+                                    });
+                                }
+                            } else {
+                                throw new Error('加载问题类型失败');
+                            }
+                        } catch (error) {
+                            console.error('加载问题类型失败:', error);
+                            // 加载失败时使用默认选项
+                            select.innerHTML = `
+                                <option value="">请选择问题类型</option>
+                                <option value="排水口">排水口</option>
+                                <option value="取排水管">取排水管</option>
+                                <option value="抽水井">抽水井</option>
+                                <option value="冲沟">冲沟</option>
+                                <option value="污水坑">污水坑</option>
+                            `;
+                        }
+                    }
+                    
+                    // 页面加载时加载问题类型
+                    window.addEventListener('DOMContentLoaded', loadProblemTypes);
+                </script>
                 
                 <button id="sidebarUploadBtn" style="width:100%; padding:10px; background:#1890ff; color:white; border:none; border-radius:4px; cursor:pointer;">开始上传</button>
                 <div id="sidebarUploadProgress" style="margin-top:10px; font-size:12px; color:#666;"></div>
