@@ -202,12 +202,18 @@
                 document.getElementById('video').srcObject = videoStream;
                 
                 updateStatus('摄像头启动成功', 'success');
+                // 无论摄像头是否成功，都启动传感器监控
                 startSensorMonitoring();
             } catch (error) {
                 updateStatus('摄像头启动失败: ' + error.message, 'error');
                 console.error('摄像头启动失败:', error);
+                // 即使摄像头启动失败，也启动传感器监控
+                startSensorMonitoring();
             }
         });
+        
+        // 页面加载时就启动传感器监控，不需要等待摄像头
+        window.addEventListener('DOMContentLoaded', startSensorMonitoring);
         
         // 拍照
         document.getElementById('capture').addEventListener('click', () => {
@@ -235,14 +241,22 @@
         function startSensorMonitoring() {
             // 检查设备方向传感器
             if (window.DeviceOrientationEvent) {
+                // 先移除可能存在的监听器，避免重复添加
+                window.removeEventListener('deviceorientation', handleOrientation);
+                // 添加新的监听器
                 window.addEventListener('deviceorientation', handleOrientation);
+                console.log('设备方向传感器已启动');
             } else {
                 updateStatus('设备不支持方向传感器', 'error');
             }
             
             // 检查加速度传感器
             if (window.DeviceMotionEvent) {
+                // 先移除可能存在的监听器，避免重复添加
+                window.removeEventListener('devicemotion', handleMotion);
+                // 添加新的监听器
                 window.addEventListener('devicemotion', handleMotion);
+                console.log('加速度传感器已启动');
             } else {
                 updateStatus('设备不支持加速度传感器', 'error');
             }
@@ -254,19 +268,30 @@
             // beta: 前后俯仰
             // gamma: 左右倾斜
             
+            console.log('设备方向事件:', event);
+            
             if (event.alpha !== null) {
                 sensorData.compass = event.alpha.toFixed(2);
-                document.getElementById('compass').textContent = sensorData.compass + '°';
+                const compassElement = document.getElementById('compass');
+                if (compassElement) {
+                    compassElement.textContent = sensorData.compass + '°';
+                }
             }
             
             if (event.beta !== null) {
                 sensorData.pitch = event.beta.toFixed(2);
-                document.getElementById('pitch').textContent = sensorData.pitch + '°';
+                const pitchElement = document.getElementById('pitch');
+                if (pitchElement) {
+                    pitchElement.textContent = sensorData.pitch + '°';
+                }
             }
             
             if (event.gamma !== null) {
                 sensorData.roll = event.gamma.toFixed(2);
-                document.getElementById('roll').textContent = sensorData.roll + '°';
+                const rollElement = document.getElementById('roll');
+                if (rollElement) {
+                    rollElement.textContent = sensorData.roll + '°';
+                }
             }
             
             // 计算视域
@@ -275,6 +300,8 @@
         
         // 处理设备加速度
         function handleMotion(event) {
+            console.log('设备加速度事件:', event);
+            
             const accel = event.accelerationIncludingGravity;
             
             if (accel) {
@@ -282,9 +309,19 @@
                 sensorData.accel.y = accel.y.toFixed(2);
                 sensorData.accel.z = accel.z.toFixed(2);
                 
-                document.getElementById('accelX').textContent = sensorData.accel.x;
-                document.getElementById('accelY').textContent = sensorData.accel.y;
-                document.getElementById('accelZ').textContent = sensorData.accel.z;
+                const accelXElement = document.getElementById('accelX');
+                const accelYElement = document.getElementById('accelY');
+                const accelZElement = document.getElementById('accelZ');
+                
+                if (accelXElement) {
+                    accelXElement.textContent = sensorData.accel.x;
+                }
+                if (accelYElement) {
+                    accelYElement.textContent = sensorData.accel.y;
+                }
+                if (accelZElement) {
+                    accelZElement.textContent = sensorData.accel.z;
+                }
             }
         }
         
