@@ -132,6 +132,7 @@
             <div class="parameter">
                 <label>前后俯仰:</label>
                 <value id="pitch">-</value>
+                <span id="pitchStatus" style="font-size: 10px; color: #999;"></span>
             </div>
             <div class="parameter">
                 <label>左右倾斜:</label>
@@ -152,6 +153,26 @@
         </div>
         
         <div class="section">
+            <h2>位置信息</h2>
+            <div class="parameter">
+                <label>纬度:</label>
+                <input type="number" id="latitude" value="21.48" step="0.0001" style="width: 120px; padding: 2px; border: 1px solid #ddd; border-radius: 3px;">
+            </div>
+            <div class="parameter">
+                <label>经度:</label>
+                <input type="number" id="longitude" value="111.18" step="0.0001" style="width: 120px; padding: 2px; border: 1px solid #ddd; border-radius: 3px;">
+            </div>
+            <div class="parameter">
+                <label>拍摄距离(米):</label>
+                <input type="number" id="distance" value="10" step="1" min="1" style="width: 120px; padding: 2px; border: 1px solid #ddd; border-radius: 3px;">
+            </div>
+            <div class="parameter">
+                <label>相对高度(米):</label>
+                <input type="number" id="relativeHeight" value="1.6" step="0.1" min="0.1" style="width: 120px; padding: 2px; border: 1px solid #ddd; border-radius: 3px;">
+            </div>
+        </div>
+        
+        <div class="section">
             <h2>视域计算</h2>
             <div class="parameter">
                 <label>水平视场角:</label>
@@ -164,6 +185,10 @@
             <div class="parameter">
                 <label>视域范围:</label>
                 <value id="footprint">-</value>
+            </div>
+            <div class="parameter">
+                <label>视域坐标:</label>
+                <div id="footprintCoords" style="font-size: 10px; color: #666; word-break: break-all;">-</div>
             </div>
         </div>
         
@@ -284,6 +309,9 @@
                 if (pitchElement) {
                     pitchElement.textContent = sensorData.pitch + '°';
                 }
+                
+                // 验证俯仰角是否在有效范围内
+                validatePitch(parseFloat(sensorData.pitch));
             }
             
             if (event.gamma !== null) {
@@ -296,6 +324,37 @@
             
             // 计算视域
             calculateFootprint();
+        }
+        
+        // 验证俯仰角
+        function validatePitch(pitch) {
+            const pitchStatus = document.getElementById('pitchStatus');
+            const captureBtn = document.getElementById('capture');
+            
+            // 检查俯仰角是否在-30到-60度范围内
+            if (pitch >= -60 && pitch <= -30) {
+                // 俯仰角在有效范围内
+                if (pitchStatus) {
+                    pitchStatus.textContent = '✓ 俯仰角合适';
+                    pitchStatus.style.color = '#52c41a';
+                }
+                if (captureBtn) {
+                    captureBtn.disabled = false;
+                    captureBtn.style.backgroundColor = '#1890ff';
+                    captureBtn.style.cursor = 'pointer';
+                }
+            } else {
+                // 俯仰角不在有效范围内
+                if (pitchStatus) {
+                    pitchStatus.textContent = '✗ 俯仰角应在-30°到-60°之间';
+                    pitchStatus.style.color = '#ff4d4f';
+                }
+                if (captureBtn) {
+                    captureBtn.disabled = true;
+                    captureBtn.style.backgroundColor = '#d9d9d9';
+                    captureBtn.style.cursor = 'not-allowed';
+                }
+            }
         }
         
         // 处理设备加速度
@@ -327,21 +386,100 @@
         
         // 计算视域
         function calculateFootprint() {
-            // 假设手机前置摄像头的视场角
+            // 假设手机后置摄像头的视场角
             const hFov = 78; // 水平视场角
             const vFov = 43; // 垂直视场角
             
             document.getElementById('hFov').textContent = hFov + '°';
             document.getElementById('vFov').textContent = vFov + '°';
             
-            // 简单计算视域范围
-            // 这里只是一个示例，实际计算需要考虑更多因素
-            const distance = 10; // 假设拍摄距离为10米
+            // 获取输入的位置信息
+            const latitude = parseFloat(document.getElementById('latitude').value) || 21.48;
+            const longitude = parseFloat(document.getElementById('longitude').value) || 111.18;
+            const distance = parseFloat(document.getElementById('distance').value) || 10; // 拍摄距离（米）
+            const relativeHeight = parseFloat(document.getElementById('relativeHeight').value) || 1.6; // 相对高度（米）
+            
+            // 获取传感器数据
+            const compass = parseFloat(sensorData.compass) || 0; // 水平旋转（指南针方向）
+            const pitch = parseFloat(sensorData.pitch) || 0; // 前后俯仰
+            const roll = parseFloat(sensorData.roll) || 0; // 左右倾斜
+            
+            // 计算视域宽度和高度
             const hWidth = 2 * distance * Math.tan(Math.radians(hFov / 2));
             const vHeight = 2 * distance * Math.tan(Math.radians(vFov / 2));
             
             document.getElementById('footprint').textContent = 
                 `宽: ${hWidth.toFixed(2)}米, 高: ${vHeight.toFixed(2)}米`;
+            
+            // 计算梯形视域的四个顶点坐标
+            const footprintCoords = calculateTrapezoidFootprint(
+                latitude, longitude, distance, relativeHeight, compass, pitch, roll, hFov, vFov
+            );
+            
+            // 显示视域坐标
+            document.getElementById('footprintCoords').textContent = JSON.stringify(footprintCoords, null, 2);
+        }
+        
+        // 计算梯形视域坐标（考虑相对高度）
+        function calculateTrapezoidFootprint(lat, lon, distance, relativeHeight, compass, pitch, roll, hFov, vFov) {
+            // 地球半径（米）
+            const R = 6371000;
+            
+            // 将角度转换为弧度
+            const compassRad = Math.radians(compass);
+            const pitchRad = Math.radians(pitch);
+            const hFovRad = Math.radians(hFov);
+            const vFovRad = Math.radians(vFov);
+            
+            // 计算视域的四个顶点
+            const halfWidth = distance * Math.tan(hFovRad / 2);
+            const halfHeight = distance * Math.tan(vFovRad / 2);
+            
+            // 考虑俯仰角的影响
+            const adjustedDistance = distance / Math.cos(pitchRad);
+            
+            // 四个顶点相对于相机的位置（米）
+            const points = [
+                // 左上
+                [-halfWidth, halfHeight, distance],
+                // 右上
+                [halfWidth, halfHeight, distance],
+                // 右下
+                [halfWidth, -halfHeight, distance],
+                // 左下
+                [-halfWidth, -halfHeight, distance]
+            ];
+            
+            // 转换为地理坐标
+            const geoPoints = points.map(point => {
+                const [x, y, z] = point;
+                
+                // 计算点到相机的距离
+                const pointDistance = Math.sqrt(x * x + y * y + z * z);
+                
+                // 计算方位角和俯仰角
+                const azimuth = Math.atan2(x, z);
+                const elevation = Math.atan2(y, Math.sqrt(x * x + z * z));
+                
+                // 考虑相机的方向和倾斜
+                const adjustedAzimuth = compassRad + azimuth;
+                const adjustedElevation = pitchRad + elevation;
+                
+                // 计算地理坐标，考虑相对高度
+                // 垂直方向的位移需要减去相对高度
+                const verticalDisplacement = pointDistance * Math.sin(adjustedElevation) - relativeHeight;
+                const horizontalDisplacement = pointDistance * Math.cos(adjustedElevation);
+                
+                const newLat = lat + Math.radians(verticalDisplacement / R) * (180 / Math.PI);
+                const newLon = lon + Math.radians((horizontalDisplacement * Math.sin(adjustedAzimuth)) / (R * Math.cos(Math.radians(lat)))) * (180 / Math.PI);
+                
+                return [newLon, newLat];
+            });
+            
+            // 闭合多边形
+            geoPoints.push(geoPoints[0]);
+            
+            return geoPoints;
         }
         
         // 角度转弧度
