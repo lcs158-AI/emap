@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ==================== 地图初始化 ====================
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ==================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
@@ -5891,3 +5891,111 @@ function showLayerConfigExportDialog(content) {
         });
     }
 })();
+
+// ==================== 潮汐数据获取 ====================
+
+/**
+ * 获取潮汐数据
+ * @param {number} lat - 纬度
+ * @param {number} lon - 经度
+ * @returns {Promise<string>} 潮位信息，格式：H,L,C
+ */
+async function getTideData(lat, lon) {
+    // 和风天气API Key (需要替换为真实的API Key)
+    const API_KEY = 'YOUR_QWEATHER_API_KEY';
+    
+    try {
+        // 构建API请求URL
+        const url = `https://devapi.qweather.com/v7/tide/grid?location=${lon},${lat}&key=${API_KEY}`;
+        
+        console.log('获取潮汐数据:', url);
+        
+        // 发送请求
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        console.log('潮汐数据响应:', data);
+        
+        if (data.code !== '200') {
+            throw new Error(`API error: ${data.code}, ${data.message}`);
+        }
+        
+        // 处理潮汐数据
+        if (!data.tideInfo || data.tideInfo.length === 0) {
+            throw new Error('未获取到潮汐数据');
+        }
+        
+        // 获取今天的日期
+        const today = new Date();
+        const todayStr = today.toISOString().split('T')[0];
+        
+        // 筛选今天的潮汐数据
+        const todayTides = data.tideInfo.filter(item => {
+            return item.time.startsWith(todayStr);
+        });
+        
+        if (todayTides.length === 0) {
+            throw new Error('未获取到今天的潮汐数据');
+        }
+        
+        // 计算高潮值(H)、低潮值(L)和当前潮位值(C)
+        let highTide = -Infinity;
+        let lowTide = Infinity;
+        let currentTide = null;
+        
+        // 找到最高和最低潮位
+        todayTides.forEach(tide => {
+            const height = parseFloat(tide.height);
+            if (!isNaN(height)) {
+                if (height > highTide) {
+                    highTide = height;
+                }
+                if (height < lowTide) {
+                    lowTide = height;
+                }
+            }
+        });
+        
+        // 找到当前时间最近的潮位
+        const now = new Date();
+        let closestTide = null;
+        let minTimeDiff = Infinity;
+        
+        todayTides.forEach(tide => {
+            const tideTime = new Date(tide.time);
+            const timeDiff = Math.abs(tideTime - now);
+            if (timeDiff < minTimeDiff) {
+                minTimeDiff = timeDiff;
+                closestTide = tide;
+            }
+        });
+        
+        if (closestTide) {
+            currentTide = parseFloat(closestTide.height);
+        }
+        
+        // 检查是否获取到有效数据
+        if (highTide === -Infinity || lowTide === Infinity || currentTide === null) {
+            throw new Error('潮汐数据计算失败');
+        }
+        
+        // 格式化为 H,L,C 格式
+        const tideInfo = `${highTide.toFixed(2)},${lowTide.toFixed(2)},${currentTide.toFixed(2)}`;
+        console.log('计算的潮汐信息:', tideInfo);
+        
+        return tideInfo;
+        
+    } catch (error) {
+        console.error('获取潮汐数据失败:', error);
+        // 如果API调用失败，返回默认值
+        return '0.00,0.00,0.00';
+    }
+}
+
+// 暴露函数到全局
+window.getTideData = getTideData;

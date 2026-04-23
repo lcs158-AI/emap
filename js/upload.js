@@ -75,11 +75,23 @@ function initUpload() {
 
         // 获取位置信息（仅用于拍照和本地图片上传）
         let locationData = null;
+        let tideInfo = '0.00,0.00,0.00';
         try {
             progressEl.innerText = '正在获取位置信息...';
             // 强制获取最新位置信息，不使用缓存
             locationData = await getCurrentLocation(true);
             console.log('获取到位置信息:', locationData);
+            
+            // 获取潮汐数据
+            if (locationData) {
+                progressEl.innerText = '正在获取潮汐数据...';
+                if (typeof window.getTideData === 'function') {
+                    tideInfo = await window.getTideData(locationData.lat, locationData.lon);
+                    console.log('获取到潮汐数据:', tideInfo);
+                } else {
+                    console.warn('未找到 getTideData 函数');
+                }
+            }
         } catch (error) {
             console.error('获取位置信息失败:', error);
             progressEl.innerText = '获取位置信息失败，将继续上传...';
@@ -107,6 +119,12 @@ function initUpload() {
         }
         formData.append('capture_time', getBeijingTime().toISOString()); // 添加北京时间
         formData.append('device_type', 'phone'); // 按要求设置为phone类型
+        formData.append('tide_info', tideInfo); // 添加潮汐信息
+        
+        // 添加问题类型
+        const problemTypeSelect = document.getElementById('problemTypeSelect');
+        const problemType = problemTypeSelect ? problemTypeSelect.value : '';
+        formData.append('problem_type', problemType); // 添加问题类型
 
         progressEl.innerText = '上传中...';
         

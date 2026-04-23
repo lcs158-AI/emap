@@ -1,0 +1,24 @@
+{
+  "problems": [
+    {
+      "id": "drainage",
+      "name": "排水口"
+    },
+    {
+      "id": "water_pipe",
+      "name": "取排水管"
+    },
+    {
+      "id": "well",
+      "name": "抽水井"
+    },
+    {
+      "id": "gully",
+      "name": "冲沟"
+    },
+    {
+      "id": "sewage",
+      "name": "污水坑"
+    }
+  ]
+}

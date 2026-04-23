@@ -168,6 +168,19 @@
                     <div style="font-size:12px; color:#666;">选择GeoJSON、KML或KMZ文件</div>
                 </div>
                 
+                <!-- 问题类型选择 -->
+                <div style="margin-bottom:10px;">
+                    <label style="display:block; margin-bottom:5px; font-weight:bold;">🔍 问题类型</label>
+                    <select id="problemTypeSelect" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px;">
+                        <option value="">请选择问题类型</option>
+                        <option value="排水口">排水口</option>
+                        <option value="取排水管">取排水管</option>
+                        <option value="抽水井">抽水井</option>
+                        <option value="冲沟">冲沟</option>
+                        <option value="污水坑">污水坑</option>
+                    </select>
+                </div>
+                
                 <button id="sidebarUploadBtn" style="width:100%; padding:10px; background:#1890ff; color:white; border:none; border-radius:4px; cursor:pointer;">开始上传</button>
                 <div id="sidebarUploadProgress" style="margin-top:10px; font-size:12px; color:#666;"></div>
             </div>
