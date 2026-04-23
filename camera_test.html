@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>手机前置摄像头测试</title>
+    <title>手机后置摄像头测试</title>
     <style>
         * {
             margin: 0;
@@ -189,10 +189,10 @@
         // 启动摄像头
         document.getElementById('startCamera').addEventListener('click', async () => {
             try {
-                // 使用前置摄像头
+                // 使用后置摄像头
                 const constraints = {
                     video: {
-                        facingMode: 'user',
+                        facingMode: 'environment',
                         width: { ideal: 1280 },
                         height: { ideal: 720 }
                     }
