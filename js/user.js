@@ -308,11 +308,18 @@ async function loadUserUploadedData() {
         console.log('获取到所有照片数据，要素数量:', data.features ? data.features.length : 0);
         
         // 严格过滤出当前用户的照片
-        const userFeatures = (data.features || []).filter(feature => {
-            return feature.properties && feature.properties.uploader === username;
-        });
-        
-        console.log('过滤后用户照片数量:', userFeatures.length);
+        let userFeatures;
+        if (username === 'admin') {
+            // 管理员用户，显示所有数据
+            userFeatures = data.features || [];
+            console.log('管理员用户，显示所有照片数量:', userFeatures.length);
+        } else {
+            // 普通用户，只显示自己的数据
+            userFeatures = (data.features || []).filter(feature => {
+                return feature.properties && feature.properties.uploader === username;
+            });
+            console.log('过滤后用户照片数量:', userFeatures.length);
+        }
         
         // 转换数据格式为前端需要的格式
         const userData = {
