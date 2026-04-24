@@ -241,13 +241,11 @@
                 document.getElementById('video').srcObject = videoStream;
                 
                 updateStatus('摄像头启动成功', 'success');
-                // 无论摄像头是否成功，都启动传感器监控
+                // 启动传感器监控
                 startSensorMonitoring();
             } catch (error) {
                 updateStatus('摄像头启动失败: ' + error.message, 'error');
                 console.error('摄像头启动失败:', error);
-                // 即使摄像头启动失败，也启动传感器监控
-                startSensorMonitoring();
             }
         });
         
@@ -259,12 +257,9 @@
             map = new ol.Map({
                 target: 'map',
                 layers: [
-                    // ESRI影像底图
+                    // 不加载ESRI影像，使用默认底图
                     new ol.layer.Tile({
-                        source: new ol.source.XYZ({
-                            url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-                            attributions: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
-                        })
+                        source: new ol.source.OSM()
                     })
                 ],
                 view: new ol.View({
@@ -302,9 +297,8 @@
             map.addLayer(positionMarker);
         }
         
-        // 页面加载时就启动传感器监控和地图初始化
+        // 页面加载时初始化地图
         window.addEventListener('DOMContentLoaded', function() {
-            startSensorMonitoring();
             initMap();
             
             // 为获取实时位置按钮添加点击事件
@@ -316,12 +310,57 @@
         });
         
         // 拍照
-        document.getElementById('capture').addEventListener('click', () => {
+        document.getElementById('capture').addEventListener('click', async () => {
             if (!videoStream) {
                 updateStatus('请先启动摄像头', 'error');
                 return;
             }
             
+            updateStatus('正在获取位置和传感器参数...', 'success');
+            
+            // 1. 获取实时位置
+            let locationData = null;
+            try {
+                locationData = await new Promise((resolve, reject) => {
+                    if (navigator.geolocation) {
+                        navigator.geolocation.getCurrentPosition(
+                            function(position) {
+                                resolve({
+                                    lat: position.coords.latitude,
+                                    lon: position.coords.longitude
+                                });
+                            },
+                            function(error) {
+                                reject(error);
+                            },
+                            {
+                                enableHighAccuracy: true,
+                                timeout: 5000,
+                                maximumAge: 0
+                            }
+                        );
+                    } else {
+                        reject(new Error('设备不支持地理位置'));
+                    }
+                });
+                
+                // 更新位置输入框
+                const latitudeInput = document.getElementById('latitude');
+                const longitudeInput = document.getElementById('longitude');
+                if (latitudeInput) {
+                    latitudeInput.value = locationData.lat.toFixed(4);
+                }
+                if (longitudeInput) {
+                    longitudeInput.value = locationData.lon.toFixed(4);
+                }
+                
+                updateStatus('位置获取成功，正在拍照...', 'success');
+            } catch (error) {
+                console.error('获取位置失败:', error);
+                updateStatus('获取位置失败，使用默认位置', 'error');
+            }
+            
+            // 2. 拍照
             const video = document.getElementById('video');
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
@@ -334,7 +373,11 @@
             link.href = dataURL;
             link.click();
             
-            updateStatus('拍照成功', 'success');
+            // 3. 计算视域范围
+            updateStatus('正在计算视域范围...', 'success');
+            calculateFootprint();
+            
+            updateStatus('拍照成功，视域范围已计算', 'success');
         });
         
         // 请求传感器权限
