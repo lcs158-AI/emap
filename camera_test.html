@@ -170,6 +170,7 @@
                 <label>相对高度(米):</label>
                 <input type="number" id="relativeHeight" value="1.6" step="0.1" min="0.1" style="width: 120px; padding: 2px; border: 1px solid #ddd; border-radius: 3px;">
             </div>
+            <button id="getLocationBtn" style="width: 100%; padding: 8px; margin-top: 10px; background: #1890ff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">获取实时位置</button>
         </div>
         
         <div class="section">
@@ -305,6 +306,13 @@
         window.addEventListener('DOMContentLoaded', function() {
             startSensorMonitoring();
             initMap();
+            
+            // 为获取实时位置按钮添加点击事件
+            const getLocationBtn = document.getElementById('getLocationBtn');
+            if (getLocationBtn) {
+                getLocationBtn.addEventListener('click', getRealTimeLocation);
+                console.log('获取实时位置按钮已绑定点击事件');
+            }
         });
         
         // 拍照
@@ -329,9 +337,86 @@
             updateStatus('拍照成功', 'success');
         });
         
+        // 请求传感器权限
+        async function requestSensorPermission() {
+            console.log('请求传感器权限');
+            
+            try {
+                // 请求设备方向传感器权限
+                if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                    const permission = await DeviceOrientationEvent.requestPermission();
+                    if (permission === 'granted') {
+                        console.log('设备方向传感器权限已授予');
+                        updateStatus('设备方向传感器权限已授予', 'success');
+                        return true;
+                    } else {
+                        console.log('设备方向传感器权限被拒绝');
+                        updateStatus('设备方向传感器权限被拒绝', 'error');
+                        return false;
+                    }
+                } else {
+                    console.log('设备方向传感器不需要权限或不支持权限请求');
+                    return true;
+                }
+            } catch (error) {
+                console.error('请求传感器权限失败:', error);
+                updateStatus('请求传感器权限失败', 'error');
+                return false;
+            }
+        }
+        
+        // 获取实时位置
+        function getRealTimeLocation() {
+            console.log('获取实时位置');
+            
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    function(position) {
+                        console.log('获取位置成功:', position);
+                        const lat = position.coords.latitude;
+                        const lon = position.coords.longitude;
+                        
+                        // 更新位置输入框
+                        const latitudeInput = document.getElementById('latitude');
+                        const longitudeInput = document.getElementById('longitude');
+                        
+                        if (latitudeInput) {
+                            latitudeInput.value = lat.toFixed(4);
+                        }
+                        if (longitudeInput) {
+                            longitudeInput.value = lon.toFixed(4);
+                        }
+                        
+                        updateStatus('位置获取成功', 'success');
+                        // 重新计算视域
+                        calculateFootprint();
+                    },
+                    function(error) {
+                        console.error('获取位置失败:', error);
+                        updateStatus('获取位置失败: ' + error.message, 'error');
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 5000,
+                        maximumAge: 0
+                    }
+                );
+            } else {
+                console.log('设备不支持地理位置');
+                updateStatus('设备不支持地理位置', 'error');
+            }
+        }
+        
         // 开始传感器监控
-        function startSensorMonitoring() {
+        async function startSensorMonitoring() {
             console.log('开始传感器监控');
+            
+            // 请求传感器权限
+            const hasPermission = await requestSensorPermission();
+            if (!hasPermission) {
+                console.log('没有传感器权限，无法启动传感器监控');
+                return;
+            }
             
             // 检查设备方向传感器
             if (window.DeviceOrientationEvent) {
@@ -358,6 +443,9 @@
                 console.log('设备不支持加速度传感器');
                 updateStatus('设备不支持加速度传感器', 'error');
             }
+            
+            // 获取实时位置
+            getRealTimeLocation();
         }
         
         // 处理设备方向
