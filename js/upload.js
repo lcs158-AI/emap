@@ -117,7 +117,7 @@ function initUpload() {
             formData.append('latitude', locationData.lat);
             formData.append('longitude', locationData.lon);
         }
-        formData.append('capture_time', getBeijingTime().toISOString()); // 添加北京时间
+        formData.append('capture_time', getBeijingTime()); // 添加北京时间
         formData.append('device_type', 'phone'); // 按要求设置为phone类型
         formData.append('tide_info', tideInfo); // 添加潮汐信息
         
@@ -218,12 +218,16 @@ function getCurrentLocation(forceNew = false) {
     });
 }
 
-// 获取北京时间
+// 获取北京时间字符串 (YYYY-MM-DD HH:MM:SS)
 function getBeijingTime() {
     const now = new Date();
-    const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-    const beijingTime = new Date(utc + (8 * 60 * 60 * 1000));
-    return beijingTime;
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 }
 
 // 暴露函数到全局
