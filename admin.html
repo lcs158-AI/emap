@@ -346,11 +346,7 @@
             <button class="btn btn-primary" onclick="login()">登录</button>
         </div>
         
-        <div id="accessDenied" style="display: none; max-width: 500px; margin: 100px auto; padding: 40px; border: 1px solid #ddd; border-radius: 5px; background: #f9f9f9; text-align: center;">
-            <h2>访问被拒绝</h2>
-            <p style="color: #ff4d4f; margin-top: 20px;">您不是管理员，无法访问此页面</p>
-            <button class="btn btn-primary" style="margin-top: 20px;" onclick="redirectToHome()">返回首页</button>
-        </div>
+
         
         <div id="navTabs" class="nav-tabs">
             <div class="nav-tab active" onclick="switchTab('users-tab', event)">用户管理</div>
@@ -432,6 +428,13 @@
                         <option value="pending">待审核</option>
                         <option value="active">已激活</option>
                         <option value="inactive">已禁用</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="editRole">角色</label>
+                    <select id="editRole">
+                        <option value="user">普通用户</option>
+                        <option value="admin">管理员</option>
                     </select>
                 </div>
                 <button type="button" class="btn btn-primary" onclick="submitEditUser()">保存</button>
@@ -777,6 +780,7 @@
                 document.getElementById('editWorkUnit').value = user.work_unit || '';
                 document.getElementById('editPhone').value = user.phone || '';
                 document.getElementById('editStatus').value = user.status || 'pending';
+                document.getElementById('editRole').value = user.is_admin ? 'admin' : 'user';
                 
                 document.getElementById('editUserModal').style.display = 'block';
             } catch (error) {
@@ -791,6 +795,7 @@
             const workUnit = document.getElementById('editWorkUnit').value;
             const phone = document.getElementById('editPhone').value;
             const status = document.getElementById('editStatus').value;
+            const role = document.getElementById('editRole').value;
             
             try {
                 const response = await fetch(`${API_BASE_URL}/api/users/${username}`, {
@@ -802,7 +807,8 @@
                         real_name: realName,
                         work_unit: workUnit,
                         phone: phone,
-                        status: status
+                        status: status,
+                        is_admin: role === 'admin'
                     })
                 });
                 
@@ -1171,7 +1177,6 @@
         function showLoginForm() {
             document.getElementById('adminSetupForm').style.display = 'none';
             document.getElementById('loginForm').style.display = 'block';
-            document.getElementById('accessDenied').style.display = 'none';
             document.getElementById('navTabs').style.display = 'none';
             document.querySelectorAll('.tab-content').forEach(content => {
                 content.style.display = 'none';
@@ -1181,21 +1186,10 @@
         function showAdminPanel() {
             document.getElementById('adminSetupForm').style.display = 'none';
             document.getElementById('loginForm').style.display = 'none';
-            document.getElementById('accessDenied').style.display = 'none';
             document.getElementById('navTabs').style.display = 'flex';
             document.getElementById('users-tab').classList.add('active');
             document.getElementById('photos-tab').classList.remove('active');
             loadUsers();
-        }
-        
-        function showAccessDenied() {
-            document.getElementById('adminSetupForm').style.display = 'none';
-            document.getElementById('loginForm').style.display = 'none';
-            document.getElementById('navTabs').style.display = 'none';
-            document.querySelectorAll('.tab-content').forEach(content => {
-                content.style.display = 'none';
-            });
-            document.getElementById('accessDenied').style.display = 'block';
         }
         
         async function login() {
@@ -1256,7 +1250,6 @@
             if (!hasUsers) {
                 document.getElementById('adminSetupForm').style.display = 'block';
                 document.getElementById('loginForm').style.display = 'none';
-                document.getElementById('accessDenied').style.display = 'none';
                 document.getElementById('navTabs').style.display = 'none';
                 document.querySelectorAll('.tab-content').forEach(content => {
                     content.style.display = 'none';
@@ -1272,7 +1265,7 @@
                         showUserInfo(username);
                         showAdminPanel();
                     } else {
-                        showAccessDenied();
+                        showLoginForm();
                     }
                 } else {
                     showLoginForm();
