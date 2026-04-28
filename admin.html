@@ -1105,7 +1105,11 @@
         
         async function checkUsers() {
             try {
-                const response = await fetch(`${API_BASE_URL}/api/users`);
+                const response = await fetch(`${API_BASE_URL}/api/users`, {
+                    method: 'GET',
+                    mode: 'cors',
+                    credentials: 'include'
+                });
                 if (!response.ok) {
                     throw new Error('Failed to load users');
                 }
@@ -1115,6 +1119,7 @@
                 return users.length > 0;
             } catch (error) {
                 console.error('Error checking users:', error);
+                showMessage('无法连接到服务器，请检查网络连接或稍后重试', 'error');
                 return false;
             }
         }
