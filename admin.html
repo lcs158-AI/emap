@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>数据库管理2.843</title>
+    <title>数据库管理2.844</title>
     <style>
         * {
             margin: 0;
@@ -24,7 +24,7 @@
             border-radius: 10px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.2);
             width: 100%;
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 20px auto;
             padding: 30px;
             flex: 1;
@@ -53,6 +53,11 @@
             margin-bottom: 20px;
         }
         
+        h3 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+        
         .nav-tabs {
             display: flex;
             border-bottom: 1px solid #ddd;
@@ -60,13 +65,14 @@
         }
         
         .nav-tab {
-            padding: 10px 20px;
+            padding: 12px 24px;
             cursor: pointer;
             border: 1px solid #ddd;
             border-bottom: none;
             background: #f5f5f5;
             margin-right: 5px;
             border-radius: 5px 5px 0 0;
+            font-weight: bold;
         }
         
         .nav-tab.active {
@@ -86,6 +92,8 @@
         .table-container {
             overflow-x: auto;
             margin-top: 20px;
+            max-height: 600px;
+            overflow-y: auto;
         }
         
         table {
@@ -94,15 +102,18 @@
         }
         
         th, td {
-            padding: 12px;
+            padding: 10px;
             text-align: left;
             border-bottom: 1px solid #ddd;
+            vertical-align: middle;
         }
         
         th {
             background-color: #667eea;
             color: white;
             font-weight: bold;
+            position: sticky;
+            top: 0;
         }
         
         tr:hover {
@@ -116,6 +127,7 @@
             cursor: pointer;
             font-size: 14px;
             margin-right: 5px;
+            margin-bottom: 5px;
         }
         
         .btn-primary {
@@ -135,6 +147,11 @@
         
         .btn-warning {
             background: #faad14;
+            color: white;
+        }
+        
+        .btn-info {
+            background: #1890ff;
             color: white;
         }
         
@@ -162,20 +179,17 @@
             top: 20px;
             right: 20px;
             background: white;
-            padding: 10px;
+            padding: 15px;
             border-radius: 5px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: right;
         }
         
         .user-info button {
             width: auto;
-            padding: 5px 10px;
+            padding: 5px 15px;
             font-size: 14px;
-            background: #ff4d4f;
-        }
-        
-        .user-info button:hover {
-            background: #ff7875;
+            margin-top: 10px;
         }
         
         .modal {
@@ -193,7 +207,7 @@
         .modal-content {
             background-color: #fefefe;
             margin: 15% auto;
-            padding: 20px;
+            padding: 25px;
             border: 1px solid #888;
             width: 80%;
             max-width: 500px;
@@ -222,6 +236,7 @@
             display: block;
             margin-bottom: 5px;
             color: #666;
+            font-weight: bold;
         }
         
         input[type="text"],
@@ -241,13 +256,48 @@
             border-radius: 5px;
             font-size: 16px;
         }
+        
+        .photo-thumbnail {
+            max-width: 100px;
+            max-height: 100px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        
+        .photo-preview-modal .modal-content {
+            max-width: 90%;
+            max-height: 90%;
+            margin: 5% auto;
+        }
+        
+        .photo-preview {
+            max-width: 100%;
+            max-height: 80vh;
+            display: block;
+            margin: 0 auto;
+        }
+        
+        .action-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+        
+        .change-password-section {
+            margin-bottom: 20px;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
     </style>
 </head>
 <body>
-    <!-- 用户信息区域 -->
     <div class="user-info" id="userInfo" style="display: none;">
         <div id="userName"></div>
-        <button onclick="logout()">退出登录</button>
+        <div id="userRole" style="font-size: 12px; color: #666; margin-top: 5px;"></div>
+        <button class="btn btn-info" onclick="showChangePasswordModal()">修改密码</button>
+        <button class="btn btn-danger" onclick="logout()">退出登录</button>
     </div>
     
     <div class="container">
@@ -255,7 +305,6 @@
         
         <div id="message" class="message" style="display: none;"></div>
         
-        <!-- 管理员账号创建表单 -->
         <div id="adminSetupForm" style="display: none; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 5px; background: #f9f9f9;">
             <h2>创建管理员账号</h2>
             <p>首次访问，请创建管理员账号</p>
@@ -282,7 +331,6 @@
             <button class="btn btn-primary" onclick="createAdminAccount()">创建管理员账号</button>
         </div>
         
-        <!-- 管理员登录表单 -->
         <div id="loginForm" style="display: none; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 5px; background: #f9f9f9;">
             <h2>管理员登录</h2>
             <p>请输入管理员账号和密码</p>
@@ -298,14 +346,17 @@
             <button class="btn btn-primary" onclick="login()">登录</button>
         </div>
         
-        <!-- 导航标签 -->
-        <div id="navTabs" class="nav-tabs">
-            <div class="nav-tab active" onclick="switchTab('users-tab', event)">用户管理</div>
-            <div class="nav-tab" onclick="switchTab('photos-tab', event)">上传数据管理</div>
-            <div class="nav-tab" onclick="switchTab('footprints-tab', event)">无人机视域管理</div>
+        <div id="accessDenied" style="display: none; max-width: 500px; margin: 100px auto; padding: 40px; border: 1px solid #ddd; border-radius: 5px; background: #f9f9f9; text-align: center;">
+            <h2>访问被拒绝</h2>
+            <p style="color: #ff4d4f; margin-top: 20px;">您不是管理员，无法访问此页面</p>
+            <button class="btn btn-primary" style="margin-top: 20px;" onclick="redirectToHome()">返回首页</button>
         </div>
         
-        <!-- 用户管理标签内容 -->
+        <div id="navTabs" class="nav-tabs">
+            <div class="nav-tab active" onclick="switchTab('users-tab', event)">用户管理</div>
+            <div class="nav-tab" onclick="switchTab('photos-tab', event)">上传照片管理</div>
+        </div>
+        
         <div class="tab-content active" id="users-tab">
             <h2>用户管理</h2>
             <div class="table-container">
@@ -317,23 +368,23 @@
                             <th>工作单位</th>
                             <th>手机号码</th>
                             <th>状态</th>
+                            <th>角色</th>
                             <th>操作</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <!-- 用户数据将通过JavaScript动态添加 -->
                     </tbody>
                 </table>
             </div>
         </div>
         
-        <!-- 上传数据管理标签内容 -->
         <div class="tab-content" id="photos-tab">
-            <h2>上传数据管理</h2>
+            <h2>上传照片管理</h2>
             <div class="table-container">
                 <table id="photos-table">
                     <thead>
                         <tr>
+                            <th>照片预览</th>
                             <th>文件名</th>
                             <th>上传人</th>
                             <th>上传时间</th>
@@ -341,39 +392,18 @@
                             <th>纬度</th>
                             <th>经度</th>
                             <th>设备类型</th>
+                            <th>潮位信息</th>
+                            <th>问题类型</th>
                             <th>操作</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <!-- 照片数据将通过JavaScript动态添加 -->
-                    </tbody>
-                </table>
-            </div>
-        </div>
-        
-        <!-- 无人机视域管理标签内容 -->
-        <div class="tab-content" id="footprints-tab">
-            <h2>无人机视域管理</h2>
-            <div class="table-container">
-                <table id="footprints-table">
-                    <thead>
-                        <tr>
-                            <th>文件名</th>
-                            <th>上传人</th>
-                            <th>上传时间</th>
-                            <th>拍摄时间</th>
-                            <th>操作</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <!-- 视域数据将通过JavaScript动态添加 -->
                     </tbody>
                 </table>
             </div>
         </div>
     </div>
     
-    <!-- 编辑用户模态框 -->
     <div id="editUserModal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="closeModal('editUserModal')">&times;</span>
@@ -410,7 +440,53 @@
         </div>
     </div>
     
-    <!-- 编辑照片模态框 -->
+    <div id="resetPasswordModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('resetPasswordModal')">&times;</span>
+            <h3>重置密码</h3>
+            <form id="resetPasswordForm">
+                <input type="hidden" id="resetUserId">
+                <div class="form-group">
+                    <label for="resetUsername">用户名</label>
+                    <input type="text" id="resetUsername" disabled>
+                </div>
+                <div class="form-group">
+                    <label for="resetNewPassword">新密码</label>
+                    <input type="password" id="resetNewPassword" required>
+                </div>
+                <div class="form-group">
+                    <label for="resetConfirmPassword">确认密码</label>
+                    <input type="password" id="resetConfirmPassword" required>
+                </div>
+                <button type="button" class="btn btn-primary" onclick="submitResetPassword()">重置密码</button>
+                <button type="button" class="btn btn-danger" onclick="closeModal('resetPasswordModal')">取消</button>
+            </form>
+        </div>
+    </div>
+    
+    <div id="changePasswordModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('changePasswordModal')">&times;</span>
+            <h3>修改密码</h3>
+            <form id="changePasswordForm">
+                <div class="form-group">
+                    <label for="changeOldPassword">旧密码</label>
+                    <input type="password" id="changeOldPassword" required>
+                </div>
+                <div class="form-group">
+                    <label for="changeNewPassword">新密码</label>
+                    <input type="password" id="changeNewPassword" required>
+                </div>
+                <div class="form-group">
+                    <label for="changeConfirmPassword">确认密码</label>
+                    <input type="password" id="changeConfirmPassword" required>
+                </div>
+                <button type="button" class="btn btn-primary" onclick="submitChangePassword()">修改密码</button>
+                <button type="button" class="btn btn-danger" onclick="closeModal('changePasswordModal')">取消</button>
+            </form>
+        </div>
+    </div>
+    
     <div id="editPhotoModal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="closeModal('editPhotoModal')">&times;</span>
@@ -443,35 +519,32 @@
         </div>
     </div>
     
+    <div id="photoPreviewModal" class="modal photo-preview-modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('photoPreviewModal')">&times;</span>
+            <img id="previewImage" class="photo-preview" src="" alt="照片预览">
+        </div>
+    </div>
+    
     <script>
-        // API配置
-        // 动态设置API_BASE_URL
         const API_BASE_URL = (function() {
-            // 检测当前环境
             const hostname = window.location.hostname;
-            // 如果是本地开发环境
             if (hostname === 'localhost' || hostname === '127.0.0.1') {
-                return 'http://localhost:8086'; // 本地开发测试
+                return 'http://localhost:8086';
             } else {
-                // 部署到Render的环境
-                return 'https://lzy-fastapi.onrender.com'; // Render部署
+                return 'https://lzy-fastapi.onrender.com';
             }
         })();
         console.log('API_BASE_URL:', API_BASE_URL);
         
-
+        let currentUser = null;
         
-        // 切换标签
         function switchTab(tabId, event) {
-            // 隐藏所有标签内容
             document.querySelectorAll('.tab-content').forEach(content => {
                 content.classList.remove('active');
             });
-            
-            // 显示选中的标签内容
             document.getElementById(tabId).classList.add('active');
             
-            // 更新标签样式
             document.querySelectorAll('.nav-tab').forEach(tab => {
                 tab.classList.remove('active');
             });
@@ -479,17 +552,13 @@
                 event.target.classList.add('active');
             }
             
-            // 加载对应的数据
             if (tabId === 'users-tab') {
                 loadUsers();
             } else if (tabId === 'photos-tab') {
                 loadPhotos();
-            } else if (tabId === 'footprints-tab') {
-                loadFootprints();
             }
         }
         
-        // 显示消息
         function showMessage(message, type) {
             const messageElement = document.getElementById('message');
             messageElement.textContent = message;
@@ -500,7 +569,6 @@
             }, 3000);
         }
         
-        // 加载用户数据
         async function loadUsers() {
             try {
                 const response = await fetch(`${API_BASE_URL}/api/users`);
@@ -536,40 +604,55 @@
                     statusCell.textContent = user.status || 'pending';
                     row.appendChild(statusCell);
                     
+                    const roleCell = document.createElement('td');
+                    roleCell.textContent = user.is_admin ? '管理员' : '普通用户';
+                    row.appendChild(roleCell);
+                    
                     const actionCell = document.createElement('td');
+                    const actionButtons = document.createElement('div');
+                    actionButtons.className = 'action-buttons';
                     
                     const editButton = document.createElement('button');
                     editButton.className = 'btn btn-primary';
                     editButton.textContent = '编辑';
                     editButton.addEventListener('click', () => editUser(user.username));
-                    actionCell.appendChild(editButton);
+                    actionButtons.appendChild(editButton);
+                    
+                    if (!user.is_admin) {
+                        const resetButton = document.createElement('button');
+                        resetButton.className = 'btn btn-info';
+                        resetButton.textContent = '重置密码';
+                        resetButton.addEventListener('click', () => resetPassword(user.username));
+                        actionButtons.appendChild(resetButton);
+                    }
                     
                     const deleteButton = document.createElement('button');
                     deleteButton.className = 'btn btn-danger';
                     deleteButton.textContent = '删除';
                     deleteButton.addEventListener('click', () => deleteUser(user.username));
-                    actionCell.appendChild(deleteButton);
+                    actionButtons.appendChild(deleteButton);
                     
                     if (user.status === 'pending') {
                         const activateButton = document.createElement('button');
                         activateButton.className = 'btn btn-success';
                         activateButton.textContent = '激活';
                         activateButton.addEventListener('click', () => activateUser(user.username));
-                        actionCell.appendChild(activateButton);
+                        actionButtons.appendChild(activateButton);
                     } else if (user.status === 'active') {
                         const deactivateButton = document.createElement('button');
                         deactivateButton.className = 'btn btn-warning';
                         deactivateButton.textContent = '禁用';
                         deactivateButton.addEventListener('click', () => deactivateUser(user.username));
-                        actionCell.appendChild(deactivateButton);
+                        actionButtons.appendChild(deactivateButton);
                     } else {
                         const activateButton = document.createElement('button');
                         activateButton.className = 'btn btn-success';
                         activateButton.textContent = '激活';
                         activateButton.addEventListener('click', () => activateUser(user.username));
-                        actionCell.appendChild(activateButton);
+                        actionButtons.appendChild(activateButton);
                     }
                     
+                    actionCell.appendChild(actionButtons);
                     row.appendChild(actionCell);
                     tableBody.appendChild(row);
                 });
@@ -579,7 +662,6 @@
             }
         }
         
-        // 加载照片数据
         async function loadPhotos() {
             try {
                 const response = await fetch(`${API_BASE_URL}/api/photos`);
@@ -599,6 +681,19 @@
                     const filename = properties.filename || '';
                     
                     const row = document.createElement('tr');
+                    
+                    const previewCell = document.createElement('td');
+                    if (filename) {
+                        const img = document.createElement('img');
+                        img.src = `${API_BASE_URL}/api/photos/image/${filename}`;
+                        img.className = 'photo-thumbnail';
+                        img.alt = filename;
+                        img.onclick = () => previewPhoto(filename);
+                        previewCell.appendChild(img);
+                    } else {
+                        previewCell.textContent = '-';
+                    }
+                    row.appendChild(previewCell);
                     
                     const filenameCell = document.createElement('td');
                     filenameCell.textContent = filename || '-';
@@ -628,20 +723,31 @@
                     deviceTypeCell.textContent = properties.device_type || '-';
                     row.appendChild(deviceTypeCell);
                     
+                    const tideInfoCell = document.createElement('td');
+                    tideInfoCell.textContent = properties.tide_info || '-';
+                    row.appendChild(tideInfoCell);
+                    
+                    const problemTypeCell = document.createElement('td');
+                    problemTypeCell.textContent = properties.problem_type || '-';
+                    row.appendChild(problemTypeCell);
+                    
                     const actionCell = document.createElement('td');
+                    const actionButtons = document.createElement('div');
+                    actionButtons.className = 'action-buttons';
                     
                     const editButton = document.createElement('button');
                     editButton.className = 'btn btn-primary';
                     editButton.textContent = '编辑';
                     editButton.addEventListener('click', () => editPhoto(filename));
-                    actionCell.appendChild(editButton);
+                    actionButtons.appendChild(editButton);
                     
                     const deleteButton = document.createElement('button');
                     deleteButton.className = 'btn btn-danger';
                     deleteButton.textContent = '删除';
                     deleteButton.addEventListener('click', () => deletePhoto(filename));
-                    actionCell.appendChild(deleteButton);
+                    actionButtons.appendChild(deleteButton);
                     
+                    actionCell.appendChild(actionButtons);
                     row.appendChild(actionCell);
                     tableBody.appendChild(row);
                 });
@@ -651,64 +757,12 @@
             }
         }
         
-        // 加载无人机视域数据
-        async function loadFootprints() {
-            try {
-                const response = await fetch(`${API_BASE_URL}/api/photos`);
-                if (!response.ok) {
-                    throw new Error('Failed to load photos');
-                }
-                const data = await response.json();
-                const features = data.features || [];
-                
-                // 过滤出有视域数据的照片
-                const footprintFeatures = features.filter(feature => {
-                    const properties = feature.properties || {};
-                    return properties.footprints && properties.footprints !== '';
-                });
-                
-                const tableBody = document.querySelector('#footprints-table tbody');
-                tableBody.innerHTML = '';
-                
-                footprintFeatures.forEach(feature => {
-                    const properties = feature.properties || {};
-                    const filename = properties.filename || '';
-                    
-                    const row = document.createElement('tr');
-                    
-                    const filenameCell = document.createElement('td');
-                    filenameCell.textContent = filename || '-';
-                    row.appendChild(filenameCell);
-                    
-                    const uploaderCell = document.createElement('td');
-                    uploaderCell.textContent = properties.uploader || '-';
-                    row.appendChild(uploaderCell);
-                    
-                    const uploadTimeCell = document.createElement('td');
-                    uploadTimeCell.textContent = properties.upload_time || '-';
-                    row.appendChild(uploadTimeCell);
-                    
-                    const datetimeCell = document.createElement('td');
-                    datetimeCell.textContent = properties.datetime || '-';
-                    row.appendChild(datetimeCell);
-                    
-                    const actionCell = document.createElement('td');
-                    const deleteButton = document.createElement('button');
-                    deleteButton.className = 'btn btn-danger';
-                    deleteButton.textContent = '删除';
-                    deleteButton.addEventListener('click', () => deleteFootprint(filename));
-                    actionCell.appendChild(deleteButton);
-                    row.appendChild(actionCell);
-                    
-                    tableBody.appendChild(row);
-                });
-            } catch (error) {
-                console.error('Error loading footprints:', error);
-                showMessage('加载视域数据失败: ' + error.message, 'error');
-            }
+        function previewPhoto(filename) {
+            const img = document.getElementById('previewImage');
+            img.src = `${API_BASE_URL}/api/photos/image/${filename}`;
+            document.getElementById('photoPreviewModal').style.display = 'block';
         }
         
-        // 编辑用户
         async function editUser(username) {
             try {
                 const response = await fetch(`${API_BASE_URL}/api/users/${username}`);
@@ -717,7 +771,6 @@
                 }
                 const user = await response.json();
                 
-                // 填充表单
                 document.getElementById('editUserId').value = user.username;
                 document.getElementById('editUsername').value = user.username;
                 document.getElementById('editRealName').value = user.real_name || '';
@@ -725,7 +778,6 @@
                 document.getElementById('editPhone').value = user.phone || '';
                 document.getElementById('editStatus').value = user.status || 'pending';
                 
-                // 显示模态框
                 document.getElementById('editUserModal').style.display = 'block';
             } catch (error) {
                 console.error('Error editing user:', error);
@@ -733,7 +785,6 @@
             }
         }
         
-        // 提交编辑用户
         async function submitEditUser() {
             const username = document.getElementById('editUserId').value;
             const realName = document.getElementById('editRealName').value;
@@ -768,7 +819,96 @@
             }
         }
         
-        // 编辑照片
+        function resetPassword(username) {
+            document.getElementById('resetUserId').value = username;
+            document.getElementById('resetUsername').value = username;
+            document.getElementById('resetNewPassword').value = '';
+            document.getElementById('resetConfirmPassword').value = '';
+            document.getElementById('resetPasswordModal').style.display = 'block';
+        }
+        
+        async function submitResetPassword() {
+            const username = document.getElementById('resetUserId').value;
+            const newPassword = document.getElementById('resetNewPassword').value;
+            const confirmPassword = document.getElementById('resetConfirmPassword').value;
+            
+            if (newPassword !== confirmPassword) {
+                showMessage('两次输入的密码不一致', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/users/${username}/reset-password`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        new_password: newPassword,
+                        admin_username: currentUser
+                    })
+                });
+                
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.detail || 'Failed to reset password');
+                }
+                
+                showMessage('密码重置成功', 'success');
+                closeModal('resetPasswordModal');
+                loadUsers();
+            } catch (error) {
+                console.error('Error resetting password:', error);
+                showMessage('重置密码失败: ' + error.message, 'error');
+            }
+        }
+        
+        function showChangePasswordModal() {
+            document.getElementById('changeOldPassword').value = '';
+            document.getElementById('changeNewPassword').value = '';
+            document.getElementById('changeConfirmPassword').value = '';
+            document.getElementById('changePasswordModal').style.display = 'block';
+        }
+        
+        async function submitChangePassword() {
+            const oldPassword = document.getElementById('changeOldPassword').value;
+            const newPassword = document.getElementById('changeNewPassword').value;
+            const confirmPassword = document.getElementById('changeConfirmPassword').value;
+            
+            if (newPassword !== confirmPassword) {
+                showMessage('两次输入的新密码不一致', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/users/change-password`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username: currentUser,
+                        old_password: oldPassword,
+                        new_password: newPassword
+                    })
+                });
+                
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.detail || 'Failed to change password');
+                }
+                
+                showMessage('密码修改成功，请重新登录', 'success');
+                closeModal('changePasswordModal');
+                setTimeout(() => {
+                    logout();
+                }, 2000);
+            } catch (error) {
+                console.error('Error changing password:', error);
+                showMessage('修改密码失败: ' + error.message, 'error');
+            }
+        }
+        
         async function editPhoto(filename) {
             try {
                 const response = await fetch(`${API_BASE_URL}/api/photos/${filename}`);
@@ -777,7 +917,6 @@
                 }
                 const photo = await response.json();
                 
-                // 填充表单
                 document.getElementById('editPhotoId').value = photo.filename;
                 document.getElementById('editPhotoFilename').value = photo.filename;
                 document.getElementById('editPhotoUploader').value = photo.uploader;
@@ -785,7 +924,6 @@
                 document.getElementById('editPhotoLat').value = photo.lat;
                 document.getElementById('editPhotoLon').value = photo.lon;
                 
-                // 显示模态框
                 document.getElementById('editPhotoModal').style.display = 'block';
             } catch (error) {
                 console.error('Error editing photo:', error);
@@ -793,7 +931,6 @@
             }
         }
         
-        // 提交编辑照片
         async function submitEditPhoto() {
             const filename = document.getElementById('editPhotoId').value;
             const datetime = document.getElementById('editPhotoDatetime').value;
@@ -826,9 +963,8 @@
             }
         }
         
-        // 删除用户
         async function deleteUser(username) {
-            if (!confirm('确定要删除用户 ' + username + ' 吗？')) {
+            if (!confirm('确定要删除用户 ' + username + ' 吗？此操作不可撤销。')) {
                 return;
             }
             
@@ -849,7 +985,6 @@
             }
         }
         
-        // 激活用户
         async function activateUser(username) {
             try {
                 const response = await fetch(`${API_BASE_URL}/api/users/${username}/activate`, {
@@ -868,7 +1003,6 @@
             }
         }
         
-        // 禁用用户
         async function deactivateUser(username) {
             try {
                 const response = await fetch(`${API_BASE_URL}/api/users/${username}/deactivate`, {
@@ -887,9 +1021,8 @@
             }
         }
         
-        // 删除照片
         async function deletePhoto(filename) {
-            if (!confirm('确定要删除照片 ' + filename + ' 吗？')) {
+            if (!confirm('确定要删除照片 ' + filename + ' 吗？此操作将同时删除数据库记录和照片文件，不可撤销。')) {
                 return;
             }
             
@@ -899,7 +1032,8 @@
                 });
                 
                 if (!response.ok) {
-                    throw new Error('Failed to delete photo');
+                    const data = await response.json();
+                    throw new Error(data.detail || 'Failed to delete photo');
                 }
                 
                 showMessage('照片删除成功', 'success');
@@ -910,58 +1044,30 @@
             }
         }
         
-        // 删除视域
-        async function deleteFootprint(filename) {
-            if (!confirm('确定要删除视域 ' + filename + ' 吗？')) {
-                return;
-            }
-            
-            try {
-                const response = await fetch(`${API_BASE_URL}/api/photos/${filename}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        footprints: null
-                    })
-                });
-                
-                if (!response.ok) {
-                    throw new Error('Failed to delete footprint');
-                }
-                
-                showMessage('视域删除成功', 'success');
-                loadFootprints();
-            } catch (error) {
-                console.error('Error deleting footprint:', error);
-                showMessage('删除视域失败: ' + error.message, 'error');
-            }
-        }
-        
-        // 关闭模态框
         function closeModal(modalId) {
             document.getElementById(modalId).style.display = 'none';
         }
         
-        // 显示用户信息
         function showUserInfo(username) {
             const userInfo = document.getElementById('userInfo');
             const userName = document.getElementById('userName');
+            const userRole = document.getElementById('userRole');
             userName.textContent = `欢迎，${username}`;
+            userRole.textContent = '管理员';
             userInfo.style.display = 'block';
         }
         
-        // 退出登录
         function logout() {
             localStorage.removeItem('access_token');
             localStorage.removeItem('username');
             document.getElementById('userInfo').style.display = 'none';
-            // 刷新当前页面，而不是跳转到 AIsea.html
             window.location.href = 'admin.html';
         }
         
-        // 检查是否已有用户
+        function redirectToHome() {
+            window.location.href = 'AIsea.html';
+        }
+        
         async function checkUsers() {
             try {
                 const response = await fetch(`${API_BASE_URL}/api/users`);
@@ -978,7 +1084,20 @@
             }
         }
         
-        // 创建管理员账号
+        async function validateAdminAccess(username) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/users/${username}`);
+                if (!response.ok) {
+                    return false;
+                }
+                const user = await response.json();
+                return user.is_admin === true;
+            } catch (error) {
+                console.error('Error validating admin:', error);
+                return false;
+            }
+        }
+        
         async function createAdminAccount() {
             const username = document.getElementById('adminUsername').value;
             const realName = document.getElementById('adminRealName').value;
@@ -1002,13 +1121,13 @@
                         real_name: realName,
                         work_unit: workUnit,
                         phone: phone,
-                        password: password
+                        password: password,
+                        is_admin: true
                     })
                 });
                 
                 const data = await response.json();
                 if (response.ok) {
-                    // 激活管理员账号
                     const activateResponse = await fetch(`${API_BASE_URL}/api/users/${username}/activate`, {
                         method: 'POST'
                     });
@@ -1016,7 +1135,6 @@
                     if (activateResponse.ok) {
                         showMessage('管理员账号创建成功，正在登录...', 'success');
                         
-                        // 自动登录
                         const loginResponse = await fetch(`${API_BASE_URL}/api/login/json`, {
                             method: 'POST',
                             headers: {
@@ -1030,10 +1148,10 @@
                         
                         if (loginResponse.ok) {
                             const loginData = await loginResponse.json();
-                            localStorage.setItem('access_token', 'admin_token'); // 设置默认的访问令牌
+                            localStorage.setItem('access_token', 'admin_token');
                             localStorage.setItem('username', username);
+                            currentUser = username;
                             
-                            // 刷新页面
                             setTimeout(() => {
                                 window.location.reload();
                             }, 1500);
@@ -1050,27 +1168,36 @@
             }
         }
         
-        // 显示登录界面
         function showLoginForm() {
             document.getElementById('adminSetupForm').style.display = 'none';
             document.getElementById('loginForm').style.display = 'block';
+            document.getElementById('accessDenied').style.display = 'none';
             document.getElementById('navTabs').style.display = 'none';
             document.querySelectorAll('.tab-content').forEach(content => {
                 content.style.display = 'none';
             });
         }
         
-        // 显示管理界面
         function showAdminPanel() {
             document.getElementById('adminSetupForm').style.display = 'none';
             document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('accessDenied').style.display = 'none';
             document.getElementById('navTabs').style.display = 'flex';
-            document.getElementById('users-tab').style.display = 'block';
-            document.getElementById('photos-tab').style.display = 'block';
-            document.getElementById('footprints-tab').style.display = 'block';
+            document.getElementById('users-tab').classList.add('active');
+            document.getElementById('photos-tab').classList.remove('active');
+            loadUsers();
         }
         
-        // 登录功能
+        function showAccessDenied() {
+            document.getElementById('adminSetupForm').style.display = 'none';
+            document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('navTabs').style.display = 'none';
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.style.display = 'none';
+            });
+            document.getElementById('accessDenied').style.display = 'block';
+        }
+        
         async function login() {
             const username = document.getElementById('loginUsername').value;
             const password = document.getElementById('loginPassword').value;
@@ -1096,7 +1223,6 @@
                 
                 const data = await response.json();
                 if (response.ok) {
-                    // 检查是否为管理员
                     if (!data.is_admin) {
                         loginMsg.innerText = '只有管理员可以登录此页面';
                         loginMsg.style.color = 'red';
@@ -1105,14 +1231,13 @@
                     
                     localStorage.setItem('access_token', 'admin_token');
                     localStorage.setItem('username', username);
+                    currentUser = username;
                     loginMsg.innerText = '登录成功';
                     loginMsg.style.color = 'green';
                     
-                    // 显示管理界面
                     setTimeout(() => {
                         showUserInfo(username);
                         showAdminPanel();
-                        loadUsers();
                     }, 1000);
                 } else {
                     loginMsg.innerText = data.detail || '登录失败';
@@ -1125,33 +1250,43 @@
             }
         }
         
-        // 页面加载时检查登录状态和用户数量
         window.addEventListener('DOMContentLoaded', async () => {
             const hasUsers = await checkUsers();
             
             if (!hasUsers) {
-                // 没有用户，显示管理员账号创建表单
                 document.getElementById('adminSetupForm').style.display = 'block';
                 document.getElementById('loginForm').style.display = 'none';
+                document.getElementById('accessDenied').style.display = 'none';
                 document.getElementById('navTabs').style.display = 'none';
                 document.querySelectorAll('.tab-content').forEach(content => {
                     content.style.display = 'none';
                 });
             } else {
-                // 有用户，检查登录状态
                 const token = localStorage.getItem('access_token') || localStorage.getItem('gis_token');
                 const username = localStorage.getItem('username');
                 
                 if (token && username) {
-                    showUserInfo(username);
-                    showAdminPanel();
-                    // 默认加载用户数据
-                    loadUsers();
+                    const isAdmin = await validateAdminAccess(username);
+                    if (isAdmin) {
+                        currentUser = username;
+                        showUserInfo(username);
+                        showAdminPanel();
+                    } else {
+                        showAccessDenied();
+                    }
                 } else {
-                    // 未登录，显示登录界面
                     showLoginForm();
                 }
             }
+        });
+        
+        window.addEventListener('click', (event) => {
+            const modals = document.querySelectorAll('.modal');
+            modals.forEach(modal => {
+                if (event.target === modal) {
+                    modal.style.display = 'none';
+                }
+            });
         });
     </script>
 </body>
