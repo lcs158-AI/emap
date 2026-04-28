@@ -519,6 +519,21 @@
                     <label for="editPhotoLon">经度</label>
                     <input type="number" step="0.000001" id="editPhotoLon">
                 </div>
+                <div class="form-group">
+                    <label for="editPhotoDeviceType">设备类型</label>
+                    <select id="editPhotoDeviceType">
+                        <option value="phone">手机</option>
+                        <option value="drone">无人机</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="editPhotoTideInfo">潮位信息</label>
+                    <input type="text" id="editPhotoTideInfo" placeholder="格式：H,L,C">
+                </div>
+                <div class="form-group">
+                    <label for="editPhotoProblemType">问题类型</label>
+                    <input type="text" id="editPhotoProblemType">
+                </div>
                 <button type="button" class="btn btn-primary" onclick="submitEditPhoto()">保存</button>
                 <button type="button" class="btn btn-danger" onclick="closeModal('editPhotoModal')">取消</button>
             </form>
@@ -931,9 +946,12 @@
                 document.getElementById('editPhotoId').value = photo.filename;
                 document.getElementById('editPhotoFilename').value = photo.filename;
                 document.getElementById('editPhotoUploader').value = photo.uploader;
-                document.getElementById('editPhotoDatetime').value = photo.datetime;
-                document.getElementById('editPhotoLat').value = photo.lat;
-                document.getElementById('editPhotoLon').value = photo.lon;
+                document.getElementById('editPhotoDatetime').value = photo.datetime || '';
+                document.getElementById('editPhotoLat').value = photo.lat || '';
+                document.getElementById('editPhotoLon').value = photo.lon || '';
+                document.getElementById('editPhotoDeviceType').value = photo.device_type || 'phone';
+                document.getElementById('editPhotoTideInfo').value = photo.tide_info || '';
+                document.getElementById('editPhotoProblemType').value = photo.problem_type || '';
                 
                 document.getElementById('editPhotoModal').style.display = 'block';
             } catch (error) {
@@ -947,6 +965,9 @@
             const datetime = document.getElementById('editPhotoDatetime').value;
             const lat = parseFloat(document.getElementById('editPhotoLat').value);
             const lon = parseFloat(document.getElementById('editPhotoLon').value);
+            const deviceType = document.getElementById('editPhotoDeviceType').value;
+            const tideInfo = document.getElementById('editPhotoTideInfo').value;
+            const problemType = document.getElementById('editPhotoProblemType').value;
             
             try {
                 const response = await fetch(`${API_BASE_URL}/api/photos/${filename}`, {
@@ -957,7 +978,10 @@
                     body: JSON.stringify({
                         datetime: datetime,
                         lat: lat,
-                        lon: lon
+                        lon: lon,
+                        device_type: deviceType,
+                        tide_info: tideInfo,
+                        problem_type: problemType
                     })
                 });
                 
