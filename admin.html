@@ -92,8 +92,11 @@
         .table-container {
             overflow-x: auto;
             margin-top: 20px;
+            min-height: 200px;
             max-height: 600px;
             overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 5px;
         }
         
         table {
@@ -534,6 +537,8 @@
             const hostname = window.location.hostname;
             if (hostname === 'localhost' || hostname === '127.0.0.1') {
                 return 'http://localhost:8086';
+            } else if (hostname.includes('lzywhy')) {
+                return 'https://lzy-fastapi.onrender.com';
             } else {
                 return 'https://lzy-fastapi.onrender.com';
             }
