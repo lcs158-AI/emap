@@ -707,7 +707,7 @@
                     const previewCell = document.createElement('td');
                     if (filename) {
                         const img = document.createElement('img');
-                        img.src = `${API_BASE_URL}/PICS/${filename}`;
+                        img.src = `${API_BASE_URL}/api/photos/image/${filename}`;
                         img.className = 'photo-thumbnail';
                         img.alt = filename;
                         img.onclick = () => previewPhoto(filename);
