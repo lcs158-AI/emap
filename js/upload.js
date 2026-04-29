@@ -89,14 +89,17 @@ function initUpload() {
                     tideInfo = await window.getTideData(locationData.lat, locationData.lon);
                     console.log('获取到潮汐数据:', tideInfo);
                 } else {
-                    console.warn('未找到 getTideData 函数');
+                    console.warn('未找到 getTideData 函数，使用默认潮位值');
                 }
+            } else {
+                console.warn('未获取到位置信息，无法获取潮位数据');
             }
         } catch (error) {
             console.error('获取位置信息失败:', error);
             progressEl.innerText = '获取位置信息失败，将继续上传...';
             // 位置获取失败不阻止上传
         }
+        console.log('最终潮位信息:', tideInfo);
 
         const formData = new FormData();
         
