@@ -147,34 +147,46 @@ function loadUserDataToMap(userData) {
             linkField: 'filename',
             linkPathPrefix: window.API_BASE_URL + '/PICS/'
         };
-        userData.footprints.forEach(footprint => {
+        userData.footprints.forEach((footprint, index) => {
+            let feature;
             if (footprint.type === 'Feature') {
                 // 如果是Feature对象，直接使用
-                const feature = geoJsonFormat.readFeature(footprint, {
+                feature = geoJsonFormat.readFeature(footprint, {
                     dataProjection: 'EPSG:4326',
                     featureProjection: 'EPSG:3857'
                 });
-                // 为feature设置layer属性
-                feature.set('layer', layerInfo);
-                features.push(feature);
+                // 确保properties中的属性被正确设置
+                if (footprint.properties) {
+                    Object.keys(footprint.properties).forEach(key => {
+                        feature.set(key, footprint.properties[key]);
+                    });
+                }
+                console.log(`视域${index}的filename:`, feature.get('filename'));
             } else if (footprint.type) {
                 // 如果是Geometry对象，创建一个Feature
-                const feature = new window.ol.Feature({
+                feature = new window.ol.Feature({
                     geometry: geoJsonFormat.readGeometry(footprint, {
                         dataProjection: 'EPSG:4326',
                         featureProjection: 'EPSG:3857'
                     })
                 });
-                // 从对应的点数据中获取属性信息
-                if (userData.points && userData.points.length > 0) {
-                    // 这里可以根据实际情况匹配对应的点数据
-                    // 暂时使用第一个点的属性
+                // 尝试从对应的点数据中获取属性信息
+                if (userData.points && userData.points.length > index) {
+                    // 使用对应的点数据的属性
+                    const pointFeature = userData.points[index];
+                    if (pointFeature && pointFeature.properties) {
+                        feature.setProperties(pointFeature.properties);
+                    }
+                } else if (userData.points && userData.points.length > 0) {
+                    // 如果没有对应的点数据，使用第一个点的属性（兼容旧数据）
                     const pointFeature = userData.points[0];
                     if (pointFeature && pointFeature.properties) {
                         feature.setProperties(pointFeature.properties);
                     }
                 }
-                // 为feature设置layer属性
+            }
+            // 为feature设置layer属性
+            if (feature) {
                 feature.set('layer', layerInfo);
                 features.push(feature);
             }
