@@ -384,7 +384,6 @@
                     <thead>
                         <tr>
                             <th>照片预览</th>
-                            <th>文件名</th>
                             <th>上传人</th>
                             <th>上传时间</th>
                             <th>拍摄时间</th>
@@ -708,7 +707,7 @@
                     const previewCell = document.createElement('td');
                     if (filename) {
                         const img = document.createElement('img');
-                        img.src = `${API_BASE_URL}/api/photos/image/${filename}`;
+                        img.src = `${API_BASE_URL}/PICS/${filename}`;
                         img.className = 'photo-thumbnail';
                         img.alt = filename;
                         img.onclick = () => previewPhoto(filename);
@@ -717,10 +716,6 @@
                         previewCell.textContent = '-';
                     }
                     row.appendChild(previewCell);
-                    
-                    const filenameCell = document.createElement('td');
-                    filenameCell.textContent = filename || '-';
-                    row.appendChild(filenameCell);
                     
                     const uploaderCell = document.createElement('td');
                     uploaderCell.textContent = properties.uploader || '-';
@@ -782,7 +777,7 @@
         
         function previewPhoto(filename) {
             const img = document.getElementById('previewImage');
-            img.src = `${API_BASE_URL}/api/photos/image/${filename}`;
+            img.src = `${API_BASE_URL}/PICS/${filename}`;
             document.getElementById('photoPreviewModal').style.display = 'block';
         }
         
