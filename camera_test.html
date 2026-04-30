@@ -348,7 +348,8 @@
                             function(position) {
                                 resolve({
                                     lat: position.coords.latitude,
-                                    lon: position.coords.longitude
+                                    lon: position.coords.longitude,
+                                    alt: position.coords.altitude // 获取海拔高度
                                 });
                             },
                             function(error) {
@@ -373,6 +374,16 @@
                 }
                 if (longitudeInput) {
                     longitudeInput.value = locationData.lon.toFixed(4);
+                }
+                
+                // 更新海拔高度（非平地模式）
+                const flatMode = document.getElementById('flatMode').checked;
+                if (!flatMode && locationData.alt !== null && locationData.alt !== undefined) {
+                    const relativeHeightInput = document.getElementById('relativeHeight');
+                    relativeHeightInput.value = locationData.alt.toFixed(1);
+                    const altitudeHint = document.getElementById('altitudeHint');
+                    altitudeHint.textContent = `GPS海拔: ${locationData.alt.toFixed(1)}米`;
+                    altitudeHint.style.display = 'inline';
                 }
                 
                 updateStatus('位置获取成功，正在拍照...', 'success');
