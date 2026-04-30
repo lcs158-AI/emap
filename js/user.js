@@ -150,7 +150,7 @@ function loadUserDataToMap(userData) {
         userData.footprints.forEach((footprint, index) => {
             let feature;
             if (footprint.type === 'Feature') {
-                // 如果是Feature对象，直接使用
+                // 如果是Feature对象，直接使用（属性已经在loadUserUploadedData中设置好了）
                 feature = geoJsonFormat.readFeature(footprint, {
                     dataProjection: 'EPSG:4326',
                     featureProjection: 'EPSG:3857'
@@ -163,27 +163,15 @@ function loadUserDataToMap(userData) {
                 }
                 console.log(`视域${index}的filename:`, feature.get('filename'));
             } else if (footprint.type) {
-                // 如果是Geometry对象，创建一个Feature
+                // 如果是Geometry对象（不应该出现，因为loadUserUploadedData已经转换为Feature）
                 feature = new window.ol.Feature({
                     geometry: geoJsonFormat.readGeometry(footprint, {
                         dataProjection: 'EPSG:4326',
                         featureProjection: 'EPSG:3857'
                     })
                 });
-                // 尝试从对应的点数据中获取属性信息
-                if (userData.points && userData.points.length > index) {
-                    // 使用对应的点数据的属性
-                    const pointFeature = userData.points[index];
-                    if (pointFeature && pointFeature.properties) {
-                        feature.setProperties(pointFeature.properties);
-                    }
-                } else if (userData.points && userData.points.length > 0) {
-                    // 如果没有对应的点数据，使用第一个点的属性（兼容旧数据）
-                    const pointFeature = userData.points[0];
-                    if (pointFeature && pointFeature.properties) {
-                        feature.setProperties(pointFeature.properties);
-                    }
-                }
+                // 注意：这里不再从点数据获取属性，因为视域数据应该已经在loadUserUploadedData中包含了正确的属性
+                console.warn(`视域${index}是Geometry对象，没有属性信息`);
             }
             // 为feature设置layer属性
             if (feature) {
@@ -340,8 +328,9 @@ async function loadUserUploadedData() {
         };
         
         // 从用户数据中提取视域信息
-        userFeatures.forEach(feature => {
+        userFeatures.forEach((feature, index) => {
             const properties = feature.properties || {};
+            console.log(`处理点数据 ${index}: filename=${properties.filename}, datetime=${properties.datetime}`);
             if (properties.footprints) {
                 try {
                     let footprints;
@@ -355,11 +344,36 @@ async function loadUserUploadedData() {
                     // 处理不同格式的视域数据
                     if (footprints) {
                         if (footprints.features) {
-                            // 如果是FeatureCollection，添加所有features
-                            userData.footprints = userData.footprints.concat(footprints.features);
+                            // 如果是FeatureCollection，为每个feature添加属性
+                            footprints.features.forEach((f, fIndex) => {
+                                if (!f.properties) {
+                                    f.properties = {};
+                                }
+                                // 添加对应的点数据的属性
+                                f.properties.filename = properties.filename;
+                                f.properties.datetime = properties.datetime;
+                                f.properties.upload_time = properties.upload_time;
+                                userData.footprints.push(f);
+                                console.log(`  添加视域 ${userData.footprints.length-1}: filename=${f.properties.filename}`);
+                            });
                         } else if (footprints.type) {
-                            // 如果是单个Feature或Geometry，直接添加
-                            userData.footprints.push(footprints);
+                            // 如果是Geometry对象，包装成Feature并添加属性
+                            const footprintFeature = {
+                                type: 'Feature',
+                                properties: {
+                                    filename: properties.filename,
+                                    datetime: properties.datetime,
+                                    upload_time: properties.upload_time
+                                },
+                                geometry: footprints.type === 'Polygon' ? footprints : null
+                            };
+                            // 如果已经是Feature，直接添加属性
+                            if (footprints.type === 'Feature') {
+                                footprintFeature.properties = { ...footprints.properties, ...footprintFeature.properties };
+                                footprintFeature.geometry = footprints.geometry;
+                            }
+                            userData.footprints.push(footprintFeature);
+                            console.log(`  添加视域 ${userData.footprints.length-1}: filename=${footprintFeature.properties.filename}`);
                         }
                     }
                 } catch (e) {
