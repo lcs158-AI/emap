@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>手机摄像头测试 - 精准方向测量</title>
+    <title>手机摄像头测量 - 精准视域计算</title>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
         body {
@@ -148,7 +148,7 @@
     <div class="section">
         <h2>🧭 实时方向（平滑后）</h2>
         <div class="parameter"><label>方位角（磁北/指南针风格）:</label><value id="compassValue">-- °</value></div>
-        <div class="parameter"><label>俯仰角 (向下为正):</label><value id="pitchValue">-- °</value></div>
+        <div class="parameter"><label>俯仰角 (向下为正，0~90°):</label><value id="pitchValue">-- °</value></div>
         <div class="parameter"><label>⚡ 原始真北 (仅供对比):</label><value id="trueNorthValue">-- °</value></div>
         <button id="calibrateBtn" class="warning">🔄 开始8字校准（传感器校正）</button>
         <div class="hint-text">※ 若与手机指南针App偏差＞5°，请执行8字校准</div>
@@ -159,7 +159,7 @@
         <div class="parameter"><label>纬度:</label><input type="number" id="latitude" step="0.000001" value="31.2304"></div>
         <div class="parameter"><label>经度:</label><input type="number" id="longitude" step="0.000001" value="121.4737"></div>
         <div class="parameter"><label>相机相对高度 (米):</label><input type="number" id="relativeHeight" step="0.1" value="1.6"><span id="altitudeHint" style="font-size:12px;"></span></div>
-        <div class="parameter"><label>平地模式 (固定1.6m):</label><input type="checkbox" id="flatMode"></div>
+        <div class="parameter"><label>平地模式 (固定1.6m):</label><input type="checkbox" id="flatMode"><span id="autoFlatHint" style="font-size:11px; color:#fa8c16;"></span></div>
         <div class="flex-row"><button id="getLocationBtn">📍 获取GPS位置</button></div>
     </div>
     
@@ -202,6 +202,16 @@
     const footprintSizeSpan = document.getElementById('footprintSize');
     const footprintCoordsDiv = document.getElementById('footprintCoords');
     const statusDiv = document.getElementById('statusMsg');
+    const autoFlatHint = document.getElementById('autoFlatHint');
+    
+    // 强制相对高度不小于1米的函数
+    function ensureMinHeight(height) {
+        if (height < 1.0) {
+            console.log(`相对高度 ${height} 小于1米，强制设为1.6米`);
+            return 1.6;
+        }
+        return height;
+    }
     
     function updateStatus(text, type='info') {
         statusDiv.textContent = text;
@@ -224,6 +234,10 @@
             if(event.alpha===null || event.beta===null) return;
             rawTrueNorth = event.alpha;
             let rawPitch = event.beta;
+            // 俯仰角：向下为正，范围0~90°（取绝对值并限制）
+            let absolutePitch = Math.abs(rawPitch);
+            if(absolutePitch > 90) absolutePitch = 90;
+            
             if(filteredCompass===null) filteredCompass = normalizeAngle(rawTrueNorth - currentDeclination);
             else {
                 let instant = normalizeAngle(rawTrueNorth - currentDeclination);
@@ -231,11 +245,23 @@
                 if(delta>180) delta-=360; if(delta<-180) delta+=360;
                 filteredCompass = normalizeAngle(filteredCompass + SMOOTHING_FACTOR*delta);
             }
-            if(filteredPitch===null) filteredPitch = rawPitch;
-            else filteredPitch += SMOOTHING_FACTOR * (rawPitch - filteredPitch);
+            if(filteredPitch===null) filteredPitch = absolutePitch;
+            else filteredPitch += SMOOTHING_FACTOR * (absolutePitch - filteredPitch);
+            
             compassSpan.innerText = filteredCompass.toFixed(1)+"°";
             pitchSpan.innerText = filteredPitch.toFixed(1)+"°";
             trueNorthSpan.innerText = rawTrueNorth.toFixed(1)+"°";
+            
+            // 自动平地模式：当俯仰角 ≥ 30° 且用户未手动勾选“平地模式”时，自动启用，高度强制为1.6米
+            if(filteredPitch >= 30 && !flatModeCheck.checked) {
+                relativeHeightInput.value = "1.6";
+                autoFlatHint.innerText = "自动平地模式(高俯仰角)";
+                autoFlatHint.style.color = "#fa8c16";
+            } else if(flatModeCheck.checked) {
+                autoFlatHint.innerText = "手动平地模式";
+            } else {
+                autoFlatHint.innerText = "";
+            }
             calculateFootprint();
         };
         window.addEventListener('deviceorientation', window.orientationHandler);
@@ -272,8 +298,14 @@
             let lat=pos.coords.latitude, lon=pos.coords.longitude;
             latitudeInput.value=lat.toFixed(6); longitudeInput.value=lon.toFixed(6);
             let alt=pos.coords.altitude;
-            if(alt && !flatModeCheck.checked) { relativeHeightInput.value=alt.toFixed(1); document.getElementById('altitudeHint').innerText=`GPS海拔: ${alt.toFixed(1)}米`; }
-            else document.getElementById('altitudeHint').innerText=`GPS海拔无效，使用手动高度`;
+            if(alt && !flatModeCheck.checked) {
+                // 如果获取的海拔小于1米，强制设为1.6米
+                let finalAlt = ensureMinHeight(alt);
+                relativeHeightInput.value = finalAlt.toFixed(1);
+                document.getElementById('altitudeHint').innerText = `GPS海拔: ${alt.toFixed(1)}米 → 使用${finalAlt.toFixed(1)}米(最小1.6米)`;
+            } else {
+                document.getElementById('altitudeHint').innerText = `GPS海拔无效，使用手动高度`;
+            }
             updateStatus("位置更新成功","success");
             updateDeclination(lat,lon);
             calculateFootprint();
@@ -283,7 +315,7 @@
     async function capturePhoto() {
         if(!videoEl.videoWidth || !videoEl.srcObject) { updateStatus("请先启动摄像头","error"); return; }
         let mag = filteredCompass, pit = filteredPitch, lat=parseFloat(latitudeInput.value), lon=parseFloat(longitudeInput.value), h=parseFloat(relativeHeightInput.value);
-        alert(`📸 拍照时刻参数:\n方位角(磁北): ${mag?.toFixed(1)||'?'}°\n俯仰角: ${pit?.toFixed(1)||'?'}°\n位置: ${lat.toFixed(5)}, ${lon.toFixed(5)}\n相对高度: ${h} m\n视域已自动计算并显示在地图`);
+        alert(`📸 拍照时刻参数:\n方位角(磁北): ${mag?.toFixed(1)||'?'}°\n俯仰角(向下为正): ${pit?.toFixed(1)||'?'}°\n位置: ${lat.toFixed(5)}, ${lon.toFixed(5)}\n相对高度: ${h} m\n视域已自动计算并显示在地图`);
         let canvas = document.createElement('canvas');
         canvas.width=videoEl.videoWidth; canvas.height=videoEl.videoHeight;
         canvas.getContext('2d').drawImage(videoEl,0,0,canvas.width,canvas.height);
@@ -293,37 +325,62 @@
     
     function calculateFootprint() {
         let lat=parseFloat(latitudeInput.value), lon=parseFloat(longitudeInput.value);
-        let relH=parseFloat(relativeHeightInput.value), flatMode=flatModeCheck.checked;
-        let finalHeight = flatMode ? 1.6 : relH;
+        let rawHeight = parseFloat(relativeHeightInput.value);
+        // 确保相对高度不小于1.6米（考虑到人身高一般不低于1.6米，且小于1米明显异常）
+        let effectiveHeight = ensureMinHeight(rawHeight);
+        if (effectiveHeight !== rawHeight) {
+            relativeHeightInput.value = effectiveHeight.toFixed(1);
+        }
+        
+        // 如果手动勾选了平地模式，则使用1.6米，否则使用有效高度
+        let finalHeight = flatModeCheck.checked ? 1.6 : effectiveHeight;
+        
         let autoDist = autoDistanceCheck.checked;
         let distance = parseFloat(distanceInput.value);
         let pitch = filteredPitch || 0;
-        if(autoDist && Math.abs(pitch)>5 && Math.abs(pitch)<85) {
-            let pitchRad = Math.radians(Math.abs(pitch));
-            let calcDist = finalHeight / Math.tan(pitchRad);
-            if(calcDist>0.5 && calcDist<2000) { distance = calcDist; distanceInput.value = distance.toFixed(1); }
-        }
-        let halfW = distance * Math.tan(Math.radians(H_FOV/2));
-        let halfH = distance * Math.tan(Math.radians(V_FOV/2));
-        footprintSizeSpan.innerText = `${(halfW*2).toFixed(1)}m × ${(halfH*2).toFixed(1)}m`;
         
+        // 自动距离计算：距离 = 相对高度 / tan(俯仰角)，俯仰角越大距离越近
+        if(autoDist && pitch > 5 && pitch < 85) {
+            let pitchRad = Math.radians(pitch);
+            let calcDist = finalHeight / Math.tan(pitchRad);
+            if(calcDist > 0.5 && calcDist < 2000) {
+                distance = calcDist;
+                distanceInput.value = distance.toFixed(1);
+            }
+        }
+        
+        // 视域范围计算：距离越远，视域越宽
+        const halfWidth = distance * Math.tan(Math.radians(H_FOV/2));
+        const halfHeight = distance * Math.tan(Math.radians(V_FOV/2));
+        const widthM = halfWidth * 2;
+        const heightM = halfHeight * 2;
+        footprintSizeSpan.innerText = `${widthM.toFixed(1)}m × ${heightM.toFixed(1)}m`;
+        
+        // 获取当前磁北方位角
         let azimuth = filteredCompass; if(azimuth===null) azimuth=0;
-        let pitchRad = Math.radians(Math.abs(pitch));
+        let pitchRad = Math.radians(pitch);
+        // 水平投影距离 (相机到地面点的水平距离)
         let horizDist = distance * Math.cos(pitchRad);
-        let leftAngle = azimuth + Math.degrees(-Math.radians(H_FOV/2));
-        let rightAngle = azimuth + Math.degrees(Math.radians(H_FOV/2));
+        
+        // 梯形视域四个顶点
         function getPoint(lat,lon,dist,brg) {
             let R=6371000, φ1=Math.radians(lat), λ1=Math.radians(lon), θ=Math.radians(brg), δ=dist/R;
             let φ2=Math.asin(Math.sin(φ1)*Math.cos(δ)+Math.cos(φ1)*Math.sin(δ)*Math.cos(θ));
             let λ2=λ1+Math.atan2(Math.sin(θ)*Math.sin(δ)*Math.cos(φ1), Math.cos(δ)-Math.sin(φ1)*Math.sin(φ2));
             return [Math.degrees(λ2), Math.degrees(φ2)];
         }
-        let leftFront = getPoint(lat,lon,horizDist, leftAngle);
-        let rightFront = getPoint(lat,lon,horizDist, rightAngle);
-        let leftBack = getPoint(lat,lon,horizDist*0.5, leftAngle+180);
-        let rightBack = getPoint(lat,lon,horizDist*0.5, rightAngle+180);
+        
+        let leftAngle = azimuth - H_FOV/2;
+        let rightAngle = azimuth + H_FOV/2;
+        let leftFront = getPoint(lat, lon, horizDist, leftAngle);
+        let rightFront = getPoint(lat, lon, horizDist, rightAngle);
+        let backDist = horizDist * 0.3;
+        let leftBack = getPoint(lat, lon, backDist, leftAngle + 180);
+        let rightBack = getPoint(lat, lon, backDist, rightAngle + 180);
+        
         let poly = [leftFront, rightFront, rightBack, leftBack, leftFront];
         footprintCoordsDiv.innerText = poly.map(p=>`[${p[1].toFixed(5)},${p[0].toFixed(5)}]`).join(' ');
+        
         if(map && footprintLayer) {
             footprintLayer.getSource().clear();
             let transformed = poly.map(p=>ol.proj.fromLonLat(p));
@@ -347,11 +404,26 @@
         captureBtn.addEventListener('click', capturePhoto);
         document.getElementById('getLocationBtn').addEventListener('click', getRealTimeLocation);
         document.getElementById('calibrateBtn').addEventListener('click', startCalibrationGuide);
-        flatModeCheck.addEventListener('change', ()=>{ if(flatModeCheck.checked) relativeHeightInput.value='1.6'; calculateFootprint(); });
+        flatModeCheck.addEventListener('change', ()=>{
+            if(flatModeCheck.checked) {
+                relativeHeightInput.value = "1.6";
+                autoFlatHint.innerText = "手动平地模式";
+            } else {
+                autoFlatHint.innerText = "";
+            }
+            calculateFootprint();
+        });
         autoDistanceCheck.addEventListener('change', calculateFootprint);
         latitudeInput.addEventListener('change', ()=>{ let lat=parseFloat(latitudeInput.value), lon=parseFloat(longitudeInput.value); updateDeclination(lat,lon); calculateFootprint(); });
         longitudeInput.addEventListener('change', ()=>{ let lat=parseFloat(latitudeInput.value), lon=parseFloat(longitudeInput.value); updateDeclination(lat,lon); calculateFootprint(); });
-        relativeHeightInput.addEventListener('input', calculateFootprint);
+        relativeHeightInput.addEventListener('input', function() {
+            let val = parseFloat(this.value);
+            if (!isNaN(val) && val < 1.0) {
+                this.value = "1.6";
+                updateStatus("相对高度不能小于1米，已调整为1.6米", "info");
+            }
+            calculateFootprint();
+        });
         distanceInput.addEventListener('input', calculateFootprint);
     }
     
