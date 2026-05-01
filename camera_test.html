@@ -2,8 +2,8 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>手机后置摄像头测试</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>手机摄像头测试 - 精准方向测量</title>
     <style>
         * {
             margin: 0;
@@ -12,929 +12,652 @@
         }
         
         body {
-            font-family: Arial, sans-serif;
-            background-color: #f0f0f0;
-            padding: 20px;
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f5f7fa;
+            padding: 16px;
         }
         
         .container {
             max-width: 600px;
             margin: 0 auto;
             background-color: white;
-            border-radius: 10px;
+            border-radius: 24px;
             padding: 20px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
         }
         
         h1 {
             text-align: center;
-            color: #333;
+            font-size: 1.6rem;
+            color: #1f2d3d;
             margin-bottom: 20px;
+            font-weight: 600;
         }
         
         .section {
-            margin-bottom: 20px;
-            padding: 15px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            background-color: #f9f9f9;
+            margin-bottom: 24px;
+            padding: 16px;
+            border: 1px solid #e4e7ed;
+            border-radius: 20px;
+            background-color: #fafcff;
         }
         
-        h2 {
-            font-size: 16px;
-            color: #555;
-            margin-bottom: 10px;
+        .section h2 {
+            font-size: 1.1rem;
+            color: #2c3e50;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-left: 4px solid #1890ff;
+            padding-left: 12px;
         }
         
         .parameter {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 8px;
-            padding: 5px;
+            align-items: center;
+            margin-bottom: 12px;
+            padding: 8px 12px;
             background-color: white;
-            border-radius: 3px;
+            border-radius: 16px;
+            flex-wrap: wrap;
+            gap: 8px;
         }
         
         .parameter label {
-            font-weight: bold;
-            color: #666;
+            font-weight: 600;
+            color: #4a5568;
+            min-width: 100px;
         }
         
-        .parameter value {
+        .parameter value, .parameter span {
             color: #1890ff;
+            font-weight: 500;
+        }
+        
+        input, select {
+            padding: 8px 12px;
+            border: 1px solid #d0d7de;
+            border-radius: 12px;
+            font-size: 14px;
+            width: 130px;
+            text-align: center;
+            background: #fff;
+        }
+        
+        button {
+            background-color: #1890ff;
+            color: white;
+            border: none;
+            border-radius: 40px;
+            padding: 12px 16px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            width: 100%;
+            margin-top: 8px;
+        }
+        
+        button:active {
+            transform: scale(0.97);
+            background-color: #0c73d4;
+        }
+        
+        button.secondary {
+            background-color: #52c41a;
+        }
+        
+        button.warning {
+            background-color: #fa8c16;
         }
         
         video {
             width: 100%;
-            height: auto;
-            border-radius: 5px;
-            margin-top: 10px;
-        }
-        
-        button {
-            display: block;
-            width: 100%;
-            padding: 12px;
-            margin: 10px 0;
-            background-color: #1890ff;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-        
-        button:hover {
-            background-color: #40a9ff;
+            border-radius: 20px;
+            background: #000;
+            margin-top: 8px;
         }
         
         .status {
             padding: 10px;
-            margin-top: 10px;
-            border-radius: 5px;
+            margin-top: 12px;
+            border-radius: 40px;
             text-align: center;
+            font-size: 0.85rem;
         }
         
         .status.success {
-            background-color: #f6ffed;
-            color: #52c41a;
-            border: 1px solid #b7eb8f;
+            background: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #a5d6a7;
         }
         
         .status.error {
-            background-color: #fff2f0;
-            color: #ff4d4f;
-            border: 1px solid #ffccc7;
+            background: #ffebee;
+            color: #c62828;
+            border: 1px solid #ffcdd2;
         }
         
-        #canvas {
-            display: none;
+        .status.info {
+            background: #e3f2fd;
+            color: #0b5e9e;
+        }
+        
+        #map {
+            width: 100%;
+            height: 360px;
+            border-radius: 20px;
+            overflow: hidden;
+            margin-top: 8px;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .hint-text {
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-top: 8px;
+            text-align: center;
+        }
+        
+        .flex-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .flex-row button {
+            flex: 1;
+            margin-top: 0;
+        }
+        
+        .badge {
+            background: #f0f2f5;
+            padding: 4px 8px;
+            border-radius: 20px;
+            font-size: 12px;
+        }
+        
+        @media (max-width: 480px) {
+            .container {
+                padding: 16px;
+            }
+            .parameter {
+                flex-direction: column;
+                align-items: flex-start;
+            }
         }
     </style>
+    <!-- OpenLayers 地图库 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.5.2/ol.css">
+    <script src="https://cdn.jsdelivr.net/npm/ol@v7.5.2/dist/ol.js"></script>
 </head>
 <body>
-    <div class="container">
-        <h1>手机后置摄像头测试</h1>
-        
-        <div class="section">
-            <h2>摄像头预览</h2>
-            <video id="video" autoplay></video>
-            <button id="startCamera">启动摄像头</button>
-            <button id="capture">拍照</button>
+<div class="container">
+    <h1>📱 精准摄像头测量</h1>
+    
+    <!-- 摄像头预览区 -->
+    <div class="section">
+        <h2>📷 后置摄像头</h2>
+        <video id="video" autoplay playsinline></video>
+        <div class="flex-row">
+            <button id="startCamera">🔘 启动摄像头</button>
+            <button id="capture">📸 拍照 & 计算视域</button>
         </div>
-        
-        <div class="section">
-            <h2>传感器参数</h2>
-            <div class="parameter">
-                <label>方位角（指南针方向）:</label>
-                <value id="compass">-</value>
-            </div>
-            <div class="parameter">
-                <label>俯仰角:</label>
-                <value id="pitch">-</value>
-                <span id="pitchStatus" style="font-size: 10px; color: #999;"></span>
-            </div>
+        <div class="hint-text">※ 建议先点击「启动摄像头」并允许权限</div>
+    </div>
+    
+    <!-- 传感器实时数据 -->
+    <div class="section">
+        <h2>🧭 实时方向（平滑后）</h2>
+        <div class="parameter">
+            <label>方位角（磁北 / 指南针风格）:</label>
+            <value id="compassValue">-- °</value>
         </div>
-        
-        <div class="section">
-            <h2>位置信息</h2>
-            <div class="parameter">
-                <label>纬度:</label>
-                <input type="number" id="latitude" value="21.48" step="0.0001" style="width: 120px; padding: 2px; border: 1px solid #ddd; border-radius: 3px;">
-            </div>
-            <div class="parameter">
-                <label>经度:</label>
-                <input type="number" id="longitude" value="111.18" step="0.0001" style="width: 120px; padding: 2px; border: 1px solid #ddd; border-radius: 3px;">
-            </div>
-            <div class="parameter">
-                <label>自动计算距离:</label>
-                <input type="checkbox" id="autoDistance" checked style="width: 20px; height: 20px;">
-                <span style="font-size: 12px; color: #666;">（基于高度和俯仰角自动计算）</span>
-            </div>
-            <div class="parameter">
-                <label>拍摄距离(米):</label>
-                <input type="number" id="distance" value="10" step="1" min="1" style="width: 120px; padding: 2px; border: 1px solid #ddd; border-radius: 3px;">
-                <span id="autoDistanceHint" style="font-size: 10px; color: #999; display: none;">自动计算中...</span>
-            </div>
-            <div class="parameter">
-                <label>平地模式:</label>
-                <input type="checkbox" id="flatMode" style="width: 20px; height: 20px;">
-                <span style="font-size: 12px; color: #666;">（使用固定高度1.6米）</span>
-            </div>
-            <div class="parameter">
-                <label>相对高度(米):</label>
-                <input type="number" id="relativeHeight" value="10" step="0.1" min="0.1" style="width: 120px; padding: 2px; border: 1px solid #ddd; border-radius: 3px;">
-                <span id="altitudeHint" style="font-size: 10px; color: #999; display: none;">GPS海拔: -</span>
-            </div>
-            <button id="getLocationBtn" style="width: 100%; padding: 8px; margin-top: 10px; background: #1890ff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">获取实时位置</button>
+        <div class="parameter">
+            <label>俯仰角 (向下为正):</label>
+            <value id="pitchValue">-- °</value>
         </div>
-        
-        <div class="section">
-            <h2>视域计算</h2>
-            <div class="parameter">
-                <label>水平视场角:</label>
-                <value id="hFov">-</value>
-            </div>
-            <div class="parameter">
-                <label>垂直视场角:</label>
-                <value id="vFov">-</value>
-            </div>
-            <div class="parameter">
-                <label>视域范围:</label>
-                <value id="footprint">-</value>
-            </div>
-            <div class="parameter">
-                <label>视域坐标:</label>
-                <div id="footprintCoords" style="font-size: 10px; color: #666; word-break: break-all;">-</div>
-            </div>
+        <div class="parameter">
+            <label>⚡ 原始真北 (仅供对比):</label>
+            <value id="trueNorthValue">-- °</value>
         </div>
-        
-        <div id="status" class="status"></div>
-        
-        <canvas id="canvas"></canvas>
-        
-        <!-- 地图容器 -->
-        <div class="section">
-            <h2>视域地图</h2>
-            <div id="map" style="width: 100%; height: 400px; border-radius: 5px; overflow: hidden;"></div>
+        <button id="calibrateBtn" class="warning">🔄 开始8字校准（传感器校正）</button>
+        <div class="hint-text">※ 若与手机指南针App偏差＞5°，请执行8字校准</div>
+    </div>
+    
+    <!-- 位置与高度参数 -->
+    <div class="section">
+        <h2>📍 位置 & 高度</h2>
+        <div class="parameter">
+            <label>纬度:</label>
+            <input type="number" id="latitude" step="0.000001" value="31.2304" placeholder="纬度">
+        </div>
+        <div class="parameter">
+            <label>经度:</label>
+            <input type="number" id="longitude" step="0.000001" value="121.4737" placeholder="经度">
+        </div>
+        <div class="parameter">
+            <label>相机相对高度 (米):</label>
+            <input type="number" id="relativeHeight" step="0.1" value="1.6">
+            <span id="altitudeHint" style="font-size:12px; color:#666;"></span>
+        </div>
+        <div class="parameter">
+            <label>平地模式 (固定1.6m):</label>
+            <input type="checkbox" id="flatMode">
+        </div>
+        <div class="flex-row">
+            <button id="getLocationBtn">📍 获取GPS位置</button>
         </div>
     </div>
     
-    <!-- 引入OpenLayers -->
-    <script src="https://cdn.jsdelivr.net/npm/ol@v7.5.2/dist/ol.js"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.5.2/ol.css">
-    <script>
-        // 全局变量
-        let videoStream;
-        let map;
-        let footprintLayer;
-        let positionMarker;
+    <!-- 视域计算参数 -->
+    <div class="section">
+        <h2>📐 视域计算</h2>
+        <div class="parameter">
+            <label>水平视场角:</label>
+            <value id="hFovLabel">78°</value>
+        </div>
+        <div class="parameter">
+            <label>垂直视场角:</label>
+            <value id="vFovLabel">43°</value>
+        </div>
+        <div class="parameter">
+            <label>拍摄距离 (米):</label>
+            <input type="number" id="distance" step="1" value="10">
+            <span style="font-size:12px;">(自动计算时覆盖)</span>
+        </div>
+        <div class="parameter">
+            <label>自动计算距离:</label>
+            <input type="checkbox" id="autoDistance" checked>
+        </div>
+        <div class="parameter">
+            <label>视域范围 (宽×高):</label>
+            <value id="footprintSize">--</value>
+        </div>
+        <div class="parameter">
+            <label>梯形坐标预览:</label>
+            <div id="footprintCoords" style="font-size: 10px; word-break: break-all; color:#4b5563;">--</div>
+        </div>
+    </div>
+    
+    <!-- 地图展示视域 -->
+    <div class="section">
+        <h2>🗺️ 地图视域（磁北方向）</h2>
+        <div id="map"></div>
+    </div>
+    
+    <div id="statusMsg" class="status info">✅ 准备就绪，请启动摄像头并授权传感器</div>
+</div>
 
-        let canvas = document.getElementById('canvas');
-        let ctx = canvas.getContext('2d');
-        
-        // 传感器数据（仅保留视域计算必需的参数）
-        let sensorData = {
-            compass: 0,
-            pitch: 0
-        };
-        
-        // 启动摄像头
-        document.getElementById('startCamera').addEventListener('click', async () => {
-            try {
-                // 使用后置摄像头
-                const constraints = {
-                    video: {
-                        facingMode: 'environment',
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
-                    }
-                };
-                
-                videoStream = await navigator.mediaDevices.getUserMedia(constraints);
-                document.getElementById('video').srcObject = videoStream;
-                
-                updateStatus('摄像头启动成功', 'success');
-                // 请求传感器权限（只请求，不实时监控）
-                await requestSensorPermission();
-            } catch (error) {
-                updateStatus('摄像头启动失败: ' + error.message, 'error');
-                console.error('摄像头启动失败:', error);
-            }
-        });
-        
-        // 初始化地图
-        function initMap() {
-            console.log('初始化地图');
-            
-            // 创建地图实例
-            map = new ol.Map({
-                target: 'map',
-                layers: [
-                    // 不加载ESRI影像，使用默认底图
-                    new ol.layer.Tile({
-                        source: new ol.source.OSM()
-                    })
-                ],
-                view: new ol.View({
-                    center: ol.proj.fromLonLat([111.18, 21.48]), // 默认中心位置
-                    zoom: 15
-                })
-            });
-            
-            // 创建视域图层
-            footprintLayer = new ol.layer.Vector({
-                source: new ol.source.Vector(),
-                style: new ol.style.Style({
-                    fill: new ol.style.Fill({
-                        color: 'rgba(255, 0, 0, 0.3)'
-                    }),
-                    stroke: new ol.style.Stroke({
-                        color: 'red',
-                        width: 2
-                    })
-                })
-            });
-            map.addLayer(footprintLayer);
-            
-            // 创建位置标记
-            positionMarker = new ol.layer.Vector({
-                source: new ol.source.Vector(),
-                style: new ol.style.Style({
-                    image: new ol.style.Circle({
-                        radius: 6,
-                        fill: new ol.style.Fill({color: 'blue'}),
-                        stroke: new ol.style.Stroke({color: 'white', width: 2})
-                    })
-                })
-            });
-            map.addLayer(positionMarker);
+<script>
+    // ======================== 全局变量 ========================
+    let videoStream = null;
+    let map = null;
+    let footprintLayer = null;
+    let positionMarker = null;
+    
+    // 平滑滤波器变量
+    let filteredCompass = null;      // 最终显示给用户的磁北方位角(0-360)
+    let filteredPitch = null;
+    let rawTrueNorth = 0;            // 原始alpha (真北)
+    let currentDeclination = 0;      // 磁偏角 (度), 正东偏
+    let lastLat = 31.2304;
+    let lastLon = 121.4737;
+    
+    const SMOOTHING_FACTOR = 0.2;     // 平滑系数
+    const H_FOV = 78;                 // 水平视场角 (度)
+    const V_FOV = 43;                 // 垂直视场角 (度)
+    
+    let isCalibrating = false;        // 8字校准模式标志
+    
+    // DOM 元素
+    const videoEl = document.getElementById('video');
+    const startBtn = document.getElementById('startCamera');
+    const captureBtn = document.getElementById('capture');
+    const compassSpan = document.getElementById('compassValue');
+    const pitchSpan = document.getElementById('pitchValue');
+    const trueNorthSpan = document.getElementById('trueNorthValue');
+    const latitudeInput = document.getElementById('latitude');
+    const longitudeInput = document.getElementById('longitude');
+    const relativeHeightInput = document.getElementById('relativeHeight');
+    const flatModeCheck = document.getElementById('flatMode');
+    const autoDistanceCheck = document.getElementById('autoDistance');
+    const distanceInput = document.getElementById('distance');
+    const footprintSizeSpan = document.getElementById('footprintSize');
+    const footprintCoordsDiv = document.getElementById('footprintCoords');
+    const statusDiv = document.getElementById('statusMsg');
+    
+    // ======================== 辅助函数 ========================
+    function updateStatus(text, type = 'info') {
+        statusDiv.textContent = text;
+        statusDiv.className = `status ${type}`;
+        console.log(`[Status] ${text}`);
+    }
+    
+    // 角度转弧度
+    Math.radians = (deg) => deg * Math.PI / 180;
+    Math.degrees = (rad) => rad * 180 / Math.PI;
+    
+    // 正常化角度 0-360
+    function normalizeAngle(angle) {
+        angle = angle % 360;
+        if (angle < 0) angle += 360;
+        return angle;
+    }
+    
+    // 近似磁偏角（简易模型）
+    function getApproxDeclination(lat, lon) {
+        let dec = 5.0;
+        if (lon > 110 && lat > 30) dec = 5.5;
+        else if (lon > 100 && lat > 25) dec = 4.5;
+        else if (lon < 100) dec = 2.0;
+        return dec;
+    }
+    
+    async function fetchTrueDeclination(lat, lon) {
+        try {
+            const approx = getApproxDeclination(lat, lon);
+            console.log(`磁偏角近似值: ${approx}° (真北→磁北需减去${approx})`);
+            return approx;
+        } catch(e) {
+            return getApproxDeclination(lat, lon);
         }
-        
-        // 页面加载时初始化地图
-        window.addEventListener('DOMContentLoaded', function() {
-            initMap();
-            
-            // 为获取实时位置按钮添加点击事件
-            const getLocationBtn = document.getElementById('getLocationBtn');
-            if (getLocationBtn) {
-                getLocationBtn.addEventListener('click', getRealTimeLocation);
-                console.log('获取实时位置按钮已绑定点击事件');
-            }
-            
-            // 为平地模式复选框添加事件监听器
-            const flatModeCheckbox = document.getElementById('flatMode');
-            if (flatModeCheckbox) {
-                flatModeCheckbox.addEventListener('change', function() {
-                    const relativeHeightInput = document.getElementById('relativeHeight');
-                    if (this.checked) {
-                        // 平地模式：使用固定高度1.6米
-                        relativeHeightInput.value = '1.6';
-                        console.log('切换到平地模式，使用固定高度1.6米');
-                    } else {
-                        // 默认模式：尝试获取GPS海拔
-                        console.log('切换到海拔模式');
-                        // 如果已有GPS海拔数据，自动填充
-                        const altitudeHint = document.getElementById('altitudeHint');
-                        if (altitudeHint.style.display === 'inline') {
-                            const match = altitudeHint.textContent.match(/GPS海拔: ([\d.]+)米/);
-                            if (match) {
-                                relativeHeightInput.value = match[1];
-                            }
-                        }
-                    }
-                    // 重新计算视域
-                    calculateFootprint();
-                });
-                console.log('平地模式复选框已绑定事件');
-            }
-        });
-        
-        // 拍照
-        document.getElementById('capture').addEventListener('click', async () => {
-            if (!videoStream) {
-                updateStatus('请先启动摄像头', 'error');
+    }
+    
+    async function updateDeclination(lat, lon) {
+        currentDeclination = await fetchTrueDeclination(lat, lon);
+        if (rawTrueNorth !== null) {
+            const magnetic = normalizeAngle(rawTrueNorth - currentDeclination);
+            filteredCompass = magnetic;
+            if (compassSpan) compassSpan.innerText = filteredCompass.toFixed(1) + "°";
+        }
+    }
+    
+    // 处理设备方向事件 (平滑 + 磁偏角校正)
+    let orientationHandler = null;
+    function startOrientationListener() {
+        if (orientationHandler) window.removeEventListener('deviceorientation', orientationHandler);
+        orientationHandler = (event) => {
+            if (event.alpha === null || event.beta === null) {
                 return;
             }
+            let rawAlpha = event.alpha;
+            rawTrueNorth = rawAlpha;
+            let rawPitch = event.beta;
             
-            updateStatus('正在获取位置和传感器参数...', 'success');
-            
-            // 1. 获取实时位置（增加重试机制）
-            let locationData = null;
-            try {
-                locationData = await getLocationWithRetry(3); // 最多重试3次
-                
-                // 更新位置输入框
-                const latitudeInput = document.getElementById('latitude');
-                const longitudeInput = document.getElementById('longitude');
-                if (latitudeInput) {
-                    latitudeInput.value = locationData.lat.toFixed(4);
-                }
-                if (longitudeInput) {
-                    longitudeInput.value = locationData.lon.toFixed(4);
-                }
-                
-                // 更新海拔高度（非平地模式）
-                const flatMode = document.getElementById('flatMode').checked;
-                if (!flatMode && locationData.alt !== null && locationData.alt !== undefined) {
-                    const relativeHeightInput = document.getElementById('relativeHeight');
-                    relativeHeightInput.value = locationData.alt.toFixed(1);
-                    const altitudeHint = document.getElementById('altitudeHint');
-                    altitudeHint.textContent = `GPS海拔: ${locationData.alt.toFixed(1)}米`;
-                    altitudeHint.style.display = 'inline';
-                }
-                
-                updateStatus('位置获取成功', 'success');
-            } catch (error) {
-                console.error('获取位置失败:', error);
-                updateStatus('获取位置失败，使用默认位置', 'error');
+            // 平滑方位角 (处理边界)
+            if (filteredCompass === null) {
+                let initMagnetic = normalizeAngle(rawAlpha - currentDeclination);
+                filteredCompass = initMagnetic;
+            } else {
+                let instantMagnetic = normalizeAngle(rawAlpha - currentDeclination);
+                let delta = instantMagnetic - filteredCompass;
+                if (delta > 180) delta -= 360;
+                if (delta < -180) delta += 360;
+                filteredCompass = normalizeAngle(filteredCompass + SMOOTHING_FACTOR * delta);
             }
             
-            // 2. 获取传感器参数（一次性获取）
-            let sensorInfo = await getSensorData();
+            // 平滑俯仰角
+            if (filteredPitch === null) filteredPitch = rawPitch;
+            else filteredPitch += SMOOTHING_FACTOR * (rawPitch - filteredPitch);
             
-            // 3. 拍照
-            const video = document.getElementById('video');
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            // 更新UI
+            if (compassSpan) compassSpan.innerText = filteredCompass.toFixed(1) + "°";
+            if (pitchSpan) pitchSpan.innerText = filteredPitch.toFixed(1) + "°";
+            if (trueNorthSpan) trueNorthSpan.innerText = rawTrueNorth.toFixed(1) + "°";
             
-            // 保存图片
-            const dataURL = canvas.toDataURL('image/png');
-            const link = document.createElement('a');
-            link.download = `camera_test_${Date.now()}.png`;
-            link.href = dataURL;
-            link.click();
-            
-            // 4. 弹出获取到的信息供测试
-            showSensorInfo(locationData, sensorInfo);
-            
-            // 5. 计算视域范围
-            updateStatus('正在计算视域范围...', 'success');
+            // 每次重新计算视域
             calculateFootprint();
-            
-            updateStatus('拍照成功，视域范围已计算', 'success');
-        });
-        
-        // 带重试的位置获取
-        function getLocationWithRetry(maxRetries) {
-            return new Promise((resolve, reject) => {
-                let retries = 0;
-                
-                const tryGetLocation = () => {
-                    if (navigator.geolocation) {
-                        navigator.geolocation.getCurrentPosition(
-                            function(position) {
-                                console.log('获取位置成功 (尝试 ' + (retries + 1) + '/' + maxRetries + ')');
-                                resolve({
-                                    lat: position.coords.latitude,
-                                    lon: position.coords.longitude,
-                                    alt: position.coords.altitude,
-                                    accuracy: position.coords.accuracy,
-                                    altAccuracy: position.coords.altitudeAccuracy
-                                });
-                            },
-                            function(error) {
-                                retries++;
-                                console.log('获取位置失败 (尝试 ' + retries + '/' + maxRetries + '):', error.message);
-                                if (retries < maxRetries) {
-                                    // 等待2秒后重试
-                                    setTimeout(tryGetLocation, 2000);
-                                } else {
-                                    reject(error);
-                                }
-                            },
-                            {
-                                enableHighAccuracy: true,
-                                timeout: 10000, // 增加超时时间到10秒
-                                maximumAge: 0
-                            }
-                        );
-                    } else {
-                        reject(new Error('设备不支持地理位置'));
-                    }
-                };
-                
-                tryGetLocation();
-            });
-        }
-        
-        // 一次性获取传感器数据（使用多次采样平均）
-        function getSensorData() {
-            return new Promise((resolve) => {
-                const samples = [];
-                const maxSamples = 5; // 采集5个样本
-                const sampleInterval = 100; // 每100ms采集一次
-                let sampleCount = 0;
-                
-                const handleOrientation = (event) => {
-                    if (event.alpha !== null && event.beta !== null) {
-                        samples.push({
-                            compass: event.alpha,
-                            pitch: event.beta
-                        });
-                        sampleCount++;
-                        
-                        // 更新UI显示当前值
-                        const compassElement = document.getElementById('compass');
-                        const pitchElement = document.getElementById('pitch');
-                        if (compassElement) {
-                            compassElement.textContent = event.alpha.toFixed(2) + '°';
-                        }
-                        if (pitchElement) {
-                            pitchElement.textContent = event.beta.toFixed(2) + '°';
-                        }
-                        
-                        if (sampleCount >= maxSamples) {
-                            window.removeEventListener('deviceorientation', handleOrientation);
-                            // 计算平均值
-                            const avgCompass = samples.reduce((sum, s) => sum + s.compass, 0) / samples.length;
-                            const avgPitch = samples.reduce((sum, s) => sum + s.pitch, 0) / samples.length;
-                            
-                            // 更新传感器数据
-                            sensorData.compass = avgCompass.toFixed(2);
-                            sensorData.pitch = avgPitch.toFixed(2);
-                            
-                            console.log('传感器数据采样完成:', { samples, avgCompass, avgPitch });
-                            resolve({ 
-                                compass: avgCompass.toFixed(2), 
-                                pitch: avgPitch.toFixed(2),
-                                samples: samples.length 
-                            });
-                        }
-                    }
-                };
-                
-                if (window.DeviceOrientationEvent) {
-                    window.addEventListener('deviceorientation', handleOrientation);
-                    
-                    // 设置超时（最多等待3秒）
-                    setTimeout(() => {
-                        if (samples.length > 0) {
-                            // 至少有一个样本，计算平均值
-                            const avgCompass = samples.reduce((sum, s) => sum + s.compass, 0) / samples.length;
-                            const avgPitch = samples.reduce((sum, s) => sum + s.pitch, 0) / samples.length;
-                            
-                            sensorData.compass = avgCompass.toFixed(2);
-                            sensorData.pitch = avgPitch.toFixed(2);
-                            
-                            resolve({ 
-                                compass: avgCompass.toFixed(2), 
-                                pitch: avgPitch.toFixed(2),
-                                samples: samples.length 
-                            });
-                        } else {
-                            // 没有获取到任何样本
-                            console.log('传感器数据获取超时');
-                            resolve({ compass: '0', pitch: '0', samples: 0 });
-                        }
-                        window.removeEventListener('deviceorientation', handleOrientation);
-                    }, 3000);
-                } else {
-                    resolve({ compass: '0', pitch: '0', samples: 0 });
-                }
-            });
-        }
-        
-        // 显示传感器信息弹窗
-        function showSensorInfo(locationData, sensorInfo) {
-            let info = '拍照时获取的参数信息：\n\n';
-            
-            // 位置信息
-            info += '【位置信息】\n';
-            if (locationData) {
-                info += `  纬度: ${locationData.lat ? locationData.lat.toFixed(6) : '未获取'}\n`;
-                info += `  经度: ${locationData.lon ? locationData.lon.toFixed(6) : '未获取'}\n`;
-                info += `  海拔: ${locationData.alt !== null && locationData.alt !== undefined ? locationData.alt.toFixed(1) + '米' : '未获取'}\n`;
-                if (locationData.accuracy !== undefined) {
-                    info += `  水平精度: ${locationData.accuracy.toFixed(1)}米\n`;
-                }
-                if (locationData.altAccuracy !== null && locationData.altAccuracy !== undefined) {
-                    info += `  海拔精度: ${locationData.altAccuracy.toFixed(1)}米\n`;
-                }
-            } else {
-                info += '  未获取位置信息\n';
-            }
-            
-            // 传感器信息
-            info += '\n【传感器信息】\n';
-            if (sensorInfo) {
-                info += `  方位角: ${sensorInfo.compass}°\n`;
-                info += `  俯仰角: ${sensorInfo.pitch}°\n`;
-                if (sensorInfo.samples !== undefined) {
-                    info += `  采样数量: ${sensorInfo.samples}个\n`;
-                }
-            } else {
-                info += '  未获取传感器信息\n';
-            }
-            
-            // 视域计算参数
-            info += '\n【视域计算参数】\n';
-            const distance = document.getElementById('distance').value;
-            const relativeHeight = document.getElementById('relativeHeight').value;
-            const flatMode = document.getElementById('flatMode').checked;
-            const autoDistance = document.getElementById('autoDistance').checked;
-            info += `  相对高度: ${relativeHeight}米 (${flatMode ? '平地模式' : '海拔模式'})\n`;
-            info += `  拍摄距离: ${distance}米 (${autoDistance ? '自动计算' : '手动设置'})\n`;
-            
-            // 提示信息
-            info += '\n【提示】\n';
-            if (!locationData || (locationData.alt === null || locationData.alt === undefined)) {
-                info += '  ⚠️ 海拔未获取，建议：\n';
-                info += '    1. 确保手机已开启定位权限\n';
-                info += '    2. 确保在户外有良好GPS信号\n';
-                info += '    3. 保持手机水平等待定位\n';
-            }
-            if (!sensorInfo || parseFloat(sensorInfo.pitch) === 0) {
-                info += '  ⚠️ 俯仰角可能不准确，建议：\n';
-                info += '    1. 确保手机已开启传感器权限\n';
-                info += '    2. 拍照时保持手机稳定\n';
-                info += '    3. 确保手机水平放置后再倾斜\n';
-            }
-            
-            // 弹出信息
-            alert(info);
-            console.log('拍照时获取的参数:', { locationData, sensorInfo });
-        }
-        
-        // 请求传感器权限
-        async function requestSensorPermission() {
-            console.log('请求传感器权限');
-            
-            try {
-                // 请求设备方向传感器权限
-                if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function') {
-                    const permission = await DeviceOrientationEvent.requestPermission();
-                    if (permission === 'granted') {
-                        console.log('设备方向传感器权限已授予');
-                        updateStatus('设备方向传感器权限已授予', 'success');
-                        return true;
-                    } else {
-                        console.log('设备方向传感器权限被拒绝');
-                        updateStatus('设备方向传感器权限被拒绝', 'error');
-                        return false;
-                    }
-                } else {
-                    console.log('设备方向传感器不需要权限或不支持权限请求');
-                    return true;
-                }
-            } catch (error) {
-                console.error('请求传感器权限失败:', error);
-                updateStatus('请求传感器权限失败', 'error');
-                return false;
-            }
-        }
-        
-        // 获取实时位置
-        function getRealTimeLocation() {
-            console.log('获取实时位置');
-            
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    function(position) {
-                        console.log('获取位置成功:', position);
-                        const lat = position.coords.latitude;
-                        const lon = position.coords.longitude;
-                        
-                        // 更新位置输入框
-                        const latitudeInput = document.getElementById('latitude');
-                        const longitudeInput = document.getElementById('longitude');
-                        
-                        if (latitudeInput) {
-                            latitudeInput.value = lat.toFixed(4);
-                        }
-                        if (longitudeInput) {
-                            longitudeInput.value = lon.toFixed(4);
-                        }
-                        
-                        // 显示GPS海拔（如果可用）
-                        const altitude = position.coords.altitude;
-                        const altitudeHint = document.getElementById('altitudeHint');
-                        if (altitude !== null && altitude !== undefined) {
-                            altitudeHint.textContent = `GPS海拔: ${altitude.toFixed(1)}米`;
-                            altitudeHint.style.display = 'inline';
-                            
-                            // 检查是否为平地模式
-                            const flatMode = document.getElementById('flatMode').checked;
-                            if (!flatMode) {
-                                // 默认模式：使用GPS海拔作为相对高度（适合海边场景）
-                                const relativeHeightInput = document.getElementById('relativeHeight');
-                                relativeHeightInput.value = altitude.toFixed(1);
-                                console.log('使用GPS海拔作为相对高度:', altitude, '米');
-                            }
-                        }
-                        
-                        updateStatus('位置获取成功', 'success');
-                        // 重新计算视域
-                        calculateFootprint();
-                    },
-                    function(error) {
-                        console.error('获取位置失败:', error);
-                        updateStatus('获取位置失败: ' + error.message, 'error');
-                    },
-                    {
-                        enableHighAccuracy: true,
-                        timeout: 5000,
-                        maximumAge: 0
-                    }
-                );
-            } else {
-                console.log('设备不支持地理位置');
-                updateStatus('设备不支持地理位置', 'error');
-            }
-        }
-        
-        // 开始传感器监控
-        async function startSensorMonitoring() {
-            console.log('开始传感器监控');
-            
-            // 请求传感器权限
-            const hasPermission = await requestSensorPermission();
-            if (!hasPermission) {
-                console.log('没有传感器权限，无法启动传感器监控');
-                return;
-            }
-            
-            // 检查设备方向传感器
-            if (window.DeviceOrientationEvent) {
-                // 先移除可能存在的监听器，避免重复添加
-                window.removeEventListener('deviceorientation', handleOrientation);
-                // 添加新的监听器
-                window.addEventListener('deviceorientation', handleOrientation);
-                console.log('设备方向传感器已启动');
-                updateStatus('设备方向传感器已启动', 'success');
-            } else {
-                console.log('设备不支持方向传感器');
-                updateStatus('设备不支持方向传感器', 'error');
-            }
-            
-            // 获取实时位置
-            getRealTimeLocation();
-        }
-        
-        // 处理设备方向
-        function handleOrientation(event) {
-            console.log('设备方向事件触发');
-            console.log('设备方向事件数据:', event);
-            
-            if (!event) {
-                console.error('设备方向事件为空');
-                return;
-            }
-            
-            // alpha: 水平旋转（指南针方向）
-            // beta: 前后俯仰
-            // gamma: 左右倾斜
-            
-            if (event.alpha !== null) {
-                sensorData.compass = event.alpha.toFixed(2);
-                const compassElement = document.getElementById('compass');
-                if (compassElement) {
-                    compassElement.textContent = sensorData.compass + '°';
-                    console.log('更新指南针数据:', sensorData.compass);
-                }
-            }
-            
-            if (event.beta !== null) {
-                sensorData.pitch = event.beta.toFixed(2);
-                const pitchElement = document.getElementById('pitch');
-                if (pitchElement) {
-                    pitchElement.textContent = sensorData.pitch + '°';
-                    console.log('更新俯仰角数据:', sensorData.pitch);
-                }
-                
-                // 验证俯仰角是否在有效范围内
-                validatePitch(parseFloat(sensorData.pitch));
-            }
-            
-            // 计算视域
-            calculateFootprint();
-        }
-        
-        // 验证俯仰角
-        function validatePitch(pitch) {
-            const pitchStatus = document.getElementById('pitchStatus');
-            const captureBtn = document.getElementById('capture');
-            
-            // 检查俯仰角是否在30到60度范围内（向下倾斜）
-            if (pitch >= 30 && pitch <= 60) {
-                // 俯仰角在有效范围内
-                if (pitchStatus) {
-                    pitchStatus.textContent = '✓ 俯仰角合适';
-                    pitchStatus.style.color = '#52c41a';
-                }
-                if (captureBtn) {
-                    captureBtn.disabled = false;
-                    captureBtn.style.backgroundColor = '#1890ff';
-                    captureBtn.style.cursor = 'pointer';
-                }
-            } else {
-                // 俯仰角不在有效范围内
-                if (pitchStatus) {
-                    pitchStatus.textContent = '✗ 俯仰角应在30°到60°之间';
-                    pitchStatus.style.color = '#ff4d4f';
-                }
-                if (captureBtn) {
-                    captureBtn.disabled = true;
-                    captureBtn.style.backgroundColor = '#d9d9d9';
-                    captureBtn.style.cursor = 'not-allowed';
-                }
-            }
-        }
-        
-        // 计算视域
-        function calculateFootprint() {
-            // 假设手机后置摄像头的视场角
-            const hFov = 78; // 水平视场角
-            const vFov = 43; // 垂直视场角
-            
-            document.getElementById('hFov').textContent = hFov + '°';
-            document.getElementById('vFov').textContent = vFov + '°';
-            
-            // 获取输入的位置信息
-            const latitude = parseFloat(document.getElementById('latitude').value) || 21.48;
-            const longitude = parseFloat(document.getElementById('longitude').value) || 111.18;
-            const relativeHeight = parseFloat(document.getElementById('relativeHeight').value) || 1.6; // 相对高度（米）
-            
-            // 获取传感器数据（仅保留视域计算必需的参数）
-            const compass = parseFloat(sensorData.compass) || 0; // 方位角
-            const pitch = parseFloat(sensorData.pitch) || 0; // 俯仰角
-            
-            // 计算拍摄距离
-            let distance = parseFloat(document.getElementById('distance').value) || 10;
-            const autoDistanceEnabled = document.getElementById('autoDistance').checked;
-            
-            if (autoDistanceEnabled && pitch > 0 && pitch < 90) {
-                // 自动计算：基于高度和俯仰角计算到地面的水平距离
-                const pitchRad = pitch * Math.PI / 180;
-                const calculatedDistance = relativeHeight / Math.tan(pitchRad);
-                
-                // 确保距离在合理范围内（1米到1000米）
-                if (calculatedDistance > 1 && calculatedDistance < 1000) {
-                    distance = calculatedDistance;
-                    document.getElementById('distance').value = distance.toFixed(1);
-                    document.getElementById('autoDistanceHint').style.display = 'inline';
-                    setTimeout(() => {
-                        document.getElementById('autoDistanceHint').style.display = 'none';
-                    }, 2000);
-                }
-            }
-            
-            // 计算视域宽度和高度
-            const hWidth = 2 * distance * Math.tan(Math.radians(hFov / 2));
-            const vHeight = 2 * distance * Math.tan(Math.radians(vFov / 2));
-            
-            document.getElementById('footprint').textContent = 
-                `宽: ${hWidth.toFixed(2)}米, 高: ${vHeight.toFixed(2)}米`;
-            
-            // 计算梯形视域的四个顶点坐标
-            const footprintCoords = calculateTrapezoidFootprint(
-                latitude, longitude, distance, relativeHeight, compass, pitch, hFov, vFov
-            );
-            
-            // 显示视域坐标
-            document.getElementById('footprintCoords').textContent = JSON.stringify(footprintCoords, null, 2);
-            
-            // 更新地图上的视域范围
-            updateMapFootprint(footprintCoords, longitude, latitude);
-        }
-        
-        // 更新地图上的视域范围
-        function updateMapFootprint(footprintCoords, lon, lat) {
-            if (!map || !footprintLayer || !positionMarker) {
-                console.log('地图未初始化');
-                return;
-            }
-            
-            console.log('更新地图视域范围:', footprintCoords);
-            
-            // 清除现有视域
-            footprintLayer.getSource().clear();
-            
-            // 创建视域多边形
-            if (footprintCoords && footprintCoords.length >= 4) {
-                const coordinates = footprintCoords.map(coord => ol.proj.fromLonLat(coord));
-                
-                const polygon = new ol.geom.Polygon([coordinates]);
-                const feature = new ol.Feature(polygon);
-                
-                footprintLayer.getSource().addFeature(feature);
-                console.log('视域多边形已添加到地图');
-            }
-            
-            // 更新位置标记
-            positionMarker.getSource().clear();
-            const marker = new ol.Feature({
-                geometry: new ol.geom.Point(ol.proj.fromLonLat([lon, lat]))
-            });
-            positionMarker.getSource().addFeature(marker);
-            
-            // 将地图中心设置为当前位置
-            map.getView().setCenter(ol.proj.fromLonLat([lon, lat]));
-            map.getView().setZoom(15);
-            console.log('地图中心已更新到当前位置');
-        }
-        
-        // 计算梯形视域坐标（考虑相对高度）
-        function calculateTrapezoidFootprint(lat, lon, distance, relativeHeight, compass, pitch, hFov, vFov) {
-            // 地球半径（米）
-            const R = 6371000;
-            
-            // 将角度转换为弧度
-            const compassRad = Math.radians(compass);
-            const pitchRad = Math.radians(pitch);
-            const hFovRad = Math.radians(hFov);
-            const vFovRad = Math.radians(vFov);
-            
-            // 计算视域的四个顶点
-            const halfWidth = distance * Math.tan(hFovRad / 2);
-            const halfHeight = distance * Math.tan(vFovRad / 2);
-            
-            // 考虑俯仰角的影响
-            const adjustedDistance = distance / Math.cos(pitchRad);
-            
-            // 四个顶点相对于相机的位置（米）
-            const points = [
-                // 左上
-                [-halfWidth, halfHeight, distance],
-                // 右上
-                [halfWidth, halfHeight, distance],
-                // 右下
-                [halfWidth, -halfHeight, distance],
-                // 左下
-                [-halfWidth, -halfHeight, distance]
-            ];
-            
-            // 转换为地理坐标
-            const geoPoints = points.map(point => {
-                const [x, y, z] = point;
-                
-                // 计算点到相机的距离
-                const pointDistance = Math.sqrt(x * x + y * y + z * z);
-                
-                // 计算方位角和俯仰角
-                const azimuth = Math.atan2(x, z);
-                const elevation = Math.atan2(y, Math.sqrt(x * x + z * z));
-                
-                // 考虑相机的方向和倾斜
-                const adjustedAzimuth = compassRad + azimuth;
-                const adjustedElevation = pitchRad + elevation;
-                
-                // 计算地理坐标，考虑相对高度
-                // 垂直方向的位移需要减去相对高度
-                const verticalDisplacement = pointDistance * Math.sin(adjustedElevation) - relativeHeight;
-                const horizontalDisplacement = pointDistance * Math.cos(adjustedElevation);
-                
-                const newLat = lat + Math.radians(verticalDisplacement / R) * (180 / Math.PI);
-                const newLon = lon + Math.radians((horizontalDisplacement * Math.sin(adjustedAzimuth)) / (R * Math.cos(Math.radians(lat)))) * (180 / Math.PI);
-                
-                return [newLon, newLat];
-            });
-            
-            // 闭合多边形
-            geoPoints.push(geoPoints[0]);
-            
-            return geoPoints;
-        }
-        
-        // 角度转弧度
-        Math.radians = function(degrees) {
-            return degrees * Math.PI / 180;
         };
-        
-        // 更新状态
-        function updateStatus(message, type) {
-            const status = document.getElementById('status');
-            status.textContent = message;
-            status.className = `status ${type}`;
-        }
-        
-        // 页面卸载时停止摄像头
-        window.addEventListener('beforeunload', () => {
+        window.addEventListener('deviceorientation', orientationHandler);
+        console.log("方向监听已启动");
+    }
+    
+    // ======================== 8字校准 ========================
+    function startCalibrationGuide() {
+        if (isCalibrating) return;
+        isCalibrating = true;
+        updateStatus("✋ 请将手机平放，在空中缓慢画横向“8”字，持续10秒...", "info");
+        filteredCompass = null;
+        filteredPitch = null;
+        setTimeout(() => {
+            isCalibrating = false;
+            updateStatus("校准完成！传感器数据将更准确。", "success");
+            const lat = parseFloat(latitudeInput.value);
+            const lon = parseFloat(longitudeInput.value);
+            updateDeclination(lat, lon);
+        }, 10000);
+        if (navigator.vibrate) navigator.vibrate(200);
+    }
+    
+    // ======================== 摄像头启动 ========================
+    async function startCamera() {
+        try {
             if (videoStream) {
                 videoStream.getTracks().forEach(track => track.stop());
             }
+            const constraints = {
+                video: { facingMode: { exact: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }
+            };
+            videoStream = await navigator.mediaDevices.getUserMedia(constraints);
+            videoEl.srcObject = videoStream;
+            updateStatus("后置摄像头已启动", "success");
+            await requestSensorPermission();
+            startOrientationListener();
+        } catch (err) {
+            console.error(err);
+            updateStatus("摄像头启动失败，请检查权限或使用后置摄像头: " + err.message, "error");
+        }
+    }
+    
+    async function requestSensorPermission() {
+        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+            try {
+                const permissionState = await DeviceOrientationEvent.requestPermission();
+                if (permissionState === 'granted') {
+                    updateStatus("设备方向权限已授予", "success");
+                } else {
+                    updateStatus("传感器权限被拒绝，方位角可能不准", "error");
+                }
+            } catch (err) {
+                console.warn(err);
+            }
+        } else {
+            updateStatus("传感器已就绪 (Android)", "success");
+        }
+    }
+    
+    // ======================== 位置获取 ========================
+    function getRealTimeLocation() {
+        if (!navigator.geolocation) {
+            updateStatus("浏览器不支持GPS", "error");
+            return;
+        }
+        updateStatus("正在获取GPS位置...", "info");
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                const lat = pos.coords.latitude;
+                const lon = pos.coords.longitude;
+                latitudeInput.value = lat.toFixed(6);
+                longitudeInput.value = lon.toFixed(6);
+                lastLat = lat;
+                lastLon = lon;
+                const alt = pos.coords.altitude;
+                if (alt && !flatModeCheck.checked) {
+                    relativeHeightInput.value = alt.toFixed(1);
+                    document.getElementById('altitudeHint').innerText = `GPS海拔: ${alt.toFixed(1)}米`;
+                } else {
+                    document.getElementById('altitudeHint').innerText = `GPS获取海拔失败，使用手动高度`;
+                }
+                updateStatus("位置更新成功", "success");
+                updateDeclination(lat, lon);
+                calculateFootprint();
+            },
+            (err) => {
+                updateStatus("GPS定位失败: " + err.message, "error");
+            },
+            { enableHighAccuracy: true, timeout: 10000 }
+        );
+    }
+    
+    // ======================== 拍照 ========================
+    async function capturePhoto() {
+        if (!videoEl.videoWidth || !videoEl.srcObject) {
+            updateStatus("请先启动摄像头", "error");
+            return;
+        }
+        const currentMagnetic = filteredCompass;
+        const currentPitch = filteredPitch;
+        const lat = parseFloat(latitudeInput.value);
+        const lon = parseFloat(longitudeInput.value);
+        const height = parseFloat(relativeHeightInput.value);
+        let info = `📸 拍照时刻参数:\n方位角(磁北): ${currentMagnetic?.toFixed(1) || '?'}°\n俯仰角: ${currentPitch?.toFixed(1) || '?'}°\n`;
+        info += `位置: ${lat.toFixed(5)}, ${lon.toFixed(5)}\n相对高度: ${height} m\n`;
+        alert(info + "视域已自动计算并显示在地图");
+        const canvas = document.createElement('canvas');
+        canvas.width = videoEl.videoWidth;
+        canvas.height = videoEl.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+        const link = document.createElement('a');
+        link.download = `camera_${Date.now()}.png`;
+        link.href = canvas.toDataURL();
+        link.click();
+        updateStatus("拍照成功，图片已保存，视域已更新", "success");
+    }
+    
+    // ======================== 视域计算 ========================
+    function calculateFootprint() {
+        const lat = parseFloat(latitudeInput.value);
+        const lon = parseFloat(longitudeInput.value);
+        const relHeight = parseFloat(relativeHeightInput.value);
+        const flatMode = flatModeCheck.checked;
+        const finalHeight = flatMode ? 1.6 : relHeight;
+        const autoDist = autoDistanceCheck.checked;
+        let distance = parseFloat(distanceInput.value);
+        let pitch = filteredPitch || 0;
+        if (autoDist && pitch > 5 && pitch < 85) {
+            const pitchRad = Math.radians(Math.abs(pitch));
+            const calcDist = finalHeight / Math.tan(pitchRad);
+            if (calcDist > 0.5 && calcDist < 2000) {
+                distance = calcDist;
+                distanceInput.value = distance.toFixed(1);
+            }
+        }
+        const halfWidth = distance * Math.tan(Math.radians(H_FOV/2));
+        const halfHeight = distance * Math.tan(Math.radians(V_FOV/2));
+        const widthM = halfWidth * 2;
+        const heightM = halfHeight * 2;
+        footprintSizeSpan.innerText = `${widthM.toFixed(1)}m × ${heightM.toFixed(1)}m`;
+        
+        let azimuthDeg = filteredCompass;
+        if (azimuthDeg === null) azimuthDeg = 0;
+        const azimuthRad = Math.radians(azimuthDeg);
+        const pitchRad = Math.radians(Math.abs(pitch));
+        
+        const horizDistance = distance * Math.cos(pitchRad);
+        const leftAngleOffset = -Math.radians(H_FOV/2);
+        const rightAngleOffset = Math.radians(H_FOV/2);
+        
+        const leftFront = getPointAtDistanceBearing(lat, lon, horizDistance, azimuthDeg + Math.degrees(leftAngleOffset));
+        const rightFront = getPointAtDistanceBearing(lat, lon, horizDistance, azimuthDeg + Math.degrees(rightAngleOffset));
+        const leftBack = getPointAtDistanceBearing(lat, lon, horizDistance * 0.5, azimuthDeg + Math.degrees(leftAngleOffset) + 180);
+        const rightBack = getPointAtDistanceBearing(lat, lon, horizDistance * 0.5, azimuthDeg + Math.degrees(rightAngleOffset) + 180);
+        
+        let polyCoords = [leftFront, rightFront, rightBack, leftBack, leftFront];
+        footprintCoordsDiv.innerText = polyCoords.map(p => `[${p[1].toFixed(5)},${p[0].toFixed(5)}]`).join(' ');
+        updateMapPolygon(polyCoords, lon, lat);
+    }
+    
+    function getPointAtDistanceBearing(lat, lon, distM, bearingDeg) {
+        const R = 6371000;
+        const φ1 = Math.radians(lat);
+        const λ1 = Math.radians(lon);
+        const θ = Math.radians(bearingDeg);
+        const δ = distM / R;
+        const φ2 = Math.asin(Math.sin(φ1)*Math.cos(δ) + Math.cos(φ1)*Math.sin(δ)*Math.cos(θ));
+        const λ2 = λ1 + Math.atan2(Math.sin(θ)*Math.sin(δ)*Math.cos(φ1), Math.cos(δ)-Math.sin(φ1)*Math.sin(φ2));
+        return [Math.degrees(λ2), Math.degrees(φ2)];
+    }
+    
+    function updateMapPolygon(coordsLngLat, centerLon, centerLat) {
+        if (!map || !footprintLayer) return;
+        footprintLayer.getSource().clear();
+        const transformedCoords = coordsLngLat.map(p => ol.proj.fromLonLat(p));
+        const poly = new ol.geom.Polygon([transformedCoords]);
+        const feature = new ol.Feature(poly);
+        footprintLayer.getSource().addFeature(feature);
+        positionMarker.getSource().clear();
+        const marker = new ol.Feature({ geometry: new ol.geom.Point(ol.proj.fromLonLat([centerLon, centerLat])) });
+        positionMarker.getSource().addFeature(marker);
+        map.getView().setCenter(ol.proj.fromLonLat([centerLon, centerLat]));
+        map.getView().setZoom(17);
+    }
+    
+    // ======================== 初始化地图 ========================
+    function initMap() {
+        map = new ol.Map({
+            target: 'map',
+            layers: [new ol.layer.Tile({ source: new ol.source.OSM() })],
+            view: new ol.View({ center: ol.proj.fromLonLat([121.4737, 31.2304]), zoom: 16 })
         });
-    </script>
+        footprintLayer = new ol.layer.Vector({
+            source: new ol.source.Vector(),
+            style: new ol.style.Style({
+                fill: new ol.style.Fill({ color: 'rgba(255,80,40,0.35)' }),
+                stroke: new ol.style.Stroke({ color: '#ff4d4f', width: 2 })
+            })
+        });
+        positionMarker = new ol.layer.Vector({
+            source: new ol.source.Vector(),
+            style: new ol.style.Style({
+                image: new ol.style.Circle({ radius: 8, fill: new ol.style.Fill({ color: '#1e88e5' }), stroke: new ol.style.Stroke({ color: '#fff', width: 2 }) })
+            })
+        });
+        map.addLayer(footprintLayer);
+        map.addLayer(positionMarker);
+    }
+    
+    // ======================== 事件绑定 ========================
+    function bindEvents() {
+        startBtn.addEventListener('click', startCamera);
+        captureBtn.addEventListener('click', capturePhoto);
+        document.getElementById('getLocationBtn').addEventListener('click', getRealTimeLocation);
+        document.getElementById('calibrateBtn').addEventListener('click', startCalibrationGuide);
+        flatModeCheck.addEventListener('change', () => {
+            if (flatModeCheck.checked) relativeHeightInput.value = '1.6';
+            calculateFootprint();
+        });
+        autoDistanceCheck.addEventListener('change', calculateFootprint);
+        latitudeInput.addEventListener('change', () => {
+            const lat = parseFloat(latitudeInput.value);
+            const lon = parseFloat(longitudeInput.value);
+            updateDeclination(lat, lon);
+            calculateFootprint();
+        });
+        longitudeInput.addEventListener('change', () => {
+            const lat = parseFloat(latitudeInput.value);
+            const lon = parseFloat(longitudeInput.value);
+            updateDeclination(lat, lon);
+            calculateFootprint();
+        });
+        relativeHeightInput.addEventListener('input', calculateFootprint);
+        distanceInput.addEventListener('input', calculateFootprint);
+    }
+    
+    // 页面启动
+    (function init() {
+        initMap();
+        bindEvents();
+        document.getElementById('hFovLabel').innerText = H_FOV + "°";
+        document.getElementById('vFovLabel').innerText = V_FOV + "°";
+        setTimeout(() => {
+            getRealTimeLocation();
+        }, 500);
+        updateStatus("点击上方启动摄像头并允许传感器权限", "info");
+    })();
+</script>
 </body>
 </html>
