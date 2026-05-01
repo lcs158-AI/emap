@@ -235,8 +235,8 @@
                 document.getElementById('video').srcObject = videoStream;
                 
                 updateStatus('摄像头启动成功', 'success');
-                // 启动传感器监控
-                startSensorMonitoring();
+                // 请求传感器权限（只请求，不实时监控）
+                await requestSensorPermission();
             } catch (error) {
                 updateStatus('摄像头启动失败: ' + error.message, 'error');
                 console.error('摄像头启动失败:', error);
@@ -386,13 +386,16 @@
                     altitudeHint.style.display = 'inline';
                 }
                 
-                updateStatus('位置获取成功，正在拍照...', 'success');
+                updateStatus('位置获取成功', 'success');
             } catch (error) {
                 console.error('获取位置失败:', error);
                 updateStatus('获取位置失败，使用默认位置', 'error');
             }
             
-            // 2. 拍照
+            // 2. 获取传感器参数（一次性获取）
+            let sensorInfo = await getSensorData();
+            
+            // 3. 拍照
             const video = document.getElementById('video');
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
@@ -405,12 +408,103 @@
             link.href = dataURL;
             link.click();
             
-            // 3. 计算视域范围
+            // 4. 弹出获取到的信息供测试
+            showSensorInfo(locationData, sensorInfo);
+            
+            // 5. 计算视域范围
             updateStatus('正在计算视域范围...', 'success');
             calculateFootprint();
             
             updateStatus('拍照成功，视域范围已计算', 'success');
         });
+        
+        // 一次性获取传感器数据
+        function getSensorData() {
+            return new Promise((resolve) => {
+                let compass = 0;
+                let pitch = 0;
+                let received = false;
+                
+                // 设置超时
+                setTimeout(() => {
+                    if (!received) {
+                        console.log('传感器数据获取超时');
+                        resolve({ compass: compass.toFixed(2), pitch: pitch.toFixed(2) });
+                    }
+                }, 2000);
+                
+                // 监听一次设备方向事件
+                const handleSingleOrientation = (event) => {
+                    if (event.alpha !== null) {
+                        compass = event.alpha;
+                    }
+                    if (event.beta !== null) {
+                        pitch = event.beta;
+                    }
+                    
+                    // 更新UI显示
+                    const compassElement = document.getElementById('compass');
+                    const pitchElement = document.getElementById('pitch');
+                    if (compassElement) {
+                        compassElement.textContent = compass.toFixed(2) + '°';
+                    }
+                    if (pitchElement) {
+                        pitchElement.textContent = pitch.toFixed(2) + '°';
+                    }
+                    
+                    // 更新传感器数据
+                    sensorData.compass = compass.toFixed(2);
+                    sensorData.pitch = pitch.toFixed(2);
+                    
+                    received = true;
+                    window.removeEventListener('deviceorientation', handleSingleOrientation);
+                    resolve({ compass: compass.toFixed(2), pitch: pitch.toFixed(2) });
+                };
+                
+                if (window.DeviceOrientationEvent) {
+                    window.addEventListener('deviceorientation', handleSingleOrientation);
+                } else {
+                    resolve({ compass: '0', pitch: '0' });
+                }
+            });
+        }
+        
+        // 显示传感器信息弹窗
+        function showSensorInfo(locationData, sensorInfo) {
+            let info = '拍照时获取的参数信息：\n\n';
+            
+            // 位置信息
+            info += '【位置信息】\n';
+            if (locationData) {
+                info += `  纬度: ${locationData.lat ? locationData.lat.toFixed(6) : '未获取'}\n`;
+                info += `  经度: ${locationData.lon ? locationData.lon.toFixed(6) : '未获取'}\n`;
+                info += `  海拔: ${locationData.alt ? locationData.alt.toFixed(1) + '米' : '未获取'}\n`;
+            } else {
+                info += '  未获取位置信息\n';
+            }
+            
+            // 传感器信息
+            info += '\n【传感器信息】\n';
+            if (sensorInfo) {
+                info += `  方位角: ${sensorInfo.compass}°\n`;
+                info += `  俯仰角: ${sensorInfo.pitch}°\n`;
+            } else {
+                info += '  未获取传感器信息\n';
+            }
+            
+            // 视域计算参数
+            info += '\n【视域计算参数】\n';
+            const distance = document.getElementById('distance').value;
+            const relativeHeight = document.getElementById('relativeHeight').value;
+            const flatMode = document.getElementById('flatMode').checked;
+            const autoDistance = document.getElementById('autoDistance').checked;
+            info += `  相对高度: ${relativeHeight}米 (${flatMode ? '平地模式' : '海拔模式'})\n`;
+            info += `  拍摄距离: ${distance}米 (${autoDistance ? '自动计算' : '手动设置'})\n`;
+            
+            // 弹出信息
+            alert(info);
+            console.log('拍照时获取的参数:', { locationData, sensorInfo });
+        }
         
         // 请求传感器权限
         async function requestSensorPermission() {
