@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>手机摄像头测试 - 精准方向测量</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body {
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f5f7fa;
+            padding: 16px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 24px;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+        h1 {
+            text-align: center;
+            font-size: 1.6rem;
+            color: #1f2d3d;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+        .section {
+            margin-bottom: 24px;
+            padding: 16px;
+            border: 1px solid #e4e7ed;
+            border-radius: 20px;
+            background-color: #fafcff;
+        }
+        .section h2 {
+            font-size: 1.1rem;
+            color: #2c3e50;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-left: 4px solid #1890ff;
+            padding-left: 12px;
+        }
+        .parameter {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            padding: 8px 12px;
+            background-color: white;
+            border-radius: 16px;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .parameter label {
+            font-weight: 600;
+            color: #4a5568;
+            min-width: 100px;
+        }
+        .parameter value, .parameter span {
+            color: #1890ff;
+            font-weight: 500;
+        }
+        input {
+            padding: 8px 12px;
+            border: 1px solid #d0d7de;
+            border-radius: 12px;
+            font-size: 14px;
+            width: 130px;
+            text-align: center;
+            background: #fff;
+        }
+        button {
+            background-color: #1890ff;
+            color: white;
+            border: none;
+            border-radius: 40px;
+            padding: 12px 16px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            width: 100%;
+            margin-top: 8px;
+        }
+        button:active { transform: scale(0.97); background-color: #0c73d4; }
+        button.warning { background-color: #fa8c16; }
+        video {
+            width: 100%;
+            border-radius: 20px;
+            background: #000;
+            margin-top: 8px;
+        }
+        .status {
+            padding: 10px;
+            margin-top: 12px;
+            border-radius: 40px;
+            text-align: center;
+            font-size: 0.85rem;
+        }
+        .status.success { background: #e8f5e9; color: #2e7d32; border:1px solid #a5d6a7; }
+        .status.error { background: #ffebee; color: #c62828; border:1px solid #ffcdd2; }
+        .status.info { background: #e3f2fd; color: #0b5e9e; }
+        #map {
+            width: 100%;
+            height: 360px;
+            border-radius: 20px;
+            overflow: hidden;
+            margin-top: 8px;
+            border: 1px solid #e2e8f0;
+        }
+        .hint-text {
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-top: 8px;
+            text-align: center;
+        }
+        .flex-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .flex-row button { flex:1; margin-top:0; }
+        @media (max-width: 480px) {
+            .container { padding: 16px; }
+            .parameter { flex-direction: column; align-items: flex-start; }
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.5.2/ol.css">
+    <script src="https://cdn.jsdelivr.net/npm/ol@v7.5.2/dist/ol.js"></script>
+</head>
+<body>
+<div class="container">
+    <h1>📱 精准摄像头测量</h1>
+    
+    <div class="section">
+        <h2>📷 后置摄像头</h2>
+        <video id="video" autoplay playsinline></video>
+        <div class="flex-row">
+            <button id="startCamera">🔘 启动摄像头</button>
+            <button id="capture">📸 拍照 & 计算视域</button>
+        </div>
+        <div class="hint-text">※ 建议先点击「启动摄像头」并允许权限</div>
+    </div>
+    
+    <div class="section">
+        <h2>🧭 实时方向（平滑后）</h2>
+        <div class="parameter"><label>方位角（磁北/指南针风格）:</label><value id="compassValue">-- °</value></div>
+        <div class="parameter"><label>俯仰角 (向下为正):</label><value id="pitchValue">-- °</value></div>
+        <div class="parameter"><label>⚡ 原始真北 (仅供对比):</label><value id="trueNorthValue">-- °</value></div>
+        <button id="calibrateBtn" class="warning">🔄 开始8字校准（传感器校正）</button>
+        <div class="hint-text">※ 若与手机指南针App偏差＞5°，请执行8字校准</div>
+    </div>
+    
+    <div class="section">
+        <h2>📍 位置 & 高度</h2>
+        <div class="parameter"><label>纬度:</label><input type="number" id="latitude" step="0.000001" value="31.2304"></div>
+        <div class="parameter"><label>经度:</label><input type="number" id="longitude" step="0.000001" value="121.4737"></div>
+        <div class="parameter"><label>相机相对高度 (米):</label><input type="number" id="relativeHeight" step="0.1" value="1.6"><span id="altitudeHint" style="font-size:12px;"></span></div>
+        <div class="parameter"><label>平地模式 (固定1.6m):</label><input type="checkbox" id="flatMode"></div>
+        <div class="flex-row"><button id="getLocationBtn">📍 获取GPS位置</button></div>
+    </div>
+    
+    <div class="section">
+        <h2>📐 视域计算</h2>
+        <div class="parameter"><label>水平视场角:</label><value id="hFovLabel">78°</value></div>
+        <div class="parameter"><label>垂直视场角:</label><value id="vFovLabel">43°</value></div>
+        <div class="parameter"><label>拍摄距离 (米):</label><input type="number" id="distance" step="1" value="10"><span style="font-size:12px;">(自动计算时覆盖)</span></div>
+        <div class="parameter"><label>自动计算距离:</label><input type="checkbox" id="autoDistance" checked></div>
+        <div class="parameter"><label>视域范围 (宽×高):</label><value id="footprintSize">--</value></div>
+        <div class="parameter"><label>梯形坐标预览:</label><div id="footprintCoords" style="font-size:10px; word-break:break-all;">--</div></div>
+    </div>
+    
+    <div class="section">
+        <h2>🗺️ 地图视域（磁北方向）</h2>
+        <div id="map"></div>
+    </div>
+    
+    <div id="statusMsg" class="status info">✅ 准备就绪，请启动摄像头并授权传感器</div>
+</div>
+
+<script>
+    let videoStream = null, map = null, footprintLayer = null, positionMarker = null;
+    let filteredCompass = null, filteredPitch = null, rawTrueNorth = 0, currentDeclination = 0;
+    const SMOOTHING_FACTOR = 0.2, H_FOV = 78, V_FOV = 43;
+    let isCalibrating = false;
+    
+    const videoEl = document.getElementById('video');
+    const startBtn = document.getElementById('startCamera');
+    const captureBtn = document.getElementById('capture');
+    const compassSpan = document.getElementById('compassValue');
+    const pitchSpan = document.getElementById('pitchValue');
+    const trueNorthSpan = document.getElementById('trueNorthValue');
+    const latitudeInput = document.getElementById('latitude');
+    const longitudeInput = document.getElementById('longitude');
+    const relativeHeightInput = document.getElementById('relativeHeight');
+    const flatModeCheck = document.getElementById('flatMode');
+    const autoDistanceCheck = document.getElementById('autoDistance');
+    const distanceInput = document.getElementById('distance');
+    const footprintSizeSpan = document.getElementById('footprintSize');
+    const footprintCoordsDiv = document.getElementById('footprintCoords');
+    const statusDiv = document.getElementById('statusMsg');
+    
+    function updateStatus(text, type='info') {
+        statusDiv.textContent = text;
+        statusDiv.className = `status ${type}`;
+        console.log(`[Status] ${text}`);
+    }
+    Math.radians = deg => deg * Math.PI / 180;
+    Math.degrees = rad => rad * 180 / Math.PI;
+    function normalizeAngle(angle) { angle = angle % 360; if(angle<0) angle+=360; return angle; }
+    function getApproxDeclination(lat, lon) { let dec=5.0; if(lon>110 && lat>30) dec=5.5; else if(lon>100 && lat>25) dec=4.5; else if(lon<100) dec=2.0; return dec; }
+    async function fetchTrueDeclination(lat,lon) { return getApproxDeclination(lat,lon); }
+    async function updateDeclination(lat,lon) {
+        currentDeclination = await fetchTrueDeclination(lat,lon);
+        if(rawTrueNorth!==null) { let mag = normalizeAngle(rawTrueNorth - currentDeclination); filteredCompass = mag; if(compassSpan) compassSpan.innerText = filteredCompass.toFixed(1)+"°"; }
+    }
+    
+    function startOrientationListener() {
+        if(window.orientationHandler) window.removeEventListener('deviceorientation', window.orientationHandler);
+        window.orientationHandler = (event) => {
+            if(event.alpha===null || event.beta===null) return;
+            rawTrueNorth = event.alpha;
+            let rawPitch = event.beta;
+            if(filteredCompass===null) filteredCompass = normalizeAngle(rawTrueNorth - currentDeclination);
+            else {
+                let instant = normalizeAngle(rawTrueNorth - currentDeclination);
+                let delta = instant - filteredCompass;
+                if(delta>180) delta-=360; if(delta<-180) delta+=360;
+                filteredCompass = normalizeAngle(filteredCompass + SMOOTHING_FACTOR*delta);
+            }
+            if(filteredPitch===null) filteredPitch = rawPitch;
+            else filteredPitch += SMOOTHING_FACTOR * (rawPitch - filteredPitch);
+            compassSpan.innerText = filteredCompass.toFixed(1)+"°";
+            pitchSpan.innerText = filteredPitch.toFixed(1)+"°";
+            trueNorthSpan.innerText = rawTrueNorth.toFixed(1)+"°";
+            calculateFootprint();
+        };
+        window.addEventListener('deviceorientation', window.orientationHandler);
+    }
+    
+    function startCalibrationGuide() {
+        if(isCalibrating) return;
+        isCalibrating=true;
+        updateStatus("✋ 请将手机平放，在空中缓慢画横向“8”字，持续10秒...","info");
+        filteredCompass=null; filteredPitch=null;
+        setTimeout(()=>{ isCalibrating=false; updateStatus("校准完成！","success"); const lat=parseFloat(latitudeInput.value), lon=parseFloat(longitudeInput.value); updateDeclination(lat,lon); },10000);
+        if(navigator.vibrate) navigator.vibrate(200);
+    }
+    
+    async function startCamera() {
+        try {
+            if(videoStream) videoStream.getTracks().forEach(t=>t.stop());
+            videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { exact: "environment" }, width:{ideal:1280}, height:{ideal:720} } });
+            videoEl.srcObject = videoStream;
+            updateStatus("后置摄像头已启动","success");
+            if(typeof DeviceOrientationEvent!=='undefined' && typeof DeviceOrientationEvent.requestPermission==='function') {
+                let state = await DeviceOrientationEvent.requestPermission();
+                if(state==='granted') updateStatus("设备方向权限已授予","success");
+                else updateStatus("传感器权限被拒绝，方位角可能不准","error");
+            } else updateStatus("传感器已就绪 (Android)","success");
+            startOrientationListener();
+        } catch(err) { updateStatus("摄像头启动失败: "+err.message,"error"); }
+    }
+    
+    function getRealTimeLocation() {
+        if(!navigator.geolocation) { updateStatus("浏览器不支持GPS","error"); return; }
+        updateStatus("正在获取GPS位置...","info");
+        navigator.geolocation.getCurrentPosition(pos=>{
+            let lat=pos.coords.latitude, lon=pos.coords.longitude;
+            latitudeInput.value=lat.toFixed(6); longitudeInput.value=lon.toFixed(6);
+            let alt=pos.coords.altitude;
+            if(alt && !flatModeCheck.checked) { relativeHeightInput.value=alt.toFixed(1); document.getElementById('altitudeHint').innerText=`GPS海拔: ${alt.toFixed(1)}米`; }
+            else document.getElementById('altitudeHint').innerText=`GPS海拔无效，使用手动高度`;
+            updateStatus("位置更新成功","success");
+            updateDeclination(lat,lon);
+            calculateFootprint();
+        }, err=>{ updateStatus("GPS定位失败: "+err.message,"error"); }, { enableHighAccuracy:true, timeout:10000 });
+    }
+    
+    async function capturePhoto() {
+        if(!videoEl.videoWidth || !videoEl.srcObject) { updateStatus("请先启动摄像头","error"); return; }
+        let mag = filteredCompass, pit = filteredPitch, lat=parseFloat(latitudeInput.value), lon=parseFloat(longitudeInput.value), h=parseFloat(relativeHeightInput.value);
+        alert(`📸 拍照时刻参数:\n方位角(磁北): ${mag?.toFixed(1)||'?'}°\n俯仰角: ${pit?.toFixed(1)||'?'}°\n位置: ${lat.toFixed(5)}, ${lon.toFixed(5)}\n相对高度: ${h} m\n视域已自动计算并显示在地图`);
+        let canvas = document.createElement('canvas');
+        canvas.width=videoEl.videoWidth; canvas.height=videoEl.videoHeight;
+        canvas.getContext('2d').drawImage(videoEl,0,0,canvas.width,canvas.height);
+        let a=document.createElement('a'); a.download=`camera_${Date.now()}.png`; a.href=canvas.toDataURL(); a.click();
+        updateStatus("拍照成功，图片已保存","success");
+    }
+    
+    function calculateFootprint() {
+        let lat=parseFloat(latitudeInput.value), lon=parseFloat(longitudeInput.value);
+        let relH=parseFloat(relativeHeightInput.value), flatMode=flatModeCheck.checked;
+        let finalHeight = flatMode ? 1.6 : relH;
+        let autoDist = autoDistanceCheck.checked;
+        let distance = parseFloat(distanceInput.value);
+        let pitch = filteredPitch || 0;
+        if(autoDist && Math.abs(pitch)>5 && Math.abs(pitch)<85) {
+            let pitchRad = Math.radians(Math.abs(pitch));
+            let calcDist = finalHeight / Math.tan(pitchRad);
+            if(calcDist>0.5 && calcDist<2000) { distance = calcDist; distanceInput.value = distance.toFixed(1); }
+        }
+        let halfW = distance * Math.tan(Math.radians(H_FOV/2));
+        let halfH = distance * Math.tan(Math.radians(V_FOV/2));
+        footprintSizeSpan.innerText = `${(halfW*2).toFixed(1)}m × ${(halfH*2).toFixed(1)}m`;
+        
+        let azimuth = filteredCompass; if(azimuth===null) azimuth=0;
+        let pitchRad = Math.radians(Math.abs(pitch));
+        let horizDist = distance * Math.cos(pitchRad);
+        let leftAngle = azimuth + Math.degrees(-Math.radians(H_FOV/2));
+        let rightAngle = azimuth + Math.degrees(Math.radians(H_FOV/2));
+        function getPoint(lat,lon,dist,brg) {
+            let R=6371000, φ1=Math.radians(lat), λ1=Math.radians(lon), θ=Math.radians(brg), δ=dist/R;
+            let φ2=Math.asin(Math.sin(φ1)*Math.cos(δ)+Math.cos(φ1)*Math.sin(δ)*Math.cos(θ));
+            let λ2=λ1+Math.atan2(Math.sin(θ)*Math.sin(δ)*Math.cos(φ1), Math.cos(δ)-Math.sin(φ1)*Math.sin(φ2));
+            return [Math.degrees(λ2), Math.degrees(φ2)];
+        }
+        let leftFront = getPoint(lat,lon,horizDist, leftAngle);
+        let rightFront = getPoint(lat,lon,horizDist, rightAngle);
+        let leftBack = getPoint(lat,lon,horizDist*0.5, leftAngle+180);
+        let rightBack = getPoint(lat,lon,horizDist*0.5, rightAngle+180);
+        let poly = [leftFront, rightFront, rightBack, leftBack, leftFront];
+        footprintCoordsDiv.innerText = poly.map(p=>`[${p[1].toFixed(5)},${p[0].toFixed(5)}]`).join(' ');
+        if(map && footprintLayer) {
+            footprintLayer.getSource().clear();
+            let transformed = poly.map(p=>ol.proj.fromLonLat(p));
+            footprintLayer.getSource().addFeature(new ol.Feature(new ol.geom.Polygon([transformed])));
+            positionMarker.getSource().clear();
+            positionMarker.getSource().addFeature(new ol.Feature(new ol.geom.Point(ol.proj.fromLonLat([lon,lat]))));
+            map.getView().setCenter(ol.proj.fromLonLat([lon,lat]));
+            map.getView().setZoom(17);
+        }
+    }
+    
+    function initMap() {
+        map = new ol.Map({ target:'map', layers:[new ol.layer.Tile({ source: new ol.source.OSM() })], view: new ol.View({ center: ol.proj.fromLonLat([121.4737,31.2304]), zoom:16 }) });
+        footprintLayer = new ol.layer.Vector({ source: new ol.source.Vector(), style: new ol.style.Style({ fill: new ol.style.Fill({ color:'rgba(255,80,40,0.35)' }), stroke: new ol.style.Stroke({ color:'#ff4d4f', width:2 }) }) });
+        positionMarker = new ol.layer.Vector({ source: new ol.source.Vector(), style: new ol.style.Style({ image: new ol.style.Circle({ radius:8, fill: new ol.style.Fill({ color:'#1e88e5' }), stroke: new ol.style.Stroke({ color:'#fff', width:2 }) }) }) });
+        map.addLayer(footprintLayer); map.addLayer(positionMarker);
+    }
+    
+    function bindEvents() {
+        startBtn.addEventListener('click', startCamera);
+        captureBtn.addEventListener('click', capturePhoto);
+        document.getElementById('getLocationBtn').addEventListener('click', getRealTimeLocation);
+        document.getElementById('calibrateBtn').addEventListener('click', startCalibrationGuide);
+        flatModeCheck.addEventListener('change', ()=>{ if(flatModeCheck.checked) relativeHeightInput.value='1.6'; calculateFootprint(); });
+        autoDistanceCheck.addEventListener('change', calculateFootprint);
+        latitudeInput.addEventListener('change', ()=>{ let lat=parseFloat(latitudeInput.value), lon=parseFloat(longitudeInput.value); updateDeclination(lat,lon); calculateFootprint(); });
+        longitudeInput.addEventListener('change', ()=>{ let lat=parseFloat(latitudeInput.value), lon=parseFloat(longitudeInput.value); updateDeclination(lat,lon); calculateFootprint(); });
+        relativeHeightInput.addEventListener('input', calculateFootprint);
+        distanceInput.addEventListener('input', calculateFootprint);
+    }
+    
+    (function() {
+        initMap();
+        bindEvents();
+        document.getElementById('hFovLabel').innerText = H_FOV+"°";
+        document.getElementById('vFovLabel').innerText = V_FOV+"°";
+        setTimeout(getRealTimeLocation, 500);
+        updateStatus("点击上方启动摄像头并允许传感器权限","info");
+    })();
+</script>
+</body>
+</html>
