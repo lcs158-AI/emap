@@ -148,7 +148,7 @@
     <div class="section">
         <h2>🧭 实时方向（平滑后）</h2>
         <div class="parameter"><label>方位角（磁北/指南针风格）:</label><value id="compassValue">-- °</value></div>
-        <div class="parameter"><label>俯仰角 (向下为正，0~90°):</label><value id="pitchValue">-- °</value></div>
+        <div class="parameter"><label>俯仰角 (镜头与水平面夹角，向下为正):</label><value id="pitchValue">-- °</value></div>
         <div class="parameter"><label>⚡ 原始真北 (仅供对比):</label><value id="trueNorthValue">-- °</value></div>
         <button id="calibrateBtn" class="warning">🔄 开始8字校准（传感器校正）</button>
         <div class="hint-text">※ 若与手机指南针App偏差＞5°，请执行8字校准</div>
@@ -204,15 +204,6 @@
     const statusDiv = document.getElementById('statusMsg');
     const autoFlatHint = document.getElementById('autoFlatHint');
     
-    // 强制相对高度不小于1米的函数
-    function ensureMinHeight(height) {
-        if (height < 1.0) {
-            console.log(`相对高度 ${height} 小于1米，强制设为1.6米`);
-            return 1.6;
-        }
-        return height;
-    }
-    
     function updateStatus(text, type='info') {
         statusDiv.textContent = text;
         statusDiv.className = `status ${type}`;
@@ -233,9 +224,10 @@
         window.orientationHandler = (event) => {
             if(event.alpha===null || event.beta===null) return;
             rawTrueNorth = event.alpha;
-            let rawPitch = event.beta;
-            // 俯仰角：向下为正，范围0~90°（取绝对值并限制）
-            let absolutePitch = Math.abs(rawPitch);
+            let rawBeta = event.beta;
+            // 关键修正：俯仰角 = 90° - |beta|，并限制在0~90°
+            let absolutePitch = 90 - Math.abs(rawBeta);
+            if(absolutePitch < 0) absolutePitch = 0;
             if(absolutePitch > 90) absolutePitch = 90;
             
             if(filteredCompass===null) filteredCompass = normalizeAngle(rawTrueNorth - currentDeclination);
@@ -299,10 +291,10 @@
             latitudeInput.value=lat.toFixed(6); longitudeInput.value=lon.toFixed(6);
             let alt=pos.coords.altitude;
             if(alt && !flatModeCheck.checked) {
-                // 如果获取的海拔小于1米，强制设为1.6米
-                let finalAlt = ensureMinHeight(alt);
+                let finalAlt = alt;
+                if(finalAlt < 1) finalAlt = 1.6;  // 相对高度小于1米时强制设为1.6米
                 relativeHeightInput.value = finalAlt.toFixed(1);
-                document.getElementById('altitudeHint').innerText = `GPS海拔: ${alt.toFixed(1)}米 → 使用${finalAlt.toFixed(1)}米(最小1.6米)`;
+                document.getElementById('altitudeHint').innerText = `GPS海拔: ${alt.toFixed(1)}米 → 使用${finalAlt.toFixed(1)}米（最小1.6米）`;
             } else {
                 document.getElementById('altitudeHint').innerText = `GPS海拔无效，使用手动高度`;
             }
@@ -315,7 +307,7 @@
     async function capturePhoto() {
         if(!videoEl.videoWidth || !videoEl.srcObject) { updateStatus("请先启动摄像头","error"); return; }
         let mag = filteredCompass, pit = filteredPitch, lat=parseFloat(latitudeInput.value), lon=parseFloat(longitudeInput.value), h=parseFloat(relativeHeightInput.value);
-        alert(`📸 拍照时刻参数:\n方位角(磁北): ${mag?.toFixed(1)||'?'}°\n俯仰角(向下为正): ${pit?.toFixed(1)||'?'}°\n位置: ${lat.toFixed(5)}, ${lon.toFixed(5)}\n相对高度: ${h} m\n视域已自动计算并显示在地图`);
+        alert(`📸 拍照时刻参数:\n方位角(磁北): ${mag?.toFixed(1)||'?'}°\n俯仰角(镜头与水平面夹角): ${pit?.toFixed(1)||'?'}°\n位置: ${lat.toFixed(5)}, ${lon.toFixed(5)}\n相对高度: ${h} m\n视域已自动计算并显示在地图`);
         let canvas = document.createElement('canvas');
         canvas.width=videoEl.videoWidth; canvas.height=videoEl.videoHeight;
         canvas.getContext('2d').drawImage(videoEl,0,0,canvas.width,canvas.height);
@@ -325,15 +317,10 @@
     
     function calculateFootprint() {
         let lat=parseFloat(latitudeInput.value), lon=parseFloat(longitudeInput.value);
-        let rawHeight = parseFloat(relativeHeightInput.value);
-        // 确保相对高度不小于1.6米（考虑到人身高一般不低于1.6米，且小于1米明显异常）
-        let effectiveHeight = ensureMinHeight(rawHeight);
-        if (effectiveHeight !== rawHeight) {
-            relativeHeightInput.value = effectiveHeight.toFixed(1);
-        }
-        
-        // 如果手动勾选了平地模式，则使用1.6米，否则使用有效高度
-        let finalHeight = flatModeCheck.checked ? 1.6 : effectiveHeight;
+        let relH = parseFloat(relativeHeightInput.value);
+        // 若高度小于1米，强制设为1.6米（安全兜底）
+        if(relH < 1) { relH = 1.6; relativeHeightInput.value = "1.6"; }
+        let finalHeight = flatModeCheck.checked ? 1.6 : relH;
         
         let autoDist = autoDistanceCheck.checked;
         let distance = parseFloat(distanceInput.value);
@@ -362,7 +349,7 @@
         // 水平投影距离 (相机到地面点的水平距离)
         let horizDist = distance * Math.cos(pitchRad);
         
-        // 梯形视域四个顶点
+        // 梯形视域四个顶点 (前左、前右、后左、后右)
         function getPoint(lat,lon,dist,brg) {
             let R=6371000, φ1=Math.radians(lat), λ1=Math.radians(lon), θ=Math.radians(brg), δ=dist/R;
             let φ2=Math.asin(Math.sin(φ1)*Math.cos(δ)+Math.cos(φ1)*Math.sin(δ)*Math.cos(θ));
@@ -416,14 +403,7 @@
         autoDistanceCheck.addEventListener('change', calculateFootprint);
         latitudeInput.addEventListener('change', ()=>{ let lat=parseFloat(latitudeInput.value), lon=parseFloat(longitudeInput.value); updateDeclination(lat,lon); calculateFootprint(); });
         longitudeInput.addEventListener('change', ()=>{ let lat=parseFloat(latitudeInput.value), lon=parseFloat(longitudeInput.value); updateDeclination(lat,lon); calculateFootprint(); });
-        relativeHeightInput.addEventListener('input', function() {
-            let val = parseFloat(this.value);
-            if (!isNaN(val) && val < 1.0) {
-                this.value = "1.6";
-                updateStatus("相对高度不能小于1米，已调整为1.6米", "info");
-            }
-            calculateFootprint();
-        });
+        relativeHeightInput.addEventListener('input', calculateFootprint);
         distanceInput.addEventListener('input', calculateFootprint);
     }
     
