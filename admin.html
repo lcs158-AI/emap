@@ -1009,7 +1009,8 @@
             }
             
             try {
-                const response = await fetch(`${API_BASE_URL}/api/photos/${filename}`, {
+                const encodedFilename = encodeURIComponent(filename);
+                const response = await fetch(`${API_BASE_URL}/api/photos/${encodedFilename}`, {
                     method: 'DELETE'
                 });
                 
