@@ -457,23 +457,7 @@ window.addEventListener('click', function(event) {
     }
 });
 
-// 上传按钮事件
-const uploadBtn = document.getElementById('uploadBtn');
-if (uploadBtn) {
-    uploadBtn.addEventListener('click', function() {
-        // 调用 AIsea.html 中定义的打开侧边栏函数
-        if (typeof window.openUploadSidebar === 'function') {
-            window.openUploadSidebar();
-        } else {
-            console.warn('侧边栏未初始化');
-        }
-        
-        // 关闭下拉菜单
-        if (myDropdown) {
-            myDropdown.style.display = 'none';
-        }
-    });
-}
+// 上传按钮事件已在 IIFE 中定义（第5870行附近）
 
 document.getElementById('locateBtn').addEventListener('click', function () {
     if (!watching) {

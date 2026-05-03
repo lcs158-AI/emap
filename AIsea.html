@@ -275,11 +275,29 @@
         </div>
     </div>
 
-    <script src="js/config.js"></script>
-    <script src="js/user.js"></script>
+    <!-- 配置变量（全局）- 必须在 map.js 之前定义 -->
+    <script>
+        const TIANDITU_KEY = '4110bba1f23cd04ed33e43ab12a291fc';
+        const initCenter = [111.18, 21.48];
+        const initZoom = 10;
+        const keyPart1 = 'ebd9161a';
+        const keyPart2 = '4eda4f3ebbcc';
+        const keyPart3 = '3f3977d64820';
+        const QWEATHER_KEY = keyPart1 + keyPart2 + keyPart3;
+        const APIhost = 'mg2tupq435.re.qweatherapi.com';
+    </script>
+    
     <!-- 先加载 OpenLayers 库 -->
     <script src="https://cdn.jsdelivr.net/npm/ol@v7.5.2/dist/ol.js"></script>
     
+    <!-- 工具函数 -->
+    <script src="js/utils.js"></script>
+    
+    <!-- 地图核心 - 必须在依赖地图的脚本之前加载 -->
+    <script src="js/map.js"></script>
+    
+    <script src="js/config.js"></script>
+    <script src="js/user.js"></script>
     <script src="js/upload.js"></script>
     
     <!-- 拍照视域功能脚本 -->
@@ -329,21 +347,6 @@
             }
         });
     </script>
-    <!-- 配置变量（全局） -->
-    <script>
-        const TIANDITU_KEY = '4110bba1f23cd04ed33e43ab12a291fc';
-        const initCenter = [111.18, 21.48];
-        const initZoom = 10;
-        const keyPart1 = 'ebd9161a';
-        const keyPart2 = '4eda4f3ebbcc';
-        const keyPart3 = '3f3977d64820';
-        const QWEATHER_KEY = keyPart1 + keyPart2 + keyPart3;
-        const APIhost = 'mg2tupq435.re.qweatherapi.com'; // 使用用户配置的API主机地址
-    </script>
-    <!-- 引入工具函数 -->
-    <script src="js/utils.js"></script>
-    <!-- 引入地图核心 -->
-    <script src="js/map.js"></script>
 </body>
 
 </html>

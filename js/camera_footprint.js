@@ -21,7 +21,7 @@ let capturedParams = null;
 let videoEl = null;
 let startCameraBtn = null;
 let captureBtn = null;
-let uploadBtn = null;
+let photoUploadBtn = null;
 let compassSpan = null;
 let pitchSpan = null;
 let heightSpan = null;
@@ -129,7 +129,7 @@ async function startCamera() {
         videoEl.style.display = 'block';
         startCameraBtn.style.display = 'none';
         captureBtn.style.display = 'block';
-        uploadBtn.style.display = 'none';
+        photoUploadBtn.style.display = 'none';
         
         // 请求传感器权限
         if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
@@ -370,7 +370,7 @@ function capturePhoto() {
     
     // 隐藏拍照按钮，显示上传按钮
     captureBtn.style.display = 'none';
-    uploadBtn.style.display = 'block';
+    photoUploadBtn.style.display = 'block';
     
     // 隐藏摄像头预览
     videoEl.style.display = 'none';
@@ -454,7 +454,7 @@ function resetCamera() {
     }
     
     // 隐藏上传按钮，显示拍照按钮
-    uploadBtn.style.display = 'none';
+    photoUploadBtn.style.display = 'none';
     captureBtn.style.display = 'block';
     
     // 显示摄像头预览
@@ -468,7 +468,7 @@ function initCameraFootprint() {
     videoEl = document.getElementById('cameraPreview');
     startCameraBtn = document.getElementById('startCameraBtn');
     captureBtn = document.getElementById('capturePhotoBtn');
-    uploadBtn = document.getElementById('uploadPhotoBtn');
+    photoUploadBtn = document.getElementById('uploadPhotoBtn');
     compassSpan = document.getElementById('compassValue');
     pitchSpan = document.getElementById('pitchValue');
     heightSpan = document.getElementById('heightValue');
@@ -494,8 +494,8 @@ function initCameraFootprint() {
     if (captureBtn) {
         captureBtn.addEventListener('click', capturePhoto);
     }
-    if (uploadBtn) {
-        uploadBtn.addEventListener('click', uploadPhoto);
+    if (photoUploadBtn) {
+        photoUploadBtn.addEventListener('click', uploadPhoto);
     }
     if (calibrateBtn) {
         calibrateBtn.addEventListener('click', startCalibrationGuide);
