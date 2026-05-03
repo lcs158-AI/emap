@@ -3,6 +3,7 @@
 // 更新侧边栏UI
 function updateSidebarUI() {
     const authForm = document.getElementById('sidebarAuthForm');
+    const cameraPanel = document.getElementById('sidebarCameraPanel');
     const uploadForm = document.getElementById('sidebarUploadForm');
     const userStatus = document.getElementById('sidebarUserStatus');
     const usernameSpan = document.getElementById('sidebarUsername');
@@ -12,6 +13,7 @@ function updateSidebarUI() {
     if (token) {
         // 已登录
         authForm.style.display = 'none';
+        cameraPanel.style.display = 'block';
         uploadForm.style.display = 'block';
         userStatus.style.display = 'block';
         
