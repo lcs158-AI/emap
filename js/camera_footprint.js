@@ -97,8 +97,15 @@ function startOrientationListener() {
         if (adjustedPitch < -90) adjustedPitch = -90;
         if (adjustedPitch > 0) adjustedPitch = 0;
         
-        if (filteredPitch === null) filteredPitch = adjustedPitch;
-        else filteredPitch += SMOOTHING_FACTOR * (adjustedPitch - filteredPitch);
+        // 初始化时使用当前值，确保有初始值
+        if (filteredPitch === null || isNaN(filteredPitch)) {
+            filteredPitch = adjustedPitch;
+        } else {
+            filteredPitch += SMOOTHING_FACTOR * (adjustedPitch - filteredPitch);
+        }
+        // 确保最终值在范围内
+        if (filteredPitch < -90) filteredPitch = -90;
+        if (filteredPitch > 0) filteredPitch = 0;
         
         // 更新UI
         if (compassSpan) compassSpan.innerText = filteredCompass.toFixed(1) + "°";
@@ -313,7 +320,7 @@ function clearPreview() {
 
 // ======================== 拍照（仅拍照，不上传） ========================
 function capturePhoto() {
-    if (!videoEl.videoWidth || !videoEl.srcObject) {
+    if (!videoEl || !videoEl.videoWidth || !videoEl.srcObject) {
         alert('请先启动摄像头');
         return;
     }
@@ -327,16 +334,22 @@ function capturePhoto() {
     
     const azimuth = filteredCompass;
     const pitch = filteredPitch;
-    const relativeHeight = parseFloat(relativeHeightInput.value) || 1.6;
+    const relativeHeight = parseFloat(relativeHeightInput?.value) || 1.6;
     
     // 拍照
     const canvas = document.createElement('canvas');
     canvas.width = videoEl.videoWidth;
     canvas.height = videoEl.videoHeight;
-    canvas.getContext('2d').drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+        alert('无法创建画布上下文');
+        return;
+    }
+    ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
     
     // 保存照片和参数
     capturedPhoto = canvas.toDataURL('image/jpeg', 0.9);
+    console.log('拍照成功，照片数据长度:', capturedPhoto.length);
     capturedParams = {
         latitude: currentLat,
         longitude: currentLon,
@@ -386,7 +399,16 @@ async function uploadPhoto() {
     const { latitude, longitude, azimuth, pitch, relativeHeight, h_fov, v_fov } = capturedParams;
     
     // 将base64图片转换为blob
-    const blob = await fetch(capturedPhoto).then(res => res.blob());
+    let blob;
+    try {
+        blob = await fetch(capturedPhoto).then(res => res.blob());
+        console.log('照片Blob大小:', blob.size, 'bytes');
+    } catch (e) {
+        console.error('照片转换失败:', e);
+        alert('照片转换失败，请重试');
+        return;
+    }
+    
     const file = new File([blob], `camera_${Date.now()}.jpg`, { type: 'image/jpeg' });
     
     // 创建表单数据
@@ -396,7 +418,7 @@ async function uploadPhoto() {
     formData.append('longitude', longitude);
     
     // 判断设备类型：有方位角和俯仰角则为phone-footprint，否则为phone
-    const hasValidOrientation = azimuth !== null && azimuth !== undefined && pitch !== null && pitch !== undefined;
+    const hasValidOrientation = azimuth !== null && azimuth !== undefined && !isNaN(azimuth) && pitch !== null && pitch !== undefined && !isNaN(pitch);
     formData.append('device_type', hasValidOrientation ? 'phone-footprint' : 'phone');
     
     // 添加传感器参数（后端根据这些参数生成视域）
@@ -412,9 +434,13 @@ async function uploadPhoto() {
         formData.append('problem_type', problemType);
     }
     
+    // 获取API地址
+    const apiUrl = window.API_BASE_URL || API_BASE_URL || 'https://lzy-fastapi.onrender.com';
+    console.log('上传到:', `${apiUrl}/api/upload`);
+    
     // 上传到后端
     try {
-        const response = await fetch(`${window.API_BASE_URL || API_BASE_URL}/api/upload`, {
+        const response = await fetch(`${apiUrl}/api/upload`, {
             method: 'POST',
             body: formData
         });
