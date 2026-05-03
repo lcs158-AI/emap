@@ -316,18 +316,6 @@
                 <input type="text" id="adminUsername" required>
             </div>
             <div class="form-group">
-                <label for="adminRealName">真实姓名</label>
-                <input type="text" id="adminRealName" required>
-            </div>
-            <div class="form-group">
-                <label for="adminWorkUnit">工作单位</label>
-                <input type="text" id="adminWorkUnit" required>
-            </div>
-            <div class="form-group">
-                <label for="adminPhone">手机号码</label>
-                <input type="text" id="adminPhone" required>
-            </div>
-            <div class="form-group">
                 <label for="adminPassword">密码</label>
                 <input type="password" id="adminPassword" required>
             </div>
@@ -363,9 +351,6 @@
                     <thead>
                         <tr>
                             <th>用户名</th>
-                            <th>真实姓名</th>
-                            <th>工作单位</th>
-                            <th>手机号码</th>
                             <th>状态</th>
                             <th>角色</th>
                             <th>操作</th>
@@ -411,18 +396,6 @@
                 <div class="form-group">
                     <label for="editUsername">用户名</label>
                     <input type="text" id="editUsername" disabled>
-                </div>
-                <div class="form-group">
-                    <label for="editRealName">真实姓名</label>
-                    <input type="text" id="editRealName">
-                </div>
-                <div class="form-group">
-                    <label for="editWorkUnit">工作单位</label>
-                    <input type="text" id="editWorkUnit">
-                </div>
-                <div class="form-group">
-                    <label for="editPhone">手机号码</label>
-                    <input type="text" id="editPhone">
                 </div>
                 <div class="form-group">
                     <label for="editStatus">状态</label>
@@ -610,18 +583,6 @@
                     usernameCell.textContent = user.username;
                     row.appendChild(usernameCell);
                     
-                    const realNameCell = document.createElement('td');
-                    realNameCell.textContent = user.real_name || '-';
-                    row.appendChild(realNameCell);
-                    
-                    const workUnitCell = document.createElement('td');
-                    workUnitCell.textContent = user.work_unit || '-';
-                    row.appendChild(workUnitCell);
-                    
-                    const phoneCell = document.createElement('td');
-                    phoneCell.textContent = user.phone || '-';
-                    row.appendChild(phoneCell);
-                    
                     const statusCell = document.createElement('td');
                     statusCell.textContent = user.status || 'pending';
                     row.appendChild(statusCell);
@@ -791,9 +752,6 @@
                 
                 document.getElementById('editUserId').value = user.username;
                 document.getElementById('editUsername').value = user.username;
-                document.getElementById('editRealName').value = user.real_name || '';
-                document.getElementById('editWorkUnit').value = user.work_unit || '';
-                document.getElementById('editPhone').value = user.phone || '';
                 document.getElementById('editStatus').value = user.status || 'pending';
                 document.getElementById('editRole').value = user.is_admin ? 'admin' : 'user';
                 
@@ -806,9 +764,6 @@
         
         async function submitEditUser() {
             const username = document.getElementById('editUserId').value;
-            const realName = document.getElementById('editRealName').value;
-            const workUnit = document.getElementById('editWorkUnit').value;
-            const phone = document.getElementById('editPhone').value;
             const status = document.getElementById('editStatus').value;
             const role = document.getElementById('editRole').value;
             
@@ -819,9 +774,6 @@
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        real_name: realName,
-                        work_unit: workUnit,
-                        phone: phone,
                         status: status,
                         is_admin: role === 'admin'
                     })
@@ -1135,12 +1087,9 @@
         
         async function createAdminAccount() {
             const username = document.getElementById('adminUsername').value;
-            const realName = document.getElementById('adminRealName').value;
-            const workUnit = document.getElementById('adminWorkUnit').value;
-            const phone = document.getElementById('adminPhone').value;
             const password = document.getElementById('adminPassword').value;
             
-            if (!username || !realName || !workUnit || !phone || !password) {
+            if (!username || !password) {
                 showMessage('请填写所有字段', 'error');
                 return;
             }
@@ -1153,11 +1102,7 @@
                     },
                     body: JSON.stringify({
                         username: username,
-                        real_name: realName,
-                        work_unit: workUnit,
-                        phone: phone,
-                        password: password,
-                        is_admin: true
+                        password: password
                     })
                 });
                 
