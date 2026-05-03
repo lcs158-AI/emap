@@ -138,16 +138,24 @@
                 <div id="sidebarAuthMsg" style="color:red; font-size:12px; margin-top:5px; text-align:center;"></div>
             </div>
 
-            <!-- 3. 拍照视域功能 (登录后显示) -->
+            <!-- 3. 拍照测量功能 (登录后显示) -->
             <div id="sidebarCameraPanel" style="display:none; margin-top:20px; border-top:1px solid #eee; padding-top:20px;">
                 <h4 style="margin-top:0;">📷 拍照测量</h4>
                 
                 <!-- 摄像头预览 -->
                 <video id="cameraPreview" autoplay playsinline style="width:100%; border-radius:12px; background:#000; margin-bottom:10px; display:none;"></video>
                 
+                <!-- 拍照后照片预览 -->
+                <img id="capturedPhotoPreview" style="width:100%; border-radius:12px; background:#000; margin-bottom:10px; display:none;" />
+                
+                <!-- 拍照参数显示 -->
+                <div id="capturedParams" style="margin-top:15px; padding:10px; background:#e6f7ff; border-radius:8px; display:none; border:1px solid #91d5ff;">
+                </div>
+                
                 <div class="flex-row" style="display:flex; gap:10px;">
                     <button id="startCameraBtn" style="flex:1; padding:10px; background:#1890ff; color:white; border:none; border-radius:4px; cursor:pointer;">启动摄像头</button>
-                    <button id="capturePhotoBtn" style="flex:1; padding:10px; background:#52c41a; color:white; border:none; border-radius:4px; cursor:pointer; display:none;">拍照 & 计算视域</button>
+                    <button id="capturePhotoBtn" style="flex:1; padding:10px; background:#52c41a; color:white; border:none; border-radius:4px; cursor:pointer; display:none;">拍照</button>
+                    <button id="uploadPhotoBtn" style="flex:1; padding:10px; background:#fa8c16; color:white; border:none; border-radius:4px; cursor:pointer; display:none;">上传</button>
                 </div>
                 
                 <!-- 传感器数据显示 -->

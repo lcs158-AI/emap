@@ -13,10 +13,15 @@ const V_FOV = 43;
 let currentLat = 0;
 let currentLon = 0;
 
+// 拍照后保存的数据
+let capturedPhoto = null;
+let capturedParams = null;
+
 // DOM元素
 let videoEl = null;
 let startCameraBtn = null;
 let captureBtn = null;
+let uploadBtn = null;
 let compassSpan = null;
 let pitchSpan = null;
 let heightSpan = null;
@@ -25,6 +30,8 @@ let flatModeCheck = null;
 let autoDistanceCheck = null;
 let footprintSizeSpan = null;
 let calibrateBtn = null;
+let photoPreviewEl = null;
+let capturedParamsEl = null;
 
 // 地图图层（仅用于预览显示）
 let footprintLayer = null;
@@ -83,7 +90,10 @@ function startOrientationListener() {
         }
         
         // 平滑俯仰角 - 遵循DJI约定：向下为负，范围 -90° ~ 0°
-        let adjustedPitch = -rawBeta;
+        // 原始 beta 值：0°=水平，负值=向下倾斜（俯视），正值=向上倾斜（仰视）
+        // DJI约定：向下为负，所以直接使用原始beta并限制范围
+        let adjustedPitch = rawBeta;
+        // 限制在 -90° ~ 0° 范围内（向下为负）
         if (adjustedPitch < -90) adjustedPitch = -90;
         if (adjustedPitch > 0) adjustedPitch = 0;
         
@@ -119,6 +129,7 @@ async function startCamera() {
         videoEl.style.display = 'block';
         startCameraBtn.style.display = 'none';
         captureBtn.style.display = 'block';
+        uploadBtn.style.display = 'none';
         
         // 请求传感器权限
         if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
@@ -300,8 +311,8 @@ function clearPreview() {
     }
 }
 
-// ======================== 拍照并上传（直接上传，不传视域） ========================
-async function capturePhoto() {
+// ======================== 拍照（仅拍照，不上传） ========================
+function capturePhoto() {
     if (!videoEl.videoWidth || !videoEl.srcObject) {
         alert('请先启动摄像头');
         return;
@@ -324,19 +335,65 @@ async function capturePhoto() {
     canvas.height = videoEl.videoHeight;
     canvas.getContext('2d').drawImage(videoEl, 0, 0, canvas.width, canvas.height);
     
-    // 显示获取的参数
-    const displayPitch = pitch !== null ? pitch.toFixed(1) : '?';
-    alert(`📸 拍照完成！\n\n位置: ${currentLat.toFixed(5)}, ${currentLon.toFixed(5)}\n方位角: ${azimuth?.toFixed(1)||'?'}°\n俯仰角: ${displayPitch}°\n相对高度: ${relativeHeight}m\n\n正在上传...`);
+    // 保存照片和参数
+    capturedPhoto = canvas.toDataURL('image/jpeg', 0.9);
+    capturedParams = {
+        latitude: currentLat,
+        longitude: currentLon,
+        azimuth: azimuth,
+        pitch: pitch,
+        relativeHeight: relativeHeight,
+        h_fov: H_FOV,
+        v_fov: V_FOV
+    };
     
-    // 准备上传数据
-    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.9));
+    // 显示照片预览
+    if (photoPreviewEl) {
+        photoPreviewEl.src = capturedPhoto;
+        photoPreviewEl.style.display = 'block';
+    }
+    
+    // 显示参数信息
+    if (capturedParamsEl) {
+        const displayPitch = pitch !== null ? pitch.toFixed(1) : '?';
+        capturedParamsEl.innerHTML = `
+            <div style="font-size:12px; color:#666; margin-bottom:8px;">📊 拍照参数</div>
+            <div style="font-size:12px; margin-bottom:3px;"><strong>位置:</strong> ${currentLat.toFixed(5)}, ${currentLon.toFixed(5)}</div>
+            <div style="font-size:12px; margin-bottom:3px;"><strong>方位角:</strong> ${azimuth?.toFixed(1)||'?'}°</div>
+            <div style="font-size:12px; margin-bottom:3px;"><strong>俯仰角:</strong> ${displayPitch}°</div>
+            <div style="font-size:12px; margin-bottom:3px;"><strong>相对高度:</strong> ${relativeHeight}m</div>
+            <div style="font-size:12px; margin-bottom:3px;"><strong>水平视场角:</strong> ${H_FOV}°</div>
+            <div style="font-size:12px;"><strong>垂直视场角:</strong> ${V_FOV}°</div>
+        `;
+        capturedParamsEl.style.display = 'block';
+    }
+    
+    // 隐藏拍照按钮，显示上传按钮
+    captureBtn.style.display = 'none';
+    uploadBtn.style.display = 'block';
+    
+    // 隐藏摄像头预览
+    videoEl.style.display = 'none';
+}
+
+// ======================== 上传（仅上传，不拍照） ========================
+async function uploadPhoto() {
+    if (!capturedPhoto || !capturedParams) {
+        alert('请先拍照');
+        return;
+    }
+    
+    const { latitude, longitude, azimuth, pitch, relativeHeight, h_fov, v_fov } = capturedParams;
+    
+    // 将base64图片转换为blob
+    const blob = await fetch(capturedPhoto).then(res => res.blob());
     const file = new File([blob], `camera_${Date.now()}.jpg`, { type: 'image/jpeg' });
     
-    // 创建表单数据（直接上传，不传视域）
+    // 创建表单数据
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('latitude', currentLat);
-    formData.append('longitude', currentLon);
+    formData.append('latitude', latitude);
+    formData.append('longitude', longitude);
     
     // 判断设备类型：有方位角和俯仰角则为phone-footprint，否则为phone
     const hasValidOrientation = azimuth !== null && azimuth !== undefined && pitch !== null && pitch !== undefined;
@@ -346,8 +403,8 @@ async function capturePhoto() {
     formData.append('yaw', azimuth || 0);
     formData.append('pitch', pitch || 0);
     formData.append('relative_height', relativeHeight);
-    formData.append('h_fov', H_FOV);
-    formData.append('v_fov', V_FOV);
+    formData.append('h_fov', h_fov);
+    formData.append('v_fov', v_fov);
     
     // 获取问题类型
     const problemType = document.getElementById('problemTypeSelect')?.value || '';
@@ -365,10 +422,14 @@ async function capturePhoto() {
         if (response.ok) {
             const result = await response.json();
             alert(`上传成功！\n\n文件名: ${result.filename}\n位置: ${result.lat.toFixed(5)}, ${result.lon.toFixed(5)}\n设备类型: ${result.device_type}`);
+            
             // 刷新地图数据
             if (typeof loadUserUploadedData === 'function') {
                 loadUserUploadedData();
             }
+            
+            // 重置状态
+            resetCamera();
         } else {
             alert('上传失败，请重试');
         }
@@ -378,11 +439,36 @@ async function capturePhoto() {
     }
 }
 
+// ======================== 重置摄像头状态 ========================
+function resetCamera() {
+    // 清空保存的数据
+    capturedPhoto = null;
+    capturedParams = null;
+    
+    // 隐藏照片预览和参数
+    if (photoPreviewEl) {
+        photoPreviewEl.style.display = 'none';
+    }
+    if (capturedParamsEl) {
+        capturedParamsEl.style.display = 'none';
+    }
+    
+    // 隐藏上传按钮，显示拍照按钮
+    uploadBtn.style.display = 'none';
+    captureBtn.style.display = 'block';
+    
+    // 显示摄像头预览
+    if (videoEl && cameraStream) {
+        videoEl.style.display = 'block';
+    }
+}
+
 // ======================== 初始化 ========================
 function initCameraFootprint() {
     videoEl = document.getElementById('cameraPreview');
     startCameraBtn = document.getElementById('startCameraBtn');
     captureBtn = document.getElementById('capturePhotoBtn');
+    uploadBtn = document.getElementById('uploadPhotoBtn');
     compassSpan = document.getElementById('compassValue');
     pitchSpan = document.getElementById('pitchValue');
     heightSpan = document.getElementById('heightValue');
@@ -391,6 +477,8 @@ function initCameraFootprint() {
     autoDistanceCheck = document.getElementById('autoDistanceCheck');
     footprintSizeSpan = document.getElementById('footprintSize');
     calibrateBtn = document.getElementById('calibrateBtn');
+    photoPreviewEl = document.getElementById('capturedPhotoPreview');
+    capturedParamsEl = document.getElementById('capturedParams');
     
     // 等待地图加载完成后创建预览图层
     const checkMapReady = setInterval(() => {
@@ -405,6 +493,9 @@ function initCameraFootprint() {
     }
     if (captureBtn) {
         captureBtn.addEventListener('click', capturePhoto);
+    }
+    if (uploadBtn) {
+        uploadBtn.addEventListener('click', uploadPhoto);
     }
     if (calibrateBtn) {
         calibrateBtn.addEventListener('click', startCalibrationGuide);
