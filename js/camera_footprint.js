@@ -363,6 +363,11 @@ async function uploadPhoto() {
     formData.append('latitude', latitude);
     formData.append('longitude', longitude);
     
+    // 添加拍摄时间
+    const captureTime = new Date().toISOString();
+    formData.append('capture_time', captureTime);
+    console.log('拍摄时间:', captureTime);
+    
     // 判断设备类型：有方位角和俯仰角则为phone-footprint，否则为phone
     const hasValidOrientation = azimuth !== null && azimuth !== undefined && !isNaN(azimuth) && pitch !== null && pitch !== undefined && !isNaN(pitch);
     const deviceType = hasValidOrientation ? 'phone-footprint' : 'phone';
