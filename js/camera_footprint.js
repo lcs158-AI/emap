@@ -407,7 +407,17 @@ async function uploadPhoto() {
             try {
                 const result = await response.json();
                 console.log('上传成功:', JSON.stringify(result, null, 2));
-                alert(`上传成功！\n\n文件名: ${result.filename}\n位置: ${result.lat.toFixed(5)}, ${result.lon.toFixed(5)}\n设备类型: ${result.device_type}`);
+                
+                // 安全地获取响应数据
+                const successCount = result.success || 0;
+                const failedCount = result.failed || 0;
+                
+                // 从 latest_center 获取坐标（后端返回的结构）
+                const latestCenter = result.latest_center || {};
+                const lat = latestCenter.lat !== undefined ? latestCenter.lat.toFixed(5) : '未知';
+                const lon = latestCenter.lon !== undefined ? latestCenter.lon.toFixed(5) : '未知';
+                
+                alert(`上传成功！\n\n成功: ${successCount} 张\n失败: ${failedCount} 张\n位置: ${lat}, ${lon}`);
                 
                 // 刷新地图数据
                 if (typeof loadUserUploadedData === 'function') {
