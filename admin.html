@@ -1221,15 +1221,21 @@
         
         window.addEventListener('DOMContentLoaded', async () => {
             let hasUsers = false;
+            let apiError = false;
+            
             try {
                 hasUsers = await checkUsers();
             } catch (error) {
                 console.error('Error checking users:', error);
-                // API调用失败时，默认假设已有用户，显示登录表单
-                hasUsers = true;
+                apiError = true;
             }
             
-            if (!hasUsers) {
+            // 如果API调用失败或返回false（没有用户），需要区分处理
+            if (apiError) {
+                // API调用失败，显示错误信息和登录表单
+                showMessage('无法连接到服务器，请检查网络连接', 'error');
+                showLoginForm();
+            } else if (!hasUsers) {
                 // 只有确认没有用户时才显示注册表单（初始化场景）
                 document.getElementById('adminSetupForm').style.display = 'block';
                 document.getElementById('loginForm').style.display = 'none';
@@ -1243,7 +1249,13 @@
                 const username = localStorage.getItem('username');
                 
                 if (token && username) {
-                    const isAdmin = await validateAdminAccess(username);
+                    let isAdmin = false;
+                    try {
+                        isAdmin = await validateAdminAccess(username);
+                    } catch (error) {
+                        console.error('Error validating admin:', error);
+                    }
+                    
                     if (isAdmin) {
                         currentUser = username;
                         showUserInfo(username);

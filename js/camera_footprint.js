@@ -87,9 +87,11 @@ function startOrientationListener() {
             filteredCompass = normalizeAngle(filteredCompass + SMOOTHING_FACTOR * delta);
         }
         
-        // 平滑俯仰角 - 使用原始 beta 值，不做范围限制
-        // 原始 beta 值：0°=水平，负值=向下倾斜（俯视），正值=向上倾斜（仰视）
-        let adjustedPitch = rawBeta;
+        // 平滑俯仰角 - 转换为无人机格式（向下为负，与水平方向夹角）
+        // 原始 beta 值：视线与垂直方向夹角，向上为正
+        // 无人机格式：视线与水平方向夹角，向下为负
+        // 转换公式：转换后俯仰角 = 原始俯仰角 - 90（结果为负表示向下，正表示向上）
+        let adjustedPitch = rawBeta - 90;
         
         // 初始化时使用当前值，确保有初始值
         if (filteredPitch === null || isNaN(filteredPitch)) {
@@ -304,8 +306,17 @@ function capturePhoto() {
 
 // ======================== 上传（仅上传，不拍照） ========================
 async function uploadPhoto() {
+    console.log('开始上传，capturedPhoto:', capturedPhoto ? '有数据' : '无数据', 'capturedParams:', capturedParams ? '有数据' : '无数据');
+    
     if (!capturedPhoto || !capturedParams) {
         alert('请先拍照');
+        return;
+    }
+    
+    // 检查照片数据是否有效
+    if (!capturedPhoto.startsWith('data:image/jpeg;base64,')) {
+        console.error('照片数据格式无效');
+        alert('照片数据格式无效，请重新拍照');
         return;
     }
     
@@ -314,6 +325,7 @@ async function uploadPhoto() {
     // 将base64图片转换为blob
     let blob;
     try {
+        console.log('开始转换照片...');
         blob = await fetch(capturedPhoto).then(res => res.blob());
         console.log('照片Blob大小:', blob.size, 'bytes');
     } catch (e) {
@@ -323,6 +335,7 @@ async function uploadPhoto() {
     }
     
     const file = new File([blob], `camera_${Date.now()}.jpg`, { type: 'image/jpeg' });
+    console.log('创建文件对象:', file.name, file.type);
     
     // 创建表单数据
     const formData = new FormData();
@@ -353,13 +366,17 @@ async function uploadPhoto() {
     
     // 上传到后端
     try {
+        console.log('发送上传请求...');
         const response = await fetch(`${apiUrl}/api/upload`, {
             method: 'POST',
             body: formData
         });
         
+        console.log('响应状态:', response.status, response.statusText);
+        
         if (response.ok) {
             const result = await response.json();
+            console.log('上传成功:', result);
             alert(`上传成功！\n\n文件名: ${result.filename}\n位置: ${result.lat.toFixed(5)}, ${result.lon.toFixed(5)}\n设备类型: ${result.device_type}`);
             
             // 刷新地图数据
@@ -370,11 +387,19 @@ async function uploadPhoto() {
             // 重置状态
             resetCamera();
         } else {
-            alert('上传失败，请重试');
+            let errorMsg = '上传失败';
+            try {
+                const errorData = await response.json();
+                errorMsg = errorData.detail || errorMsg;
+            } catch (e) {
+                // 非JSON响应
+            }
+            console.error('上传失败，响应:', response.status, errorMsg);
+            alert('上传失败: ' + errorMsg);
         }
     } catch (error) {
-        console.error('上传失败:', error);
-        alert('上传失败，请检查网络连接');
+        console.error('上传异常:', error);
+        alert('上传失败，请检查网络连接\n\n错误详情: ' + error.message);
     }
 }
 
