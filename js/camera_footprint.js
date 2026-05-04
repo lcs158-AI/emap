@@ -352,9 +352,14 @@ async function uploadPhoto() {
     const file = new File([blob], `camera_${Date.now()}.jpg`, { type: 'image/jpeg' });
     console.log('创建文件对象:', file.name, file.type, file.size);
     
+    // 获取当前登录用户
+    const username = localStorage.getItem('username') || 'anonymous';
+    console.log('上传人:', username);
+    
     // 创建表单数据
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append('files', file);
+    formData.append('username', username);
     formData.append('latitude', latitude);
     formData.append('longitude', longitude);
     
