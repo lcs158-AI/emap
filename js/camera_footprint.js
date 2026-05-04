@@ -390,16 +390,27 @@ async function uploadPhoto() {
             let errorMsg = '上传失败';
             try {
                 const errorData = await response.json();
-                errorMsg = errorData.detail || errorMsg;
+                if (errorData && typeof errorData === 'object') {
+                    errorMsg = errorData.detail || errorData.message || JSON.stringify(errorData);
+                } else if (typeof errorData === 'string') {
+                    errorMsg = errorData;
+                }
             } catch (e) {
-                // 非JSON响应
+                // 非JSON响应，尝试获取文本
+                try {
+                    errorMsg = await response.text();
+                } catch (e2) {
+                    errorMsg = `HTTP错误: ${response.status} ${response.statusText}`;
+                }
             }
             console.error('上传失败，响应:', response.status, errorMsg);
             alert('上传失败: ' + errorMsg);
         }
     } catch (error) {
         console.error('上传异常:', error);
-        alert('上传失败，请检查网络连接\n\n错误详情: ' + error.message);
+        // 正确处理错误对象
+        const errorMsg = error.message || error.toString();
+        alert('上传失败，请检查网络连接\n\n错误详情: ' + errorMsg);
     }
 }
 
