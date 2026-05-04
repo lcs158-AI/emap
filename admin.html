@@ -1220,9 +1220,17 @@
         }
         
         window.addEventListener('DOMContentLoaded', async () => {
-            const hasUsers = await checkUsers();
+            let hasUsers = false;
+            try {
+                hasUsers = await checkUsers();
+            } catch (error) {
+                console.error('Error checking users:', error);
+                // API调用失败时，默认假设已有用户，显示登录表单
+                hasUsers = true;
+            }
             
             if (!hasUsers) {
+                // 只有确认没有用户时才显示注册表单（初始化场景）
                 document.getElementById('adminSetupForm').style.display = 'block';
                 document.getElementById('loginForm').style.display = 'none';
                 document.getElementById('navTabs').style.display = 'none';
@@ -1230,6 +1238,7 @@
                     content.style.display = 'none';
                 });
             } else {
+                // 有用户时，显示登录表单或管理面板
                 const token = localStorage.getItem('access_token') || localStorage.getItem('gis_token');
                 const username = localStorage.getItem('username');
                 

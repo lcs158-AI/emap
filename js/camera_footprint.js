@@ -33,9 +33,7 @@ let calibrateBtn = null;
 let photoPreviewEl = null;
 let capturedParamsEl = null;
 
-// 地图图层（仅用于预览显示）
-let footprintLayer = null;
-let positionMarkerLayer = null;
+// 不再使用地图预览图层（用户要求拍照后不显示视域范围）
 
 // 传感器监听
 let orientationHandler = null;
@@ -89,13 +87,9 @@ function startOrientationListener() {
             filteredCompass = normalizeAngle(filteredCompass + SMOOTHING_FACTOR * delta);
         }
         
-        // 平滑俯仰角 - 遵循DJI约定：向下为负，范围 -90° ~ 0°
+        // 平滑俯仰角 - 使用原始 beta 值，不做范围限制
         // 原始 beta 值：0°=水平，负值=向下倾斜（俯视），正值=向上倾斜（仰视）
-        // DJI约定：向下为负，所以直接使用原始beta并限制范围
         let adjustedPitch = rawBeta;
-        // 限制在 -90° ~ 0° 范围内（向下为负）
-        if (adjustedPitch < -90) adjustedPitch = -90;
-        if (adjustedPitch > 0) adjustedPitch = 0;
         
         // 初始化时使用当前值，确保有初始值
         if (filteredPitch === null || isNaN(filteredPitch)) {
@@ -103,9 +97,6 @@ function startOrientationListener() {
         } else {
             filteredPitch += SMOOTHING_FACTOR * (adjustedPitch - filteredPitch);
         }
-        // 确保最终值在范围内
-        if (filteredPitch < -90) filteredPitch = -90;
-        if (filteredPitch > 0) filteredPitch = 0;
         
         // 更新UI
         if (compassSpan) compassSpan.innerText = filteredCompass.toFixed(1) + "°";
@@ -234,89 +225,11 @@ function updatePreviewDisplay() {
     const halfHeight = distance * Math.tan(Math.radians(V_FOV/2));
     if (footprintSizeSpan) footprintSizeSpan.innerText = `${(halfWidth*2).toFixed(1)}m × ${(halfHeight*2).toFixed(1)}m`;
     
-    // 更新地图预览
-    updateMapPreview(currentLat, currentLon, finalHeight, distance, pitch);
+    // 不再更新地图预览（用户要求拍照后不显示视域范围）
 }
 
 // ======================== 在主地图显示预览（仅用于界面展示） ========================
-function initPreviewLayers() {
-    if (typeof window.ol !== 'undefined' && typeof window.map !== 'undefined') {
-        footprintLayer = new ol.layer.Vector({
-            source: new ol.source.Vector(),
-            style: new ol.style.Style({
-                fill: new ol.style.Fill({ color: 'rgba(255, 80, 40, 0.35)' }),
-                stroke: new ol.style.Stroke({ color: '#ff4d4f', width: 2 })
-            })
-        });
-        
-        positionMarkerLayer = new ol.layer.Vector({
-            source: new ol.source.Vector(),
-            style: new ol.style.Style({
-                image: new ol.style.Circle({
-                    radius: 8,
-                    fill: new ol.style.Fill({ color: '#1e88e5' }),
-                    stroke: new ol.style.Stroke({ color: '#fff', width: 2 })
-                })
-            })
-        });
-        
-        window.map.addLayer(footprintLayer);
-        window.map.addLayer(positionMarkerLayer);
-    }
-}
-
-function updateMapPreview(lat, lon, height, distance, pitch) {
-    if (!footprintLayer || !positionMarkerLayer || lat === 0 || lon === 0) return;
-    
-    let azimuth = filteredCompass;
-    if (azimuth === null) azimuth = 0;
-    
-    const pitchRad = Math.radians(pitch);
-    const horizDist = distance * Math.cos(pitchRad);
-    
-    function getPoint(lat, lon, dist, brg) {
-        const R = 6371000;
-        const φ1 = Math.radians(lat);
-        const λ1 = Math.radians(lon);
-        const θ = Math.radians(brg);
-        const δ = dist / R;
-        const φ2 = Math.asin(Math.sin(φ1)*Math.cos(δ) + Math.cos(φ1)*Math.sin(δ)*Math.cos(θ));
-        const λ2 = λ1 + Math.atan2(Math.sin(θ)*Math.sin(δ)*Math.cos(φ1), Math.cos(δ) - Math.sin(φ1)*Math.sin(φ2));
-        return [Math.degrees(λ2), Math.degrees(φ2)];
-    }
-    
-    const leftAngle = azimuth - H_FOV/2;
-    const rightAngle = azimuth + H_FOV/2;
-    const leftFront = getPoint(lat, lon, horizDist, leftAngle);
-    const rightFront = getPoint(lat, lon, horizDist, rightAngle);
-    const backDist = horizDist * 0.3;
-    const leftBack = getPoint(lat, lon, backDist, leftAngle + 180);
-    const rightBack = getPoint(lat, lon, backDist, rightAngle + 180);
-    
-    const polyCoords = [leftFront, rightFront, rightBack, leftBack, leftFront];
-    
-    footprintLayer.getSource().clear();
-    const transformedCoords = polyCoords.map(p => ol.proj.fromLonLat(p));
-    const polygon = new ol.geom.Polygon([transformedCoords]);
-    footprintLayer.getSource().addFeature(new ol.Feature(polygon));
-    
-    positionMarkerLayer.getSource().clear();
-    positionMarkerLayer.getSource().addFeature(
-        new ol.Feature(new ol.geom.Point(ol.proj.fromLonLat([lon, lat])))
-    );
-    
-    window.map.getView().setCenter(ol.proj.fromLonLat([lon, lat]));
-    window.map.getView().setZoom(17);
-}
-
-function clearPreview() {
-    if (footprintLayer) {
-        footprintLayer.getSource().clear();
-    }
-    if (positionMarkerLayer) {
-        positionMarkerLayer.getSource().clear();
-    }
-}
+// 不再使用视域预览功能（用户要求拍照后不显示视域范围）
 
 // ======================== 拍照（仅拍照，不上传） ========================
 function capturePhoto() {
@@ -506,13 +419,7 @@ function initCameraFootprint() {
     photoPreviewEl = document.getElementById('capturedPhotoPreview');
     capturedParamsEl = document.getElementById('capturedParams');
     
-    // 等待地图加载完成后创建预览图层
-    const checkMapReady = setInterval(() => {
-        if (typeof window.map !== 'undefined' && window.map !== null) {
-            clearInterval(checkMapReady);
-            initPreviewLayers();
-        }
-    }, 500);
+    // 不再创建视域预览图层（用户要求拍照后不显示视域范围）
     
     if (startCameraBtn) {
         startCameraBtn.addEventListener('click', startCamera);
