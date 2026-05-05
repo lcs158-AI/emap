@@ -3,8 +3,9 @@
 let cameraStream = null;
 let filteredCompass = null;
 let filteredPitch = null;
-let rawTrueNorth = 0;
-let currentDeclination = 5.0;
+let rawMagneticNorth = 0;
+// 广东地区固定磁偏角（西偏约3°，即真北 = 磁北 - 3°）
+const FIXED_DECLINATION = -3.0;
 const SMOOTHING_FACTOR = 0.2;
 const H_FOV = 78;
 const V_FOV = 43;
@@ -48,21 +49,18 @@ function normalizeAngle(angle) {
     return angle;
 }
 
-function getApproxDeclination(lat, lon) {
-    let dec = 5.0;
-    if (lon > 110 && lat > 30) dec = 5.5;
-    else if (lon > 100 && lat > 25) dec = 4.5;
-    else if (lon < 100) dec = 2.0;
-    return dec;
+function convertTo180Range(angle) {
+    angle = normalizeAngle(angle);
+    if (angle > 180) {
+        angle -= 360;
+    }
+    return angle;
 }
 
-async function updateDeclination(lat, lon) {
-    currentDeclination = getApproxDeclination(lat, lon);
-    if (rawTrueNorth !== null && rawTrueNorth !== 0) {
-        const magnetic = normalizeAngle(rawTrueNorth - currentDeclination);
-        filteredCompass = magnetic;
-        if (compassSpan) compassSpan.innerText = filteredCompass.toFixed(1) + "°";
-    }
+function convertMagneticToTrue(magneticAzimuth) {
+    // 真北 = 磁北 - 磁偏角
+    // FIXED_DECLINATION为负（西偏），所以实际上是磁北 + |磁偏角|
+    return normalizeAngle(magneticAzimuth - FIXED_DECLINATION);
 }
 
 // ======================== 传感器监听 ========================
@@ -72,16 +70,17 @@ function startOrientationListener() {
         if (event.alpha === null || event.beta === null) return;
         
         let rawAlpha = event.alpha;
-        rawTrueNorth = rawAlpha;
+        rawMagneticNorth = rawAlpha;
         let rawBeta = event.beta;
         
-        // 平滑方位角
+        // 将磁北方位角转换为真北（与无人机偏航角逻辑一致）
+        let instantTrueNorth = convertMagneticToTrue(rawAlpha);
+        
+        // 平滑方位角（使用真北，与无人机gimbal_yaw一致）
         if (filteredCompass === null) {
-            let initMagnetic = normalizeAngle(rawAlpha - currentDeclination);
-            filteredCompass = initMagnetic;
+            filteredCompass = instantTrueNorth;
         } else {
-            let instantMagnetic = normalizeAngle(rawAlpha - currentDeclination);
-            let delta = instantMagnetic - filteredCompass;
+            let delta = instantTrueNorth - filteredCompass;
             if (delta > 180) delta -= 360;
             if (delta < -180) delta += 360;
             filteredCompass = normalizeAngle(filteredCompass + SMOOTHING_FACTOR * delta);
@@ -100,8 +99,12 @@ function startOrientationListener() {
             filteredPitch += SMOOTHING_FACTOR * (adjustedPitch - filteredPitch);
         }
         
-        // 更新UI
-        if (compassSpan) compassSpan.innerText = filteredCompass.toFixed(1) + "°";
+        // 将方位角转换为 -180° ~ +180° 范围（与无人机gimbal_yaw一致）
+        filteredCompass = convertTo180Range(filteredCompass);
+        
+        // 更新UI（显示为 0~360 范围以便用户理解）
+        const displayCompass = filteredCompass < 0 ? filteredCompass + 360 : filteredCompass;
+        if (compassSpan) compassSpan.innerText = displayCompass.toFixed(1) + "°";
         if (pitchSpan) pitchSpan.innerText = filteredPitch.toFixed(1) + "°";
         
         // 更新预览显示（如果需要）
@@ -185,8 +188,6 @@ function getRealTimeLocation() {
                 relativeHeightInput.value = finalAlt.toFixed(1);
             }
             if (heightSpan) heightSpan.innerText = relativeHeightInput.value + 'm';
-            
-            updateDeclination(currentLat, currentLon);
             
             // 更新预览显示
             updatePreviewDisplay();
@@ -284,10 +285,12 @@ function capturePhoto() {
     // 显示参数信息
     if (capturedParamsEl) {
         const displayPitch = pitch !== null ? pitch.toFixed(1) : '?';
+        // 显示时转换为 0~360 范围，保存和上传使用 -180~180 范围
+        const displayAzimuth = azimuth !== null ? (azimuth < 0 ? azimuth + 360 : azimuth).toFixed(1) : '?';
         capturedParamsEl.innerHTML = `
             <div style="font-size:12px; color:#666; margin-bottom:8px;">📊 拍照参数</div>
             <div style="font-size:12px; margin-bottom:3px;"><strong>位置:</strong> ${currentLat.toFixed(5)}, ${currentLon.toFixed(5)}</div>
-            <div style="font-size:12px; margin-bottom:3px;"><strong>方位角:</strong> ${azimuth?.toFixed(1)||'?'}°</div>
+            <div style="font-size:12px; margin-bottom:3px;"><strong>方位角:</strong> ${displayAzimuth}°</div>
             <div style="font-size:12px; margin-bottom:3px;"><strong>俯仰角:</strong> ${displayPitch}°</div>
             <div style="font-size:12px; margin-bottom:3px;"><strong>相对高度:</strong> ${relativeHeight}m</div>
             <div style="font-size:12px; margin-bottom:3px;"><strong>水平视场角:</strong> ${H_FOV}°</div>
