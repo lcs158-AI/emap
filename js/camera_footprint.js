@@ -79,16 +79,24 @@ function updateScreenOrientation() {
 
 // ======================== 方位角归零修正功能 ========================
 function zeroAzimuth() {
-    // 记录当前原始alpha值作为归零基准
-    zeroAlpha = rawAlpha;
+    // 记录当前原始alpha值（转换为摄像头方向后）作为归零基准
+    const cameraAlpha = (rawAlpha + 180) % 360;
+    zeroAlpha = cameraAlpha;
     lastRelativeAngle = 0;
     isZeroed = true;
     filteredCompass = 0;
-    console.log(`方位角已归零！归零时原始alpha: ${zeroAlpha}°`);
-    alert('✅ 方位角已归零！\n\n现在请保持手机水平，旋转手机来调整拍摄方向。\n归零后将使用相对旋转角度计算方位角。');
     
-    // 更新UI显示归零状态
+    console.log(`方位角已归零！归零时原始alpha: ${rawAlpha}°, 摄像头方向: ${cameraAlpha}°`);
+    
+    // 立即更新所有UI显示
+    if (compassSpan) compassSpan.innerText = '0.0° (镜头)';
+    if (pitchSpan) pitchSpan.innerText = filteredPitch ? filteredPitch.toFixed(1) + '°' : '--°';
+    updateCompass(0);
+    
+    // 更新归零按钮状态
     updateZeroIndicator(true);
+    
+    alert('✅ 方位角已归零！\n\n现在请保持手机水平，旋转手机来调整拍摄方向。\n归零后将使用相对旋转角度计算方位角。');
 }
 
 function resetZero() {
@@ -181,26 +189,29 @@ function startOrientationListener() {
         // ========== 归零修正逻辑 ==========
         let currentAngle;
         if (isZeroed) {
-            // 已归零：计算相对旋转角度
+            // 已归零：计算相对旋转角度（不再使用传感器原始方位角）
             let delta = cameraAlpha - zeroAlpha;
             if (delta > 180) delta -= 360;
             if (delta < -180) delta += 360;
             lastRelativeAngle = (lastRelativeAngle + delta + 360) % 360;
             currentAngle = lastRelativeAngle;
             zeroAlpha = cameraAlpha; // 更新基准值
+            
+            // 归零后直接使用计算结果，不应用平滑处理
+            filteredCompass = currentAngle;
         } else {
             // 未归零：使用原始传感器数据
             currentAngle = cameraAlpha;
-        }
 
-        // 平滑处理
-        if (filteredCompass === null) {
-            filteredCompass = currentAngle;
-        } else {
-            let delta = currentAngle - filteredCompass;
-            if (delta > 180) delta -= 360;
-            if (delta < -180) delta += 360;
-            filteredCompass = (filteredCompass + SMOOTHING_FACTOR * delta + 360) % 360;
+            // 未归零时应用平滑处理
+            if (filteredCompass === null) {
+                filteredCompass = currentAngle;
+            } else {
+                let delta = currentAngle - filteredCompass;
+                if (delta > 180) delta -= 360;
+                if (delta < -180) delta += 360;
+                filteredCompass = (filteredCompass + SMOOTHING_FACTOR * delta + 360) % 360;
+            }
         }
 
         // 俯仰角处理保持不变
