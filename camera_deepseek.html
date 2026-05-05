@@ -3,90 +3,97 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>手机摄像头测量 - 精准视域计算</title>
+    <title>精准摄像头测量 - 增强方向版</title>
     <style>
-        * { margin:0; padding:0; box-sizing:border-box; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
         body {
             font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background-color: #f5f7fa;
+            background: #f0f2f5;
             padding: 16px;
+            padding-bottom: 40px;
         }
         .container {
             max-width: 600px;
             margin: 0 auto;
-            background-color: white;
-            border-radius: 24px;
+            background: white;
+            border-radius: 28px;
             padding: 20px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.08);
         }
         h1 {
-            text-align: center;
             font-size: 1.6rem;
+            text-align: center;
             color: #1f2d3d;
             margin-bottom: 20px;
             font-weight: 600;
         }
         .section {
-            margin-bottom: 24px;
-            padding: 16px;
+            background: #fafcff;
             border: 1px solid #e4e7ed;
             border-radius: 20px;
-            background-color: #fafcff;
+            padding: 16px;
+            margin-bottom: 20px;
         }
         .section h2 {
             font-size: 1.1rem;
-            color: #2c3e50;
-            margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
             border-left: 4px solid #1890ff;
             padding-left: 12px;
+            margin-bottom: 12px;
+            color: #2c3e50;
         }
-        .parameter {
+        .param-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 12px;
-            padding: 8px 12px;
-            background-color: white;
-            border-radius: 16px;
             flex-wrap: wrap;
             gap: 8px;
+            padding: 8px 0;
+            border-bottom: 1px solid #edf2f7;
         }
-        .parameter label {
-            font-weight: 600;
+        .param-row label {
+            font-weight: 500;
             color: #4a5568;
-            min-width: 100px;
+            min-width: 110px;
         }
-        .parameter value, .parameter span {
+        .param-row value, .param-row span {
             color: #1890ff;
             font-weight: 500;
         }
-        input {
+        input, select {
             padding: 8px 12px;
             border: 1px solid #d0d7de;
-            border-radius: 12px;
+            border-radius: 16px;
             font-size: 14px;
-            width: 130px;
+            background: white;
+            width: 140px;
             text-align: center;
-            background: #fff;
         }
         button {
-            background-color: #1890ff;
+            background: #1890ff;
             color: white;
             border: none;
             border-radius: 40px;
             padding: 12px 16px;
-            font-size: 16px;
+            font-size: 15px;
             font-weight: 500;
             cursor: pointer;
-            transition: all 0.2s ease;
             width: 100%;
             margin-top: 8px;
+            transition: 0.2s;
         }
-        button:active { transform: scale(0.97); background-color: #0c73d4; }
-        button.warning { background-color: #fa8c16; }
+        button:active { transform: scale(0.97); background: #0c73d4; }
+        button.warning { background: #fa8c16; }
+        button.secondary { background: #52c41a; }
+        .flex-row {
+            display: flex;
+            gap: 12px;
+            margin-top: 10px;
+        }
+        .flex-row button { margin-top: 0; }
         video {
             width: 100%;
             border-radius: 20px;
@@ -94,327 +101,541 @@
             margin-top: 8px;
         }
         .status {
-            padding: 10px;
             margin-top: 12px;
+            padding: 10px;
             border-radius: 40px;
             text-align: center;
             font-size: 0.85rem;
         }
-        .status.success { background: #e8f5e9; color: #2e7d32; border:1px solid #a5d6a7; }
-        .status.error { background: #ffebee; color: #c62828; border:1px solid #ffcdd2; }
         .status.info { background: #e3f2fd; color: #0b5e9e; }
-        #map {
+        .status.success { background: #e8f5e9; color: #2e7d32; }
+        .status.error { background: #ffebee; color: #c62828; }
+        .preview-img {
             width: 100%;
-            height: 360px;
-            border-radius: 20px;
-            overflow: hidden;
-            margin-top: 8px;
-            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            margin-top: 12px;
+            display: none;
         }
-        .hint-text {
+        .param-card {
+            background: #f8f9fc;
+            border-radius: 16px;
+            padding: 12px;
+            margin-top: 12px;
+            font-size: 12px;
+            display: none;
+        }
+        .hint {
             font-size: 12px;
             color: #7f8c8d;
             margin-top: 8px;
             text-align: center;
         }
-        .flex-row {
-            display: flex;
-            gap: 10px;
-            margin-top: 10px;
-        }
-        .flex-row button { flex:1; margin-top:0; }
         @media (max-width: 480px) {
             .container { padding: 16px; }
-            .parameter { flex-direction: column; align-items: flex-start; }
+            .param-row { flex-direction: column; align-items: flex-start; }
         }
     </style>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.5.2/ol.css">
-    <script src="https://cdn.jsdelivr.net/npm/ol@v7.5.2/dist/ol.js"></script>
 </head>
 <body>
 <div class="container">
     <h1>📱 精准摄像头测量</h1>
-    
+
+    <!-- 摄像头区 -->
     <div class="section">
         <h2>📷 后置摄像头</h2>
-        <video id="video" autoplay playsinline></video>
+        <video id="cameraPreview" autoplay playsinline></video>
         <div class="flex-row">
-            <button id="startCamera">🔘 启动摄像头</button>
-            <button id="capture">📸 拍照 & 计算视域</button>
+            <button id="startCameraBtn">🔘 启动摄像头</button>
+            <button id="capturePhotoBtn" style="display:none;">📸 拍照</button>
+            <button id="uploadPhotoBtn" style="display:none;">⬆️ 上传照片</button>
         </div>
-        <div class="hint-text">※ 建议先点击「启动摄像头」并允许权限</div>
+        <div class="hint">※ 启动后请允许摄像头和传感器权限</div>
     </div>
-    
-    <div class="section">
-        <h2>🧭 实时方向（平滑后）</h2>
-        <div class="parameter"><label>方位角（磁北/指南针风格）:</label><value id="compassValue">-- °</value></div>
-        <div class="parameter"><label>俯仰角 (镜头与水平面夹角，向下为正):</label><value id="pitchValue">-- °</value></div>
-        <div class="parameter"><label>⚡ 原始真北 (仅供对比):</label><value id="trueNorthValue">-- °</value></div>
-        <button id="calibrateBtn" class="warning">🔄 开始8字校准（传感器校正）</button>
-        <div class="hint-text">※ 若与手机指南针App偏差＞5°，请执行8字校准</div>
+
+    <!-- 实时传感器数据 -->
+    <div class="section" id="sensorData" style="display:none;">
+        <h2>🧭 实时方向（融合增强）</h2>
+        <div class="param-row"><label>方位角（磁北）:</label><value id="compassValue">-- °</value></div>
+        <div class="param-row"><label>俯仰角（水平为0°，向下负）:</label><value id="pitchValue">-- °</value></div>
+        <div class="param-row"><label>⚡ 原始真北参考:</label><value id="rawAlphaValue">-- °</value></div>
+        <button id="calibrateBtn" class="warning">🔄 开始8字校准</button>
+        <div class="hint">※ 若方向不稳定，请执行8字校准（画横∞）</div>
     </div>
-    
+
+    <!-- 位置与高度 -->
     <div class="section">
         <h2>📍 位置 & 高度</h2>
-        <div class="parameter"><label>纬度:</label><input type="number" id="latitude" step="0.000001" value="31.2304"></div>
-        <div class="parameter"><label>经度:</label><input type="number" id="longitude" step="0.000001" value="121.4737"></div>
-        <div class="parameter"><label>相机相对高度 (米):</label><input type="number" id="relativeHeight" step="0.1" value="1.6"><span id="altitudeHint" style="font-size:12px;"></span></div>
-        <div class="parameter"><label>平地模式 (固定1.6m):</label><input type="checkbox" id="flatMode"><span id="autoFlatHint" style="font-size:11px; color:#fa8c16;"></span></div>
-        <div class="flex-row"><button id="getLocationBtn">📍 获取GPS位置</button></div>
+        <div class="param-row"><label>纬度:</label><input type="number" id="latitude" step="0.000001" value="31.2304"></div>
+        <div class="param-row"><label>经度:</label><input type="number" id="longitude" step="0.000001" value="121.4737"></div>
+        <div class="param-row"><label>相机相对高度(米):</label><input type="number" id="relativeHeightInput" step="0.1" value="1.6"><span id="altitudeHint"></span></div>
+        <div class="param-row"><label>平地模式(固定1.6m):</label><input type="checkbox" id="flatModeCheck"></div>
+        <div class="param-row"><label>GPS海拔:</label><span id="gpsAltDisplay">未获取</span></div>
+        <button id="getLocationBtn">📍 获取GPS位置</button>
     </div>
-    
-    <div class="section">
+
+    <!-- 视域计算参数 -->
+    <div class="section" id="footprintSettings" style="display:none;">
         <h2>📐 视域计算</h2>
-        <div class="parameter"><label>水平视场角:</label><value id="hFovLabel">78°</value></div>
-        <div class="parameter"><label>垂直视场角:</label><value id="vFovLabel">43°</value></div>
-        <div class="parameter"><label>拍摄距离 (米):</label><input type="number" id="distance" step="1" value="10"><span style="font-size:12px;">(自动计算时覆盖)</span></div>
-        <div class="parameter"><label>自动计算距离:</label><input type="checkbox" id="autoDistance" checked></div>
-        <div class="parameter"><label>视域范围 (宽×高):</label><value id="footprintSize">--</value></div>
-        <div class="parameter"><label>梯形坐标预览:</label><div id="footprintCoords" style="font-size:10px; word-break:break-all;">--</div></div>
+        <div class="param-row"><label>水平视场角:</label><value>78°</value></div>
+        <div class="param-row"><label>垂直视场角:</label><value>43°</value></div>
+        <div class="param-row"><label>拍摄距离(米):</label><input type="number" id="distanceInput" step="1" value="10"><span>(自动计算时覆盖)</span></div>
+        <div class="param-row"><label>自动计算距离:</label><input type="checkbox" id="autoDistanceCheck" checked></div>
+        <div class="param-row"><label>视域范围(宽×高):</label><value id="footprintSize">--</value></div>
+        <div class="param-row"><label>问题类型:</label>
+            <select id="problemTypeSelect">
+                <option value="">请选择</option>
+                <option value="违法建筑">违法建筑</option>
+                <option value="垃圾堆积">垃圾堆积</option>
+                <option value="道路破损">道路破损</option>
+                <option value="其他">其他</option>
+            </select>
+        </div>
     </div>
-    
+
+    <!-- 拍照预览区 -->
     <div class="section">
-        <h2>🗺️ 地图视域（磁北方向）</h2>
-        <div id="map"></div>
+        <h2>📸 拍照记录</h2>
+        <img id="capturedPhotoPreview" class="preview-img" alt="预览">
+        <div id="capturedParams" class="param-card"></div>
     </div>
-    
-    <div id="statusMsg" class="status info">✅ 准备就绪，请启动摄像头并授权传感器</div>
+
+    <div id="statusMsg" class="status info">✅ 请点击「启动摄像头」开始</div>
 </div>
 
 <script>
-    let videoStream = null, map = null, footprintLayer = null, positionMarker = null;
-    let filteredCompass = null, filteredPitch = null, rawTrueNorth = 0, currentDeclination = 0;
-    const SMOOTHING_FACTOR = 0.2, H_FOV = 78, V_FOV = 43;
-    let isCalibrating = false;
-    
-    const videoEl = document.getElementById('video');
-    const startBtn = document.getElementById('startCamera');
-    const captureBtn = document.getElementById('capture');
-    const compassSpan = document.getElementById('compassValue');
-    const pitchSpan = document.getElementById('pitchValue');
-    const trueNorthSpan = document.getElementById('trueNorthValue');
-    const latitudeInput = document.getElementById('latitude');
-    const longitudeInput = document.getElementById('longitude');
-    const relativeHeightInput = document.getElementById('relativeHeight');
-    const flatModeCheck = document.getElementById('flatMode');
-    const autoDistanceCheck = document.getElementById('autoDistance');
-    const distanceInput = document.getElementById('distance');
-    const footprintSizeSpan = document.getElementById('footprintSize');
-    const footprintCoordsDiv = document.getElementById('footprintCoords');
-    const statusDiv = document.getElementById('statusMsg');
-    const autoFlatHint = document.getElementById('autoFlatHint');
-    
-    function updateStatus(text, type='info') {
-        statusDiv.textContent = text;
+    // ======================== 全局变量 ========================
+    let cameraStream = null;
+    let filteredCompass = null;      // 最终磁北方位角 0-360
+    let filteredPitch = null;        // 镜头俯仰角（水平0°，向下为负）
+    let rawAlpha = 0;                // 原始alpha（用于显示参考）
+    let currentLat = 0, currentLon = 0;
+    let capturedPhoto = null;
+    let capturedParams = null;
+
+    // 互补滤波相关
+    let useAbsolute = false;
+    let lastTimestamp = 0;
+    let gyroAngle = 0;
+    const COMP_FILTER = 0.96;        // 陀螺仪权重
+    let orientationHandler = null;
+    let motionHandler = null;
+    let lastGyroAlpha = 0;
+
+    // DOM 元素
+    let videoEl, startBtn, captureBtn, uploadBtn;
+    let compassSpan, pitchSpan, rawAlphaSpan;
+    let latitudeInput, longitudeInput, relativeHeightInput, flatModeCheck, autoDistanceCheck, distanceInput;
+    let footprintSizeSpan, calibrateBtn, getLocationBtn, altitudeHint, gpsAltSpan;
+    let photoPreview, paramsDiv, statusDiv, problemTypeSelect;
+
+    // 常量
+    const H_FOV = 78;
+    const V_FOV = 43;
+    const SMOOTH = 0.2;
+
+    // ======================== 辅助函数 ========================
+    function updateStatus(msg, type = 'info') {
+        statusDiv.textContent = msg;
         statusDiv.className = `status ${type}`;
-        console.log(`[Status] ${text}`);
+        console.log(`[${type}] ${msg}`);
     }
+
     Math.radians = deg => deg * Math.PI / 180;
     Math.degrees = rad => rad * 180 / Math.PI;
-    function normalizeAngle(angle) { angle = angle % 360; if(angle<0) angle+=360; return angle; }
-    function getApproxDeclination(lat, lon) { let dec=5.0; if(lon>110 && lat>30) dec=5.5; else if(lon>100 && lat>25) dec=4.5; else if(lon<100) dec=2.0; return dec; }
-    async function fetchTrueDeclination(lat,lon) { return getApproxDeclination(lat,lon); }
-    async function updateDeclination(lat,lon) {
-        currentDeclination = await fetchTrueDeclination(lat,lon);
-        if(rawTrueNorth!==null) { let mag = normalizeAngle(rawTrueNorth - currentDeclination); filteredCompass = mag; if(compassSpan) compassSpan.innerText = filteredCompass.toFixed(1)+"°"; }
+
+    // 角度归一化
+    function normAngle(angle) {
+        angle = angle % 360;
+        if (angle < 0) angle += 360;
+        return angle;
     }
-    
-    function startOrientationListener() {
-        if(window.orientationHandler) window.removeEventListener('deviceorientation', window.orientationHandler);
-        window.orientationHandler = (event) => {
-            if(event.alpha===null || event.beta===null) return;
-            rawTrueNorth = event.alpha;
-            let rawBeta = event.beta;
-            // 关键修正：俯仰角 = 90° - |beta|，并限制在0~90°
-            let absolutePitch = 90 - Math.abs(rawBeta);
-            if(absolutePitch < 0) absolutePitch = 0;
-            if(absolutePitch > 90) absolutePitch = 90;
-            
-            if(filteredCompass===null) filteredCompass = normalizeAngle(rawTrueNorth - currentDeclination);
-            else {
-                let instant = normalizeAngle(rawTrueNorth - currentDeclination);
-                let delta = instant - filteredCompass;
-                if(delta>180) delta-=360; if(delta<-180) delta+=360;
-                filteredCompass = normalizeAngle(filteredCompass + SMOOTHING_FACTOR*delta);
-            }
-            if(filteredPitch===null) filteredPitch = absolutePitch;
-            else filteredPitch += SMOOTHING_FACTOR * (absolutePitch - filteredPitch);
-            
-            compassSpan.innerText = filteredCompass.toFixed(1)+"°";
-            pitchSpan.innerText = filteredPitch.toFixed(1)+"°";
-            trueNorthSpan.innerText = rawTrueNorth.toFixed(1)+"°";
-            
-            // 自动平地模式：当俯仰角 ≥ 30° 且用户未手动勾选“平地模式”时，自动启用，高度强制为1.6米
-            if(filteredPitch >= 30 && !flatModeCheck.checked) {
-                relativeHeightInput.value = "1.6";
-                autoFlatHint.innerText = "自动平地模式(高俯仰角)";
-                autoFlatHint.style.color = "#fa8c16";
-            } else if(flatModeCheck.checked) {
-                autoFlatHint.innerText = "手动平地模式";
-            } else {
-                autoFlatHint.innerText = "";
-            }
-            calculateFootprint();
-        };
-        window.addEventListener('deviceorientation', window.orientationHandler);
+
+    // 更新UI（方位角、俯仰角、视域）
+    function updateSensorUI() {
+        if (compassSpan) compassSpan.innerText = (filteredCompass !== null ? filteredCompass.toFixed(1) : '--') + '°';
+        if (pitchSpan) pitchSpan.innerText = (filteredPitch !== null ? filteredPitch.toFixed(1) : '--') + '°';
+        if (rawAlphaSpan) rawAlphaSpan.innerText = rawAlpha.toFixed(1) + '°';
+        computeAndUpdateFootprint();   // 实时计算视域
     }
-    
-    function startCalibrationGuide() {
-        if(isCalibrating) return;
-        isCalibrating=true;
-        updateStatus("✋ 请将手机平放，在空中缓慢画横向“8”字，持续10秒...","info");
-        filteredCompass=null; filteredPitch=null;
-        setTimeout(()=>{ isCalibrating=false; updateStatus("校准完成！","success"); const lat=parseFloat(latitudeInput.value), lon=parseFloat(longitudeInput.value); updateDeclination(lat,lon); },10000);
-        if(navigator.vibrate) navigator.vibrate(200);
-    }
-    
-    async function startCamera() {
-        try {
-            if(videoStream) videoStream.getTracks().forEach(t=>t.stop());
-            videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { exact: "environment" }, width:{ideal:1280}, height:{ideal:720} } });
-            videoEl.srcObject = videoStream;
-            updateStatus("后置摄像头已启动","success");
-            if(typeof DeviceOrientationEvent!=='undefined' && typeof DeviceOrientationEvent.requestPermission==='function') {
-                let state = await DeviceOrientationEvent.requestPermission();
-                if(state==='granted') updateStatus("设备方向权限已授予","success");
-                else updateStatus("传感器权限被拒绝，方位角可能不准","error");
-            } else updateStatus("传感器已就绪 (Android)","success");
-            startOrientationListener();
-        } catch(err) { updateStatus("摄像头启动失败: "+err.message,"error"); }
-    }
-    
-    function getRealTimeLocation() {
-        if(!navigator.geolocation) { updateStatus("浏览器不支持GPS","error"); return; }
-        updateStatus("正在获取GPS位置...","info");
-        navigator.geolocation.getCurrentPosition(pos=>{
-            let lat=pos.coords.latitude, lon=pos.coords.longitude;
-            latitudeInput.value=lat.toFixed(6); longitudeInput.value=lon.toFixed(6);
-            let alt=pos.coords.altitude;
-            if(alt && !flatModeCheck.checked) {
-                let finalAlt = alt;
-                if(finalAlt < 1) finalAlt = 1.6;  // 相对高度小于1米时强制设为1.6米
-                relativeHeightInput.value = finalAlt.toFixed(1);
-                document.getElementById('altitudeHint').innerText = `GPS海拔: ${alt.toFixed(1)}米 → 使用${finalAlt.toFixed(1)}米（最小1.6米）`;
-            } else {
-                document.getElementById('altitudeHint').innerText = `GPS海拔无效，使用手动高度`;
-            }
-            updateStatus("位置更新成功","success");
-            updateDeclination(lat,lon);
-            calculateFootprint();
-        }, err=>{ updateStatus("GPS定位失败: "+err.message,"error"); }, { enableHighAccuracy:true, timeout:10000 });
-    }
-    
-    async function capturePhoto() {
-        if(!videoEl.videoWidth || !videoEl.srcObject) { updateStatus("请先启动摄像头","error"); return; }
-        let mag = filteredCompass, pit = filteredPitch, lat=parseFloat(latitudeInput.value), lon=parseFloat(longitudeInput.value), h=parseFloat(relativeHeightInput.value);
-        alert(`📸 拍照时刻参数:\n方位角(磁北): ${mag?.toFixed(1)||'?'}°\n俯仰角(镜头与水平面夹角): ${pit?.toFixed(1)||'?'}°\n位置: ${lat.toFixed(5)}, ${lon.toFixed(5)}\n相对高度: ${h} m\n视域已自动计算并显示在地图`);
-        let canvas = document.createElement('canvas');
-        canvas.width=videoEl.videoWidth; canvas.height=videoEl.videoHeight;
-        canvas.getContext('2d').drawImage(videoEl,0,0,canvas.width,canvas.height);
-        let a=document.createElement('a'); a.download=`camera_${Date.now()}.png`; a.href=canvas.toDataURL(); a.click();
-        updateStatus("拍照成功，图片已保存","success");
-    }
-    
-    function calculateFootprint() {
-        let lat=parseFloat(latitudeInput.value), lon=parseFloat(longitudeInput.value);
-        let relH = parseFloat(relativeHeightInput.value);
-        // 若高度小于1米，强制设为1.6米（安全兜底）
-        if(relH < 1) { relH = 1.6; relativeHeightInput.value = "1.6"; }
-        let finalHeight = flatModeCheck.checked ? 1.6 : relH;
-        
-        let autoDist = autoDistanceCheck.checked;
-        let distance = parseFloat(distanceInput.value);
-        let pitch = filteredPitch || 0;
-        
-        // 自动距离计算：距离 = 相对高度 / tan(俯仰角)，俯仰角越大距离越近
-        if(autoDist && pitch > 5 && pitch < 85) {
+
+    // 视域计算与显示
+    function computeAndUpdateFootprint() {
+        if (!relativeHeightInput) return;
+        let relH = parseFloat(relativeHeightInput.value) || 1.6;
+        if (relH < 1) { relH = 1.6; relativeHeightInput.value = "1.6"; }
+        const flatMode = flatModeCheck?.checked;
+        let finalHeight = flatMode ? 1.6 : relH;
+
+        let distance = parseFloat(distanceInput?.value) || 10;
+        let pitch = Math.abs(filteredPitch || 0);   // 取绝对值，向下为正计算距离
+        const autoDist = autoDistanceCheck?.checked;
+
+        if (autoDist && pitch > 5 && pitch < 85) {
             let pitchRad = Math.radians(pitch);
             let calcDist = finalHeight / Math.tan(pitchRad);
-            if(calcDist > 0.5 && calcDist < 2000) {
+            if (calcDist > 0.5 && calcDist < 2000) {
                 distance = calcDist;
-                distanceInput.value = distance.toFixed(1);
+                if (distanceInput) distanceInput.value = distance.toFixed(1);
             }
         }
-        
-        // 视域范围计算：距离越远，视域越宽
-        const halfWidth = distance * Math.tan(Math.radians(H_FOV/2));
-        const halfHeight = distance * Math.tan(Math.radians(V_FOV/2));
-        const widthM = halfWidth * 2;
-        const heightM = halfHeight * 2;
-        footprintSizeSpan.innerText = `${widthM.toFixed(1)}m × ${heightM.toFixed(1)}m`;
-        
-        // 获取当前磁北方位角
-        let azimuth = filteredCompass; if(azimuth===null) azimuth=0;
-        let pitchRad = Math.radians(pitch);
-        // 水平投影距离 (相机到地面点的水平距离)
-        let horizDist = distance * Math.cos(pitchRad);
-        
-        // 梯形视域四个顶点 (前左、前右、后左、后右)
-        function getPoint(lat,lon,dist,brg) {
-            let R=6371000, φ1=Math.radians(lat), λ1=Math.radians(lon), θ=Math.radians(brg), δ=dist/R;
-            let φ2=Math.asin(Math.sin(φ1)*Math.cos(δ)+Math.cos(φ1)*Math.sin(δ)*Math.cos(θ));
-            let λ2=λ1+Math.atan2(Math.sin(θ)*Math.sin(δ)*Math.cos(φ1), Math.cos(δ)-Math.sin(φ1)*Math.sin(φ2));
-            return [Math.degrees(λ2), Math.degrees(φ2)];
+        const halfW = distance * Math.tan(Math.radians(H_FOV/2));
+        const halfH = distance * Math.tan(Math.radians(V_FOV/2));
+        if (footprintSizeSpan) footprintSizeSpan.innerText = `${(halfW*2).toFixed(1)}m × ${(halfH*2).toFixed(1)}m`;
+    }
+
+    // ======================== 增强传感器融合（绝对事件/互补滤波） ========================
+    async function initBestOrientationSensor() {
+        // 移除旧的监听
+        if (orientationHandler) window.removeEventListener('deviceorientation', orientationHandler);
+        if (motionHandler) window.removeEventListener('devicemotion', motionHandler);
+        if (window.absoluteHandler) window.removeEventListener('deviceorientationabsolute', window.absoluteHandler);
+
+        // 尝试绝对事件（需要 iOS 授权，已在 startCamera 中处理 requestPermission）
+        if (window.DeviceOrientationEvent && 'requestPermission' in DeviceOrientationEvent) {
+            // 注意：requestPermission 必须在用户手势下调用，此处仅检测能力，实际授权已在 startCamera 中完成
+            // 我们直接监听绝对事件
+            window.absoluteHandler = (e) => {
+                if (e.alpha === null) return;
+                useAbsolute = true;
+                rawAlpha = e.alpha;
+                let alpha = e.alpha;          // 绝对磁北
+                let beta = e.beta;             // -180~180，水平0，向上正
+                // 镜头俯仰角 = -beta（向下为负）
+                let pitch = -beta;
+                pitch = Math.min(90, Math.max(-90, pitch));
+
+                // 平滑方位角
+                if (filteredCompass === null) filteredCompass = alpha;
+                else {
+                    let delta = alpha - filteredCompass;
+                    if (delta > 180) delta -= 360;
+                    if (delta < -180) delta += 360;
+                    filteredCompass = normAngle(filteredCompass + SMOOTH * delta);
+                }
+                if (filteredPitch === null) filteredPitch = pitch;
+                else filteredPitch = filteredPitch + SMOOTH * (pitch - filteredPitch);
+
+                updateSensorUI();
+            };
+            window.addEventListener('deviceorientationabsolute', window.absoluteHandler);
+            console.log("✅ 使用 deviceorientationabsolute");
+            return;
         }
-        
-        let leftAngle = azimuth - H_FOV/2;
-        let rightAngle = azimuth + H_FOV/2;
-        let leftFront = getPoint(lat, lon, horizDist, leftAngle);
-        let rightFront = getPoint(lat, lon, horizDist, rightAngle);
-        let backDist = horizDist * 0.3;
-        let leftBack = getPoint(lat, lon, backDist, leftAngle + 180);
-        let rightBack = getPoint(lat, lon, backDist, rightAngle + 180);
-        
-        let poly = [leftFront, rightFront, rightBack, leftBack, leftFront];
-        footprintCoordsDiv.innerText = poly.map(p=>`[${p[1].toFixed(5)},${p[0].toFixed(5)}]`).join(' ');
-        
-        if(map && footprintLayer) {
-            footprintLayer.getSource().clear();
-            let transformed = poly.map(p=>ol.proj.fromLonLat(p));
-            footprintLayer.getSource().addFeature(new ol.Feature(new ol.geom.Polygon([transformed])));
-            positionMarker.getSource().clear();
-            positionMarker.getSource().addFeature(new ol.Feature(new ol.geom.Point(ol.proj.fromLonLat([lon,lat]))));
-            map.getView().setCenter(ol.proj.fromLonLat([lon,lat]));
-            map.getView().setZoom(17);
+
+        // 降级：普通 deviceorientation + devicemotion 互补滤波
+        useAbsolute = false;
+        let lastTimestampGyro = 0;
+        let gyroIntegral = null;
+
+        orientationHandler = (e) => {
+            let alpha = e.webkitCompassHeading || e.alpha;
+            if (alpha === null) return;
+            rawAlpha = alpha;
+            let beta = e.beta;
+            let pitch = -beta;
+            pitch = Math.min(90, Math.max(-90, pitch));
+
+            // 互补滤波融合陀螺仪（需要在 motion 中更新 gyroIntegral）
+            const now = performance.now();
+            if (lastTimestampGyro > 0 && gyroIntegral !== null) {
+                let dt = Math.min(0.1, (now - lastTimestampGyro) / 1000);
+                let predicted = gyroIntegral;
+                let fused = COMP_FILTER * predicted + (1 - COMP_FILTER) * alpha;
+                if (Math.abs(fused - predicted) > 180) fused += 360;
+                filteredCompass = normAngle(fused);
+            } else {
+                filteredCompass = alpha;
+            }
+            // 平滑俯仰角
+            if (filteredPitch === null) filteredPitch = pitch;
+            else filteredPitch = filteredPitch + SMOOTH * (pitch - filteredPitch);
+            lastTimestampGyro = now;
+            updateSensorUI();
+        };
+        motionHandler = (e) => {
+            if (!e.rotationRate || e.rotationRate.alpha === null) return;
+            let alphaRate = e.rotationRate.alpha;   // deg/s
+            let now = performance.now();
+            if (lastTimestampGyro > 0 && filteredCompass !== null) {
+                let dt = Math.min(0.05, (now - lastTimestampGyro) / 1000);
+                let delta = alphaRate * dt;
+                if (gyroIntegral === null) gyroIntegral = filteredCompass;
+                gyroIntegral = normAngle(gyroIntegral + delta);
+            }
+            lastTimestampGyro = now;
+        };
+        window.addEventListener('deviceorientation', orientationHandler);
+        window.addEventListener('devicemotion', motionHandler);
+        console.log("⚠️ 使用 deviceorientation + gyro 互补滤波");
+    }
+
+    // 8字校准：重置滤波器
+    function startCalibration() {
+        filteredCompass = null;
+        filteredPitch = null;
+        gyroIntegral = null;
+        lastTimestampGyro = 0;
+        updateStatus("正在校准，请平放手机画横向8字持续10秒...", "info");
+        setTimeout(() => {
+            updateStatus("校准完成，方向数据将更准确", "success");
+        }, 10000);
+        if (navigator.vibrate) navigator.vibrate(200);
+        alert("📡 请将手机平放，在空中缓慢画横向“8”字，持续10秒...");
+    }
+
+    // ======================== 摄像头与权限 ========================
+    async function startCamera() {
+        try {
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(t => t.stop());
+            }
+            const constraints = { video: { facingMode: { exact: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } } };
+            cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+            videoEl.srcObject = cameraStream;
+            videoEl.style.display = 'block';
+            startBtn.style.display = 'none';
+            captureBtn.style.display = 'block';
+            uploadBtn.style.display = 'none';
+
+            // iOS 传感器授权（必须在用户手势回调中）
+            if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                try {
+                    const perm = await DeviceOrientationEvent.requestPermission();
+                    if (perm === 'granted') {
+                        await initBestOrientationSensor();
+                        document.getElementById('sensorData').style.display = 'block';
+                        document.getElementById('footprintSettings').style.display = 'block';
+                        calibrateBtn.style.display = 'block';
+                        updateStatus("传感器权限已授予", "success");
+                    } else {
+                        updateStatus("传感器权限被拒，方位角不可用", "error");
+                    }
+                } catch (err) {
+                    console.error(err);
+                    updateStatus("传感器授权失败", "error");
+                }
+            } else {
+                // Android 直接初始化
+                await initBestOrientationSensor();
+                document.getElementById('sensorData').style.display = 'block';
+                document.getElementById('footprintSettings').style.display = 'block';
+                calibrateBtn.style.display = 'block';
+                updateStatus("传感器已启动（Android）", "success");
+            }
+            // 获取一次位置
+            getRealTimeLocation();
+        } catch (err) {
+            console.error(err);
+            updateStatus("摄像头启动失败: " + err.message, "error");
         }
     }
-    
-    function initMap() {
-        map = new ol.Map({ target:'map', layers:[new ol.layer.Tile({ source: new ol.source.OSM() })], view: new ol.View({ center: ol.proj.fromLonLat([121.4737,31.2304]), zoom:16 }) });
-        footprintLayer = new ol.layer.Vector({ source: new ol.source.Vector(), style: new ol.style.Style({ fill: new ol.style.Fill({ color:'rgba(255,80,40,0.35)' }), stroke: new ol.style.Stroke({ color:'#ff4d4f', width:2 }) }) });
-        positionMarker = new ol.layer.Vector({ source: new ol.source.Vector(), style: new ol.style.Style({ image: new ol.style.Circle({ radius:8, fill: new ol.style.Fill({ color:'#1e88e5' }), stroke: new ol.style.Stroke({ color:'#fff', width:2 }) }) }) });
-        map.addLayer(footprintLayer); map.addLayer(positionMarker);
+
+    // GPS 定位
+    function getRealTimeLocation() {
+        if (!navigator.geolocation) {
+            alert("浏览器不支持GPS");
+            return;
+        }
+        updateStatus("正在获取GPS位置...", "info");
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                currentLat = pos.coords.latitude;
+                currentLon = pos.coords.longitude;
+                latitudeInput.value = currentLat.toFixed(6);
+                longitudeInput.value = currentLon.toFixed(6);
+                const alt = pos.coords.altitude;
+                if (alt && !flatModeCheck.checked) {
+                    let finalAlt = alt;
+                    if (finalAlt < 1) finalAlt = 1.6;
+                    relativeHeightInput.value = finalAlt.toFixed(1);
+                    if (gpsAltSpan) gpsAltSpan.innerText = finalAlt.toFixed(1) + "m";
+                    if (altitudeHint) altitudeHint.innerText = `GPS海拔: ${alt.toFixed(1)}m → 使用${finalAlt.toFixed(1)}m`;
+                } else {
+                    if (gpsAltSpan) gpsAltSpan.innerText = "无效";
+                    if (altitudeHint) altitudeHint.innerText = "GPS海拔无效，使用手动高度";
+                }
+                updateStatus("GPS定位成功", "success");
+                computeAndUpdateFootprint();
+            },
+            (err) => {
+                console.error(err);
+                updateStatus("GPS定位失败: " + err.message, "error");
+                if (gpsAltSpan) gpsAltSpan.innerText = "获取失败";
+            },
+            { enableHighAccuracy: true, timeout: 10000 }
+        );
     }
-    
+
+    // 拍照
+    function capturePhoto() {
+        if (!videoEl || !videoEl.videoWidth || !videoEl.srcObject) {
+            alert("请先启动摄像头");
+            return;
+        }
+        if (currentLat === 0 || currentLon === 0) {
+            alert("请先获取GPS位置");
+            return;
+        }
+        const azimuth = filteredCompass;
+        const pitch = filteredPitch;
+        const relHeight = parseFloat(relativeHeightInput.value) || 1.6;
+        const canvas = document.createElement('canvas');
+        canvas.width = videoEl.videoWidth;
+        canvas.height = videoEl.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+        capturedPhoto = canvas.toDataURL('image/jpeg', 0.9);
+        capturedParams = {
+            latitude: currentLat,
+            longitude: currentLon,
+            azimuth: azimuth,
+            pitch: pitch,
+            relativeHeight: relHeight,
+            h_fov: H_FOV,
+            v_fov: V_FOV
+        };
+        // 显示预览
+        photoPreview.src = capturedPhoto;
+        photoPreview.style.display = 'block';
+        paramsDiv.style.display = 'block';
+        paramsDiv.innerHTML = `
+            <div style="font-weight:600; margin-bottom:6px;">📊 拍照参数</div>
+            <div>📍 位置: ${currentLat.toFixed(5)}, ${currentLon.toFixed(5)}</div>
+            <div>🧭 方位角: ${azimuth?.toFixed(1) || '?'}°</div>
+            <div>📐 俯仰角: ${pitch?.toFixed(1) || '?'}°</div>
+            <div>📏 相对高度: ${relHeight}m</div>
+            <div>📷 视场角: ${H_FOV}° × ${V_FOV}°</div>
+        `;
+        captureBtn.style.display = 'none';
+        uploadBtn.style.display = 'block';
+        videoEl.style.display = 'none';
+        updateStatus("拍照完成，可上传", "success");
+    }
+
+    // 上传照片
+    async function uploadPhoto() {
+        if (!capturedPhoto || !capturedParams) {
+            alert("没有可上传的照片，请先拍照");
+            return;
+        }
+        const { latitude, longitude, azimuth, pitch, relativeHeight, h_fov, v_fov } = capturedParams;
+        const username = localStorage.getItem('username') || 'anonymous';
+        const problemType = problemTypeSelect?.value || '';
+        const captureTime = new Date().toISOString();
+
+        // 转换 base64 为 blob
+        let blob;
+        try {
+            blob = await fetch(capturedPhoto).then(r => r.blob());
+        } catch(e) {
+            alert("照片转换失败");
+            return;
+        }
+        const file = new File([blob], `camera_${Date.now()}.jpg`, { type: 'image/jpeg' });
+        const formData = new FormData();
+        formData.append('files', file);
+        formData.append('username', username);
+        formData.append('latitude', latitude);
+        formData.append('longitude', longitude);
+        formData.append('capture_time', captureTime);
+        const hasValidOrientation = (azimuth !== null && !isNaN(azimuth) && pitch !== null && !isNaN(pitch));
+        const deviceType = hasValidOrientation ? 'phone-footprint' : 'phone';
+        formData.append('device_type', deviceType);
+        formData.append('yaw', azimuth || 0);
+        formData.append('pitch', pitch || 0);
+        formData.append('relative_height', relativeHeight);
+        formData.append('h_fov', h_fov);
+        formData.append('v_fov', v_fov);
+        if (problemType) formData.append('problem_type', problemType);
+
+        const apiUrl = 'https://lzy-fastapi.onrender.com/api/upload';
+        updateStatus("上传中...", "info");
+        try {
+            const response = await fetch(apiUrl, { method: 'POST', body: formData });
+            if (response.ok) {
+                const result = await response.json();
+                const successCount = result.success || 0;
+                const failedCount = result.failed || 0;
+                alert(`上传成功！\n成功: ${successCount} 张\n失败: ${failedCount} 张`);
+                updateStatus("上传完成，数据已同步", "success");
+                // 重置界面
+                resetAfterUpload();
+            } else {
+                let errMsg = `HTTP ${response.status}`;
+                try { const txt = await response.text(); errMsg = txt.substring(0, 200); } catch(e) {}
+                alert("上传失败: " + errMsg);
+                updateStatus("上传失败", "error");
+            }
+        } catch (err) {
+            alert("网络错误: " + err.message);
+            updateStatus("上传异常", "error");
+        }
+    }
+
+    function resetAfterUpload() {
+        capturedPhoto = null;
+        capturedParams = null;
+        photoPreview.style.display = 'none';
+        paramsDiv.style.display = 'none';
+        uploadBtn.style.display = 'none';
+        captureBtn.style.display = 'block';
+        videoEl.style.display = 'block';
+        // 可选重新获取位置
+        getRealTimeLocation();
+    }
+
+    // ======================== 初始化事件绑定 ========================
     function bindEvents() {
+        startBtn = document.getElementById('startCameraBtn');
+        captureBtn = document.getElementById('capturePhotoBtn');
+        uploadBtn = document.getElementById('uploadPhotoBtn');
+        videoEl = document.getElementById('cameraPreview');
+        compassSpan = document.getElementById('compassValue');
+        pitchSpan = document.getElementById('pitchValue');
+        rawAlphaSpan = document.getElementById('rawAlphaValue');
+        latitudeInput = document.getElementById('latitude');
+        longitudeInput = document.getElementById('longitude');
+        relativeHeightInput = document.getElementById('relativeHeightInput');
+        flatModeCheck = document.getElementById('flatModeCheck');
+        autoDistanceCheck = document.getElementById('autoDistanceCheck');
+        distanceInput = document.getElementById('distanceInput');
+        footprintSizeSpan = document.getElementById('footprintSize');
+        calibrateBtn = document.getElementById('calibrateBtn');
+        getLocationBtn = document.getElementById('getLocationBtn');
+        altitudeHint = document.getElementById('altitudeHint');
+        gpsAltSpan = document.getElementById('gpsAltDisplay');
+        photoPreview = document.getElementById('capturedPhotoPreview');
+        paramsDiv = document.getElementById('capturedParams');
+        statusDiv = document.getElementById('statusMsg');
+        problemTypeSelect = document.getElementById('problemTypeSelect');
+
         startBtn.addEventListener('click', startCamera);
         captureBtn.addEventListener('click', capturePhoto);
-        document.getElementById('getLocationBtn').addEventListener('click', getRealTimeLocation);
-        document.getElementById('calibrateBtn').addEventListener('click', startCalibrationGuide);
-        flatModeCheck.addEventListener('change', ()=>{
-            if(flatModeCheck.checked) {
-                relativeHeightInput.value = "1.6";
-                autoFlatHint.innerText = "手动平地模式";
-            } else {
-                autoFlatHint.innerText = "";
-            }
-            calculateFootprint();
+        uploadBtn.addEventListener('click', uploadPhoto);
+        calibrateBtn.addEventListener('click', startCalibration);
+        getLocationBtn.addEventListener('click', getRealTimeLocation);
+        flatModeCheck.addEventListener('change', () => {
+            if (flatModeCheck.checked) relativeHeightInput.value = "1.6";
+            computeAndUpdateFootprint();
         });
-        autoDistanceCheck.addEventListener('change', calculateFootprint);
-        latitudeInput.addEventListener('change', ()=>{ let lat=parseFloat(latitudeInput.value), lon=parseFloat(longitudeInput.value); updateDeclination(lat,lon); calculateFootprint(); });
-        longitudeInput.addEventListener('change', ()=>{ let lat=parseFloat(latitudeInput.value), lon=parseFloat(longitudeInput.value); updateDeclination(lat,lon); calculateFootprint(); });
-        relativeHeightInput.addEventListener('input', calculateFootprint);
-        distanceInput.addEventListener('input', calculateFootprint);
+        autoDistanceCheck.addEventListener('change', computeAndUpdateFootprint);
+        relativeHeightInput.addEventListener('input', computeAndUpdateFootprint);
+        distanceInput.addEventListener('input', computeAndUpdateFootprint);
+        latitudeInput.addEventListener('change', () => {
+            currentLat = parseFloat(latitudeInput.value);
+            computeAndUpdateFootprint();
+        });
+        longitudeInput.addEventListener('change', () => {
+            currentLon = parseFloat(longitudeInput.value);
+            computeAndUpdateFootprint();
+        });
     }
-    
-    (function() {
-        initMap();
+
+    // 页面启动
+    window.addEventListener('DOMContentLoaded', () => {
         bindEvents();
-        document.getElementById('hFovLabel').innerText = H_FOV+"°";
-        document.getElementById('vFovLabel').innerText = V_FOV+"°";
-        setTimeout(getRealTimeLocation, 500);
-        updateStatus("点击上方启动摄像头并允许传感器权限","info");
-    })();
+        updateStatus("就绪，点击「启动摄像头」", "info");
+    });
 </script>
 </body>
 </html>
