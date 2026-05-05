@@ -346,6 +346,10 @@
         
         <div class="tab-content active" id="users-tab">
             <h2>用户管理</h2>
+            <div style="margin-bottom:15px; display:flex; gap:10px; align-items:center;">
+                <input type="text" id="userSearchInput" placeholder="搜索用户名..." style="padding:8px; flex:1; max-width:300px; border:1px solid #ddd; border-radius:4px;">
+                <button onclick="searchUsers()" style="padding:8px 16px; background:#667eea; color:white; border:none; border-radius:4px; cursor:pointer;">搜索</button>
+            </div>
             <div class="table-container">
                 <table id="users-table">
                     <thead>
@@ -353,6 +357,7 @@
                             <th>用户名</th>
                             <th>状态</th>
                             <th>角色</th>
+                            <th>创建时间</th>
                             <th>操作</th>
                         </tr>
                     </thead>
@@ -360,14 +365,39 @@
                     </tbody>
                 </table>
             </div>
+            <div style="margin-top:15px; display:flex; gap:10px;">
+                <button onclick="exportUsers()" style="padding:10px 20px; background:#52c41a; color:white; border:none; border-radius:4px; cursor:pointer;">导出用户列表</button>
+            </div>
         </div>
         
         <div class="tab-content" id="photos-tab">
             <h2>上传照片管理</h2>
+            <div style="margin-bottom:15px; display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
+                <input type="text" id="photoSearchInput" placeholder="搜索文件名或上传人..." style="padding:8px; flex:1; min-width:200px; border:1px solid #ddd; border-radius:4px;">
+                <select id="deviceTypeFilter" style="padding:8px; border:1px solid #ddd; border-radius:4px;">
+                    <option value="">全部设备类型</option>
+                    <option value="phone">手机</option>
+                    <option value="drone">无人机</option>
+                    <option value="phone-footprint">手机视域</option>
+                </select>
+                <input type="text" id="dateRangeStart" placeholder="开始日期" style="padding:8px; border:1px solid #ddd; border-radius:4px;">
+                <input type="text" id="dateRangeEnd" placeholder="结束日期" style="padding:8px; border:1px solid #ddd; border-radius:4px;">
+                <button onclick="searchPhotos()" style="padding:8px 16px; background:#667eea; color:white; border:none; border-radius:4px; cursor:pointer;">筛选</button>
+                <button onclick="resetFilters()" style="padding:8px 16px; background:#999; color:white; border:none; border-radius:4px; cursor:pointer;">重置</button>
+                <button onclick="toggleSelectAll()" style="padding:8px 16px; background:#1890ff; color:white; border:none; border-radius:4px; cursor:pointer;">全选/取消</button>
+                <button onclick="batchUpdateModal()" style="padding:8px 16px; background:#faad14; color:white; border:none; border-radius:4px; cursor:pointer;">批量更新</button>
+            </div>
+            <div style="margin-bottom:15px; display:flex; gap:10px;">
+                <button onclick="exportPhotos()" style="padding:10px 20px; background:#52c41a; color:white; border:none; border-radius:4px; cursor:pointer;">导出照片列表</button>
+                <button onclick="exportPointsGeoJSON()" style="padding:10px 20px; background:#1890ff; color:white; border:none; border-radius:4px; cursor:pointer;">导出点GeoJSON</button>
+                <button onclick="exportFootprintsGeoJSON()" style="padding:10px 20px; background:#722ed1; color:white; border:none; border-radius:4px; cursor:pointer;">导出视域面GeoJSON</button>
+                <button onclick="exportAllData()" style="padding:10px 20px; background:#eb2f96; color:white; border:none; border-radius:4px; cursor:pointer;">导出全部数据(压缩)</button>
+            </div>
             <div class="table-container">
                 <table id="photos-table">
                     <thead>
                         <tr>
+                            <th><input type="checkbox" onclick="toggleSelectAll()" id="selectAllCheckbox"></th>
                             <th>照片预览</th>
                             <th>上传人</th>
                             <th>上传时间</th>
@@ -375,6 +405,11 @@
                             <th>纬度</th>
                             <th>经度</th>
                             <th>设备类型</th>
+                            <th>偏航角</th>
+                            <th>俯仰角</th>
+                            <th>相对高度</th>
+                            <th>水平视场角</th>
+                            <th>垂直视场角</th>
                             <th>潮位信息</th>
                             <th>问题类型</th>
                             <th>操作</th>
@@ -383,6 +418,11 @@
                     <tbody>
                     </tbody>
                 </table>
+            </div>
+            <div id="pagination" style="margin-top:15px; text-align:center;">
+                <button onclick="prevPage()" id="prevBtn" disabled style="padding:8px 16px; margin-right:5px; cursor:pointer;">上一页</button>
+                <span id="pageInfo">第 1 页 / 共 1 页</span>
+                <button onclick="nextPage()" id="nextBtn" disabled style="padding:8px 16px; margin-left:5px; cursor:pointer;">下一页</button>
             </div>
         </div>
     </div>
@@ -519,6 +559,37 @@
         </div>
     </div>
     
+    <div id="batchUpdateModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('batchUpdateModal')">&times;</span>
+            <h3>批量更新照片信息</h3>
+            <form id="batchUpdateForm">
+                <div class="form-group">
+                    <label>选中数量: <span id="selectedCount">0</span></label>
+                </div>
+                <div class="form-group">
+                    <label for="batchField">更新字段</label>
+                    <select id="batchField">
+                        <option value="device_type">设备类型</option>
+                        <option value="tide_info">潮位信息</option>
+                        <option value="problem_type">问题类型</option>
+                    </select>
+                </div>
+                <div class="form-group" id="batchValueContainer">
+                    <label for="batchValue">新值</label>
+                    <select id="batchDeviceType" style="display:none;">
+                        <option value="phone">手机</option>
+                        <option value="drone">无人机</option>
+                        <option value="phone-footprint">手机视域</option>
+                    </select>
+                    <input type="text" id="batchTextValue" placeholder="输入新值">
+                </div>
+                <button type="button" class="btn btn-primary" onclick="submitBatchUpdate()">执行批量更新</button>
+                <button type="button" class="btn btn-danger" onclick="closeModal('batchUpdateModal')">取消</button>
+            </form>
+        </div>
+    </div>
+    
     <script>
         const API_BASE_URL = (function() {
             const hostname = window.location.hostname;
@@ -564,6 +635,11 @@
             }, 3000);
         }
         
+        let allUsers = [];
+        let allPhotos = [];
+        let currentPage = 1;
+        const pageSize = 20;
+        
         async function loadUsers() {
             try {
                 const response = await fetch(`${API_BASE_URL}/api/users`);
@@ -571,77 +647,114 @@
                     throw new Error('Failed to load users');
                 }
                 const data = await response.json();
-                const users = data.users || [];
-                
-                const tableBody = document.querySelector('#users-table tbody');
-                tableBody.innerHTML = '';
-                
-                users.forEach(user => {
-                    const row = document.createElement('tr');
-                    
-                    const usernameCell = document.createElement('td');
-                    usernameCell.textContent = user.username;
-                    row.appendChild(usernameCell);
-                    
-                    const statusCell = document.createElement('td');
-                    statusCell.textContent = user.status || 'pending';
-                    row.appendChild(statusCell);
-                    
-                    const roleCell = document.createElement('td');
-                    roleCell.textContent = user.is_admin ? '管理员' : '普通用户';
-                    row.appendChild(roleCell);
-                    
-                    const actionCell = document.createElement('td');
-                    const actionButtons = document.createElement('div');
-                    actionButtons.className = 'action-buttons';
-                    
-                    const editButton = document.createElement('button');
-                    editButton.className = 'btn btn-primary';
-                    editButton.textContent = '编辑';
-                    editButton.addEventListener('click', () => editUser(user.username));
-                    actionButtons.appendChild(editButton);
-                    
-                    if (!user.is_admin) {
-                        const resetButton = document.createElement('button');
-                        resetButton.className = 'btn btn-info';
-                        resetButton.textContent = '重置密码';
-                        resetButton.addEventListener('click', () => resetPassword(user.username));
-                        actionButtons.appendChild(resetButton);
-                    }
-                    
-                    const deleteButton = document.createElement('button');
-                    deleteButton.className = 'btn btn-danger';
-                    deleteButton.textContent = '删除';
-                    deleteButton.addEventListener('click', () => deleteUser(user.username));
-                    actionButtons.appendChild(deleteButton);
-                    
-                    if (user.status === 'pending') {
-                        const activateButton = document.createElement('button');
-                        activateButton.className = 'btn btn-success';
-                        activateButton.textContent = '激活';
-                        activateButton.addEventListener('click', () => activateUser(user.username));
-                        actionButtons.appendChild(activateButton);
-                    } else if (user.status === 'active') {
-                        const deactivateButton = document.createElement('button');
-                        deactivateButton.className = 'btn btn-warning';
-                        deactivateButton.textContent = '禁用';
-                        deactivateButton.addEventListener('click', () => deactivateUser(user.username));
-                        actionButtons.appendChild(deactivateButton);
-                    } else {
-                        const activateButton = document.createElement('button');
-                        activateButton.className = 'btn btn-success';
-                        activateButton.textContent = '激活';
-                        activateButton.addEventListener('click', () => activateUser(user.username));
-                        actionButtons.appendChild(activateButton);
-                    }
-                    
-                    actionCell.appendChild(actionButtons);
-                    row.appendChild(actionCell);
-                    tableBody.appendChild(row);
-                });
+                allUsers = data.users || [];
+                renderUsers(allUsers);
             } catch (error) {
                 console.error('Error loading users:', error);
                 showMessage('加载用户数据失败: ' + error.message, 'error');
+            }
+        }
+        
+        function renderUsers(users) {
+            const tableBody = document.querySelector('#users-table tbody');
+            tableBody.innerHTML = '';
+            
+            users.forEach(user => {
+                const row = document.createElement('tr');
+                
+                const usernameCell = document.createElement('td');
+                usernameCell.textContent = user.username;
+                row.appendChild(usernameCell);
+                
+                const statusCell = document.createElement('td');
+                statusCell.textContent = user.status || 'pending';
+                row.appendChild(statusCell);
+                
+                const roleCell = document.createElement('td');
+                roleCell.textContent = user.is_admin ? '管理员' : '普通用户';
+                row.appendChild(roleCell);
+                
+                const createTimeCell = document.createElement('td');
+                createTimeCell.textContent = user.create_time || '-';
+                row.appendChild(createTimeCell);
+                
+                const actionCell = document.createElement('td');
+                const actionButtons = document.createElement('div');
+                actionButtons.className = 'action-buttons';
+                
+                const editButton = document.createElement('button');
+                editButton.className = 'btn btn-primary';
+                editButton.textContent = '编辑';
+                editButton.addEventListener('click', () => editUser(user.username));
+                actionButtons.appendChild(editButton);
+                
+                if (!user.is_admin) {
+                    const resetButton = document.createElement('button');
+                    resetButton.className = 'btn btn-info';
+                    resetButton.textContent = '重置密码';
+                    resetButton.addEventListener('click', () => resetPassword(user.username));
+                    actionButtons.appendChild(resetButton);
+                }
+                
+                const deleteButton = document.createElement('button');
+                deleteButton.className = 'btn btn-danger';
+                deleteButton.textContent = '删除';
+                deleteButton.addEventListener('click', () => deleteUser(user.username));
+                actionButtons.appendChild(deleteButton);
+                
+                if (user.status === 'pending') {
+                    const activateButton = document.createElement('button');
+                    activateButton.className = 'btn btn-success';
+                    activateButton.textContent = '激活';
+                    activateButton.addEventListener('click', () => activateUser(user.username));
+                    actionButtons.appendChild(activateButton);
+                } else if (user.status === 'active') {
+                    const deactivateButton = document.createElement('button');
+                    deactivateButton.className = 'btn btn-warning';
+                    deactivateButton.textContent = '禁用';
+                    deactivateButton.addEventListener('click', () => deactivateUser(user.username));
+                    actionButtons.appendChild(deactivateButton);
+                } else {
+                    const activateButton = document.createElement('button');
+                    activateButton.className = 'btn btn-success';
+                    activateButton.textContent = '激活';
+                    activateButton.addEventListener('click', () => activateUser(user.username));
+                    actionButtons.appendChild(activateButton);
+                }
+                
+                actionCell.appendChild(actionButtons);
+                row.appendChild(actionCell);
+                tableBody.appendChild(row);
+            });
+        }
+        
+        function searchUsers() {
+            const searchTerm = document.getElementById('userSearchInput').value.toLowerCase();
+            const filtered = allUsers.filter(user => 
+                user.username.toLowerCase().includes(searchTerm)
+            );
+            renderUsers(filtered);
+        }
+        
+        async function exportUsers() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/export/users`);
+                if (!response.ok) {
+                    throw new Error('导出失败');
+                }
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'users.csv';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+                showMessage('用户列表导出成功', 'success');
+            } catch (error) {
+                console.error('Export users error:', error);
+                showMessage('导出失败: ' + error.message, 'error');
             }
         }
         
@@ -654,86 +767,334 @@
                 const data = await response.json();
                 const features = data.features || [];
                 
-                const tableBody = document.querySelector('#photos-table tbody');
-                tableBody.innerHTML = '';
+                allPhotos = features.map(feature => ({
+                    ...feature.properties,
+                    coordinates: feature.geometry?.coordinates || [0, 0],
+                    filename: feature.properties?.filename || ''
+                }));
                 
-                features.forEach(feature => {
-                    const properties = feature.properties || {};
-                    const geometry = feature.geometry || {};
-                    const coordinates = geometry.coordinates || [0, 0];
-                    const filename = properties.filename || '';
-                    
-                    const row = document.createElement('tr');
-                    
-                    const previewCell = document.createElement('td');
-                    if (filename) {
-                        const img = document.createElement('img');
-                        img.src = `${API_BASE_URL}/api/photos/image/${filename}`;
-                        img.className = 'photo-thumbnail';
-                        img.alt = filename;
-                        img.onclick = () => previewPhoto(filename);
-                        previewCell.appendChild(img);
-                    } else {
-                        previewCell.textContent = '-';
-                    }
-                    row.appendChild(previewCell);
-                    
-                    const uploaderCell = document.createElement('td');
-                    uploaderCell.textContent = properties.uploader || '-';
-                    row.appendChild(uploaderCell);
-                    
-                    const uploadTimeCell = document.createElement('td');
-                    uploadTimeCell.textContent = properties.upload_time || '-';
-                    row.appendChild(uploadTimeCell);
-                    
-                    const datetimeCell = document.createElement('td');
-                    datetimeCell.textContent = properties.datetime || '-';
-                    row.appendChild(datetimeCell);
-                    
-                    const latCell = document.createElement('td');
-                    latCell.textContent = coordinates[1] || 0;
-                    row.appendChild(latCell);
-                    
-                    const lonCell = document.createElement('td');
-                    lonCell.textContent = coordinates[0] || 0;
-                    row.appendChild(lonCell);
-                    
-                    const deviceTypeCell = document.createElement('td');
-                    deviceTypeCell.textContent = properties.device_type || '-';
-                    row.appendChild(deviceTypeCell);
-                    
-                    const tideInfoCell = document.createElement('td');
-                    tideInfoCell.textContent = properties.tide_info || '-';
-                    row.appendChild(tideInfoCell);
-                    
-                    const problemTypeCell = document.createElement('td');
-                    problemTypeCell.textContent = properties.problem_type || '-';
-                    row.appendChild(problemTypeCell);
-                    
-                    const actionCell = document.createElement('td');
-                    const actionButtons = document.createElement('div');
-                    actionButtons.className = 'action-buttons';
-                    
-                    const editButton = document.createElement('button');
-                    editButton.className = 'btn btn-primary';
-                    editButton.textContent = '编辑';
-                    editButton.addEventListener('click', () => editPhoto(filename));
-                    actionButtons.appendChild(editButton);
-                    
-                    const deleteButton = document.createElement('button');
-                    deleteButton.className = 'btn btn-danger';
-                    deleteButton.textContent = '删除';
-                    deleteButton.addEventListener('click', () => deletePhoto(filename));
-                    actionButtons.appendChild(deleteButton);
-                    
-                    actionCell.appendChild(actionButtons);
-                    row.appendChild(actionCell);
-                    tableBody.appendChild(row);
-                });
+                renderPhotos(allPhotos, 1);
             } catch (error) {
                 console.error('Error loading photos:', error);
                 showMessage('加载照片数据失败: ' + error.message, 'error');
             }
+        }
+        
+        function renderPhotos(photos, page) {
+            currentPage = page;
+            const startIndex = (page - 1) * pageSize;
+            const endIndex = startIndex + pageSize;
+            const paginatedPhotos = photos.slice(startIndex, endIndex);
+            
+            const tableBody = document.querySelector('#photos-table tbody');
+            tableBody.innerHTML = '';
+            
+            paginatedPhotos.forEach(photo => {
+                const row = document.createElement('tr');
+                row.dataset.filename = photo.filename;
+                
+                const checkboxCell = document.createElement('td');
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.className = 'photo-checkbox';
+                checkbox.value = photo.filename;
+                checkboxCell.appendChild(checkbox);
+                row.appendChild(checkboxCell);
+                
+                const previewCell = document.createElement('td');
+                if (photo.filename) {
+                    const img = document.createElement('img');
+                    img.src = `${API_BASE_URL}/api/photos/image/${photo.filename}`;
+                    img.className = 'photo-thumbnail';
+                    img.alt = photo.filename;
+                    img.onclick = () => previewPhoto(photo.filename);
+                    previewCell.appendChild(img);
+                } else {
+                    previewCell.textContent = '-';
+                }
+                row.appendChild(previewCell);
+                
+                const uploaderCell = document.createElement('td');
+                uploaderCell.textContent = photo.username || photo.uploader || '-';
+                row.appendChild(uploaderCell);
+                
+                const uploadTimeCell = document.createElement('td');
+                uploadTimeCell.textContent = photo.upload_time || '-';
+                row.appendChild(uploadTimeCell);
+                
+                const datetimeCell = document.createElement('td');
+                datetimeCell.textContent = photo.datetime || '-';
+                row.appendChild(datetimeCell);
+                
+                const latCell = document.createElement('td');
+                latCell.textContent = photo.coordinates[1] || photo.latitude || 0;
+                row.appendChild(latCell);
+                
+                const lonCell = document.createElement('td');
+                lonCell.textContent = photo.coordinates[0] || photo.longitude || 0;
+                row.appendChild(lonCell);
+                
+                const deviceTypeCell = document.createElement('td');
+                deviceTypeCell.textContent = photo.device_type || '-';
+                row.appendChild(deviceTypeCell);
+                
+                const yawCell = document.createElement('td');
+                yawCell.textContent = photo.yaw !== null && photo.yaw !== undefined ? photo.yaw.toFixed(1) : '-';
+                row.appendChild(yawCell);
+                
+                const pitchCell = document.createElement('td');
+                pitchCell.textContent = photo.pitch !== null && photo.pitch !== undefined ? photo.pitch.toFixed(1) : '-';
+                row.appendChild(pitchCell);
+                
+                const relativeHeightCell = document.createElement('td');
+                relativeHeightCell.textContent = photo.relative_height !== null && photo.relative_height !== undefined ? photo.relative_height.toFixed(1) + 'm' : '-';
+                row.appendChild(relativeHeightCell);
+                
+                const hFovCell = document.createElement('td');
+                hFovCell.textContent = photo.h_fov !== null && photo.h_fov !== undefined ? photo.h_fov.toFixed(1) + '°' : '-';
+                row.appendChild(hFovCell);
+                
+                const vFovCell = document.createElement('td');
+                vFovCell.textContent = photo.v_fov !== null && photo.v_fov !== undefined ? photo.v_fov.toFixed(1) + '°' : '-';
+                row.appendChild(vFovCell);
+                
+                const tideInfoCell = document.createElement('td');
+                tideInfoCell.textContent = photo.tide_info || '-';
+                row.appendChild(tideInfoCell);
+                
+                const problemTypeCell = document.createElement('td');
+                problemTypeCell.textContent = photo.problem_type || '-';
+                row.appendChild(problemTypeCell);
+                
+                const actionCell = document.createElement('td');
+                const actionButtons = document.createElement('div');
+                actionButtons.className = 'action-buttons';
+                
+                const editButton = document.createElement('button');
+                editButton.className = 'btn btn-primary';
+                editButton.textContent = '编辑';
+                editButton.addEventListener('click', () => editPhoto(photo.filename));
+                actionButtons.appendChild(editButton);
+                
+                const deleteButton = document.createElement('button');
+                deleteButton.className = 'btn btn-danger';
+                deleteButton.textContent = '删除';
+                deleteButton.addEventListener('click', () => deletePhoto(photo.filename));
+                actionButtons.appendChild(deleteButton);
+                
+                actionCell.appendChild(actionButtons);
+                row.appendChild(actionCell);
+                tableBody.appendChild(row);
+            });
+            
+            updatePagination(photos.length);
+        }
+        
+        function updatePagination(totalItems) {
+            const totalPages = Math.ceil(totalItems / pageSize);
+            document.getElementById('pageInfo').textContent = `第 ${currentPage} 页 / 共 ${totalPages} 页`;
+            document.getElementById('prevBtn').disabled = currentPage === 1;
+            document.getElementById('nextBtn').disabled = currentPage >= totalPages;
+        }
+        
+        function prevPage() {
+            if (currentPage > 1) {
+                searchPhotos();
+            }
+        }
+        
+        function nextPage() {
+            const totalPages = Math.ceil(allPhotos.length / pageSize);
+            if (currentPage < totalPages) {
+                currentPage++;
+                searchPhotos();
+            }
+        }
+        
+        function toggleSelectAll() {
+            const checkboxes = document.querySelectorAll('.photo-checkbox');
+            const selectAll = document.getElementById('selectAllCheckbox');
+            checkboxes.forEach(cb => cb.checked = selectAll.checked);
+        }
+        
+        function searchPhotos() {
+            const searchTerm = document.getElementById('photoSearchInput').value.toLowerCase();
+            const deviceType = document.getElementById('deviceTypeFilter').value;
+            const startDate = document.getElementById('dateRangeStart').value;
+            const endDate = document.getElementById('dateRangeEnd').value;
+            
+            let filtered = [...allPhotos];
+            
+            if (searchTerm) {
+                filtered = filtered.filter(p => 
+                    (p.filename && p.filename.toLowerCase().includes(searchTerm)) ||
+                    (p.username && p.username.toLowerCase().includes(searchTerm)) ||
+                    (p.uploader && p.uploader.toLowerCase().includes(searchTerm))
+                );
+            }
+            
+            if (deviceType) {
+                filtered = filtered.filter(p => p.device_type === deviceType);
+            }
+            
+            if (startDate) {
+                filtered = filtered.filter(p => {
+                    const uploadTime = p.upload_time || p.datetime;
+                    return uploadTime && uploadTime >= startDate;
+                });
+            }
+            
+            if (endDate) {
+                filtered = filtered.filter(p => {
+                    const uploadTime = p.upload_time || p.datetime;
+                    return uploadTime && uploadTime <= endDate;
+                });
+            }
+            
+            currentPage = 1;
+            renderPhotos(filtered, 1);
+        }
+        
+        function resetFilters() {
+            document.getElementById('photoSearchInput').value = '';
+            document.getElementById('deviceTypeFilter').value = '';
+            document.getElementById('dateRangeStart').value = '';
+            document.getElementById('dateRangeEnd').value = '';
+            document.getElementById('selectAllCheckbox').checked = false;
+            searchPhotos();
+        }
+        
+        function batchUpdateModal() {
+            const selected = getSelectedPhotos();
+            document.getElementById('selectedCount').textContent = selected.length;
+            
+            if (selected.length === 0) {
+                showMessage('请先选择要更新的照片', 'error');
+                return;
+            }
+            
+            document.getElementById('batchUpdateModal').style.display = 'block';
+        }
+        
+        function getSelectedPhotos() {
+            const checkboxes = document.querySelectorAll('.photo-checkbox:checked');
+            return Array.from(checkboxes).map(cb => cb.value);
+        }
+        
+        async function submitBatchUpdate() {
+            const field = document.getElementById('batchField').value;
+            let value = '';
+            
+            if (field === 'device_type') {
+                value = document.getElementById('batchDeviceType').value;
+            } else {
+                value = document.getElementById('batchTextValue').value;
+            }
+            
+            if (!value) {
+                showMessage('请输入新值', 'error');
+                return;
+            }
+            
+            const selected = getSelectedPhotos();
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/photos/batch-update`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        filenames: selected,
+                        field: field,
+                        value: value
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('批量更新失败');
+                }
+                
+                const result = await response.json();
+                showMessage(`成功更新 ${result.updated} 条记录`, 'success');
+                closeModal('batchUpdateModal');
+                document.getElementById('selectAllCheckbox').checked = false;
+                loadPhotos();
+            } catch (error) {
+                console.error('Batch update error:', error);
+                showMessage('批量更新失败: ' + error.message, 'error');
+            }
+        }
+        
+        async function exportPhotos() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/export/photos/csv`);
+                if (!response.ok) {
+                    throw new Error('导出失败');
+                }
+                const blob = await response.blob();
+                downloadBlob(blob, 'photos.csv');
+                showMessage('照片列表导出成功', 'success');
+            } catch (error) {
+                console.error('Export photos error:', error);
+                showMessage('导出失败: ' + error.message, 'error');
+            }
+        }
+        
+        async function exportPointsGeoJSON() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/export/photos/points`);
+                if (!response.ok) {
+                    throw new Error('导出失败');
+                }
+                const blob = await response.blob();
+                downloadBlob(blob, 'photos_points.geojson');
+                showMessage('点GeoJSON导出成功', 'success');
+            } catch (error) {
+                console.error('Export points error:', error);
+                showMessage('导出失败: ' + error.message, 'error');
+            }
+        }
+        
+        async function exportFootprintsGeoJSON() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/export/photos/footprints`);
+                if (!response.ok) {
+                    throw new Error('导出失败');
+                }
+                const blob = await response.blob();
+                downloadBlob(blob, 'photos_footprints.geojson');
+                showMessage('视域面GeoJSON导出成功', 'success');
+            } catch (error) {
+                console.error('Export footprints error:', error);
+                showMessage('导出失败: ' + error.message, 'error');
+            }
+        }
+        
+        async function exportAllData() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/export/all`);
+                if (!response.ok) {
+                    throw new Error('导出失败');
+                }
+                const blob = await response.blob();
+                downloadBlob(blob, 'all_data.zip');
+                showMessage('全部数据导出成功', 'success');
+            } catch (error) {
+                console.error('Export all error:', error);
+                showMessage('导出失败: ' + error.message, 'error');
+            }
+        }
+        
+        function downloadBlob(blob, filename) {
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
         }
         
         function previewPhoto(filename) {
