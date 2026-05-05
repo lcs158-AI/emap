@@ -5,8 +5,19 @@ let filteredCompass = null;
 let filteredPitch = null;
 let rawAlpha = 0;
 const SMOOTHING_FACTOR = 0.2;
-const H_FOV = 78;
-const V_FOV = 43;
+
+// 摄像头传感器原始视场角（横屏模式，长边为水平）
+// 以iPhone 14 Pro为例，后置摄像头：水平约78°，垂直约43°
+const SENSOR_H_FOV = 78;
+const SENSOR_V_FOV = 43;
+
+// 当前屏幕方向
+let isPortrait = false;
+
+// 方位角归零修正功能
+let isZeroed = false;           // 是否已归零
+let zeroAlpha = 0;              // 归零时的原始alpha值
+let lastRelativeAngle = 0;      // 归零后的相对角度
 
 // 当前GPS位置
 let currentLat = 0;
@@ -37,9 +48,121 @@ let capturedParamsEl = null;
 // 传感器监听
 let orientationHandler = null;
 
+// 指南针弹窗相关
+let compassModal = null;
+let compassNeedle = null;
+let compassDirection = null;
+let compassCardinal = null;
+
 // ======================== 辅助函数 ========================
 Math.radians = (deg) => deg * Math.PI / 180;
 Math.degrees = (rad) => rad * 180 / Math.PI;
+
+function getCurrentFOV() {
+    if (isPortrait) {
+        return { h_fov: SENSOR_V_FOV, v_fov: SENSOR_H_FOV };
+    } else {
+        return { h_fov: SENSOR_H_FOV, v_fov: SENSOR_V_FOV };
+    }
+}
+
+function updateScreenOrientation() {
+    if (typeof window.orientation !== 'undefined') {
+        isPortrait = Math.abs(window.orientation) === 90;
+    } else if (window.matchMedia) {
+        isPortrait = window.matchMedia('(orientation: portrait)').matches;
+    } else {
+        isPortrait = window.innerHeight > window.innerWidth;
+    }
+    console.log(`屏幕方向更新: ${isPortrait ? '竖屏' : '横屏'}, 视场角: ${getCurrentFOV().h_fov}°(水平) × ${getCurrentFOV().v_fov}°(垂直)`);
+}
+
+// ======================== 方位角归零修正功能 ========================
+function zeroAzimuth() {
+    // 记录当前原始alpha值作为归零基准
+    zeroAlpha = rawAlpha;
+    lastRelativeAngle = 0;
+    isZeroed = true;
+    filteredCompass = 0;
+    console.log(`方位角已归零！归零时原始alpha: ${zeroAlpha}°`);
+    alert('✅ 方位角已归零！\n\n现在请保持手机水平，旋转手机来调整拍摄方向。\n归零后将使用相对旋转角度计算方位角。');
+    
+    // 更新UI显示归零状态
+    updateZeroIndicator(true);
+}
+
+function resetZero() {
+    isZeroed = false;
+    zeroAlpha = 0;
+    lastRelativeAngle = 0;
+    console.log('方位角归零已取消，恢复使用原始传感器数据');
+    alert('已取消归零，恢复使用原始传感器方位角');
+    
+    // 更新UI显示归零状态
+    updateZeroIndicator(false);
+}
+
+function updateZeroIndicator(isActive) {
+    const zeroBtn = document.getElementById('zeroAzimuthBtn');
+    if (zeroBtn) {
+        zeroBtn.textContent = isActive ? '🔄 取消归零' : '🎯 归零正北';
+        zeroBtn.style.background = isActive ? '#ff6b6b' : '#10b981';
+    }
+}
+
+// ======================== 指南针弹窗功能 ========================
+function showCompass() {
+    if (compassModal) {
+        compassModal.style.display = 'flex';
+        // 初始化刻度
+        initCompassTicks();
+    }
+}
+
+function hideCompass() {
+    if (compassModal) {
+        compassModal.style.display = 'none';
+    }
+}
+
+function initCompassTicks() {
+    const ticksContainer = document.getElementById('compassTicks');
+    if (!ticksContainer) return;
+    
+    ticksContainer.innerHTML = '';
+    for (let i = 0; i < 36; i++) {
+        const angle = i * 10;
+        const isMajor = i % 3 === 0;
+        const tick = document.createElement('div');
+        tick.style.position = 'absolute';
+        tick.style.width = isMajor ? '2px' : '1px';
+        tick.style.height = isMajor ? '12px' : '6px';
+        tick.style.background = '#fff';
+        tick.style.top = '8px';
+        tick.style.left = '50%';
+        tick.style.transformOrigin = '50% 92px';
+        tick.style.transform = `translateX(-50%) rotate(${angle}deg)`;
+        ticksContainer.appendChild(tick);
+    }
+}
+
+function updateCompass(angle) {
+    if (compassNeedle) {
+        compassNeedle.style.transform = `translate(-50%, -100%) rotate(${-angle}deg)`;
+    }
+    if (compassDirection) {
+        compassDirection.textContent = angle.toFixed(1) + '°';
+    }
+    if (compassCardinal) {
+        compassCardinal.textContent = getCardinalDirection(angle);
+    }
+}
+
+function getCardinalDirection(angle) {
+    const directions = ['北', '东北', '东', '东南', '南', '西南', '西', '西北'];
+    const index = Math.round(angle / 45) % 8;
+    return directions[index];
+}
 
 // ======================== 传感器监听 ========================
 function startOrientationListener() {
@@ -47,19 +170,34 @@ function startOrientationListener() {
     orientationHandler = (event) => {
         if (event.alpha === null || event.beta === null) return;
 
-        // 获取原始方位角（手机顶部指向）
-        let rawAlpha = event.alpha;
+        // 保存原始alpha值（用于归零功能）
+        rawAlpha = event.alpha;
         let rawBeta = event.beta;
 
         // ========== 关键修正：转换为后置摄像头方向 ==========
         // 后置摄像头指向与屏幕正面法线相反，因此方位角 = (alpha + 180) % 360
         let cameraAlpha = (rawAlpha + 180) % 360;
 
-        // 平滑处理（使用修正后的角度）
-        if (filteredCompass === null) {
-            filteredCompass = cameraAlpha;
+        // ========== 归零修正逻辑 ==========
+        let currentAngle;
+        if (isZeroed) {
+            // 已归零：计算相对旋转角度
+            let delta = cameraAlpha - zeroAlpha;
+            if (delta > 180) delta -= 360;
+            if (delta < -180) delta += 360;
+            lastRelativeAngle = (lastRelativeAngle + delta + 360) % 360;
+            currentAngle = lastRelativeAngle;
+            zeroAlpha = cameraAlpha; // 更新基准值
         } else {
-            let delta = cameraAlpha - filteredCompass;
+            // 未归零：使用原始传感器数据
+            currentAngle = cameraAlpha;
+        }
+
+        // 平滑处理
+        if (filteredCompass === null) {
+            filteredCompass = currentAngle;
+        } else {
+            let delta = currentAngle - filteredCompass;
             if (delta > 180) delta -= 360;
             if (delta < -180) delta += 360;
             filteredCompass = (filteredCompass + SMOOTHING_FACTOR * delta + 360) % 360;
@@ -76,6 +214,9 @@ function startOrientationListener() {
         // 更新 UI（明确标注为“镜头方向”）
         if (compassSpan) compassSpan.innerText = filteredCompass.toFixed(1) + "° (镜头)";
         if (pitchSpan) pitchSpan.innerText = filteredPitch.toFixed(1) + "°";
+
+        // 更新指南针显示
+        updateCompass(filteredCompass);
 
         updatePreviewDisplay();
     };
@@ -193,8 +334,10 @@ function updatePreviewDisplay() {
         }
     }
     
-    const halfWidth = distance * Math.tan(Math.radians(H_FOV/2));
-    const halfHeight = distance * Math.tan(Math.radians(V_FOV/2));
+    // 使用当前屏幕方向对应的视场角
+    const { h_fov, v_fov } = getCurrentFOV();
+    const halfWidth = distance * Math.tan(Math.radians(h_fov/2));
+    const halfHeight = distance * Math.tan(Math.radians(v_fov/2));
     if (footprintSizeSpan) footprintSizeSpan.innerText = `${(halfWidth*2).toFixed(1)}m × ${(halfHeight*2).toFixed(1)}m`;
     
     // 不再更新地图预览（用户要求拍照后不显示视域范围）
@@ -232,6 +375,9 @@ function capturePhoto() {
     }
     ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
     
+    // 获取当前屏幕方向对应的视场角
+    const { h_fov, v_fov } = getCurrentFOV();
+    
     // 保存照片和参数
     capturedPhoto = canvas.toDataURL('image/jpeg', 0.9);
     console.log('拍照成功，照片数据长度:', capturedPhoto.length);
@@ -241,8 +387,8 @@ function capturePhoto() {
         azimuth: azimuth,
         pitch: pitch,
         relativeHeight: relativeHeight,
-        h_fov: H_FOV,
-        v_fov: V_FOV
+        h_fov: h_fov,
+        v_fov: v_fov
     };
     
     // 显示照片预览
@@ -490,6 +636,15 @@ function initCameraFootprint() {
     
     // 不再创建视域预览图层（用户要求拍照后不显示视域范围）
     
+    // 初始化屏幕方向
+    updateScreenOrientation();
+    
+    // 添加屏幕方向变化监听
+    window.addEventListener('orientationchange', updateScreenOrientation);
+    if (window.matchMedia) {
+        window.matchMedia('(orientation: portrait)').addListener(updateScreenOrientation);
+    }
+    
     if (startCameraBtn) {
         startCameraBtn.addEventListener('click', startCamera);
     }
@@ -502,6 +657,55 @@ function initCameraFootprint() {
     if (calibrateBtn) {
         calibrateBtn.addEventListener('click', startCalibrationGuide);
     }
+    
+    // 方位角归零按钮
+    const zeroBtn = document.getElementById('zeroAzimuthBtn');
+    if (zeroBtn) {
+        zeroBtn.addEventListener('click', () => {
+            if (isZeroed) {
+                resetZero();
+            } else {
+                zeroAzimuth();
+            }
+        });
+    }
+    
+    // 指南针弹窗相关初始化
+    compassModal = document.getElementById('compassModal');
+    compassNeedle = document.getElementById('compassNeedle');
+    compassDirection = document.getElementById('compassDirection');
+    compassCardinal = document.getElementById('compassCardinal');
+    
+    // 打开指南针按钮
+    const showCompassBtn = document.getElementById('showCompassBtn');
+    if (showCompassBtn) {
+        showCompassBtn.addEventListener('click', showCompass);
+    }
+    
+    // 关闭指南针按钮
+    const closeCompassBtn = document.getElementById('closeCompassBtn');
+    if (closeCompassBtn) {
+        closeCompassBtn.addEventListener('click', hideCompass);
+    }
+    
+    // 指南针中归零按钮
+    const zeroInCompassBtn = document.getElementById('zeroInCompassBtn');
+    if (zeroInCompassBtn) {
+        zeroInCompassBtn.addEventListener('click', () => {
+            zeroAzimuth();
+            hideCompass();
+        });
+    }
+    
+    // 点击遮罩层关闭指南针
+    if (compassModal) {
+        compassModal.addEventListener('click', (e) => {
+            if (e.target === compassModal) {
+                hideCompass();
+            }
+        });
+    }
+    
     if (flatModeCheck) {
         flatModeCheck.addEventListener('change', () => {
             if (flatModeCheck.checked) {
