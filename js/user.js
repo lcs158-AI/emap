@@ -458,33 +458,13 @@ function initLogin() {
 // 注册
 function initRegister() {
     document.getElementById('sidebarRegisterBtn').addEventListener('click', async () => {
-        const registerFields = document.getElementById('registerFields');
-        const isRegisterMode = registerFields.style.display === 'block';
-        
-        if (!isRegisterMode) {
-            // 切换到注册模式，显示注册专用字段
-            registerFields.style.display = 'block';
-            document.getElementById('sidebarRegisterBtn').textContent = '提交注册';
-            return;
-        }
-        
-        // 提交注册
         const username = document.getElementById('sidebarUsernameInput').value;
         const password = document.getElementById('sidebarPasswordInput').value;
-        const realName = document.getElementById('sidebarRealNameInput').value;
-        const workUnit = document.getElementById('sidebarWorkUnitInput').value;
-        const phone = document.getElementById('sidebarPhoneInput').value;
         const msgEl = document.getElementById('sidebarAuthMsg');
         
-        if (!username || !password || !realName || !workUnit || !phone) { 
-            msgEl.innerText = '请填写所有字段'; 
+        if (!username || !password) { 
+            msgEl.innerText = '请填写用户名和密码'; 
             return;
-        }
-        
-        // 注册成功后，切换回登录模式
-        function resetRegisterForm() {
-            registerFields.style.display = 'none';
-            document.getElementById('sidebarRegisterBtn').textContent = '注册';
         }
 
         try {
@@ -493,18 +473,13 @@ function initRegister() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     username, 
-                    password, 
-                    real_name: realName, 
-                    work_unit: workUnit, 
-                    phone 
+                    password 
                 })
             });
             const data = await res.json();
             if (res.ok) {
                 msgEl.style.color = 'green';
                 msgEl.innerText = '注册成功，等待管理员审核';
-                // 注册成功后，切换回登录模式
-                resetRegisterForm();
             } else {
                 msgEl.style.color = 'red';
                 msgEl.innerText = data.detail || '注册失败';
