@@ -534,8 +534,7 @@
                 <div class="form-group">
                     <label for="editPhotoDeviceType">设备类型</label>
                     <select id="editPhotoDeviceType">
-                        <option value="phone">手机</option>
-                        <option value="drone">无人机</option>
+                        <option value="">请选择</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -544,7 +543,9 @@
                 </div>
                 <div class="form-group">
                     <label for="editPhotoProblemType">问题类型</label>
-                    <input type="text" id="editPhotoProblemType">
+                    <select id="editPhotoProblemType">
+                        <option value="">请选择</option>
+                    </select>
                 </div>
                 <button type="button" class="btn btn-primary" onclick="submitEditPhoto()">保存</button>
                 <button type="button" class="btn btn-danger" onclick="closeModal('editPhotoModal')">取消</button>
@@ -773,7 +774,8 @@
                     filename: feature.properties?.filename || ''
                 }));
                 
-                renderPhotos(allPhotos, 1);
+                filteredPhotos = [...allPhotos];
+                renderPhotos(filteredPhotos, 1);
             } catch (error) {
                 console.error('Error loading photos:', error);
                 showMessage('加载照片数据失败: ' + error.message, 'error');
@@ -897,17 +899,20 @@
             document.getElementById('nextBtn').disabled = currentPage >= totalPages;
         }
         
+        let filteredPhotos = [];
+        
         function prevPage() {
             if (currentPage > 1) {
-                searchPhotos();
+                currentPage--;
+                renderPhotos(filteredPhotos, currentPage);
             }
         }
         
         function nextPage() {
-            const totalPages = Math.ceil(allPhotos.length / pageSize);
+            const totalPages = Math.ceil(filteredPhotos.length / pageSize);
             if (currentPage < totalPages) {
                 currentPage++;
-                searchPhotos();
+                renderPhotos(filteredPhotos, currentPage);
             }
         }
         
@@ -923,10 +928,10 @@
             const startDate = document.getElementById('dateRangeStart').value;
             const endDate = document.getElementById('dateRangeEnd').value;
             
-            let filtered = [...allPhotos];
+            filteredPhotos = [...allPhotos];
             
             if (searchTerm) {
-                filtered = filtered.filter(p => 
+                filteredPhotos = filteredPhotos.filter(p => 
                     (p.filename && p.filename.toLowerCase().includes(searchTerm)) ||
                     (p.username && p.username.toLowerCase().includes(searchTerm)) ||
                     (p.uploader && p.uploader.toLowerCase().includes(searchTerm))
@@ -934,25 +939,25 @@
             }
             
             if (deviceType) {
-                filtered = filtered.filter(p => p.device_type === deviceType);
+                filteredPhotos = filteredPhotos.filter(p => p.device_type === deviceType);
             }
             
             if (startDate) {
-                filtered = filtered.filter(p => {
+                filteredPhotos = filteredPhotos.filter(p => {
                     const uploadTime = p.upload_time || p.datetime;
                     return uploadTime && uploadTime >= startDate;
                 });
             }
             
             if (endDate) {
-                filtered = filtered.filter(p => {
+                filteredPhotos = filteredPhotos.filter(p => {
                     const uploadTime = p.upload_time || p.datetime;
                     return uploadTime && uploadTime <= endDate;
                 });
             }
             
             currentPage = 1;
-            renderPhotos(filtered, 1);
+            renderPhotos(filteredPhotos, 1);
         }
         
         function resetFilters() {
@@ -1580,7 +1585,56 @@
             }
         }
         
+        async function loadDeviceTypes() {
+            try {
+                const response = await fetch('device.json');
+                const data = await response.json();
+                const selects = document.querySelectorAll('[id$="DeviceType"]');
+                selects.forEach(select => {
+                    const currentValue = select.value;
+                    select.innerHTML = '<option value="">请选择</option>';
+                    data.devices.forEach(device => {
+                        const option = document.createElement('option');
+                        option.value = device.id;
+                        option.textContent = device.name;
+                        if (option.value === currentValue) {
+                            option.selected = true;
+                        }
+                        select.appendChild(option);
+                    });
+                });
+            } catch (error) {
+                console.error('加载设备类型失败:', error);
+            }
+        }
+
+        async function loadProblemTypes() {
+            try {
+                const response = await fetch('problems.json');
+                const data = await response.json();
+                const selects = document.querySelectorAll('[id$="ProblemType"]');
+                selects.forEach(select => {
+                    const currentValue = select.value;
+                    select.innerHTML = '<option value="">请选择</option>';
+                    data.problems.forEach(problem => {
+                        const option = document.createElement('option');
+                        option.value = problem.id;
+                        option.textContent = problem.name;
+                        if (option.value === currentValue) {
+                            option.selected = true;
+                        }
+                        select.appendChild(option);
+                    });
+                });
+            } catch (error) {
+                console.error('加载问题类型失败:', error);
+            }
+        }
+
         window.addEventListener('DOMContentLoaded', async () => {
+            await loadDeviceTypes();
+            await loadProblemTypes();
+            
             let hasUsers = false;
             let apiError = false;
             

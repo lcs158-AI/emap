@@ -1,0 +1,16 @@
+{
+  "devices": [
+    {
+      "id": "phone",
+      "name": "手机定位照片"
+    },
+    {
+      "id": "drone",
+      "name": "无人机照片"
+    },
+    {
+      "id": "phone-footprint",
+      "name": "系统直拍照片"
+    }
+  ]
+}
