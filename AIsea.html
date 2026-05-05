@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes">
-    <title>跬步地图2.87</title>
+    <title>跬步地图2.88</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.5.2/ol.css">
     <script src="/js/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
@@ -130,6 +130,13 @@
                 <h4 style="margin-top:0;">登录 / 注册</h4>
                 <input type="text" id="sidebarUsernameInput" placeholder="用户名" style="width:100%; padding:8px; margin-bottom:10px; box-sizing:border-box; border:1px solid #ddd; border-radius:4px;">
                 <input type="password" id="sidebarPasswordInput" placeholder="密码" style="width:100%; padding:8px; margin-bottom:10px; box-sizing:border-box; border:1px solid #ddd; border-radius:4px;">
+    
+                <!-- 注册字段（初始隐藏） -->
+                <div id="registerFields" style="display:none; margin-bottom:10px; padding:10px; background:#f5f5f5; border-radius:4px;">
+                    <input type="text" id="sidebarRealNameInput" placeholder="真实姓名" style="width:100%; padding:8px; margin-bottom:10px; box-sizing:border-box; border:1px solid #ddd; border-radius:4px;">
+                    <input type="text" id="sidebarWorkUnitInput" placeholder="工作单位" style="width:100%; padding:8px; margin-bottom:10px; box-sizing:border-box; border:1px solid #ddd; border-radius:4px;">
+                    <input type="text" id="sidebarPhoneInput" placeholder="联系电话" style="width:100%; padding:8px; margin-bottom:10px; box-sizing:border-box; border:1px solid #ddd; border-radius:4px;">
+                </div>
     
                 <div style="display:flex; gap:10px;">
                     <button id="sidebarLoginBtn" style="flex:1; padding:10px; background:#1890ff; color:white; border:none; border-radius:4px; cursor:pointer;">登录</button>

@@ -23,6 +23,7 @@ function updateSidebarUI() {
     } else {
         // 未登录
         authForm.style.display = 'block';
+        cameraPanel.style.display = 'none';
         uploadForm.style.display = 'none';
         userStatus.style.display = 'none';
     }
