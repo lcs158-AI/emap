@@ -3,9 +3,7 @@
 let cameraStream = null;
 let filteredCompass = null;
 let filteredPitch = null;
-let rawMagneticNorth = 0;
-// 广东地区固定磁偏角（西偏约3°，即真北 = 磁北 - 3°）
-const FIXED_DECLINATION = -3.0;
+let rawAlpha = 0;
 const SMOOTHING_FACTOR = 0.2;
 const H_FOV = 78;
 const V_FOV = 43;
@@ -43,52 +41,30 @@ let orientationHandler = null;
 Math.radians = (deg) => deg * Math.PI / 180;
 Math.degrees = (rad) => rad * 180 / Math.PI;
 
-function normalizeAngle(angle) {
-    angle = angle % 360;
-    if (angle < 0) angle += 360;
-    return angle;
-}
-
-function convertTo180Range(angle) {
-    angle = normalizeAngle(angle);
-    if (angle > 180) {
-        angle -= 360;
-    }
-    return angle;
-}
-
-function convertMagneticToTrue(magneticAzimuth) {
-    // 真北 = 磁北 - 磁偏角
-    // FIXED_DECLINATION为负（西偏），所以实际上是磁北 + |磁偏角|
-    return normalizeAngle(magneticAzimuth - FIXED_DECLINATION);
-}
-
 // ======================== 传感器监听 ========================
 function startOrientationListener() {
     if (orientationHandler) window.removeEventListener('deviceorientation', orientationHandler);
     orientationHandler = (event) => {
         if (event.alpha === null || event.beta === null) return;
         
-        let rawAlpha = event.alpha;
-        rawMagneticNorth = rawAlpha;
+        // 获取原始方位角（alpha）和原始俯仰角（beta）
+        rawAlpha = event.alpha;
         let rawBeta = event.beta;
         
-        // 将磁北方位角转换为真北（与无人机偏航角逻辑一致）
-        let instantTrueNorth = convertMagneticToTrue(rawAlpha);
-        
-        // 平滑方位角（使用真北，与无人机gimbal_yaw一致）
+        // 直接使用原始方位角，不做任何修正
+        // alpha值：0°指向磁北，顺时针旋转增加，范围 0°~360°
         if (filteredCompass === null) {
-            filteredCompass = instantTrueNorth;
+            filteredCompass = rawAlpha;
         } else {
-            let delta = instantTrueNorth - filteredCompass;
+            let delta = rawAlpha - filteredCompass;
             if (delta > 180) delta -= 360;
             if (delta < -180) delta += 360;
-            filteredCompass = normalizeAngle(filteredCompass + SMOOTHING_FACTOR * delta);
+            filteredCompass = (filteredCompass + SMOOTHING_FACTOR * delta + 360) % 360;
         }
         
         // 平滑俯仰角 - 转换为无人机格式（向下为负，与水平方向夹角）
-        // 原始 beta 值：视线与垂直方向夹角，向上为正
-        // 无人机格式：视线与水平方向夹角，向下为负
+        // 原始 beta 值：视线与垂直方向夹角，向上为正，范围 -180°~180°
+        // 无人机格式：视线与水平方向夹角，向下为负，范围 -90°~90°
         // 转换公式：转换后俯仰角 = 原始俯仰角 - 90（结果为负表示向下，正表示向上）
         let adjustedPitch = rawBeta - 90;
         
@@ -99,12 +75,8 @@ function startOrientationListener() {
             filteredPitch += SMOOTHING_FACTOR * (adjustedPitch - filteredPitch);
         }
         
-        // 将方位角转换为 -180° ~ +180° 范围（与无人机gimbal_yaw一致）
-        filteredCompass = convertTo180Range(filteredCompass);
-        
-        // 更新UI（显示为 0~360 范围以便用户理解）
-        const displayCompass = filteredCompass < 0 ? filteredCompass + 360 : filteredCompass;
-        if (compassSpan) compassSpan.innerText = displayCompass.toFixed(1) + "°";
+        // 更新UI（直接显示原始方位角，范围 0°~360°）
+        if (compassSpan) compassSpan.innerText = filteredCompass.toFixed(1) + "°";
         if (pitchSpan) pitchSpan.innerText = filteredPitch.toFixed(1) + "°";
         
         // 更新预览显示（如果需要）
@@ -285,12 +257,11 @@ function capturePhoto() {
     // 显示参数信息
     if (capturedParamsEl) {
         const displayPitch = pitch !== null ? pitch.toFixed(1) : '?';
-        // 显示时转换为 0~360 范围，保存和上传使用 -180~180 范围
-        const displayAzimuth = azimuth !== null ? (azimuth < 0 ? azimuth + 360 : azimuth).toFixed(1) : '?';
+        const displayAzimuth = azimuth !== null ? azimuth.toFixed(1) : '?';
         capturedParamsEl.innerHTML = `
             <div style="font-size:12px; color:#666; margin-bottom:8px;">📊 拍照参数</div>
             <div style="font-size:12px; margin-bottom:3px;"><strong>位置:</strong> ${currentLat.toFixed(5)}, ${currentLon.toFixed(5)}</div>
-            <div style="font-size:12px; margin-bottom:3px;"><strong>方位角:</strong> ${displayAzimuth}°</div>
+            <div style="font-size:12px; margin-bottom:3px;"><strong>方位角(alpha):</strong> ${displayAzimuth}°</div>
             <div style="font-size:12px; margin-bottom:3px;"><strong>俯仰角:</strong> ${displayPitch}°</div>
             <div style="font-size:12px; margin-bottom:3px;"><strong>相对高度:</strong> ${relativeHeight}m</div>
             <div style="font-size:12px; margin-bottom:3px;"><strong>水平视场角:</strong> ${H_FOV}°</div>
