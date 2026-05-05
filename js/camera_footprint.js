@@ -46,40 +46,37 @@ function startOrientationListener() {
     if (orientationHandler) window.removeEventListener('deviceorientation', orientationHandler);
     orientationHandler = (event) => {
         if (event.alpha === null || event.beta === null) return;
-        
-        // 获取原始方位角（alpha）和原始俯仰角（beta）
-        rawAlpha = event.alpha;
+
+        // 获取原始方位角（手机顶部指向）
+        let rawAlpha = event.alpha;
         let rawBeta = event.beta;
-        
-        // 直接使用原始方位角，不做任何修正
-        // alpha值：0°指向磁北，顺时针旋转增加，范围 0°~360°
+
+        // ========== 关键修正：转换为后置摄像头方向 ==========
+        // 后置摄像头指向与屏幕正面法线相反，因此方位角 = (alpha + 180) % 360
+        let cameraAlpha = (rawAlpha + 180) % 360;
+
+        // 平滑处理（使用修正后的角度）
         if (filteredCompass === null) {
-            filteredCompass = rawAlpha;
+            filteredCompass = cameraAlpha;
         } else {
-            let delta = rawAlpha - filteredCompass;
+            let delta = cameraAlpha - filteredCompass;
             if (delta > 180) delta -= 360;
             if (delta < -180) delta += 360;
             filteredCompass = (filteredCompass + SMOOTHING_FACTOR * delta + 360) % 360;
         }
-        
-        // 平滑俯仰角 - 转换为无人机格式（向下为负，与水平方向夹角）
-        // 原始 beta 值：视线与垂直方向夹角，向上为正，范围 -180°~180°
-        // 无人机格式：视线与水平方向夹角，向下为负，范围 -90°~90°
-        // 转换公式：转换后俯仰角 = 原始俯仰角 - 90（结果为负表示向下，正表示向上）
+
+        // 俯仰角处理保持不变
         let adjustedPitch = rawBeta - 90;
-        
-        // 初始化时使用当前值，确保有初始值
         if (filteredPitch === null || isNaN(filteredPitch)) {
             filteredPitch = adjustedPitch;
         } else {
             filteredPitch += SMOOTHING_FACTOR * (adjustedPitch - filteredPitch);
         }
-        
-        // 更新UI（直接显示原始方位角，范围 0°~360°）
-        if (compassSpan) compassSpan.innerText = filteredCompass.toFixed(1) + "°";
+
+        // 更新 UI（明确标注为“镜头方向”）
+        if (compassSpan) compassSpan.innerText = filteredCompass.toFixed(1) + "° (镜头)";
         if (pitchSpan) pitchSpan.innerText = filteredPitch.toFixed(1) + "°";
-        
-        // 更新预览显示（如果需要）
+
         updatePreviewDisplay();
     };
     window.addEventListener('deviceorientation', orientationHandler);
