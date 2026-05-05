@@ -59,11 +59,9 @@ Math.radians = (deg) => deg * Math.PI / 180;
 Math.degrees = (rad) => rad * 180 / Math.PI;
 
 function getCurrentFOV() {
-    if (isPortrait) {
-        return { h_fov: SENSOR_V_FOV, v_fov: SENSOR_H_FOV };
-    } else {
-        return { h_fov: SENSOR_H_FOV, v_fov: SENSOR_V_FOV };
-    }
+    // 强制使用竖屏拍摄模式的视场角
+    // 竖屏时：水平方向是传感器短边（43°），垂直方向是传感器长边（78°）
+    return { h_fov: SENSOR_V_FOV, v_fov: SENSOR_H_FOV };
 }
 
 function updateScreenOrientation() {
