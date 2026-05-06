@@ -241,32 +241,76 @@ function startCalibrationGuide() {
 
 // ======================== 摄像头启动 ========================
 async function startCamera() {
+    console.log('📷 startCamera 被调用');
+    
     try {
+        // 检查DOM元素是否存在
+        if (!videoEl) {
+            console.error('❌ videoEl 未找到');
+            alert('错误：摄像头预览元素未找到');
+            return;
+        }
+        if (!startCameraBtn) {
+            console.error('❌ startCameraBtn 未找到');
+            alert('错误：启动按钮未找到');
+            return;
+        }
+        if (!captureBtn) {
+            console.error('❌ captureBtn 未找到');
+            alert('错误：拍照按钮未找到');
+            return;
+        }
+        
+        console.log('✅ DOM元素检查通过');
+        
         if (cameraStream) {
             cameraStream.getTracks().forEach(track => track.stop());
+            console.log('🔄 停止现有摄像头流');
         }
+        
+        console.log('📡 请求摄像头权限...');
         const constraints = { video: { facingMode: { exact: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } } };
-        cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+        
+        try {
+            cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+            console.log('✅ 摄像头权限获取成功');
+        } catch (cameraErr) {
+            console.error('❌ 摄像头权限获取失败:', cameraErr);
+            
+            // 尝试不指定 exact 模式
+            console.log('🔄 尝试不指定 exact 模式...');
+            const fallbackConstraints = { video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } } };
+            cameraStream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
+            console.log('✅ 摄像头权限获取成功（降级模式）');
+        }
+        
         videoEl.srcObject = cameraStream;
         videoEl.style.display = 'block';
         startCameraBtn.style.display = 'none';
         captureBtn.style.display = 'block';
         photoUploadBtn.style.display = 'none';
         
+        console.log('📺 摄像头预览已显示');
+        
         // 请求传感器权限
         if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
             try {
+                console.log('📡 请求传感器权限...');
                 const permissionState = await DeviceOrientationEvent.requestPermission();
                 if (permissionState === 'granted') {
+                    console.log('✅ 传感器权限获取成功');
                     startOrientationListener();
                     document.getElementById('sensorData').style.display = 'block';
                     document.getElementById('footprintSettings').style.display = 'block';
                     calibrateBtn.style.display = 'block';
+                } else {
+                    console.warn('⚠️ 传感器权限被拒绝');
                 }
             } catch (err) {
-                console.warn('传感器权限请求失败:', err);
+                console.warn('⚠️ 传感器权限请求失败:', err);
             }
         } else {
+            console.log('📡 自动获取传感器权限');
             startOrientationListener();
             document.getElementById('sensorData').style.display = 'block';
             document.getElementById('footprintSettings').style.display = 'block';
@@ -275,9 +319,11 @@ async function startCamera() {
         
         // 获取GPS位置（立即获取）
         getRealTimeLocation();
+        console.log('📍 GPS位置获取已启动');
+        
     } catch (err) {
-        console.error('摄像头启动失败:', err);
-        alert('摄像头启动失败，请检查权限设置');
+        console.error('❌ 摄像头启动失败:', err);
+        alert('摄像头启动失败: ' + err.message);
     }
 }
 
