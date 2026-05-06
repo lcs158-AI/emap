@@ -77,14 +77,13 @@ function updateScreenOrientation() {
 
 // ======================== 方位角归零修正功能 ========================
 function zeroAzimuth() {
-    // 记录当前原始alpha值（转换为摄像头方向后）作为归零基准
-    const cameraAlpha = (rawAlpha + 180) % 360;
-    zeroAlpha = cameraAlpha;
+    // 记录当前原始alpha值作为归零基准（不转换为摄像头方向）
+    zeroAlpha = rawAlpha;
     lastRelativeAngle = 0;
     isZeroed = true;
     filteredCompass = 0;
     
-    console.log(`方位角已归零！归零时原始alpha: ${rawAlpha}°, 摄像头方向: ${cameraAlpha}°`);
+    console.log(`方位角已归零！归零时原始alpha: ${rawAlpha}°`);
     
     // 立即更新所有UI显示
     if (compassSpan) compassSpan.innerText = '0.0° (镜头)';
@@ -180,26 +179,25 @@ function startOrientationListener() {
         rawAlpha = event.alpha;
         let rawBeta = event.beta;
 
-        // ========== 关键修正：转换为后置摄像头方向 ==========
-        // 后置摄像头指向与屏幕正面法线相反，因此方位角 = (alpha + 180) % 360
-        let cameraAlpha = (rawAlpha + 180) % 360;
-
-        // ========== 归零修正逻辑 ==========
+        // ========== 方位角计算 ==========
+        // 直接使用传感器原始alpha值（手机顶部指向）作为方位角
+        // alpha: 0°=磁北，顺时针旋转增加
         let currentAngle;
         if (isZeroed) {
             // 已归零：计算相对旋转角度（不再使用传感器原始方位角）
-            let delta = cameraAlpha - zeroAlpha;
+            let delta = rawAlpha - zeroAlpha;
             if (delta > 180) delta -= 360;
             if (delta < -180) delta += 360;
             lastRelativeAngle = (lastRelativeAngle + delta + 360) % 360;
             currentAngle = lastRelativeAngle;
-            zeroAlpha = cameraAlpha; // 更新基准值
+            zeroAlpha = rawAlpha; // 更新基准值
             
             // 归零后直接使用计算结果，不应用平滑处理
             filteredCompass = currentAngle;
         } else {
-            // 未归零：使用原始传感器数据
-            currentAngle = cameraAlpha;
+            // 未归零：使用原始传感器数据（转换为后置摄像头方向）
+            // 后置摄像头指向与屏幕正面法线相反，因此方位角 = (alpha + 180) % 360
+            currentAngle = (rawAlpha + 180) % 360;
 
             // 未归零时应用平滑处理
             if (filteredCompass === null) {
