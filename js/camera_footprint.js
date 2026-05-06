@@ -6,13 +6,13 @@ let filteredPitch = null;
 let rawAlpha = 0;
 const SMOOTHING_FACTOR = 0.2;
 
-// 摄像头传感器原始视场角（横屏模式，长边为水平）
+// 摄像头传感器原始视场角（竖屏模式，长边为垂直）
 // 以iPhone 14 Pro为例，后置摄像头：水平约78°，垂直约43°
 const SENSOR_H_FOV = 78;
 const SENSOR_V_FOV = 43;
 
-// 当前屏幕方向
-let isPortrait = false;
+// 当前屏幕方向（强制竖屏）
+let isPortrait = true;
 
 // 当前GPS位置
 let currentLat = 0;
@@ -34,46 +34,34 @@ let relativeHeightInput = null;
 let flatModeCheck = null;
 let autoDistanceCheck = null;
 let footprintSizeSpan = null;
-let calibrateBtn = null;
+let northZeroBtn = null;
 let photoPreviewEl = null;
 let capturedParamsEl = null;
 
 // 传感器监听
 let orientationHandler = null;
 
-// 广东地区磁偏角（西偏约3°）
-const FIXED_DECLINATION = -3.0;
+// 正北归零相关变量
+let isNorthZeroed = false;
+let northZeroBaseAngle = 0;
 
 // ======================== 辅助函数 ========================
 Math.radians = (deg) => deg * Math.PI / 180;
 Math.degrees = (rad) => rad * 180 / Math.PI;
 
+// 强制竖屏模式，返回互换后的视场角
 function getCurrentFOV() {
-    if (isPortrait) {
-        return { h_fov: SENSOR_V_FOV, v_fov: SENSOR_H_FOV };
-    } else {
-        return { h_fov: SENSOR_H_FOV, v_fov: SENSOR_V_FOV };
-    }
+    return { h_fov: SENSOR_V_FOV, v_fov: SENSOR_H_FOV };
 }
 
 function updateScreenOrientation() {
-    if (typeof window.orientation !== 'undefined') {
-        isPortrait = Math.abs(window.orientation) === 90;
-    } else if (window.matchMedia) {
-        isPortrait = window.matchMedia('(orientation: portrait)').matches;
-    } else {
-        isPortrait = window.innerHeight > window.innerWidth;
-    }
-    console.log(`屏幕方向更新: ${isPortrait ? '竖屏' : '横屏'}, 视场角: ${getCurrentFOV().h_fov}°(水平) × ${getCurrentFOV().v_fov}°(垂直)`);
+    isPortrait = true;
+    console.log(`屏幕方向: 竖屏(强制), 视场角: ${getCurrentFOV().h_fov}°(水平) × ${getCurrentFOV().v_fov}°(垂直)`);
 }
 
-// 将磁北方位角转换为真北
-function convertMagneticToTrue(magneticAzimuth) {
-    return (magneticAzimuth - FIXED_DECLINATION + 360) % 360;
-}
-
-// 将方位角转换为 -180~180 范围
+// 将角度转换为 -180~180 范围（顺时针为正）
 function convertTo180Range(angle) {
+    angle = angle % 360;
     if (angle > 180) {
         return angle - 360;
     }
@@ -86,11 +74,22 @@ function normalizeAngle(angle) {
     return angle;
 }
 
-// ======================== 8字校准 ========================
-function startCalibrationGuide() {
-    alert('📡 请将手机平放，在空中缓慢画横向"8"字，持续10秒...\n\n校准完成后传感器数据将更准确！');
-    filteredCompass = null;
-    filteredPitch = null;
+// ======================== 正北归零 ========================
+function setNorthZero() {
+    if (rawAlpha === null || rawAlpha === undefined) {
+        alert('⚠️ 无法获取传感器数据，请确保已授予权限');
+        return;
+    }
+    
+    northZeroBaseAngle = rawAlpha;
+    isNorthZeroed = true;
+    filteredCompass = 0;
+    
+    if (compassSpan) {
+        compassSpan.innerText = '0.0°';
+    }
+    
+    alert('✅ 正北已归零！\n\n方位角从当前位置开始计算：\n- 正北 = 0°\n- 正东 = 90°\n- 正南 = 180°\n- 正西 = -90°');
 }
 
 // ======================== 传感器监听启动 ========================
@@ -105,23 +104,34 @@ function startOrientationListener() {
         rawAlpha = event.alpha;
         let rawBeta = event.beta;
         
-        // 将磁北方位角转换为真北（与无人机偏航角一致）
-        let trueAzimuth = convertMagneticToTrue(rawAlpha);
+        // 计算方位角（顺时针为正）
+        let currentAzimuth;
         
-        // 转换为后置摄像头方向
-        let cameraAzimuth = (trueAzimuth + 180) % 360;
-        
-        // 平滑处理
-        if (filteredCompass === null) {
-            filteredCompass = cameraAzimuth;
+        if (isNorthZeroed) {
+            // 正北归零后，计算相对旋转角度
+            let delta = rawAlpha - northZeroBaseAngle;
+            delta = normalizeAngle(delta);
+            
+            // 转换为顺时针为正：正北0，正东90，正南180，正西-90
+            currentAzimuth = convertTo180Range(-delta);
         } else {
-            let delta = cameraAzimuth - filteredCompass;
-            if (delta > 180) delta -= 360;
-            if (delta < -180) delta += 360;
-            filteredCompass = (filteredCompass + SMOOTHING_FACTOR * delta + 360) % 360;
+            // 未归零前，显示原始传感器角度（转换为顺时针为正）
+            currentAzimuth = convertTo180Range(-rawAlpha);
         }
         
-        // 俯仰角处理
+        // 平滑处理方位角
+        if (filteredCompass === null) {
+            filteredCompass = currentAzimuth;
+        } else {
+            let delta = currentAzimuth - filteredCompass;
+            if (delta > 180) delta -= 360;
+            if (delta < -180) delta += 360;
+            filteredCompass = filteredCompass + SMOOTHING_FACTOR * delta;
+            // 保持在 -180~180 范围内
+            filteredCompass = convertTo180Range(filteredCompass);
+        }
+        
+        // 俯仰角处理（竖屏模式）
         let adjustedPitch = rawBeta - 90;
         if (filteredPitch === null || isNaN(filteredPitch)) {
             filteredPitch = adjustedPitch;
@@ -130,7 +140,10 @@ function startOrientationListener() {
         }
         
         // 更新UI
-        if (compassSpan) compassSpan.innerText = filteredCompass.toFixed(1) + "°";
+        if (compassSpan) {
+            const displayAngle = filteredCompass.toFixed(1);
+            compassSpan.innerText = displayAngle + "°";
+        }
         if (pitchSpan) pitchSpan.innerText = filteredPitch.toFixed(1) + "°";
         
         // 更新视场范围
@@ -166,11 +179,25 @@ function updateFootprintPreview() {
 
 // ======================== 摄像头启动 ========================
 async function startCamera() {
+    // 检查是否为竖屏
+    if (window.innerWidth > window.innerHeight) {
+        alert('📱 请将手机转为竖屏模式拍摄！');
+        return;
+    }
+    
     try {
         if (cameraStream) {
             cameraStream.getTracks().forEach(track => track.stop());
         }
-        const constraints = { video: { facingMode: { exact: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } } };
+        
+        const constraints = { 
+            video: { 
+                facingMode: { exact: "environment" }, 
+                width: { ideal: 720 }, 
+                height: { ideal: 1280 },
+                orientation: 'portrait'
+            } 
+        };
         cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
         videoEl.srcObject = cameraStream;
         videoEl.style.display = 'block';
@@ -185,7 +212,7 @@ async function startCamera() {
                     startOrientationListener();
                     document.getElementById('sensorData').style.display = 'block';
                     document.getElementById('footprintSettings').style.display = 'block';
-                    calibrateBtn.style.display = 'block';
+                    northZeroBtn.style.display = 'block';
                 }
             } catch (err) {
                 console.warn('传感器权限请求失败:', err);
@@ -194,7 +221,7 @@ async function startCamera() {
             startOrientationListener();
             document.getElementById('sensorData').style.display = 'block';
             document.getElementById('footprintSettings').style.display = 'block';
-            calibrateBtn.style.display = 'block';
+            northZeroBtn.style.display = 'block';
         }
         
         getRealTimeLocation();
@@ -239,6 +266,11 @@ function capturePhoto() {
         return;
     }
     
+    if (!isNorthZeroed) {
+        alert('⚠️ 请先点击"正北归零"按钮进行方位校准！');
+        return;
+    }
+    
     const azimuth = filteredCompass;
     const pitch = filteredPitch;
     const relativeHeight = parseFloat(relativeHeightInput?.value) || 1.6;
@@ -277,7 +309,7 @@ function capturePhoto() {
         capturedParamsEl.innerHTML = `
             <div style="font-size:12px; color:#666; margin-bottom:8px;">📊 拍照参数</div>
             <div style="font-size:12px; margin-bottom:3px;"><strong>位置:</strong> ${currentLat.toFixed(5)}, ${currentLon.toFixed(5)}</div>
-            <div style="font-size:12px; margin-bottom:3px;"><strong>方位角:</strong> ${displayAzimuth}°</div>
+            <div style="font-size:12px; margin-bottom:3px;"><strong>方位角:</strong> ${displayAzimuth}° (正北=0°, 正东=90°)</div>
             <div style="font-size:12px; margin-bottom:3px;"><strong>俯仰角:</strong> ${displayPitch}°</div>
             <div style="font-size:12px; margin-bottom:3px;"><strong>相对高度:</strong> ${relativeHeight}m</div>
             <div style="font-size:12px; margin-bottom:3px;"><strong>水平视场角:</strong> ${h_fov}°</div>
@@ -358,15 +390,11 @@ function initCameraFootprint() {
     flatModeCheck = document.getElementById('flatModeCheck');
     autoDistanceCheck = document.getElementById('autoDistanceCheck');
     footprintSizeSpan = document.getElementById('footprintSize');
-    calibrateBtn = document.getElementById('calibrateBtn');
+    northZeroBtn = document.getElementById('northZeroBtn');
     photoPreviewEl = document.getElementById('capturedPhotoPreview');
     capturedParamsEl = document.getElementById('capturedParams');
     
     updateScreenOrientation();
-    window.addEventListener('orientationchange', updateScreenOrientation);
-    if (window.matchMedia) {
-        window.matchMedia('(orientation: portrait)').addListener(updateScreenOrientation);
-    }
     
     if (startCameraBtn) {
         startCameraBtn.addEventListener('click', startCamera);
@@ -377,8 +405,8 @@ function initCameraFootprint() {
     if (photoUploadBtn) {
         photoUploadBtn.addEventListener('click', uploadPhoto);
     }
-    if (calibrateBtn) {
-        calibrateBtn.addEventListener('click', startCalibrationGuide);
+    if (northZeroBtn) {
+        northZeroBtn.addEventListener('click', setNorthZero);
     }
 }
 
