@@ -77,13 +77,14 @@ function updateScreenOrientation() {
 
 // ======================== 方位角归零修正功能 ========================
 function zeroAzimuth() {
-    // 记录当前原始alpha值作为归零基准（不转换为摄像头方向）
-    zeroAlpha = rawAlpha;
+    // 记录当前摄像头方向作为归零基准（使用转换后的值）
+    const cameraAlpha = (rawAlpha + 180) % 360;
+    zeroAlpha = cameraAlpha;
     lastRelativeAngle = 0;
     isZeroed = true;
     filteredCompass = 0;
     
-    console.log(`方位角已归零！归零时原始alpha: ${rawAlpha}°`);
+    console.log(`方位角已归零！归零时原始alpha: ${rawAlpha}°, 摄像头方向: ${cameraAlpha}°`);
     
     // 立即更新所有UI显示
     if (compassSpan) compassSpan.innerText = '0.0° (镜头)';
@@ -180,24 +181,25 @@ function startOrientationListener() {
         let rawBeta = event.beta;
 
         // ========== 方位角计算 ==========
-        // 直接使用传感器原始alpha值（手机顶部指向）作为方位角
-        // alpha: 0°=磁北，顺时针旋转增加
+        // alpha: 手机顶部指向，0°=磁北，顺时针旋转增加
+        // 后置摄像头指向与手机顶部相反，因此需要转换：方位角 = (alpha + 180) % 360
+        let cameraAlpha = (rawAlpha + 180) % 360;
+        
         let currentAngle;
         if (isZeroed) {
-            // 已归零：计算相对旋转角度（不再使用传感器原始方位角）
-            let delta = rawAlpha - zeroAlpha;
+            // 已归零：计算相对旋转角度（基于摄像头方向）
+            let delta = cameraAlpha - zeroAlpha;
             if (delta > 180) delta -= 360;
             if (delta < -180) delta += 360;
             lastRelativeAngle = (lastRelativeAngle + delta + 360) % 360;
             currentAngle = lastRelativeAngle;
-            zeroAlpha = rawAlpha; // 更新基准值
+            zeroAlpha = cameraAlpha; // 更新基准值（使用转换后的摄像头方向）
             
             // 归零后直接使用计算结果，不应用平滑处理
             filteredCompass = currentAngle;
         } else {
-            // 未归零：使用原始传感器数据（转换为后置摄像头方向）
-            // 后置摄像头指向与屏幕正面法线相反，因此方位角 = (alpha + 180) % 360
-            currentAngle = (rawAlpha + 180) % 360;
+            // 未归零：使用转换后的摄像头方向
+            currentAngle = cameraAlpha;
 
             // 未归零时应用平滑处理
             if (filteredCompass === null) {
@@ -426,6 +428,11 @@ function capturePhoto() {
     
     // 隐藏摄像头预览
     videoEl.style.display = 'none';
+    
+    // 确保传感器数据和参数区域可见
+    document.getElementById('sensorData')?.style.display = 'block';
+    document.getElementById('footprintSettings')?.style.display = 'block';
+    document.getElementById('capturedPhotoSection')?.style.display = 'block';
 }
 
 // ======================== 上传（仅上传，不拍照） ========================
