@@ -11,9 +11,6 @@ const SMOOTHING_FACTOR = 0.2;
 const SENSOR_H_FOV = 78;
 const SENSOR_V_FOV = 43;
 
-// 当前屏幕方向（强制竖屏）
-let isPortrait = true;
-
 // 当前GPS位置
 let currentLat = 0;
 let currentLon = 0;
@@ -44,19 +41,15 @@ let orientationHandler = null;
 // 正北归零相关变量
 let isNorthZeroed = false;
 let northZeroBaseAngle = 0;
+let sensorReady = false;
 
 // ======================== 辅助函数 ========================
 Math.radians = (deg) => deg * Math.PI / 180;
 Math.degrees = (rad) => rad * 180 / Math.PI;
 
-// 强制竖屏模式，返回互换后的视场角
+// 竖屏模式，返回互换后的视场角
 function getCurrentFOV() {
     return { h_fov: SENSOR_V_FOV, v_fov: SENSOR_H_FOV };
-}
-
-function updateScreenOrientation() {
-    isPortrait = true;
-    console.log(`屏幕方向: 竖屏(强制), 视场角: ${getCurrentFOV().h_fov}°(水平) × ${getCurrentFOV().v_fov}°(垂直)`);
 }
 
 // 将角度转换为 -180~180 范围（顺时针为正）
@@ -64,6 +57,9 @@ function convertTo180Range(angle) {
     angle = angle % 360;
     if (angle > 180) {
         return angle - 360;
+    }
+    if (angle <= -180) {
+        return angle + 360;
     }
     return angle;
 }
@@ -76,8 +72,8 @@ function normalizeAngle(angle) {
 
 // ======================== 正北归零 ========================
 function setNorthZero() {
-    if (rawAlpha === null || rawAlpha === undefined) {
-        alert('⚠️ 无法获取传感器数据，请确保已授予权限');
+    if (!sensorReady) {
+        alert('⚠️ 传感器尚未就绪，请稍后再试');
         return;
     }
     
@@ -98,9 +94,12 @@ function startOrientationListener() {
         window.removeEventListener('deviceorientation', orientationHandler);
     }
     
+    sensorReady = false;
+    
     orientationHandler = (event) => {
         if (event.alpha === null || event.beta === null) return;
         
+        sensorReady = true;
         rawAlpha = event.alpha;
         let rawBeta = event.beta;
         
@@ -113,10 +112,10 @@ function startOrientationListener() {
             delta = normalizeAngle(delta);
             
             // 转换为顺时针为正：正北0，正东90，正南180，正西-90
-            currentAzimuth = convertTo180Range(-delta);
+            currentAzimuth = convertTo180Range(delta);
         } else {
-            // 未归零前，显示原始传感器角度（转换为顺时针为正）
-            currentAzimuth = convertTo180Range(-rawAlpha);
+            // 未归零前，显示原始传感器角度（顺时针为正）
+            currentAzimuth = convertTo180Range(rawAlpha);
         }
         
         // 平滑处理方位角
@@ -141,8 +140,7 @@ function startOrientationListener() {
         
         // 更新UI
         if (compassSpan) {
-            const displayAngle = filteredCompass.toFixed(1);
-            compassSpan.innerText = displayAngle + "°";
+            compassSpan.innerText = filteredCompass.toFixed(1) + "°";
         }
         if (pitchSpan) pitchSpan.innerText = filteredPitch.toFixed(1) + "°";
         
@@ -185,6 +183,11 @@ async function startCamera() {
         return;
     }
     
+    isNorthZeroed = false;
+    northZeroBaseAngle = 0;
+    filteredCompass = null;
+    filteredPitch = null;
+    
     try {
         if (cameraStream) {
             cameraStream.getTracks().forEach(track => track.stop());
@@ -194,8 +197,7 @@ async function startCamera() {
             video: { 
                 facingMode: { exact: "environment" }, 
                 width: { ideal: 720 }, 
-                height: { ideal: 1280 },
-                orientation: 'portrait'
+                height: { ideal: 1280 }
             } 
         };
         cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -212,7 +214,7 @@ async function startCamera() {
                     startOrientationListener();
                     document.getElementById('sensorData').style.display = 'block';
                     document.getElementById('footprintSettings').style.display = 'block';
-                    northZeroBtn.style.display = 'block';
+                    if (northZeroBtn) northZeroBtn.style.display = 'block';
                 }
             } catch (err) {
                 console.warn('传感器权限请求失败:', err);
@@ -221,7 +223,7 @@ async function startCamera() {
             startOrientationListener();
             document.getElementById('sensorData').style.display = 'block';
             document.getElementById('footprintSettings').style.display = 'block';
-            northZeroBtn.style.display = 'block';
+            if (northZeroBtn) northZeroBtn.style.display = 'block';
         }
         
         getRealTimeLocation();
@@ -393,8 +395,6 @@ function initCameraFootprint() {
     northZeroBtn = document.getElementById('northZeroBtn');
     photoPreviewEl = document.getElementById('capturedPhotoPreview');
     capturedParamsEl = document.getElementById('capturedParams');
-    
-    updateScreenOrientation();
     
     if (startCameraBtn) {
         startCameraBtn.addEventListener('click', startCamera);

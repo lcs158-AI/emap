@@ -357,7 +357,6 @@
                             <th>用户名</th>
                             <th>状态</th>
                             <th>角色</th>
-                            <th>创建时间</th>
                             <th>操作</th>
                         </tr>
                     </thead>
@@ -674,10 +673,6 @@
                 const roleCell = document.createElement('td');
                 roleCell.textContent = user.is_admin ? '管理员' : '普通用户';
                 row.appendChild(roleCell);
-                
-                const createTimeCell = document.createElement('td');
-                createTimeCell.textContent = user.create_time || '-';
-                row.appendChild(createTimeCell);
                 
                 const actionCell = document.createElement('td');
                 const actionButtons = document.createElement('div');
@@ -1480,7 +1475,14 @@
                     });
                     
                     if (activateResponse.ok) {
-                        showMessage('管理员账号创建成功，正在登录...', 'success');
+                        const setAdminResponse = await fetch(`${API_BASE_URL}/api/users/${username}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ is_admin: 1 })
+                        });
+                        
+                        if (setAdminResponse.ok) {
+                            showMessage('管理员账号创建成功，正在登录...', 'success');
                         
                         const loginResponse = await fetch(`${API_BASE_URL}/api/login/json`, {
                             method: 'POST',
@@ -1504,10 +1506,10 @@
                             }, 1500);
                         }
                     } else {
-                        showMessage('激活管理员账号失败', 'error');
+                        showMessage('设置管理员权限失败', 'error');
                     }
                 } else {
-                    showMessage(data.detail || '创建管理员账号失败', 'error');
+                    showMessage('激活管理员账号失败', 'error');
                 }
             } catch (error) {
                 console.error('Error creating admin account:', error);
