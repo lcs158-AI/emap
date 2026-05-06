@@ -161,7 +161,6 @@
                 
                 <!-- 传感器数据显示 -->
                 <div id="sensorData" style="margin-top:15px; padding:10px; background:#f5f7fa; border-radius:8px; display:none;">
-                    <div style="font-size:12px; color:#fa8c16; margin-bottom:5px; font-weight:bold;">⚠️ 仅支持竖屏拍摄！</div>
                     <div style="font-size:12px; color:#666; margin-bottom:5px;">📊 实时传感器数据</div>
                     <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:3px;">
                         <span>方位角:</span>
@@ -174,50 +173,6 @@
                     <div style="display:flex; justify-content:space-between; font-size:13px;">
                         <span>相对高度:</span>
                         <span id="heightValue" style="color:#1890ff; font-weight:bold;">--m</span>
-                    </div>
-                    <!-- 方位角归零按钮 -->
-                    <button id="zeroAzimuthBtn" style="width:100%; margin-top:10px; padding:8px; background:#10b981; color:white; border:none; border-radius:4px; cursor:pointer; font-size:12px;">🎯 归零正北</button>
-                    <!-- 打开指南针按钮 -->
-                    <button id="showCompassBtn" style="width:100%; margin-top:5px; padding:8px; background:#3b82f6; color:white; border:none; border-radius:4px; cursor:pointer; font-size:12px;">🧭 打开指南针</button>
-                </div>
-                
-                <!-- 指南针弹窗 -->
-                <div id="compassModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:3000; justify-content:center; align-items:center;">
-                    <div style="background:white; border-radius:16px; padding:20px; width:300px; max-width:90%; box-shadow:0 4px 20px rgba(0,0,0,0.2);">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                            <h3 style="margin:0; font-size:16px;">🧭 指南针</h3>
-                            <button id="closeCompassBtn" style="background:none; border:none; font-size:20px; cursor:pointer; color:#666;">×</button>
-                        </div>
-                        <!-- 指南针表盘 -->
-                        <div id="compassContainer" style="width:200px; height:200px; margin:0 auto; position:relative;">
-                            <div id="compassDial" style="width:100%; height:100%; border-radius:50%; background:linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%); box-shadow:inset 0 2px 10px rgba(0,0,0,0.3); position:relative;">
-                                <!-- 方向标记 -->
-                                <div style="position:absolute; top:5px; left:50%; transform:translateX(-50%); color:white; font-weight:bold; font-size:14px;">N</div>
-                                <div style="position:absolute; bottom:5px; left:50%; transform:translateX(-50%); color:white; font-weight:bold; font-size:14px;">S</div>
-                                <div style="position:absolute; left:5px; top:50%; transform:translateY(-50%); color:white; font-weight:bold; font-size:14px;">W</div>
-                                <div style="position:absolute; right:5px; top:50%; transform:translateY(-50%); color:white; font-weight:bold; font-size:14px;">E</div>
-                                <!-- 刻度 -->
-                                <div id="compassTicks" style="width:100%; height:100%; position:absolute; top:0; left:0;"></div>
-                                <!-- 指针 -->
-                                <div id="compassNeedle" style="position:absolute; top:50%; left:50%; width:4px; height:80px; background:linear-gradient(to bottom, #ef4444 0%, #dc2626 100%); transform-origin:bottom center; transform:translate(-50%, -100%); border-radius:2px;">
-                                    <div style="position:absolute; top:-8px; left:50%; transform:translateX(-50%); width:0; height:0; border-left:8px solid transparent; border-right:8px solid transparent; border-bottom:12px solid #ef4444;"></div>
-                                </div>
-                                <!-- 中心点 -->
-                                <div style="position:absolute; top:50%; left:50%; width:12px; height:12px; background:#fff; border-radius:50%; transform:translate(-50%, -50%); box-shadow:0 1px 3px rgba(0,0,0,0.3);"></div>
-                            </div>
-                        </div>
-                        <!-- 当前方向显示 -->
-                        <div style="text-align:center; margin-top:15px;">
-                            <div style="font-size:24px; font-weight:bold; color:#1890ff;" id="compassDirection">--°</div>
-                            <div style="font-size:12px; color:#666;" id="compassCardinal">---</div>
-                        </div>
-                        <!-- 提示信息 -->
-                        <div style="margin-top:15px; padding:10px; background:#f0f9ff; border-radius:8px;">
-                            <div style="font-size:11px; color:#666; text-align:center;">
-                                💡 将手机平放，旋转至正北方向后点击下方按钮归零
-                            </div>
-                        </div>
-                        <button id="zeroInCompassBtn" style="width:100%; margin-top:10px; padding:10px; background:#10b981; color:white; border:none; border-radius:4px; cursor:pointer; font-size:14px;">🎯 设为正北</button>
                     </div>
                 </div>
                 
