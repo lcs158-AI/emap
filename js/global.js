@@ -352,25 +352,42 @@ function updateTidePanel(allHourly, locationName) {
     let best = null, minDiff = Infinity;
     for (let item of allHourly) {
         const diff = Math.abs(new Date(item.fxTime) - now);
-        if (diff < minDiff) { minDiff = diff; best = item; }
+        if (diff < minDiff) {
+            minDiff = diff;
+            best = item;
+        }
     }
     const height = best ? parseFloat(best.height).toFixed(1) : '--';
     const time = best ? new Date(best.fxTime).toLocaleTimeString('zh-CN', { hour: 'numeric', minute: 'numeric' }) : '';
     document.getElementById('tideLocation').innerHTML = `📍 ${locationName}`;
     document.getElementById('tideCurrent').innerHTML = `${height} 米`;
     document.getElementById('tideTime').innerHTML = `⏱️ ${time}`;
+    document.getElementById('tideDetail').innerHTML = '';
 }
 
 function renderTideChart(tideHourly) {
     const canvas = document.getElementById('tideChart');
-    if (!canvas) return;
+    if (!canvas) {
+        console.error('找不到 tideChart canvas 元素！');
+        return;
+    }
+    
+    if (!tideHourly || tideHourly.length === 0) {
+        console.warn('tideHourly 数据为空，无法绘制图表');
+        return;
+    }
+
     const now = new Date();
     let currentIndex = -1, minDiff = Infinity;
     for (let i = 0; i < tideHourly.length; i++) {
         const diff = Math.abs(new Date(tideHourly[i].fxTime) - now);
-        if (diff < minDiff) { minDiff = diff; currentIndex = i; }
+        if (diff < minDiff) {
+            minDiff = diff;
+            currentIndex = i;
+        }
     }
     if (currentIndex === -1) currentIndex = Math.floor(tideHourly.length / 2);
+    
     const start = Math.max(0, currentIndex - 6);
     const end = Math.min(tideHourly.length, currentIndex + 7);
     const sliced = tideHourly.slice(start, end);
@@ -378,7 +395,9 @@ function renderTideChart(tideHourly) {
     const values = sliced.map(item => parseFloat(item.height));
     const highlightIndex = currentIndex - start;
 
-    if (tideChartInstance) tideChartInstance.destroy();
+    if (tideChartInstance) {
+        tideChartInstance.destroy();
+    }
 
     // 为数据集准备数组形式的 pointRadius 和 pointBackgroundColor（Chart.js v4 推荐）
     const pointRadiusArr = values.map((_, idx) => idx === highlightIndex ? 6 : 3);
