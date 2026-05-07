@@ -374,7 +374,10 @@ async function fetchTideData(lon, lat) {
         console.error('潮汐查询出错:', error);
         document.getElementById('tideCurrent').innerHTML = '查询失败';
         document.getElementById('tideLocation').innerHTML = `❌ ${error.message}`;
-        document.getElementById('tideDetail').innerHTML = '';
+        const tideDetail = document.getElementById('tideDetail');
+        if (tideDetail) {
+            tideDetail.innerHTML = '';
+        }
     }
 }
 
@@ -393,7 +396,10 @@ function updateTidePanel(allHourly, locationName) {
     document.getElementById('tideLocation').innerHTML = `📍 ${locationName}`;
     document.getElementById('tideCurrent').innerHTML = `${height} 米`;
     document.getElementById('tideTime').innerHTML = `⏱️ ${time}`;
-    document.getElementById('tideDetail').innerHTML = '';
+    const tideDetail = document.getElementById('tideDetail');
+    if (tideDetail) {
+        tideDetail.innerHTML = '';
+    }
 }
 
 function renderTideChart(tideHourly) {
