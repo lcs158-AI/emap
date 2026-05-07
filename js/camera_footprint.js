@@ -79,8 +79,8 @@ function setNorthZero() {
         return;
     }
     
-    // 记录归零时刻的传感器值作为基准
-    northZeroBaseAngle = rawAlpha;
+    // 记录归零时刻的传感器方位角（已转为 -180~180）作为基准
+    northZeroBaseAngle = convertTo180Range(rawAlpha);
     lastAlphaForRotation = rawAlpha;
     isNorthZeroed = true;
     relativeAzimuth = 0;  // 相对方位角从零开始
@@ -156,19 +156,10 @@ function startOrientationListener() {
         
         // ========== 正北归零后，同时计算相对方位角 ==========
         if (isNorthZeroed) {
-            // 通过传感器值的变化计算相对旋转增量
-            let rotationDelta = rawAlpha - lastAlphaForRotation;  // 确保顺时针旋转时方位角增加
-            
-            // 处理角度跨越 0°/360° 的情况
-            if (rotationDelta > 180) rotationDelta -= 360;
-            if (rotationDelta < -180) rotationDelta += 360;
-            
-            // 更新上次传感器值
-            lastAlphaForRotation = rawAlpha;
-            
-            // 更新相对方位角（顺时针为正）
-            relativeAzimuth = relativeAzimuth - rotationDelta;  // 取反以确保方向正确
-            relativeAzimuth = convertTo180Range(relativeAzimuth);
+            // 直接根据当前传感器方位角与归零基准计算相对方位角（非增量，无累积误差）
+            let sensorNow = convertTo180Range(rawAlpha);
+            let delta = sensorNow - northZeroBaseAngle;
+            relativeAzimuth = convertTo180Range(delta);
         }
         
         // 俯仰角处理（竖屏模式）
@@ -392,7 +383,7 @@ async function uploadPhoto() {
         const file = new File([blob], `photo_${Date.now()}.jpg`, { type: 'image/jpeg' });
         
         const formData = new FormData();
-        formData.append('file', file);
+        formData.append('files', file);
         formData.append('latitude', capturedParams.latitude);
         formData.append('longitude', capturedParams.longitude);
         formData.append('device_type', 'phone-footprint');
