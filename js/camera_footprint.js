@@ -119,7 +119,9 @@ function startOrientationListener() {
         
         if (isNorthZeroed) {
             // 正北归零后，计算相对旋转角度
-            let delta = rawAlpha - northZeroBaseAngle;
+            // 注：某些设备 alpha 值随顺时针旋转递减（与 W3C 规范相反）
+            // 交换减数方向以适配：正北0，正东90，正南180，正西-90
+            let delta = northZeroBaseAngle - rawAlpha;
             delta = normalizeAngle(delta);
             
             // 转换为顺时针为正：正北0，正东90，正南180，正西-90
