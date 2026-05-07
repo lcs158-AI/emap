@@ -42,6 +42,7 @@ let orientationHandler = null;
 let isNorthZeroed = false;
 let northZeroBaseAngle = 0;
 let sensorReady = false;
+let lastAlphaForRotation = 0;  // 用于计算旋转的上次传感器值
 
 // ======================== 辅助函数 ========================
 Math.radians = (deg) => deg * Math.PI / 180;
@@ -77,7 +78,9 @@ function setNorthZero() {
         return;
     }
     
+    // 记录归零时刻的传感器值作为基准
     northZeroBaseAngle = rawAlpha;
+    lastAlphaForRotation = rawAlpha;
     isNorthZeroed = true;
     filteredCompass = 0;
     
@@ -86,6 +89,29 @@ function setNorthZero() {
     }
     
     alert('✅ 正北已归零！\n\n方位角从当前位置开始计算：\n- 正北 = 0°\n- 正东 = 90°\n- 正南 = 180°\n- 正西 = -90°');
+    
+    // 更新按钮状态
+    if (northZeroBtn) {
+        northZeroBtn.innerText = '取消归零';
+        northZeroBtn.removeEventListener('click', setNorthZero);
+        northZeroBtn.addEventListener('click', cancelNorthZero);
+    }
+}
+
+// ======================== 取消正北归零 ========================
+function cancelNorthZero() {
+    isNorthZeroed = false;
+    northZeroBaseAngle = 0;
+    lastAlphaForRotation = 0;
+    filteredCompass = null;
+    
+    if (northZeroBtn) {
+        northZeroBtn.innerText = '正北归零';
+        northZeroBtn.removeEventListener('click', cancelNorthZero);
+        northZeroBtn.addEventListener('click', setNorthZero);
+    }
+    
+    alert('✅ 已取消正北归零，恢复使用传感器原始方位角');
 }
 
 // ======================== 传感器监听启动 ========================
@@ -118,16 +144,22 @@ function startOrientationListener() {
         let currentAzimuth;
         
         if (isNorthZeroed) {
-            // 正北归零后，计算相对旋转角度
-            // 注：某些设备 alpha 值随顺时针旋转递减（与 W3C 规范相反）
-            // 交换减数方向以适配：正北0，正东90，正南180，正西-90
-            let delta = northZeroBaseAngle - rawAlpha;
-            delta = normalizeAngle(delta);
+            // 正北归零后：通过计算传感器值的变化来获取旋转角度
+            // 不再直接使用传感器的方位角，而是计算相对旋转增量
+            let rotationDelta = rawAlpha - lastAlphaForRotation;
             
-            // 转换为顺时针为正：正北0，正东90，正南180，正西-90
-            currentAzimuth = convertTo180Range(delta);
+            // 处理角度跨越 0°/360° 的情况
+            if (rotationDelta > 180) rotationDelta -= 360;
+            if (rotationDelta < -180) rotationDelta += 360;
+            
+            // 更新上次传感器值
+            lastAlphaForRotation = rawAlpha;
+            
+            // 在当前方位角基础上加上旋转增量（顺时针为正）
+            currentAzimuth = filteredCompass + rotationDelta;
+            currentAzimuth = convertTo180Range(currentAzimuth);
         } else {
-            // 未归零前，显示原始传感器角度（顺时针为正）
+            // 未归零前：直接使用传感器原始角度（顺时针为正）
             currentAzimuth = convertTo180Range(rawAlpha);
         }
         
