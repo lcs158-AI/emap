@@ -295,8 +295,24 @@ viewer.screenSpaceEventHandler.setInputAction(function () {
 
 // ==================== 潮汐功能 ====================
 function getCenterLonLat() {
-    const center = viewer.camera.positionWC;
-    const cartographic = Cesium.Cartographic.fromCartesian(center);
+    const scene = viewer.scene;
+    const canvas = viewer.canvas;
+    
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    
+    const ray = viewer.camera.getPickRay(new Cesium.Cartesian2(centerX, centerY));
+    const intersection = scene.globe.pick(ray, scene);
+    
+    if (intersection) {
+        const cartographic = Cesium.Cartographic.fromCartesian(intersection);
+        return {
+            lon: Cesium.Math.toDegrees(cartographic.longitude),
+            lat: Cesium.Math.toDegrees(cartographic.latitude)
+        };
+    }
+    
+    const cartographic = Cesium.Cartographic.fromCartesian(viewer.camera.positionWC);
     return {
         lon: Cesium.Math.toDegrees(cartographic.longitude),
         lat: Cesium.Math.toDegrees(cartographic.latitude)
@@ -304,11 +320,26 @@ function getCenterLonLat() {
 }
 
 let tideChartInstance = null;
-const tidePanel = document.getElementById('tidePanel');
-const closeTideBtn = document.getElementById('closeTideBtn');
-const tideBtn = document.getElementById('tideBtn');
+let tidePanel = null;
+let closeTideBtn = null;
+let tideBtn = null;
 
-closeTideBtn.addEventListener('click', () => tidePanel.style.display = 'none');
+function initTideFunctionality() {
+    tidePanel = document.getElementById('tidePanel');
+    closeTideBtn = document.getElementById('closeTideBtn');
+    tideBtn = document.getElementById('tideBtn');
+
+    if (closeTideBtn) {
+        closeTideBtn.addEventListener('click', () => tidePanel.style.display = 'none');
+    }
+
+    if (tideBtn) {
+        tideBtn.addEventListener('click', async () => {
+            const center = getCenterLonLat();
+            await fetchTideData(center.lon, center.lat);
+        });
+    }
+}
 
 async function fetchTideData(lon, lat) {
     try {
@@ -426,7 +457,6 @@ function renderTideChart(tideHourly) {
     });
 }
 
-tideBtn.addEventListener('click', async () => {
-    const center = getCenterLonLat();
-    await fetchTideData(center.lon, center.lat);
+document.addEventListener('DOMContentLoaded', () => {
+    initTideFunctionality();
 });
