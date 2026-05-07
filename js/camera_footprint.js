@@ -43,6 +43,7 @@ let isNorthZeroed = false;
 let northZeroBaseAngle = 0;
 let sensorReady = false;
 let lastAlphaForRotation = 0;  // 用于计算旋转的上次传感器值
+let relativeAzimuth = null;     // 相对方位角（归零后通过旋转增量计算）
 
 // ======================== 辅助函数 ========================
 Math.radians = (deg) => deg * Math.PI / 180;
@@ -82,13 +83,13 @@ function setNorthZero() {
     northZeroBaseAngle = rawAlpha;
     lastAlphaForRotation = rawAlpha;
     isNorthZeroed = true;
-    filteredCompass = 0;
+    relativeAzimuth = 0;  // 相对方位角从零开始
     
     if (compassSpan) {
-        compassSpan.innerText = '0.0°';
+        compassSpan.innerText = '0.0° (相对)';
     }
     
-    alert('✅ 正北已归零！\n\n方位角从当前位置开始计算：\n- 正北 = 0°\n- 正东 = 90°\n- 正南 = 180°\n- 正西 = -90°');
+    alert('✅ 正北已归零！\n\n相对方位角从当前位置开始计算：\n- 正北 = 0°\n- 正东 = 90°\n- 正南 = 180°\n- 正西 = -90°');
     
     // 更新按钮状态
     if (northZeroBtn) {
@@ -103,7 +104,7 @@ function cancelNorthZero() {
     isNorthZeroed = false;
     northZeroBaseAngle = 0;
     lastAlphaForRotation = 0;
-    filteredCompass = null;
+    relativeAzimuth = null;  // 清除相对方位角
     
     if (northZeroBtn) {
         northZeroBtn.innerText = '正北归零';
@@ -140,13 +141,23 @@ function startOrientationListener() {
         
         let rawBeta = event.beta;
         
-        // 计算方位角（顺时针为正）
-        let currentAzimuth;
+        // ========== 始终更新传感器方位角（filteredCompass） ==========
+        let sensorAzimuth = convertTo180Range(rawAlpha);
         
+        if (filteredCompass === null) {
+            filteredCompass = sensorAzimuth;
+        } else {
+            let delta = sensorAzimuth - filteredCompass;
+            if (delta > 180) delta -= 360;
+            if (delta < -180) delta += 360;
+            filteredCompass = filteredCompass + SMOOTHING_FACTOR * delta;
+            filteredCompass = convertTo180Range(filteredCompass);
+        }
+        
+        // ========== 正北归零后，同时计算相对方位角 ==========
         if (isNorthZeroed) {
-            // 正北归零后：通过计算传感器值的变化来获取旋转角度
-            // 不再直接使用传感器的方位角，而是计算相对旋转增量
-            let rotationDelta = rawAlpha - lastAlphaForRotation;
+            // 通过传感器值的变化计算相对旋转增量
+            let rotationDelta = lastAlphaForRotation - rawAlpha;  // 取反确保顺时针为正
             
             // 处理角度跨越 0°/360° 的情况
             if (rotationDelta > 180) rotationDelta -= 360;
@@ -155,24 +166,9 @@ function startOrientationListener() {
             // 更新上次传感器值
             lastAlphaForRotation = rawAlpha;
             
-            // 在当前方位角基础上加上旋转增量（顺时针为正）
-            currentAzimuth = filteredCompass + rotationDelta;
-            currentAzimuth = convertTo180Range(currentAzimuth);
-        } else {
-            // 未归零前：直接使用传感器原始角度（顺时针为正）
-            currentAzimuth = convertTo180Range(rawAlpha);
-        }
-        
-        // 平滑处理方位角
-        if (filteredCompass === null) {
-            filteredCompass = currentAzimuth;
-        } else {
-            let delta = currentAzimuth - filteredCompass;
-            if (delta > 180) delta -= 360;
-            if (delta < -180) delta += 360;
-            filteredCompass = filteredCompass + SMOOTHING_FACTOR * delta;
-            // 保持在 -180~180 范围内
-            filteredCompass = convertTo180Range(filteredCompass);
+            // 更新相对方位角（顺时针为正）
+            relativeAzimuth = relativeAzimuth + rotationDelta;
+            relativeAzimuth = convertTo180Range(relativeAzimuth);
         }
         
         // 俯仰角处理（竖屏模式）
@@ -185,7 +181,13 @@ function startOrientationListener() {
         
         // 更新UI
         if (compassSpan) {
-            compassSpan.innerText = filteredCompass.toFixed(1) + "°";
+            if (isNorthZeroed && relativeAzimuth !== null) {
+                // 显示相对方位角（优先使用）
+                compassSpan.innerText = relativeAzimuth.toFixed(1) + "° (相对)";
+            } else {
+                // 显示传感器方位角
+                compassSpan.innerText = filteredCompass.toFixed(1) + "°";
+            }
         }
         if (pitchSpan) pitchSpan.innerText = filteredPitch.toFixed(1) + "°";
         
@@ -318,9 +320,11 @@ function capturePhoto() {
         return;
     }
     
-    const azimuth = filteredCompass;
+    // 优先使用相对方位角（正北归零后计算的），否则使用传感器方位角
+    const azimuth = (relativeAzimuth !== null) ? relativeAzimuth : filteredCompass;
     const pitch = filteredPitch;
     const relativeHeight = parseFloat(relativeHeightInput?.value) || 1.6;
+    const azimuthType = (relativeAzimuth !== null) ? '相对方位角' : '传感器方位角';
     
     const canvas = document.createElement('canvas');
     canvas.width = videoEl.videoWidth;
@@ -342,7 +346,8 @@ function capturePhoto() {
         pitch: pitch,
         relativeHeight: relativeHeight,
         h_fov: h_fov,
-        v_fov: v_fov
+        v_fov: v_fov,
+        azimuthType: azimuthType  // 记录使用的方位角类型
     };
     
     if (photoPreviewEl) {
@@ -356,7 +361,7 @@ function capturePhoto() {
         capturedParamsEl.innerHTML = `
             <div style="font-size:12px; color:#666; margin-bottom:8px;">📊 拍照参数</div>
             <div style="font-size:12px; margin-bottom:3px;"><strong>位置:</strong> ${currentLat.toFixed(5)}, ${currentLon.toFixed(5)}</div>
-            <div style="font-size:12px; margin-bottom:3px;"><strong>方位角:</strong> ${displayAzimuth}° (正北=0°, 正东=90°)</div>
+            <div style="font-size:12px; margin-bottom:3px;"><strong>方位角:</strong> ${displayAzimuth}° (${azimuthType}, 正北=0°, 正东=90°)</div>
             <div style="font-size:12px; margin-bottom:3px;"><strong>俯仰角:</strong> ${displayPitch}°</div>
             <div style="font-size:12px; margin-bottom:3px;"><strong>相对高度:</strong> ${relativeHeight}m</div>
             <div style="font-size:12px; margin-bottom:3px;"><strong>水平视场角:</strong> ${h_fov}°</div>
