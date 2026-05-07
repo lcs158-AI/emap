@@ -7,7 +7,7 @@ function initUpload() {
         const localImageInput = document.getElementById('localImageInput');
         const localFileInput = document.getElementById('localFileInput');
         const progressEl = document.getElementById('sidebarUploadProgress');
-        const token = localStorage.getItem('gis_token') || localStorage.getItem('access_token');
+        const token = localStorage.getItem('access_token');
         const username = localStorage.getItem('username');
         
         // 检查是否选择了文件
@@ -134,6 +134,7 @@ function initUpload() {
         try {
             const res = await fetch(`${window.API_BASE_URL}/api/upload`, {
                 method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` },
                 body: formData
             });
             const result = await res.json();

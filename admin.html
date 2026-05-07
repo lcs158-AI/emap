@@ -634,6 +634,11 @@
                 messageElement.style.display = 'none';
             }, 3000);
         }
+
+        function getAuthHeaders() {
+            const token = localStorage.getItem('access_token');
+            return token ? { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
+        }
         
         let allUsers = [];
         let allPhotos = [];
@@ -734,7 +739,7 @@
         
         async function exportUsers() {
             try {
-                const response = await fetch(`${API_BASE_URL}/api/export/users`);
+                const response = await fetch(`${API_BASE_URL}/api/export/users`, { headers: getAuthHeaders() });
                 if (!response.ok) {
                     throw new Error('导出失败');
                 }
@@ -1001,9 +1006,7 @@
             try {
                 const response = await fetch(`${API_BASE_URL}/api/photos/batch-update`, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    headers: getAuthHeaders(),
                     body: JSON.stringify({
                         filenames: selected,
                         field: field,
@@ -1028,7 +1031,7 @@
         
         async function exportPhotos() {
             try {
-                const response = await fetch(`${API_BASE_URL}/api/export/photos/csv`);
+                const response = await fetch(`${API_BASE_URL}/api/export/photos/csv`, { headers: getAuthHeaders() });
                 if (!response.ok) {
                     throw new Error('导出失败');
                 }
@@ -1043,7 +1046,7 @@
         
         async function exportPointsGeoJSON() {
             try {
-                const response = await fetch(`${API_BASE_URL}/api/export/photos/points`);
+                const response = await fetch(`${API_BASE_URL}/api/export/photos/points`, { headers: getAuthHeaders() });
                 if (!response.ok) {
                     throw new Error('导出失败');
                 }
@@ -1058,7 +1061,7 @@
         
         async function exportFootprintsGeoJSON() {
             try {
-                const response = await fetch(`${API_BASE_URL}/api/export/photos/footprints`);
+                const response = await fetch(`${API_BASE_URL}/api/export/photos/footprints`, { headers: getAuthHeaders() });
                 if (!response.ok) {
                     throw new Error('导出失败');
                 }
@@ -1073,7 +1076,7 @@
         
         async function exportAllData() {
             try {
-                const response = await fetch(`${API_BASE_URL}/api/export/all`);
+                const response = await fetch(`${API_BASE_URL}/api/export/all`, { headers: getAuthHeaders() });
                 if (!response.ok) {
                     throw new Error('导出失败');
                 }
@@ -1131,9 +1134,7 @@
             try {
                 const response = await fetch(`${API_BASE_URL}/api/users/${username}`, {
                     method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    headers: getAuthHeaders(),
                     body: JSON.stringify({
                         status: status,
                         is_admin: role === 'admin'
@@ -1174,12 +1175,9 @@
             try {
                 const response = await fetch(`${API_BASE_URL}/api/users/${username}/reset-password`, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    headers: getAuthHeaders(),
                     body: JSON.stringify({
-                        new_password: newPassword,
-                        admin_username: currentUser
+                        new_password: newPassword
                     })
                 });
                 
@@ -1217,11 +1215,8 @@
             try {
                 const response = await fetch(`${API_BASE_URL}/api/users/change-password`, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    headers: getAuthHeaders(),
                     body: JSON.stringify({
-                        username: currentUser,
                         old_password: oldPassword,
                         new_password: newPassword
                     })
@@ -1280,9 +1275,7 @@
             try {
                 const response = await fetch(`${API_BASE_URL}/api/photos/${filename}`, {
                     method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    headers: getAuthHeaders(),
                     body: JSON.stringify({
                         datetime: datetime,
                         lat: lat,
@@ -1313,7 +1306,8 @@
             
             try {
                 const response = await fetch(`${API_BASE_URL}/api/users/${username}`, {
-                    method: 'DELETE'
+                    method: 'DELETE',
+                    headers: getAuthHeaders()
                 });
                 
                 if (!response.ok) {
@@ -1331,7 +1325,8 @@
         async function activateUser(username) {
             try {
                 const response = await fetch(`${API_BASE_URL}/api/users/${username}/activate`, {
-                    method: 'POST'
+                    method: 'POST',
+                    headers: getAuthHeaders()
                 });
                 
                 if (!response.ok) {
@@ -1349,7 +1344,8 @@
         async function deactivateUser(username) {
             try {
                 const response = await fetch(`${API_BASE_URL}/api/users/${username}/deactivate`, {
-                    method: 'POST'
+                    method: 'POST',
+                    headers: getAuthHeaders()
                 });
                 
                 if (!response.ok) {
@@ -1372,7 +1368,8 @@
             try {
                 const encodedFilename = encodeURIComponent(filename);
                 const response = await fetch(`${API_BASE_URL}/api/photos/${encodedFilename}`, {
-                    method: 'DELETE'
+                    method: 'DELETE',
+                    headers: getAuthHeaders()
                 });
                 
                 if (!response.ok) {
@@ -1457,62 +1454,22 @@
             }
             
             try {
-                const response = await fetch(`${API_BASE_URL}/api/register`, {
+                const response = await fetch(`${API_BASE_URL}/api/setup/admin`, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        username: username,
-                        password: password
-                    })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: username, password: password })
                 });
-                
                 const data = await response.json();
                 if (response.ok) {
-                    const activateResponse = await fetch(`${API_BASE_URL}/api/users/${username}/activate`, {
-                        method: 'POST'
-                    });
-                    
-                    if (activateResponse.ok) {
-                        const setAdminResponse = await fetch(`${API_BASE_URL}/api/users/${username}`, {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ is_admin: 1 })
-                        });
-                        
-                        if (setAdminResponse.ok) {
-                            showMessage('管理员账号创建成功，正在登录...', 'success');
-                        
-                        const loginResponse = await fetch(`${API_BASE_URL}/api/login/json`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                                username: username,
-                                password: password
-                            })
-                        });
-                        
-                        if (loginResponse.ok) {
-                            const loginData = await loginResponse.json();
-                            localStorage.setItem('access_token', 'admin_token');
-                            localStorage.setItem('username', username);
-                            currentUser = username;
-                            
-                            setTimeout(() => {
-                                window.location.reload();
-                            }, 1500);
-                        }
-                    } else {
-                        showMessage('设置管理员权限失败', 'error');
-                    }
+                    localStorage.setItem('access_token', data.access_token);
+                    localStorage.setItem('username', username);
+                    currentUser = username;
+                    showMessage('管理员账号创建成功', 'success');
+                    setTimeout(() => { window.location.reload(); }, 1500);
                 } else {
-                    showMessage('激活管理员账号失败', 'error');
+                    showMessage(data.detail || '创建管理员账号失败', 'error');
                 }
             } catch (error) {
-                console.error('Error creating admin account:', error);
                 showMessage('创建管理员账号失败: ' + error.message, 'error');
             }
         }
@@ -1566,7 +1523,7 @@
                         return;
                     }
                     
-                    localStorage.setItem('access_token', 'admin_token');
+                    localStorage.setItem('access_token', data.access_token);
                     localStorage.setItem('username', username);
                     currentUser = username;
                     loginMsg.innerText = '登录成功';
@@ -1662,7 +1619,7 @@
                 });
             } else {
                 // 有用户时，显示登录表单或管理面板
-                const token = localStorage.getItem('access_token') || localStorage.getItem('gis_token');
+                const token = localStorage.getItem('access_token');
                 const username = localStorage.getItem('username');
                 
                 if (token && username) {

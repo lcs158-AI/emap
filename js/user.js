@@ -1,6 +1,20 @@
 // 用户相关的功能
 
-// 更新侧边栏UI
+// 辅助：获取存储的token
+function getToken() {
+    return localStorage.getItem('access_token');
+}
+
+// 辅助：带认证头的fetch
+async function authFetch(url, options = {}) {
+    const token = getToken();
+    const headers = { ...options.headers };
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+    return fetch(url, { ...options, headers });
+}
+
 function updateSidebarUI() {
     const authForm = document.getElementById('sidebarAuthForm');
     const cameraPanel = document.getElementById('sidebarCameraPanel');
@@ -8,7 +22,7 @@ function updateSidebarUI() {
     const userStatus = document.getElementById('sidebarUserStatus');
     const usernameSpan = document.getElementById('sidebarUsername');
     
-    const token = localStorage.getItem('gis_token') || localStorage.getItem('access_token');
+    const token = localStorage.getItem('access_token');
     
     if (token) {
         // 已登录
@@ -236,7 +250,7 @@ function loadUserDataToMap(userData) {
 
 // 加载用户上传的数据
 async function loadUserUploadedData() {
-    const token = localStorage.getItem('gis_token') || localStorage.getItem('access_token');
+    const token = localStorage.getItem('access_token');
     const username = localStorage.getItem('username');
     
     if (!token || !username) {
@@ -271,7 +285,8 @@ async function loadUserUploadedData() {
                 res = await fetch(`${window.API_BASE_URL}/api/photos`, {
                     method: 'GET',
                     headers: {
-                        'Accept': 'application/json'
+                        'Accept': 'application/json',
+                        'Authorization': `Bearer ${token}`
                     },
                     cache: 'no-cache',
                     credentials: 'include'
@@ -422,10 +437,8 @@ function initLogin() {
             });
             const data = await res.json();
             if (res.ok) {
-                // 后端没有返回access_token，直接使用用户名作为token
-                localStorage.setItem('gis_token', username);
-                localStorage.setItem('access_token', username);
-                localStorage.setItem('username', username); // 保存用户名
+                localStorage.setItem('access_token', data.access_token);
+                localStorage.setItem('username', username);
                 msgEl.innerText = '';
                 msgEl.style.color = 'green';
                 msgEl.innerText = '登录成功';
@@ -495,7 +508,6 @@ function initRegister() {
 // 退出登录
 function initLogout() {
     document.getElementById('sidebarLogoutBtn').addEventListener('click', () => {
-        localStorage.removeItem('gis_token');
         localStorage.removeItem('access_token');
         localStorage.removeItem('username');
         updateSidebarUI();
@@ -512,7 +524,7 @@ function initUserFunctions() {
     
     // 页面加载时检查登录状态并加载用户数据
     window.addEventListener('load', () => {
-        const token = localStorage.getItem('gis_token') || localStorage.getItem('access_token');
+        const token = localStorage.getItem('access_token');
         if (token) {
             // 延迟加载，确保地图已经初始化
             setTimeout(loadUserUploadedData, 1000);
