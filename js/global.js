@@ -316,14 +316,22 @@ async function fetchTideData(lon, lat) {
         document.getElementById('tideCurrent').innerHTML = '查询中...';
         document.getElementById('tideLocation').innerHTML = `正在获取潮汐数据`;
 
-        const geoUrl = `https://${APIhost}/geo/v2/poi/lookup?location=${lon},${lat}&type=TSTA&key=${QWEATHER_KEY}`;
-        const geoRes = await fetch(geoUrl);
-        const geoData = await geoRes.json();
-        if (geoData.code !== '200' || !geoData.poi || geoData.poi.length === 0) {
-            throw new Error('未找到附近潮汐站点');
+        const proxyUrl = `${window.API_BASE_URL}/api/proxy/tide?lon=${lon}&lat=${lat}`;
+        console.log('潮汐代理请求:', proxyUrl);
+        const proxyRes = await fetch(proxyUrl);
+        const proxyData = await proxyRes.json();
+        console.log('潮汐代理响应:', proxyData);
+        
+        if (proxyRes.status !== 200) {
+            throw new Error(proxyData.detail || '潮汐查询失败');
         }
-        const poiId = geoData.poi[0].id;
-        const poiName = geoData.poi[0].name || '附近海域';
+
+        const poiName = proxyData.station_name || '附近海域';
+        const tideData = proxyData.tide;
+        
+        if (!tideData || tideData.code !== '200' || !tideData.tideHourly || tideData.tideHourly.length === 0) {
+            throw new Error('未找到潮汐数据');
+        }
 
         const now = new Date();
         const todayStr = getLocalDateStr(now);
@@ -336,20 +344,15 @@ async function fetchTideData(lon, lat) {
         let allHourly = [];
 
         if (isEarlyMorning) {
-            const tideUrl = `https://${APIhost}/v7/ocean/tide?location=${poiId}&date=${todayStr}&key=${QWEATHER_KEY}`;
-            const tideRes = await fetch(tideUrl);
-            const tideData = await tideRes.json();
-            if (tideData.code !== '200') throw new Error(`潮汐查询失败 (${tideData.code})`);
             allHourly = tideData.tideHourly.filter(item => new Date(item.fxTime).getHours() <= 12);
         } else {
-            const datesToFetch = [{ date: todayStr, label: '今天' }];
-            if (currentHour >= 18) datesToFetch.push({ date: tomorrowStr, label: '明天' });
-            for (const { date } of datesToFetch) {
-                const tideUrl = `https://${APIhost}/v7/ocean/tide?location=${poiId}&date=${date}&key=${QWEATHER_KEY}`;
-                const tideRes = await fetch(tideUrl);
-                const tideData = await tideRes.json();
-                if (tideData.code === '200' && tideData.tideHourly) {
-                    allHourly = allHourly.concat(tideData.tideHourly);
+            allHourly = allHourly.concat(tideData.tideHourly);
+            if (currentHour >= 18) {
+                const nextDayUrl = `${window.API_BASE_URL}/api/proxy/tide?lon=${lon}&lat=${lat}&date=${tomorrowStr}`;
+                const nextDayRes = await fetch(nextDayUrl);
+                const nextDayData = await nextDayRes.json();
+                if (nextDayRes.status === 200 && nextDayData.tide && nextDayData.tide.code === '200' && nextDayData.tide.tideHourly) {
+                    allHourly = allHourly.concat(nextDayData.tide.tideHourly);
                 }
             }
         }

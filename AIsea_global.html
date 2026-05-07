@@ -38,14 +38,11 @@
     </div>
     <div id="measureResult">距离: -- 米</div>
 
+    <!-- 引入配置文件 -->
+    <script src="js/config.js"></script>
     <!-- 全局配置 -->
     <script>
         const TIANDITU_KEY = '4110bba1f23cd04ed33e43ab12a291fc';
-        const keyPart1 = 'ebd9161a';
-        const keyPart2 = '4eda4f3ebbcc';
-        const keyPart3 = '3f3977d64820';
-        const QWEATHER_KEY = keyPart1 + keyPart2 + keyPart3;
-        const APIhost = 'mg2tupq435.re.qweatherapi.com';
         // 初始位置：[经度, 纬度, 高度(米)]
         const initCenter = [111.18, 21.48, 5000, 45];   // 经度,纬度,高度,俯仰角
         const offsetK = 1.2;                            // 偏移系数
