@@ -157,7 +157,7 @@ function startOrientationListener() {
         // ========== 正北归零后，同时计算相对方位角 ==========
         if (isNorthZeroed) {
             // 通过传感器值的变化计算相对旋转增量
-            let rotationDelta = lastAlphaForRotation - rawAlpha;  // 取反确保顺时针为正
+            let rotationDelta = rawAlpha - lastAlphaForRotation;  // 确保顺时针旋转时方位角增加
             
             // 处理角度跨越 0°/360° 的情况
             if (rotationDelta > 180) rotationDelta -= 360;
@@ -167,7 +167,7 @@ function startOrientationListener() {
             lastAlphaForRotation = rawAlpha;
             
             // 更新相对方位角（顺时针为正）
-            relativeAzimuth = relativeAzimuth + rotationDelta;
+            relativeAzimuth = relativeAzimuth - rotationDelta;  // 取反以确保方向正确
             relativeAzimuth = convertTo180Range(relativeAzimuth);
         }
         
@@ -402,7 +402,7 @@ async function uploadPhoto() {
         formData.append('h_fov', capturedParams.h_fov);
         formData.append('v_fov', capturedParams.v_fov);
         
-        const response = await fetch(`${API_BASE_URL}/api/photos/upload`, {
+        const response = await fetch(`${API_BASE_URL}/api/upload`, {
             method: 'POST',
             body: formData,
             credentials: 'include'
