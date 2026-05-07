@@ -23,7 +23,7 @@
         <button id="measureBtn">📏</button>
         <button id="tideBtn">🌊</button>
     </div>
-    <div id="tidePanel">
+    <div id="tidePanel" style="display: none;">
         <div style="display: flex; justify-content: space-between;">
             <h4>🌊 潮汐信息</h4>
             <button id="closeTideBtn" class="close-btn">✕</button>
@@ -31,6 +31,7 @@
         <div id="tideLocation"></div>
         <div id="tideCurrent">-- 米</div>
         <div id="tideTime"></div>
+        <div id="tideDetail"></div>
         <div id="tideChartContainer">
             <canvas id="tideChart" width="400" height="120"></canvas>
         </div>
