@@ -312,7 +312,13 @@ closeTideBtn.addEventListener('click', () => tidePanel.style.display = 'none');
 
 async function fetchTideData(lon, lat) {
     try {
-        tidePanel.style.display = 'block';
+        // 确保tidePanel已初始化
+        if (!tidePanel) {
+            tidePanel = document.getElementById('tidePanel');
+        }
+        if (tidePanel) {
+            tidePanel.style.display = 'block';
+        }
         document.getElementById('tideCurrent').innerHTML = '查询中...';
         document.getElementById('tideLocation').innerHTML = `正在获取潮汐数据`;
 
@@ -325,46 +331,19 @@ async function fetchTideData(lon, lat) {
         if (proxyRes.status !== 200) {
             throw new Error(proxyData.detail || '潮汐查询失败');
         }
-
+        
         const poiName = proxyData.station_name || '附近海域';
         const tideData = proxyData.tide;
-        
-        if (!tideData || tideData.code !== '200' || !tideData.tideHourly || tideData.tideHourly.length === 0) {
-            throw new Error('未找到潮汐数据');
-        }
-
-        const now = new Date();
-        const todayStr = getLocalDateStr(now);
-        const tomorrow = new Date(now);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        const tomorrowStr = getLocalDateStr(tomorrow);
-
-        const currentHour = now.getHours();
-        const isEarlyMorning = currentHour >= 0 && currentHour <= 6;
-        let allHourly = [];
-
-        if (isEarlyMorning) {
-            allHourly = tideData.tideHourly.filter(item => new Date(item.fxTime).getHours() <= 12);
-        } else {
-            allHourly = allHourly.concat(tideData.tideHourly);
-            if (currentHour >= 18) {
-                const nextDayUrl = `${window.API_BASE_URL}/api/proxy/tide?lon=${lon}&lat=${lat}&date=${tomorrowStr}`;
-                const nextDayRes = await fetch(nextDayUrl);
-                const nextDayData = await nextDayRes.json();
-                if (nextDayRes.status === 200 && nextDayData.tide && nextDayData.tide.code === '200' && nextDayData.tide.tideHourly) {
-                    allHourly = allHourly.concat(nextDayData.tide.tideHourly);
-                }
-            }
-        }
-        if (allHourly.length === 0) throw new Error('无潮汐数据');
+        let allHourly = tideData.tideHourly || [];
 
         allHourly.sort((a, b) => new Date(a.fxTime) - new Date(b.fxTime));
         updateTidePanel(allHourly, poiName);
         renderTideChart(allHourly);
-    } catch (err) {
-        console.error(err);
+    } catch (error) {
+        console.error('潮汐查询出错:', error);
         document.getElementById('tideCurrent').innerHTML = '查询失败';
-        document.getElementById('tideLocation').innerHTML = `❌ ${err.message}`;
+        document.getElementById('tideLocation').innerHTML = `❌ ${error.message}`;
+        document.getElementById('tideDetail').innerHTML = '';
     }
 }
 
