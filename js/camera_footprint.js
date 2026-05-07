@@ -100,7 +100,18 @@ function startOrientationListener() {
         if (event.alpha === null || event.beta === null) return;
         
         sensorReady = true;
-        rawAlpha = event.alpha;
+        
+        // 获取设备方位角 - 使用 webkitCompassHeading（iOS 原生罗盘航向）优先
+        // iOS 上 webkitCompassHeading 返回 0-360 顺时针真北航向，更准确
+        // 其他设备退化为 event.alpha（标准 W3C 规范为顺时针递增）
+        if (typeof event.webkitCompassHeading !== 'undefined' && event.webkitCompassHeading !== null) {
+            rawAlpha = event.webkitCompassHeading;
+        } else if (event.alpha !== null) {
+            rawAlpha = event.alpha;
+        } else {
+            return;
+        }
+        
         let rawBeta = event.beta;
         
         // 计算方位角（顺时针为正）
