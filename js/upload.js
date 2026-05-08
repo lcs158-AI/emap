@@ -2,18 +2,25 @@
 
 // 初始化上传功能
 function initUpload() {
-    document.getElementById('sidebarUploadBtn').addEventListener('click', async () => {
+    const sidebarUploadBtn = document.getElementById('sidebarUploadBtn');
+    const progressEl = document.getElementById('sidebarUploadProgress');
+    
+    if (!sidebarUploadBtn || !progressEl) {
+        console.warn('上传按钮或进度元素不存在，跳过初始化');
+        return;
+    }
+    
+    sidebarUploadBtn.addEventListener('click', async () => {
         const cameraInput = document.getElementById('cameraInput');
         const localImageInput = document.getElementById('localImageInput');
         const localFileInput = document.getElementById('localFileInput');
-        const progressEl = document.getElementById('sidebarUploadProgress');
         const token = localStorage.getItem('access_token');
         const username = localStorage.getItem('username');
         
-        // 检查是否选择了文件
-        const hasCameraFiles = cameraInput.files.length > 0;
-        const hasLocalImageFiles = localImageInput.files.length > 0;
-        const hasLocalFiles = localFileInput.files.length > 0;
+        // 检查是否选择了文件（添加空值检查）
+        const hasCameraFiles = cameraInput && cameraInput.files && cameraInput.files.length > 0;
+        const hasLocalImageFiles = localImageInput && localImageInput.files && localImageInput.files.length > 0;
+        const hasLocalFiles = localFileInput && localFileInput.files && localFileInput.files.length > 0;
         
         if (!hasCameraFiles && !hasLocalImageFiles && !hasLocalFiles) {
             progressEl.innerText = '请选择文件';
