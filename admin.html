@@ -1518,7 +1518,12 @@
             document.getElementById('navTabs').style.display = 'flex';
             document.getElementById('users-tab').classList.add('active');
             document.getElementById('photos-tab').classList.remove('active');
-            loadUsers();
+            
+            requestAnimationFrame(() => {
+                setTimeout(() => {
+                    loadUsers();
+                }, 100);
+            });
         }
         
         async function login() {
