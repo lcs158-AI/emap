@@ -386,6 +386,7 @@ async function uploadPhoto() {
         formData.append('files', file);
         formData.append('latitude', capturedParams.latitude);
         formData.append('longitude', capturedParams.longitude);
+        formData.append('datetime', new Date().toISOString().replace('T', ' ').substring(0, 19));
         formData.append('device_type', 'phone-footprint');
         formData.append('yaw', capturedParams.azimuth);
         formData.append('pitch', capturedParams.pitch);
