@@ -384,9 +384,26 @@ async function uploadPhoto() {
         
         const formData = new FormData();
         formData.append('files', file);
-        formData.append('latitude', capturedParams.latitude);
-        formData.append('longitude', capturedParams.longitude);
+        
+        try {
+            const latestLocation = await getCurrentLocation(true);
+            formData.append('latitude', latestLocation.lat);
+            formData.append('longitude', latestLocation.lon);
+            console.log('使用最新位置:', latestLocation);
+        } catch (locationError) {
+            console.warn('获取最新位置失败，使用拍照时的位置:', locationError.message);
+            formData.append('latitude', capturedParams.latitude);
+            formData.append('longitude', capturedParams.longitude);
+        }
+        
         formData.append('datetime', new Date().toISOString().replace('T', ' ').substring(0, 19));
+        
+        const username = localStorage.getItem('username');
+        if (username) {
+            formData.append('username', username);
+            console.log('当前登录用户:', username);
+        }
+        
         formData.append('device_type', 'phone-footprint');
         formData.append('yaw', capturedParams.azimuth);
         formData.append('pitch', capturedParams.pitch);
@@ -405,6 +422,11 @@ async function uploadPhoto() {
         if (response.ok) {
             alert('✅ 上传成功！');
             console.log('上传结果:', result);
+            
+            if (result.user_data && typeof loadUserDataToMap === 'function') {
+                loadUserDataToMap(result.user_data);
+                console.log('已刷新用户照片数据');
+            }
             
             capturedPhoto = null;
             capturedParams = null;
