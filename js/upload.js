@@ -96,7 +96,7 @@ function initUpload() {
         
         formData.append('username', username); // 添加用户名参数
         formData.append('capture_time', getBeijingTime()); // 添加北京时间
-        formData.append('device_type', 'phone'); // 按要求设置为phone类型
+        // 不设置 device_type，由后端根据 EXIF 数据判断是 drone 还是 phone
         
         // 添加问题类型
         const problemTypeSelect = document.getElementById('problemTypeSelect');
