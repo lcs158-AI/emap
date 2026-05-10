@@ -142,7 +142,8 @@ function startOrientationListener() {
         let rawBeta = event.beta;
         
         // ========== 始终更新传感器方位角（filteredCompass） ==========
-        let sensorAzimuth = convertTo180Range(rawAlpha);
+        // 加负号修正方向：向东旋转角度增加，向西旋转角度减小
+        let sensorAzimuth = -convertTo180Range(rawAlpha);
         
         if (filteredCompass === null) {
             filteredCompass = sensorAzimuth;
@@ -157,8 +158,9 @@ function startOrientationListener() {
         // ========== 正北归零后，同时计算相对方位角 ==========
         if (isNorthZeroed) {
             // 直接根据当前传感器方位角与归零基准计算相对方位角（非增量，无累积误差）
-            let sensorNow = convertTo180Range(rawAlpha);
-            let delta = sensorNow - northZeroBaseAngle;
+            // 加负号修正方向
+            let sensorNow = -convertTo180Range(rawAlpha);
+            let delta = sensorNow - (-northZeroBaseAngle);
             relativeAzimuth = convertTo180Range(delta);
         }
         
