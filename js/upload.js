@@ -57,7 +57,7 @@ function initUpload() {
 
         // 处理本地文件上传（GeoJSON、KML、KMZ）
         if (hasLocalFiles) {
-            console.log('处理本地文件上传');
+            
             // 模拟点击原有的文件输入，触发现有的本地文件加载逻辑
             const geoJsonFileInput = document.getElementById('geoJsonFileInput');
             if (geoJsonFileInput) {
@@ -112,7 +112,7 @@ function initUpload() {
                 body: formData
             });
             const result = await res.json();
-            console.log('上传结果:', result);
+            
             if (res.ok) {
                 let message = `上传完成! 成功: ${result.success}, 失败: ${result.failed}, 重复: ${result.duplicate}`;
                 if (result.no_location && result.no_location > 0) {
@@ -131,26 +131,18 @@ function initUpload() {
                 if (result.latest_center) {
                     const { lat, lon, zoom } = result.latest_center;
                     if (window.map && window.ol) {
-                        // 使用OpenLayers的正确方法设置视图
                         const center = window.ol.proj.fromLonLat([lon, lat]);
                         window.map.getView().setCenter(center);
                         window.map.getView().setZoom(zoom);
                     }
-                } else {
-                    console.log('没有最新中心位置信息');
                 }
                 
                 // 加载用户数据到地图
                 if (result.user_data) {
-                    console.log('用户数据:', result.user_data);
-                    // 调用user.js中的函数
                     if (typeof loadUserDataToMap === 'function') {
                         loadUserDataToMap(result.user_data);
                     }
                 } else {
-                    // 如果没有返回用户数据，重新加载用户数据
-                    console.log('没有用户数据，重新加载');
-                    // 调用user.js中的函数
                     if (typeof loadUserUploadedData === 'function') {
                         loadUserUploadedData();
                     }

@@ -354,10 +354,10 @@ async function fetchTideData(lon, lat) {
         document.getElementById('tideLocation').innerHTML = `正在获取潮汐数据`;
 
         const proxyUrl = `${window.API_BASE_URL}/api/proxy/tide?lon=${lon}&lat=${lat}`;
-        console.log('潮汐代理请求:', proxyUrl);
+        
         const proxyRes = await fetch(proxyUrl);
         const proxyData = await proxyRes.json();
-        console.log('潮汐代理响应:', proxyData);
+        
         
         if (proxyRes.status !== 200) {
             throw new Error(proxyData.detail || '潮汐查询失败');

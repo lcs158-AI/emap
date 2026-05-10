@@ -49,12 +49,10 @@ function isOnLzywhyDomain() {
 
 // 只有在 lzywhy.com 域名下才加载天地图
 if (isOnLzywhyDomain()) {
-    console.log("在 lzywhy.com 域名下运行，加载天地图");
     esriImagery.setVisible(false);
     map.addLayer(vecLayer);
     map.addLayer(cvaLayer);
 } else {
-    console.log("不在 lzywhy.com 域名下运行，跳过加载天地图，使用 Esri 影像图层");
     esriImagery.setVisible(true);
 }
 
@@ -76,30 +74,11 @@ function getUsernameFromUrl() {
     return urlParams.get('user');
 }
 
-// 检查用户登录状态
-function checkLoginStatus() {
-    const token = localStorage.getItem('access_token') || localStorage.getItem('gis_token');
-    const username = localStorage.getItem('username');
-    const urlUsername = getUsernameFromUrl();
-    
-    if (urlUsername || token || username) {
-        console.log("用户已登录");
-    } else {
-        console.log("用户未登录");
-    }
-}
-
-// 页面加载时立即检查登录状态
+// 页面加载时立即检查是否有上传标记
 window.addEventListener('load', function() {
-    console.log("页面加载完成，检查登录状态");
-    checkLoginStatus();
-    
-    // 检查是否有上传标记
     const urlParams = new URLSearchParams(window.location.search);
     const uploaded = urlParams.get('uploaded');
     if (uploaded === '1') {
-        console.log("检测到上传标记，准备跳转到上传的数据位置");
-        // 延迟一点时间，确保数据已经加载
         setTimeout(() => {
             centerMapToUploadedData();
         }, 1000);
@@ -108,78 +87,49 @@ window.addEventListener('load', function() {
 
 // 跳转到上传的数据位置
 function centerMapToUploadedData() {
-    console.log("尝试跳转到上传的数据位置");
-    console.log("当前动态图层数量:", window.dynamicLayers.length);
-    
-    // 遍历所有动态图层
     let allCoordinates = [];
     
-    window.dynamicLayers.forEach((layerItem, index) => {
-        console.log(`处理图层 ${index + 1}: ${layerItem.name}`);
+    window.dynamicLayers.forEach((layerItem) => {
         const layer = layerItem.layer;
         const source = layer.getSource();
         const features = source.getFeatures();
-        console.log(`图层 ${layerItem.name} 要素数量:`, features.length);
         
-        features.forEach((feature, featureIndex) => {
+        features.forEach((feature) => {
             const geometry = feature.getGeometry();
             if (geometry && (geometry.getType() === 'Point' || geometry.getType() === 'MultiPoint')) {
                 const coordinates = geometry.getCoordinates();
-                console.log(`要素 ${featureIndex} 坐标:`, coordinates);
                 if (Array.isArray(coordinates)) {
-                    // 处理 MultiPoint
                     if (Array.isArray(coordinates[0])) {
                         allCoordinates.push(...coordinates);
-                        console.log(`添加 MultiPoint 坐标:`, coordinates);
                     } else {
                         allCoordinates.push(coordinates);
-                        console.log(`添加 Point 坐标:`, coordinates);
                     }
                 }
             }
         });
     });
     
-    console.log("找到的坐标点数量:", allCoordinates.length);
-    console.log("坐标点详情:", allCoordinates);
-    
     if (allCoordinates.length > 0) {
-        // 转换为地图投影
         const projectedCoordinates = allCoordinates.map(coord => {
-            const projected = ol.proj.fromLonLat(coord);
-            console.log(`坐标 ${coord} 转换为投影坐标:`, projected);
-            return projected;
+            return ol.proj.fromLonLat(coord);
         });
         
-        // 创建边界范围
         const olExtent = ol.extent.boundingExtent(projectedCoordinates);
-        console.log("计算的边界范围:", olExtent);
         
-        // 检查边界范围是否有效
         if (ol.extent.getWidth(olExtent) > 0 && ol.extent.getHeight(olExtent) > 0) {
-            // 调整地图视图
             view.fit(olExtent, {
                 padding: [50, 50, 50, 50],
                 duration: 1000
             });
-            
-            console.log("地图已跳转到上传的数据位置");
         } else {
-            console.log("边界范围无效，无法调整视图");
-            // 如果边界范围无效，使用第一个点作为中心
             if (projectedCoordinates.length > 0) {
                 view.setCenter(projectedCoordinates[0]);
                 view.setZoom(15);
-                console.log("使用第一个点作为中心，设置缩放级别为 15");
             }
         }
     } else {
-        console.log("没有找到上传的数据点");
-        // 尝试重新加载数据
-        console.log("尝试重新加载 uploadpic.json");
         loadUploadpicData();
         
-        // 延迟后再次尝试
         setTimeout(() => {
             centerMapToUploadedData();
         }, 2000);
@@ -195,7 +145,7 @@ function addGeoJsonLayer(geoJson, name, config) {
             featureProjection: 'EPSG:3857'
         });
         
-        console.log('成功加载 GeoJSON:', name, '要素数量:', features.length);
+        
         
         // 创建矢量图层
         const vectorLayer = new ol.layer.Vector({
@@ -252,7 +202,7 @@ function addGeoJsonLayer(geoJson, name, config) {
             style: config.style || {}
         });
         
-        console.log('GeoJSON 图层已添加:', name);
+        
         
     } catch (error) {
         console.error('加载 GeoJSON 失败:', error);
@@ -313,7 +263,7 @@ map.on('click', function (evt) {
     if (measureActive) return;
     const feature = map.forEachFeatureAtPixel(evt.pixel, f => f);
     if (feature) {
-        console.log('点击要素的属性:', feature.getProperties());
+        
         if (positionLayer && positionLayer.getSource().getFeatures().includes(feature)) return;
 
         // 获取点击位置的实际地图坐标（用于弹出框定位）
@@ -711,10 +661,10 @@ async function fetchTideData(lon, lat) {
         document.getElementById('tideLocation').innerHTML = `正在获取潮汐数据`;
 
         const proxyUrl = `${window.API_BASE_URL}/api/proxy/tide?lon=${lon}&lat=${lat}`;
-        console.log('潮汐代理请求:', proxyUrl);
+        
         const proxyRes = await fetch(proxyUrl);
         const proxyData = await proxyRes.json();
-        console.log('潮汐代理响应:', proxyData);
+        
         
         if (proxyRes.status !== 200) {
             throw new Error(proxyData.detail || '潮汐查询失败');
@@ -936,11 +886,11 @@ async function loadLayersFromConfig(configUrl) {
         const response = await fetch(configUrl);
         if (!response.ok) throw new Error(`配置文件加载失败: ${response.status}`);
         const config = await response.json();
-        console.log('配置文件内容:', config);
+        
 
         // 获取配置文件的基准路径
         const configBasePath = configUrl.substring(0, configUrl.lastIndexOf('/') + 1) || '';
-        console.log('配置文件基准路径:', configBasePath);
+        
 
         // GeoJSON 文件的基础路径（可在配置文件中指定，默认为配置文件的基准路径）
         const geojsonBasePath = config.geojson_base_path !== undefined
@@ -948,7 +898,7 @@ async function loadLayersFromConfig(configUrl) {
                 ? config.geojson_base_path
                 : configBasePath + config.geojson_base_path)
             : configBasePath;
-        console.log('GeoJSON 基础路径:', geojsonBasePath);
+        
 
         // 设置地图初始视图
         if (config.map_center && config.map_center.length === 2) {
@@ -991,7 +941,7 @@ async function loadLayersFromConfig(configUrl) {
                 geoJsonUrl = geojsonBasePath + geoJsonUrl;
             }
 
-            console.log(`尝试加载: ${geoJsonUrl}`);
+            
 
             let geoJsonResponse;
             try {
@@ -1007,7 +957,7 @@ async function loadLayersFromConfig(configUrl) {
             }
 
             const geoJson = await geoJsonResponse.json();
-            console.log(`成功加载 ${layerConfig.name}, 要素数量:`, geoJson.features?.length);
+            
 
             const features = new ol.format.GeoJSON().readFeatures(geoJson, {
                 dataProjection: 'EPSG:4326',
@@ -1034,7 +984,7 @@ async function loadLayersFromConfig(configUrl) {
                 },
                 name: layerConfig.name
             });
-            console.log(`图层 ${layerConfig.name} visible: ${layerConfig.visible}`);
+            
             layersToAdd.push({
                 layer: vectorLayer,
                 name: layerConfig.name,
@@ -1073,7 +1023,7 @@ async function loadLayersFromConfig(configUrl) {
         if (loadingPanel) {
             loadingPanel.style.display = 'none';
         }
-        console.log('已清理图层，回到无参数导入状态');
+        
     }
 }
 

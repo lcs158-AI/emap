@@ -283,7 +283,7 @@ function getRealTimeLocation() {
             currentLat = position.coords.latitude;
             currentLon = position.coords.longitude;
             if (heightSpan) heightSpan.innerText = position.coords.altitude ? position.coords.altitude.toFixed(1) + 'm' : '--m';
-            console.log(`GPS位置获取成功: ${currentLat}, ${currentLon}`);
+            
         },
         (error) => {
             console.error('GPS定位失败:', error);
@@ -389,7 +389,7 @@ async function uploadPhoto() {
             const latestLocation = await getCurrentLocation(true);
             formData.append('latitude', latestLocation.lat);
             formData.append('longitude', latestLocation.lon);
-            console.log('使用最新位置:', latestLocation);
+            
         } catch (locationError) {
             console.warn('获取最新位置失败，使用拍照时的位置:', locationError.message);
             formData.append('latitude', capturedParams.latitude);
@@ -401,7 +401,7 @@ async function uploadPhoto() {
         const username = localStorage.getItem('username');
         if (username) {
             formData.append('username', username);
-            console.log('当前登录用户:', username);
+            
         }
         
         formData.append('device_type', 'phone-footprint');
@@ -421,11 +421,11 @@ async function uploadPhoto() {
         
         if (response.ok) {
             alert('✅ 上传成功！');
-            console.log('上传结果:', result);
+            
             
             if (result.user_data && typeof loadUserDataToMap === 'function') {
                 loadUserDataToMap(result.user_data);
-                console.log('已刷新用户照片数据');
+                
             }
             
             capturedPhoto = null;

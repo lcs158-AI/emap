@@ -178,7 +178,7 @@ function loadUserDataToMap(userData) {
                         feature.set(key, footprint.properties[key]);
                     });
                 }
-                console.log(`视域${index}的filename:`, feature.get('filename'));
+                
             } else if (footprint.type) {
                 // 如果是Geometry对象（不应该出现，因为loadUserUploadedData已经转换为Feature）
                 feature = new window.ol.Feature({
@@ -254,7 +254,6 @@ async function loadUserUploadedData() {
     const username = localStorage.getItem('username');
     
     if (!token || !username) {
-        console.log('用户未登录，跳过加载用户数据');
         return;
     }
     
@@ -272,7 +271,7 @@ async function loadUserUploadedData() {
             window.dynamicLayers = [];
         }
         
-        console.log('开始加载用户数据，用户名:', username);
+        
         
         // 尝试多次请求，提高可靠性
         let res;
@@ -281,7 +280,7 @@ async function loadUserUploadedData() {
         
         while (retries > 0 && !success) {
             try {
-                console.log(`尝试请求用户数据 (${4-retries}/3)...`);
+                
                 res = await fetch(`${window.API_BASE_URL}/api/photos`, {
                     method: 'GET',
                     headers: {
@@ -293,7 +292,7 @@ async function loadUserUploadedData() {
                 });
                 
                 if (res.ok) {
-                    console.log('请求成功:', res.status);
+                    
                     success = true;
                 } else {
                     console.warn(`请求失败，${retries-1}次重试机会:`, res.status, res.statusText);
@@ -323,20 +322,20 @@ async function loadUserUploadedData() {
         }
         
         const data = await res.json();
-        console.log('获取到所有照片数据，要素数量:', data.features ? data.features.length : 0);
+        
         
         // 严格过滤出当前用户的照片
         let userFeatures;
         if (username === 'admin') {
             // 管理员用户，显示所有数据
             userFeatures = data.features || [];
-            console.log('管理员用户，显示所有照片数量:', userFeatures.length);
+            
         } else {
             // 普通用户，只显示自己的数据
             userFeatures = (data.features || []).filter(feature => {
                 return feature.properties && feature.properties.uploader === username;
             });
-            console.log('过滤后用户照片数量:', userFeatures.length);
+            
         }
         
         // 转换数据格式为前端需要的格式
@@ -348,7 +347,7 @@ async function loadUserUploadedData() {
         // 从用户数据中提取视域信息
         userFeatures.forEach((feature, index) => {
             const properties = feature.properties || {};
-            console.log(`处理点数据 ${index}: filename=${properties.filename}, datetime=${properties.datetime}`);
+            
             if (properties.footprints) {
                 try {
                     let footprints;
@@ -372,7 +371,7 @@ async function loadUserUploadedData() {
                                 f.properties.datetime = properties.datetime;
                                 f.properties.upload_time = properties.upload_time;
                                 userData.footprints.push(f);
-                                console.log(`  添加视域 ${userData.footprints.length-1}: filename=${f.properties.filename}`);
+                                
                             });
                         } else if (footprints.type) {
                             // 如果是Geometry对象，包装成Feature并添加属性
@@ -391,7 +390,7 @@ async function loadUserUploadedData() {
                                 footprintFeature.geometry = footprints.geometry;
                             }
                             userData.footprints.push(footprintFeature);
-                            console.log(`  添加视域 ${userData.footprints.length-1}: filename=${footprintFeature.properties.filename}`);
+                            
                         }
                     }
                 } catch (e) {
@@ -400,7 +399,7 @@ async function loadUserUploadedData() {
             }
         });
         
-        console.log('提取到视域数据数量:', userData.footprints.length);
+        
         
         loadUserDataToMap(userData);
     } catch (e) {
