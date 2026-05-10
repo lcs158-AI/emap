@@ -122,7 +122,9 @@ function initUpload() {
                 progressEl.style.color = 'green';
                 
                 // 清空输入
-                cameraInput.value = '';
+                if (cameraInput) {
+                    cameraInput.value = '';
+                }
                 localImageInput.value = '';
                 
                 // 定位到最新上传数据的中心位置
