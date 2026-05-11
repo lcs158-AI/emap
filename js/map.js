@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿//==================== 地图初始化 ====================
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//==================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
@@ -1884,6 +1884,246 @@ function zoomToLayerExtent(layer) {
  * @param {Object} item - 图层对象
  * @param {number} index - 图层索引
  */
+/**
+ * 计算字段表达式的值并显示分类UI
+ */
+function evaluateExpression(expr, features, categoryValuesDiv, categoryStyles, presetColors, existingStyles) {
+    expr = expr.trim();
+    if (!expr) {
+        categoryValuesDiv.innerHTML = '<div style="color: #999; font-size: 11px;">请输入表达式</div>';
+        return;
+    }
+
+    // 安全计算表达式 - 替换字段名为特征值
+    function computeExpr(feature) {
+        const props = feature.getProperties();
+        let evalExpr = expr;
+        const fieldRegex = /[a-zA-Z_\u4e00-\u9fa5][a-zA-Z0-9_\u4e00-\u9fa5]*/g;
+        const reserved = ['Math', 'NaN', 'Infinity', 'parseInt', 'parseFloat', 'Number', 'String', 'Boolean', 'Array', 'Object', 'Date', 'JSON', 'isNaN', 'isFinite', 'abs', 'round', 'floor', 'ceil', 'pow', 'sqrt', 'PI'];
+        const matchedFields = evalExpr.match(fieldRegex) || [];
+        matchedFields.forEach(field => {
+             if (reserved.includes(field) || /^[0-9]+(\.[0-9]+)?$/.test(field)) return;
+             if (props[field] !== undefined) {
+                 var fval = props[field];
+                 if (typeof fval === 'number' || (!isNaN(parseFloat(fval)) && isFinite(fval))) {
+                     evalExpr = evalExpr.split(field).join('(' + (typeof fval === 'number' ? fval : parseFloat(fval)) + ')');
+                 } else {
+                     evalExpr = evalExpr.split(field).join('(0)');
+                 }
+             } else {
+                 evalExpr = evalExpr.split(field).join('(0)');
+             }
+         });
+        return Function('"use strict"; return (' + evalExpr + ')')();
+    }
+
+    // 计算所有特征值
+    const computedValues = [];
+    features.forEach(feature => {
+        try {
+            var val = computeExpr(feature);
+            if (val !== undefined && val !== null && val !== '') {
+                computedValues.push(parseFloat(parseFloat(val).toFixed(4)));
+            }
+        } catch(e) {}
+    });
+
+    if (computedValues.length === 0) {
+        categoryValuesDiv.innerHTML = '<div style="color: #999; font-size: 11px;">表达式无法计算有效数值，请检查字段名是否正确</div>';
+        return;
+    }
+
+    // 按数值范围分类
+    categoryStyles._isNumeric = true;
+    categoryStyles._isExpression = true;
+    delete categoryStyles._numericRanges;
+
+    var min = Math.min(...computedValues);
+    var max = Math.max(...computedValues);
+    var range = max - min;
+
+    var minValue, maxValue;
+    if (range === 0) {
+        minValue = min * 0.9;
+        maxValue = max * 1.1;
+    } else {
+        minValue = min - range * 0.1;
+        maxValue = max + range * 0.1;
+    }
+
+    const rangeSection = document.createElement('div');
+    rangeSection.style.marginBottom = '15px';
+    rangeSection.style.padding = '10px';
+    rangeSection.style.backgroundColor = '#e6f7ff';
+    rangeSection.style.borderRadius = '4px';
+    rangeSection.style.border = '1px solid #91d5ff';
+
+    const rangeTitle = document.createElement('div');
+    rangeTitle.textContent = '数值范围设置（表达式结果）';
+    rangeTitle.style.fontWeight = 'bold';
+    rangeTitle.style.fontSize = '12px';
+    rangeTitle.style.marginBottom = '10px';
+    rangeTitle.style.color = '#1890ff';
+    rangeSection.appendChild(rangeTitle);
+
+    const rangeInfo = document.createElement('div');
+    rangeInfo.style.fontSize = '11px';
+    rangeInfo.style.color = '#666';
+    rangeInfo.style.marginBottom = '10px';
+    rangeInfo.textContent = '表达式值范围：' + parseFloat(min).toFixed(2) + ' ~ ' + parseFloat(max).toFixed(2) + '，共 ' + computedValues.length + ' 个有效值';
+    rangeSection.appendChild(rangeInfo);
+
+    const rangeCountDiv = document.createElement('div');
+    rangeCountDiv.style.display = 'flex';
+    rangeCountDiv.style.alignItems = 'center';
+    rangeCountDiv.style.marginBottom = '8px';
+
+    const rangeCountLabel = document.createElement('label');
+    rangeCountLabel.textContent = '分段数量:';
+    rangeCountLabel.style.fontSize = '11px';
+    rangeCountLabel.style.marginRight = '8px';
+    rangeCountDiv.appendChild(rangeCountLabel);
+
+    var rangeCountInput = document.createElement('input');
+    rangeCountInput.type = 'number';
+    rangeCountInput.id = 'rangeCountInput';
+    rangeCountInput.min = '2';
+    rangeCountInput.max = '20';
+    rangeCountInput.value = existingStyles._rangeCount || '5';
+    rangeCountInput.style.width = '60px';
+    rangeCountInput.style.padding = '3px';
+    rangeCountInput.style.fontSize = '11px';
+    rangeCountInput.style.border = '1px solid #ddd';
+    rangeCountInput.style.borderRadius = '3px';
+    rangeCountDiv.appendChild(rangeCountInput);
+
+    const rangeBtn = document.createElement('button');
+    rangeBtn.textContent = '生成分段';
+    rangeBtn.style.marginLeft = '8px';
+    rangeBtn.style.padding = '3px 10px';
+    rangeBtn.style.fontSize = '11px';
+    rangeBtn.style.cursor = 'pointer';
+    rangeBtn.style.border = '1px solid #1890ff';
+    rangeBtn.style.backgroundColor = '#1890ff';
+    rangeBtn.style.color = 'white';
+    rangeBtn.style.borderRadius = '3px';
+    rangeCountDiv.appendChild(rangeBtn);
+
+    rangeSection.appendChild(rangeCountDiv);
+
+    const rangesContainer = document.createElement('div');
+    rangesContainer.id = 'rangesContainer';
+    rangesContainer.style.maxHeight = '180px';
+    rangesContainer.style.overflowY = 'auto';
+    rangeSection.appendChild(rangesContainer);
+
+    // 生成分段的函数
+    function generateRanges() {
+        rangesContainer.innerHTML = '';
+        var count = parseInt(rangeCountInput.value) || 5;
+        if (count < 2) count = 2;
+        if (count > 20) count = 20;
+
+        var step = (maxValue - minValue) / count;
+        var ranges = [];
+        for (var i = 0; i < count; i++) {
+            var rangeStart = minValue + i * step;
+            var rangeEnd = minValue + (i + 1) * step;
+            var rangeLabel = parseFloat(rangeStart).toFixed(2) + ' ~ ' + parseFloat(rangeEnd).toFixed(2);
+            ranges.push(rangeLabel);
+
+            if (!categoryStyles[rangeLabel]) {
+                categoryStyles[rangeLabel] = {};
+            }
+            if (!categoryStyles[rangeLabel].color) {
+                categoryStyles[rangeLabel].color = presetColors[i % presetColors.length];
+            }
+
+            var matchingCount = 0;
+            computedValues.forEach(v => {
+                if (v >= rangeStart && (i === count - 1 ? v <= rangeEnd : v < rangeEnd)) {
+                    matchingCount++;
+                }
+            });
+
+            var rangeDiv = document.createElement('div');
+            rangeDiv.style.marginBottom = '5px';
+            rangeDiv.style.padding = '5px';
+            rangeDiv.style.backgroundColor = 'white';
+            rangeDiv.style.borderRadius = '3px';
+            rangeDiv.style.border = '1px solid #e8e8e8';
+            rangeDiv.style.display = 'flex';
+            rangeDiv.style.alignItems = 'center';
+            rangeDiv.style.justifyContent = 'space-between';
+
+            var rangeLabelSpan = document.createElement('span');
+            rangeLabelSpan.textContent = rangeLabel + ' (' + matchingCount + ')';
+            rangeLabelSpan.style.fontSize = '11px';
+            rangeLabelSpan.style.flex = '1';
+            rangeDiv.appendChild(rangeLabelSpan);
+
+            var colorBtn = document.createElement('button');
+            colorBtn.textContent = '  ';
+            colorBtn.style.width = '25px';
+            colorBtn.style.height = '18px';
+            colorBtn.style.backgroundColor = categoryStyles[rangeLabel].color;
+            colorBtn.style.border = '1px solid #ddd';
+            colorBtn.style.borderRadius = '3px';
+            colorBtn.style.cursor = 'pointer';
+            colorBtn.style.flexShrink = '0';
+            rangeDiv.appendChild(colorBtn);
+
+            var colorInput = document.createElement('input');
+            colorInput.type = 'color';
+            colorInput.value = categoryStyles[rangeLabel].color;
+            colorInput.style.position = 'fixed';
+            colorInput.style.top = '50%';
+            colorInput.style.left = '50%';
+            colorInput.style.zIndex = '100000';
+            rangeDiv.appendChild(colorInput);
+
+            colorBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                colorInput.click();
+            });
+
+            (function(currentLabel) {
+                colorInput.addEventListener('change', function() {
+                    colorBtn.style.backgroundColor = colorInput.value;
+                    if (!categoryStyles[currentLabel]) categoryStyles[currentLabel] = {};
+                    categoryStyles[currentLabel].color = colorInput.value;
+                });
+            })(rangeLabel);
+
+            rangesContainer.appendChild(rangeDiv);
+        }
+
+        categoryStyles._numericRanges = ranges;
+        categoryStyles._rangeCount = count;
+        categoryStyles._rangeMin = minValue;
+        categoryStyles._rangeMax = maxValue;
+    }
+
+    // 恢复之前保存的数值范围
+    if (existingStyles._numericRanges && existingStyles._rangeCount) {
+        // 找到之前已保存的分段，尝试恢复
+        setTimeout(function() {
+            var savedCount = existingStyles._rangeCount;
+            if (savedCount && savedCount <= 20 && savedCount >= 2) {
+                rangeCountInput.value = savedCount;
+            }
+            generateRanges();
+        }, 100);
+    } else {
+        rangeBtn.addEventListener('click', generateRanges);
+        generateRanges();
+    }
+
+    categoryValuesDiv.innerHTML = '';
+    categoryValuesDiv.appendChild(rangeSection);
+}
+
 function openLayerInfoEditor(item, index) {
     // 获取图层的所有属性字段
     const source = item.layer.getSource();
@@ -2540,7 +2780,71 @@ function openLayerInfoEditor(item, index) {
         }
     });
     
+    // 添加表达式选项
+    const exprOption = document.createElement('option');
+    exprOption.value = '__expression__';
+    exprOption.textContent = '✏️ 字段表达式...';
+    exprOption.dataset.fieldType = 'numeric';
+    if (item.categoryField && item.categoryField.startsWith('__expr__:')) {
+        exprOption.selected = true;
+    }
+    categoryFieldSelect.appendChild(exprOption);
+    
+    // 表达式输入框（默认隐藏）
+    const exprInputDiv = document.createElement('div');
+    exprInputDiv.id = 'exprInputDiv';
+    exprInputDiv.style.marginTop = '8px';
+    exprInputDiv.style.marginBottom = '5px';
+    exprInputDiv.style.display = 'none';
+    
+    const exprLabel = document.createElement('label');
+    exprLabel.textContent = '字段表达式:';
+    exprLabel.style.fontSize = '11px';
+    exprLabel.style.fontWeight = 'bold';
+    exprLabel.style.display = 'block';
+    exprLabel.style.marginBottom = '3px';
+    exprInputDiv.appendChild(exprLabel);
+    
+    const exprHelp = document.createElement('div');
+    exprHelp.textContent = '例: height - 10,  field1 * 0.5 - field2,  (a + b) / c';
+    exprHelp.style.fontSize = '10px';
+    exprHelp.style.color = '#888';
+    exprHelp.style.marginBottom = '4px';
+    exprInputDiv.appendChild(exprHelp);
+    
+    const exprInput = document.createElement('input');
+    exprInput.type = 'text';
+    exprInput.id = 'exprInput';
+    exprInput.placeholder = '输入表达式...';
+    exprInput.style.width = '100%';
+    exprInput.style.padding = '4px';
+    exprInput.style.fontSize = '12px';
+    exprInput.style.border = '1px solid #ddd';
+    exprInput.style.borderRadius = '3px';
+    exprInput.style.boxSizing = 'border-box';
+    // 恢复已保存的表达式
+    if (item.categoryField && item.categoryField.startsWith('__expr__:')) {
+        exprInput.value = item.categoryField.replace('__expr__:', '');
+        exprInputDiv.style.display = 'block';
+    }
+    exprInputDiv.appendChild(exprInput);
+    
+    // 表达式输入实时计算
+    var exprTimeout;
+    exprInput.addEventListener('keyup', function() {
+        clearTimeout(exprTimeout);
+        exprTimeout = setTimeout(function() {
+            if (exprInput.value.trim()) {
+                var select = document.getElementById('categoryFieldSelect');
+                if (select && select.value === '__expression__') {
+                    evaluateExpression(exprInput.value.trim(), features, categoryValuesDiv, categoryStyles, presetColors, item.categoryStyles || {})
+                }
+            }
+        }, 500);
+    });
+    
     categoryFieldDiv.appendChild(categoryFieldSelect);
+    categoryFieldDiv.appendChild(exprInputDiv);
     categoryStyleSection.appendChild(categoryFieldDiv);
     
     // 分类值和样式设置区域
@@ -2560,6 +2864,22 @@ function openLayerInfoEditor(item, index) {
     categoryFieldSelect.addEventListener('change', () => {
         const selectedField = categoryFieldSelect.value;
         const selectedOption = categoryFieldSelect.options[categoryFieldSelect.selectedIndex];
+        
+        // 处理表达式输入框显示
+        const exprInputDiv = document.getElementById('exprInputDiv');
+        const exprInput = document.getElementById('exprInput');
+        if (exprInputDiv && exprInput) {
+            if (selectedField === '__expression__') {
+                exprInputDiv.style.display = 'block';
+                // 如果有表达式内容，触发计算
+                if (exprInput.value.trim()) {
+                    evaluateExpression(exprInput.value.trim(), features, categoryValuesDiv, categoryStyles, presetColors);
+                }
+            } else {
+                exprInputDiv.style.display = 'none';
+            }
+        }
+        
         const fieldType = selectedOption ? selectedOption.dataset.fieldType : 'string';
         
         categoryValuesDiv.innerHTML = '';
@@ -3463,7 +3783,14 @@ function openLayerInfoEditor(item, index) {
         // 保存分类样式设置
         const categoryFieldSelect = document.getElementById('categoryField');
         if (categoryFieldSelect) {
-            const selectedCategoryField = categoryFieldSelect.value;
+            var selectedCategoryField = categoryFieldSelect.value;
+            // 如果是表达式，保存实际表达式内容
+            if (selectedCategoryField === '__expression__') {
+                const exprInput = document.getElementById('exprInput');
+                if (exprInput && exprInput.value.trim()) {
+                    selectedCategoryField = '__expr__:' + exprInput.value.trim();
+                }
+            }
             item.categoryField = selectedCategoryField;
             newStyle.categoryField = selectedCategoryField;
             
@@ -4014,8 +4341,37 @@ function applyLayerStyle(layer, style, geometryType) {
         let categorySize = null;
         
         if (categoryField && categoryStyles && typeof categoryStyles === 'object') {
-            const fieldValue = feature.get(categoryField);
-            console.log('检查分类样式:', categoryField, fieldValue, categoryStyles);
+            var fieldValue;
+            
+            // 处理字段表达式
+            if (categoryField.startsWith('__expr__:')) {
+                const expr = categoryField.replace('__expr__:', '');
+                try {
+                    const props = feature.getProperties();
+                    let evalExpr = expr;
+                    const fieldRegex = /[a-zA-Z_\u4e00-\u9fa5][a-zA-Z0-9_\u4e00-\u9fa5]*/g;
+                    const reserved = ['Math', 'NaN', 'Infinity', 'parseInt', 'parseFloat', 'Number', 'String', 'Boolean', 'Array', 'Object', 'Date', 'JSON', 'isNaN', 'isFinite', 'abs', 'round', 'floor', 'ceil', 'pow', 'sqrt', 'PI'];
+                    const matchedFields = evalExpr.match(fieldRegex) || [];
+                    matchedFields.forEach(field => {
+                        if (reserved.includes(field) || /^[0-9]+(\.[0-9]+)?$/.test(field)) return;
+                        if (props[field] !== undefined) {
+                            var val = props[field];
+                            if (typeof val === 'number' || (!isNaN(parseFloat(val)) && isFinite(val))) {
+                                evalExpr = evalExpr.split(field).join('(' + (typeof val === 'number' ? val : parseFloat(val)) + ')');
+                            } else {
+                                evalExpr = evalExpr.split(field).join('(0)');
+                            }
+                        } else {
+                            evalExpr = evalExpr.split(field).join('(0)');
+                        }
+                    });
+                    fieldValue = parseFloat(Function('"use strict"; return (' + evalExpr + ')')());
+                } catch(e) {
+                    fieldValue = undefined;
+                }
+            } else {
+                fieldValue = feature.get(categoryField);
+            }
             
             if (fieldValue !== undefined && fieldValue !== null) {
                 // 检查是否是数值型分类（使用数值段）
