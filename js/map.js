@@ -1,4 +1,4 @@
-﻿//==================== 地图初始化 ====================
+﻿﻿//==================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
@@ -2456,20 +2456,56 @@ function openLayerInfoEditor(item, index) {
         let hasNumeric = false;
         let hasString = false;
         let hasBoolean = false;
+        let hasDate = false;
         let hasOther = false;
-        
+        let totalCount = 0;
+        let dateCount = 0;
+
+        // 日期正则：匹配常见日期格式
+        const datePatterns = [
+            /^\d{4}[-/]\d{1,2}[-/]\d{1,2}(\s+\d{1,2}:\d{2}(:\d{2})?)?$/,
+            /^\d{4}年\d{1,2}月\d{1,2}日/,
+            /^\d{1,2}[-/]\d{1,2}[-/]\d{4}(\s+\d{1,2}:\d{2}(:\d{2})?)?$/,
+            /^\d{1,2}\.\d{1,2}\.\d{4}/
+        ];
+
+        function isDateValue(val) {
+            if (typeof val === 'number') {
+                if (val > 1000000000 && val < 20000000000000) return true;
+                return false;
+            }
+            if (typeof val === 'string') {
+                for (let p of datePatterns) {
+                    if (p.test(val.trim())) return true;
+                }
+                var d = new Date(val);
+                if (!isNaN(d.getTime()) && d.getFullYear() > 1900 && d.getFullYear() < 2100) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         features.forEach(feature => {
             const value = feature.get(fieldName);
             if (value === undefined || value === null || value === '') return;
-            
+
+            totalCount++;
             const type = typeof value;
             if (type === 'number') {
-                hasNumeric = true;
+                if (isDateValue(value)) {
+                    dateCount++;
+                    hasDate = true;
+                } else {
+                    hasNumeric = true;
+                }
             } else if (type === 'boolean') {
                 hasBoolean = true;
             } else if (type === 'string') {
-                // 检查字符串是否可以转换为数字
-                if (!isNaN(parseFloat(value)) && isFinite(value)) {
+                if (isDateValue(value)) {
+                    dateCount++;
+                    hasDate = true;
+                } else if (!isNaN(parseFloat(value)) && isFinite(value)) {
                     hasNumeric = true;
                 } else {
                     hasString = true;
@@ -2478,7 +2514,8 @@ function openLayerInfoEditor(item, index) {
                 hasOther = true;
             }
         });
-        
+
+        if (hasDate && dateCount >= totalCount * 0.5) return 'date';
         if (hasBoolean && !hasNumeric && !hasString && !hasOther) return 'boolean';
         if (hasNumeric && !hasString && !hasOther) return 'numeric';
         if (hasString || hasOther) return 'string';
