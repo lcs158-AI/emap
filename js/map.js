@@ -1,4 +1,4 @@
-﻿﻿﻿﻿//==================== 地图初始化 ====================
+﻿﻿﻿﻿﻿﻿﻿//==================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
@@ -2989,6 +2989,16 @@ function openLayerInfoEditor(item, index) {
 
             dateSection.appendChild(dateModeSelect);
 
+            // 恢复之前保存的日期分类模式
+            if (categoryStyles._dateMode) {
+                for (let i = 0; i < dateModeSelect.options.length; i++) {
+                    if (dateModeSelect.options[i].value === categoryStyles._dateMode) {
+                        dateModeSelect.selectedIndex = i;
+                        break;
+                    }
+                }
+            }
+
             // 分类结果容器
             const dateCategoriesDiv = document.createElement('div');
             dateCategoriesDiv.id = 'dateCategoriesContainer';
@@ -3459,6 +3469,11 @@ function openLayerInfoEditor(item, index) {
             
             // 只有选择了分类字段时才保存分类样式
             if (selectedCategoryField) {
+                // 保存日期分类模式
+                const dateModeSelect = document.getElementById('dateModeSelect');
+                if (dateModeSelect) {
+                    categoryStyles._dateMode = dateModeSelect.value;
+                }
                 item.categoryStyles = categoryStyles;
                 // 深拷贝分类样式对象，确保数据被正确保存
                 newStyle.categoryStyles = JSON.parse(JSON.stringify(categoryStyles));
@@ -4018,6 +4033,25 @@ function applyLayerStyle(layer, style, geometryType) {
                                 console.log('应用数值段样式:', numValue, `[${min}, ${max})`, range.color, range.symbol, range.size);
                                 break;
                             }
+                        }
+                    }
+                } else if (categoryStyles._dateMode) {
+                    // 日期型分类
+                    const parsedDate = new Date(fieldValue);
+                    if (!isNaN(parsedDate.getTime())) {
+                        const mode = categoryStyles._dateMode;
+                        let dateKey;
+                        if (mode === 'year') {
+                            dateKey = parsedDate.getFullYear() + '年';
+                        } else if (mode === 'month') {
+                            dateKey = parsedDate.getFullYear() + '-' + String(parsedDate.getMonth() + 1).padStart(2, '0');
+                        } else if (mode === 'day') {
+                            dateKey = parsedDate.getFullYear() + '-' + String(parsedDate.getMonth() + 1).padStart(2, '0') + '-' + String(parsedDate.getDate()).padStart(2, '0');
+                        } else {
+                            dateKey = String(fieldValue);
+                        }
+                        if (categoryStyles[dateKey] && categoryStyles[dateKey].color) {
+                            categoryColor = categoryStyles[dateKey].color;
                         }
                     }
                 } else {
