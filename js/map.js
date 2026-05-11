@@ -1,4 +1,4 @@
-﻿﻿//==================== 地图初始化 ====================
+﻿﻿﻿﻿//==================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
@@ -2522,15 +2522,15 @@ function openLayerInfoEditor(item, index) {
         return 'unknown';
     }
     
-    // 添加符合条件的字段（字符型、数值型、逻辑型）
+    // 添加符合条件的字段（字符型、数值型、逻辑型、日期型）
     fieldList.forEach(field => {
         const fieldType = getFieldType(field);
-        // 只允许字符型、数值型和逻辑型字段
-        if (fieldType === 'string' || fieldType === 'numeric' || fieldType === 'boolean') {
+        // 只允许字符型、数值型、逻辑型和日期型字段
+        if (fieldType === 'string' || fieldType === 'numeric' || fieldType === 'boolean' || fieldType === 'date') {
             const option = document.createElement('option');
             option.value = field;
             // 显示字段名和类型
-            const typeLabel = fieldType === 'numeric' ? '(数值)' : fieldType === 'boolean' ? '(逻辑)' : '(字符)';
+            const typeLabel = fieldType === 'numeric' ? '(数值)' : fieldType === 'boolean' ? '(逻辑)' : fieldType === 'date' ? '(日期)' : '(字符)';
             option.textContent = field + ' ' + typeLabel;
             option.dataset.fieldType = fieldType;
             if (item.categoryField === field) {
@@ -2919,10 +2919,221 @@ function openLayerInfoEditor(item, index) {
             categoryValuesDiv.appendChild(rangeSection);
             
             // 标记为数值型分类
-            categoryStyles._isNumeric = true;
+            categoryStyles._isNumeric = false;
+            
+        } else if (fieldType === 'date') {
+            // 日期型字段：提供按年、按月、按年月分类选项
+            categoryStyles._isNumeric = false;
+            delete categoryStyles._numericRanges;
+
+            // 日期解析辅助函数
+            function parseDateValue(val) {
+                if (typeof val === 'number') return new Date(val < 10000000000 ? val * 1000 : val);
+                const d = new Date(val);
+                return isNaN(d.getTime()) ? null : d;
+            }
+
+            // 收集所有日期值
+            const dateValues = [];
+            features.forEach(feature => {
+                const value = feature.get(selectedField);
+                if (value !== undefined && value !== null && value !== '') {
+                    const d = parseDateValue(value);
+                    if (d) dateValues.push({ date: d, raw: value });
+                }
+            });
+
+            if (dateValues.length === 0) {
+                categoryValuesDiv.innerHTML = '<div style="color: #999; font-size: 11px;">该字段没有可用日期</div>';
+                return;
+            }
+
+            // 创建日期分类设置区域
+            const dateSection = document.createElement('div');
+            dateSection.style.marginBottom = '15px';
+            dateSection.style.padding = '10px';
+            dateSection.style.backgroundColor = '#f6ffed';
+            dateSection.style.borderRadius = '4px';
+            dateSection.style.border = '1px solid #b7eb8f';
+
+            const dateTitle = document.createElement('div');
+            dateTitle.textContent = '日期分类方式';
+            dateTitle.style.fontWeight = 'bold';
+            dateTitle.style.fontSize = '12px';
+            dateTitle.style.marginBottom = '10px';
+            dateTitle.style.color = '#52c41a';
+            dateSection.appendChild(dateTitle);
+
+            // 分类方式选择
+            const dateModeSelect = document.createElement('select');
+            dateModeSelect.id = 'dateModeSelect';
+            dateModeSelect.style.width = '100%';
+            dateModeSelect.style.padding = '5px';
+            dateModeSelect.style.fontSize = '12px';
+            dateModeSelect.style.border = '1px solid #ddd';
+            dateModeSelect.style.borderRadius = '3px';
+            dateModeSelect.style.marginBottom = '10px';
+
+            const modes = [
+                { value: 'year', label: '按年分类' },
+                { value: 'month', label: '按年月分类' },
+                { value: 'day', label: '按日期分类' },
+                { value: 'value', label: '按原始值分类' }
+            ];
+            modes.forEach(mode => {
+                const opt = document.createElement('option');
+                opt.value = mode.value;
+                opt.textContent = mode.label;
+                dateModeSelect.appendChild(opt);
+            });
+
+            dateSection.appendChild(dateModeSelect);
+
+            // 分类结果容器
+            const dateCategoriesDiv = document.createElement('div');
+            dateCategoriesDiv.id = 'dateCategoriesContainer';
+            dateCategoriesDiv.style.maxHeight = '180px';
+            dateCategoriesDiv.style.overflowY = 'auto';
+            dateSection.appendChild(dateCategoriesDiv);
+
+            // 渲染日期分类的函数
+            function renderDateCategories() {
+                const mode = dateModeSelect.value;
+                dateCategoriesDiv.innerHTML = '';
+
+                // 按选定方式分组
+                const groups = {};
+                dateValues.forEach(item => {
+                    let key;
+                    if (mode === 'year') {
+                        key = item.date.getFullYear() + '年';
+                    } else if (mode === 'month') {
+                        key = item.date.getFullYear() + '-' + String(item.date.getMonth() + 1).padStart(2, '0');
+                    } else if (mode === 'day') {
+                        key = item.date.getFullYear() + '-' + String(item.date.getMonth() + 1).padStart(2, '0') + '-' + String(item.date.getDate()).padStart(2, '0');
+                    } else {
+                        key = String(item.raw);
+                    }
+                    if (!groups[key]) groups[key] = [];
+                    groups[key].push(item);
+                });
+
+                // 按key排序
+                const sortedKeys = Object.keys(groups).sort();
+
+                if (sortedKeys.length === 0) {
+                    dateCategoriesDiv.innerHTML = '<div style="color: #999; font-size: 11px;">没有可用分类</div>';
+                    return;
+                }
+
+                // 显示统计信息
+                const statsDiv = document.createElement('div');
+                statsDiv.style.fontSize = '11px';
+                statsDiv.style.color = '#666';
+                statsDiv.style.marginBottom = '8px';
+                statsDiv.style.padding = '4px 8px';
+                statsDiv.style.backgroundColor = '#fffbe6';
+                statsDiv.style.borderRadius = '3px';
+                statsDiv.textContent = `共 ${sortedKeys.length} 个分组，${dateValues.length} 个要素`;
+                dateCategoriesDiv.appendChild(statsDiv);
+
+                // 为每个分组创建样式设置
+                sortedKeys.forEach((key, index) => {
+                    const groupDiv = document.createElement('div');
+                    groupDiv.style.marginBottom = '6px';
+                    groupDiv.style.padding = '6px';
+                    groupDiv.style.backgroundColor = 'white';
+                    groupDiv.style.borderRadius = '3px';
+                    groupDiv.style.border = '1px solid #e8e8e8';
+
+                    // 组名和数量
+                    const groupHeader = document.createElement('div');
+                    groupHeader.style.display = 'flex';
+                    groupHeader.style.justifyContent = 'space-between';
+                    groupHeader.style.alignItems = 'center';
+
+                    const groupName = document.createElement('span');
+                    groupName.textContent = key;
+                    groupName.style.fontWeight = 'bold';
+                    groupName.style.fontSize = '12px';
+
+                    const groupCount = document.createElement('span');
+                    groupCount.textContent = `(${groups[key].length})`;
+                    groupCount.style.fontSize = '11px';
+                    groupCount.style.color = '#999';
+
+                    groupHeader.appendChild(groupName);
+                    groupHeader.appendChild(groupCount);
+                    groupDiv.appendChild(groupHeader);
+
+                    // 颜色选择行
+                    const colorRow = document.createElement('div');
+                    colorRow.style.display = 'flex';
+                    colorRow.style.alignItems = 'center';
+                    colorRow.style.marginTop = '4px';
+
+                    const colorLabel = document.createElement('label');
+                    colorLabel.textContent = '颜色:';
+                    colorLabel.style.fontSize = '10px';
+                    colorLabel.style.marginRight = '5px';
+                    colorRow.appendChild(colorLabel);
+
+                    if (!categoryStyles[key]) {
+                        categoryStyles[key] = {};
+                    }
+                    if (!categoryStyles[key].color) {
+                        categoryStyles[key].color = presetColors[index % presetColors.length];
+                    }
+
+                    const colorBtn = document.createElement('button');
+                    colorBtn.textContent = '  ';
+                    colorBtn.style.width = '30px';
+                    colorBtn.style.height = '20px';
+                    colorBtn.style.backgroundColor = categoryStyles[key].color;
+                    colorBtn.style.border = '1px solid #ddd';
+                    colorBtn.style.borderRadius = '3px';
+                    colorBtn.style.cursor = 'pointer';
+                    colorRow.appendChild(colorBtn);
+
+                    const colorInput = document.createElement('input');
+                    colorInput.type = 'color';
+                    colorInput.value = categoryStyles[key].color;
+                    colorInput.style.position = 'fixed';
+                    colorInput.style.top = '50%';
+                    colorInput.style.left = '50%';
+                    colorInput.style.transform = 'translate(-50%, -50%)';
+                    colorInput.style.zIndex = '100000';
+                    colorRow.appendChild(colorInput);
+
+                    colorBtn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        colorInput.click();
+                    });
+
+                    (function(currentKey) {
+                        colorInput.addEventListener('change', () => {
+                            colorBtn.style.backgroundColor = colorInput.value;
+                            categoryStyles[currentKey] = categoryStyles[currentKey] || {};
+                            categoryStyles[currentKey].color = colorInput.value;
+                        });
+                    })(key);
+
+                    groupDiv.appendChild(colorRow);
+                    dateCategoriesDiv.appendChild(groupDiv);
+                });
+            }
+
+            // 监听分类方式变化
+            dateModeSelect.addEventListener('change', renderDateCategories);
+
+            // 初始渲染
+            renderDateCategories();
+
+            categoryValuesDiv.appendChild(dateSection);
             
         } else {
-            // 非数值型字段：使用原有的唯一值分类方式
+            // 非数值型/非日期型字段：使用原有的唯一值分类方式
             categoryStyles._isNumeric = false;
             delete categoryStyles._numericRanges;
             
