@@ -1,25 +1,28 @@
 // 配置相关的代码
 
-// 强制使用本地 API 进行开发（取消下面这行的注释来强制使用本地 API）
-window.FORCE_LOCAL_API = true;
-
 // 动态设置API_BASE_URL
 window.API_BASE_URL = (function() {
-    if (window.FORCE_LOCAL_API) {
-        console.log('[Config] Forcing local API');
-        return 'http://localhost:8082';
-    }
-    
     const hostname = window.location.hostname;
-    console.log('[Config] Hostname:', hostname);
+    const protocol = window.location.protocol;
+    const port = window.location.port;
     
+    console.log('[Config] Hostname:', hostname, 'Protocol:', protocol, 'Port:', port);
+    
+    // 如果是本地开发环境（localhost 或 127.0.0.1）
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
         console.log('[Config] Using local API');
         return 'http://localhost:8082';
-    } else {
-        console.log('[Config] Using production API');
-        return 'https://lzy-fastapi.onrender.com';
     }
+    
+    // 如果是通过我们自己的 FastAPI 服务器访问的（端口 8082）
+    if (port === '8082') {
+        console.log('[Config] Using same-origin API');
+        return `${protocol}//${hostname}:${port}`;
+    }
+    
+    // 否则使用生产环境 API
+    console.log('[Config] Using production API');
+    return 'https://lzy-fastapi.onrender.com';
 })();
 
 console.log('[Config] API_BASE_URL:', window.API_BASE_URL);
