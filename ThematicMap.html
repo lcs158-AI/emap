@@ -58,6 +58,8 @@
             top: 60px;
             right: 10px;
             width: 280px;
+            max-height: calc(100vh - 80px);
+            overflow-y: auto;
             background: rgba(255, 255, 255, 0.98);
             border-radius: 8px;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
@@ -65,19 +67,38 @@
             z-index: 100;
             font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
         }
+        
+        /* 自定义滚动条 */
+        #controlPanel::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        #controlPanel::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+        
+        #controlPanel::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 3px;
+        }
+        
+        #controlPanel::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
 
         #panelHeader {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 15px;
-            padding-bottom: 10px;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
             border-bottom: 1px solid #eee;
         }
 
         #panelHeader h2 {
             margin: 0;
-            font-size: 16px;
+            font-size: 15px;
             color: #333;
             font-weight: 600;
         }
@@ -98,35 +119,35 @@
         }
 
         .section {
-            margin-bottom: 15px;
+            margin-bottom: 12px;
         }
 
         .section-title {
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 600;
             color: #666;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
         }
 
         select {
             width: 100%;
-            padding: 10px;
+            padding: 8px 10px;
             border: 1px solid #ddd;
             border-radius: 6px;
-            font-size: 14px;
+            font-size: 13px;
             background: white;
             cursor: pointer;
             box-sizing: border-box;
             appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
             background-repeat: no-repeat;
             background-position: right 8px center;
-            background-size: 16px;
+            background-size: 14px;
         }
 
         #applyBtn {
             width: 100%;
-            padding: 12px;
+            padding: 10px;
             background: #1890ff;
             color: white;
             border: none;
@@ -134,7 +155,7 @@
             cursor: pointer;
             font-size: 14px;
             font-weight: 500;
-            margin-top: 10px;
+            margin-top: 8px;
             transition: background 0.2s ease;
         }
 
@@ -147,15 +168,15 @@
         }
 
         .legend {
-            margin-top: 15px;
-            padding-top: 15px;
+            margin-top: 12px;
+            padding-top: 12px;
             border-top: 1px solid #eee;
         }
 
         .legend-item {
             display: flex;
             align-items: center;
-            margin-bottom: 6px;
+            margin-bottom: 5px;
             font-size: 12px;
             color: #555;
         }

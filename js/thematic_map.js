@@ -1,5 +1,6 @@
 let map;
 let thematicLayer;
+let baseProvinceLayer;
 let geoJsonData = {};
 let isPanelOpen = false;
 
@@ -38,11 +39,7 @@ function initMap() {
         console.log('[Debug] Creating OpenLayers map...');
         map = new ol.Map({
             target: 'map',
-            layers: [
-                new ol.layer.Tile({
-                    source: new ol.source.OSM()
-                })
-            ],
+            layers: [],
             view: new ol.View({
                 center: ol.proj.fromLonLat([104.1954, 35.8617]),
                 zoom: 4
@@ -195,23 +192,48 @@ async function applyThematicLayer() {
         const styledFeatures = createStyledFeatures(geoJson, data.data, fieldName, level);
         console.log('[Debug] Created', styledFeatures.length, 'styled features');
         
+        // 移除基础地图图层
+        if (baseProvinceLayer) {
+            console.log('[Debug] Removing base province layer');
+            map.removeLayer(baseProvinceLayer);
+            baseProvinceLayer = null;
+        }
+        
         if (thematicLayer) {
             console.log('[Debug] Removing existing thematic layer');
             map.removeLayer(thematicLayer);
         }
         
-        console.log('[Debug] Creating new thematic layer');
+        console.log('[Debug] Creating new thematic layer with', styledFeatures.length, 'features');
+        
+        // 验证第一个要素的样式
+        if (styledFeatures.length > 0) {
+            const firstFeature = styledFeatures[0];
+            console.log('[Debug] First feature style:', firstFeature.get('style'));
+        }
+        
         thematicLayer = new ol.layer.Vector({
             source: new ol.source.Vector({
                 features: styledFeatures
             }),
             style: function(feature) {
-                return feature.get('style');
+                const s = feature.get('style');
+                return s;
             }
         });
         
         map.addLayer(thematicLayer);
-        console.log('[Debug] Thematic layer added to map');
+        console.log('[Debug] Thematic layer added to map, layers count:', map.getLayers().getLength());
+        
+        // 调整视图以适应数据范围
+        const extent = thematicLayer.getSource().getExtent();
+        if (extent && extent.length === 4) {
+            console.log('[Debug] Fitting view to extent:', extent);
+            map.getView().fit(extent, {
+                padding: [50, 50, 50, 50],
+                maxZoom: 10
+            });
+        }
         
         updateLegend(data.data, fieldName);
         document.getElementById('dataInfo').innerHTML = `数据记录: ${data.data.length} 条 | 数据来源: ${data.table_label}`;
@@ -245,14 +267,20 @@ function createStyledFeatures(geoJson, data, fieldName, level) {
     
     const features = [];
     
+    let matchedCount = 0;
+    
     geoJson.features.forEach((feature, index) => {
-        const name = feature.properties.name || feature.properties.full_name;
+        const name = feature.properties.full_name || feature.properties.name;
         const dataItem = data.find(item => 
             item['地区'] === name || 
             item['省（区、市）'] === name || 
             item['省份'] === name ||
             item['name'] === name
         );
+        
+        if (dataItem) {
+            matchedCount++;
+        }
         
         let value = 0;
         if (dataItem && dataItem[fieldName] !== undefined && dataItem[fieldName] !== null && dataItem[fieldName] !== '') {
@@ -270,7 +298,6 @@ function createStyledFeatures(geoJson, data, fieldName, level) {
         
         const colorIndex = Math.max(0, Math.min(Math.floor(normalized * (colorScale.length - 1)), colorScale.length - 1));
         const color = colorScale[colorIndex] || [200, 200, 200];
-        console.log('[Debug] Feature:', name, 'Value:', value, 'Normalized:', normalized, 'Color index:', colorIndex, 'Color:', color);
         
         let style;
         
@@ -300,7 +327,9 @@ function createStyledFeatures(geoJson, data, fieldName, level) {
             });
         }
         
-        const olFeature = new ol.format.GeoJSON().readFeature(feature);
+        const olFeature = new ol.format.GeoJSON().readFeature(feature, {
+            featureProjection: 'EPSG:3857'
+        });
         
         if (renderType === 'point') {
             const centroid = ol.extent.getCenter(olFeature.getGeometry().getExtent());
@@ -313,6 +342,10 @@ function createStyledFeatures(geoJson, data, fieldName, level) {
         olFeature.set('value', value);
         features.push(olFeature);
     });
+    
+    console.log('[Debug] Data matching:', matchedCount, '/', geoJson.features.length, 'features matched');
+    console.log('[Debug] Data sample:', data.slice(0, 3));
+    console.log('[Debug] GeoJSON properties sample:', geoJson.features[0]?.properties);
     
     return features;
 }
@@ -384,9 +417,48 @@ function initThematicMap() {
             togglePanel();
         }
         
+        // 加载并显示省级地图作为底图
+        loadAndShowProvinceMap();
+        
         console.log('[Debug] initThematicMap() completed!');
     } catch (error) {
         console.error('[Debug] Error during initialization:', error);
+    }
+}
+
+async function loadAndShowProvinceMap() {
+    console.log('[Debug] loadAndShowProvinceMap() called');
+    
+    try {
+        const geoJson = await loadGeoJson('province');
+        
+        if (geoJson) {
+            console.log('[Debug] Creating base province map layer');
+            
+            const vectorSource = new ol.source.Vector({
+                features: new ol.format.GeoJSON().readFeatures(geoJson, {
+                    featureProjection: 'EPSG:3857'
+                })
+            });
+            
+            baseProvinceLayer = new ol.layer.Vector({
+                source: vectorSource,
+                style: new ol.style.Style({
+                    fill: new ol.style.Fill({
+                        color: 'rgba(200, 200, 200, 0.3)'
+                    }),
+                    stroke: new ol.style.Stroke({
+                        color: '#999',
+                        width: 1
+                    })
+                })
+            });
+            
+            map.addLayer(baseProvinceLayer);
+            console.log('[Debug] Base province map layer added');
+        }
+    } catch (error) {
+        console.error('[Debug] Error loading base province map:', error);
     }
 }
 
