@@ -36,7 +36,8 @@ function initUpload() {
             return; 
         }
 
-        // 检查是否是管理员
+        // 检查用户角色（本地文件上传仅管理员可用）
+        let isAdmin = false;
         try {
             const response = await fetch(`${window.API_BASE_URL}/api/users`);
             if (response.ok) {
@@ -45,14 +46,18 @@ function initUpload() {
                 const currentUser = users.find(user => user.username === username);
                 
                 if (currentUser && currentUser.role === 'admin') {
-                    progressEl.innerText = '管理员用户不能上传图片，请使用普通用户上传';
-                    progressEl.style.color = 'red';
-                    return;
+                    isAdmin = true;
                 }
             }
         } catch (error) {
             console.error('检查用户角色失败:', error);
-            // 出错时继续上传，避免影响用户体验
+        }
+        
+        // 本地文件上传仅管理员可用
+        if (hasLocalFiles && !isAdmin) {
+            progressEl.innerText = '本地文件上传仅管理员可用';
+            progressEl.style.color = 'red';
+            return;
         }
 
         // 处理本地文件上传（GeoJSON、KML、KMZ）

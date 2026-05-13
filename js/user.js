@@ -15,12 +15,13 @@ async function authFetch(url, options = {}) {
     return fetch(url, { ...options, headers });
 }
 
-function updateSidebarUI() {
+async function updateSidebarUI() {
     const authForm = document.getElementById('sidebarAuthForm');
     const cameraPanel = document.getElementById('sidebarCameraPanel');
     const uploadForm = document.getElementById('sidebarUploadForm');
     const userStatus = document.getElementById('sidebarUserStatus');
     const usernameSpan = document.getElementById('sidebarUsername');
+    const adminOnlyUpload = document.getElementById('adminOnlyUpload');
     
     const token = localStorage.getItem('access_token');
     
@@ -34,12 +35,38 @@ function updateSidebarUI() {
         // 从 localStorage 中获取用户名
         const username = localStorage.getItem('username');
         usernameSpan.innerText = username || 'User';
+        
+        // 检查用户角色，非管理员隐藏本地文件上传
+        if (adminOnlyUpload) {
+            try {
+                const response = await fetch(`${window.API_BASE_URL}/api/users`);
+                if (response.ok) {
+                    const data = await response.json();
+                    const users = data.users || [];
+                    const currentUser = users.find(user => user.username === username);
+                    
+                    if (currentUser && currentUser.role === 'admin') {
+                        adminOnlyUpload.style.display = 'block';
+                    } else {
+                        adminOnlyUpload.style.display = 'none';
+                    }
+                } else {
+                    adminOnlyUpload.style.display = 'none';
+                }
+            } catch (error) {
+                console.error('检查用户角色失败:', error);
+                adminOnlyUpload.style.display = 'none';
+            }
+        }
     } else {
         // 未登录
         authForm.style.display = 'block';
         cameraPanel.style.display = 'none';
         uploadForm.style.display = 'none';
         userStatus.style.display = 'none';
+        if (adminOnlyUpload) {
+            adminOnlyUpload.style.display = 'none';
+        }
     }
 }
 
