@@ -41,6 +41,13 @@
         <button id="thematicMapBtn" class="action-btn" data-title="专题地图" onclick="window.location.href='ThematicMap.html'">📊</button>
     </div>
     <style>
+        /* Fix: Avoid overflow: visible on img, video, canvas for shared element transitions */
+        img, video, canvas {
+            overflow: hidden;
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+        
         .dropdown {
             position: relative;
             display: inline-block;

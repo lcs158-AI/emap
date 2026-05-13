@@ -7,6 +7,13 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.5.2/ol.css">
     <link rel="stylesheet" href="css/map.css">
     <style>
+        /* Fix: Avoid overflow: visible on img, video, canvas for shared element transitions */
+        img, video, canvas {
+            overflow: hidden;
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+        
         #map {
             width: 100%;
             height: 100%;
