@@ -33,18 +33,25 @@ const colorSchemes = {
 };
 
 function initMap() {
-    map = new ol.Map({
-        target: 'map',
-        layers: [
-            new ol.layer.Tile({
-                source: new ol.source.OSM()
+    console.log('[Debug] initMap() called');
+    try {
+        console.log('[Debug] Creating OpenLayers map...');
+        map = new ol.Map({
+            target: 'map',
+            layers: [
+                new ol.layer.Tile({
+                    source: new ol.source.OSM()
+                })
+            ],
+            view: new ol.View({
+                center: ol.proj.fromLonLat([104.1954, 35.8617]),
+                zoom: 4
             })
-        ],
-        view: new ol.View({
-            center: ol.proj.fromLonLat([104.1954, 35.8617]),
-            zoom: 4
-        })
-    });
+        });
+        console.log('[Debug] Map created successfully!');
+    } catch (error) {
+        console.error('[Debug] Error creating map:', error);
+    }
 }
 
 function togglePanel() {
@@ -60,9 +67,16 @@ function updateSliderDisplay(sliderId, valueId, unit) {
 }
 
 async function loadTables() {
+    console.log('[Debug] loadTables() called');
     try {
-        const response = await fetch(`${API_BASE_URL}/api/thematic/tables`);
+        const url = `${API_BASE_URL}/api/thematic/tables`;
+        console.log('[Debug] Fetching tables from:', url);
+        
+        const response = await fetch(url);
+        console.log('[Debug] Response status:', response.status);
+        
         const tables = await response.json();
+        console.log('[Debug] Tables received:', tables);
         
         const select = document.getElementById('tableSelect');
         select.innerHTML = '<option value="">请选择数据表</option>';
@@ -72,21 +86,32 @@ async function loadTables() {
             option.textContent = table.label;
             select.appendChild(option);
         });
+        console.log('[Debug] Tables loaded into dropdown');
     } catch (error) {
-        console.error('加载数据表失败:', error);
+        console.error('[Debug] 加载数据表失败:', error);
+        alert('加载数据表失败: ' + error.message);
     }
 }
 
 async function onTableChange() {
+    console.log('[Debug] onTableChange() called');
     const tableName = document.getElementById('tableSelect').value;
+    console.log('[Debug] Selected table:', tableName);
+    
     if (!tableName) {
         document.getElementById('fieldSelect').innerHTML = '<option value="">请先选择数据表</option>';
         return;
     }
     
     try {
-        const response = await fetch(`${API_BASE_URL}/api/thematic/fields/${tableName}`);
+        const url = `${API_BASE_URL}/api/thematic/fields/${tableName}`;
+        console.log('[Debug] Fetching fields from:', url);
+        
+        const response = await fetch(url);
+        console.log('[Debug] Fields response status:', response.status);
+        
         const fields = await response.json();
+        console.log('[Debug] Fields received:', fields);
         
         const select = document.getElementById('fieldSelect');
         select.innerHTML = '<option value="">请选择字段</option>';
@@ -98,13 +123,19 @@ async function onTableChange() {
                 select.appendChild(option);
             }
         });
+        console.log('[Debug] Fields loaded into dropdown');
     } catch (error) {
-        console.error('加载字段失败:', error);
+        console.error('[Debug] 加载字段失败:', error);
+        alert('加载字段失败: ' + error.message);
     }
 }
 
 async function loadGeoJson(level) {
-    if (geoJsonData[level]) return geoJsonData[level];
+    console.log('[Debug] loadGeoJson() called with level:', level);
+    if (geoJsonData[level]) {
+        console.log('[Debug] GeoJSON already loaded for level', level);
+        return geoJsonData[level];
+    }
     
     const fileMap = {
         'country': 'geojson/world.json',
@@ -112,21 +143,31 @@ async function loadGeoJson(level) {
         'city': 'geojson/chn-level-2.json'
     };
     
+    const filePath = fileMap[level];
+    console.log('[Debug] Loading GeoJSON from:', filePath);
+    
     try {
-        const response = await fetch(fileMap[level]);
+        const response = await fetch(filePath);
+        console.log('[Debug] GeoJSON response status:', response.status);
+        
         const data = await response.json();
+        console.log('[Debug] GeoJSON loaded, features count:', data.features ? data.features.length : 0);
+        
         geoJsonData[level] = data;
         return data;
     } catch (error) {
-        console.error('加载GeoJSON失败:', error);
+        console.error('[Debug] 加载GeoJSON失败:', error);
         return null;
     }
 }
 
 async function applyThematicLayer() {
+    console.log('[Debug] applyThematicLayer() called');
     const tableName = document.getElementById('tableSelect').value;
     const fieldName = document.getElementById('fieldSelect').value;
     const level = document.getElementById('levelSelect').value;
+    
+    console.log('[Debug] Parameters:', { tableName, fieldName, level });
     
     if (!tableName || !fieldName) {
         alert('请选择数据表和字段');
@@ -136,19 +177,30 @@ async function applyThematicLayer() {
     document.getElementById('loadingPanel').style.display = 'block';
     
     try {
+        console.log('[Debug] Fetching GeoJSON and data...');
         const [geoJson, data] = await Promise.all([
             loadGeoJson(level),
             fetch(`${API_BASE_URL}/api/thematic/data/${tableName}`).then(r => r.json())
         ]);
         
-        if (!geoJson || !data) return;
+        console.log('[Debug] GeoJSON loaded:', !!geoJson);
+        console.log('[Debug] Data loaded:', data);
         
+        if (!geoJson || !data) {
+            console.error('[Debug] GeoJSON or data is null!');
+            return;
+        }
+        
+        console.log('[Debug] Creating styled features...');
         const styledFeatures = createStyledFeatures(geoJson, data.data, fieldName, level);
+        console.log('[Debug] Created', styledFeatures.length, 'styled features');
         
         if (thematicLayer) {
+            console.log('[Debug] Removing existing thematic layer');
             map.removeLayer(thematicLayer);
         }
         
+        console.log('[Debug] Creating new thematic layer');
         thematicLayer = new ol.layer.Vector({
             source: new ol.source.Vector({
                 features: styledFeatures
@@ -159,22 +211,28 @@ async function applyThematicLayer() {
         });
         
         map.addLayer(thematicLayer);
+        console.log('[Debug] Thematic layer added to map');
+        
         updateLegend(data.data, fieldName);
         document.getElementById('dataInfo').innerHTML = `数据记录: ${data.data.length} 条 | 数据来源: ${data.table_label}`;
         
     } catch (error) {
-        console.error('应用专题图层失败:', error);
-        alert('加载数据失败，请重试');
+        console.error('[Debug] 应用专题图层失败:', error);
+        alert('加载数据失败，请重试: ' + error.message);
     } finally {
         document.getElementById('loadingPanel').style.display = 'none';
     }
 }
 
 function createStyledFeatures(geoJson, data, fieldName, level) {
+    console.log('[Debug] createStyledFeatures() called');
+    
     const values = data.map(item => parseFloat(item[fieldName])).filter(v => !isNaN(v));
     const min = Math.min(...values);
     const max = Math.max(...values);
     const range = max - min || 1;
+    
+    console.log('[Debug] Data values - min:', min, 'max:', max, 'range:', range);
     
     const colorScheme = document.getElementById('colorScheme').value;
     const colorScale = colorSchemes[colorScheme] || colorSchemes.blue;
@@ -185,7 +243,7 @@ function createStyledFeatures(geoJson, data, fieldName, level) {
     
     const features = [];
     
-    geoJson.features.forEach(feature => {
+    geoJson.features.forEach((feature, index) => {
         const name = feature.properties.name || feature.properties.full_name;
         const dataItem = data.find(item => 
             item['地区'] === name || 
@@ -249,6 +307,8 @@ function createStyledFeatures(geoJson, data, fieldName, level) {
 }
 
 function updateLegend(data, fieldName) {
+    console.log('[Debug] updateLegend() called');
+    
     const values = data.map(item => parseFloat(item[fieldName])).filter(v => !isNaN(v));
     const min = Math.min(...values);
     const max = Math.max(...values);
@@ -282,25 +342,41 @@ function detectTouch() {
 }
 
 function initThematicMap() {
-    detectTouch();
-    initMap();
-    loadTables();
+    console.log('[Debug] initThematicMap() called');
+    console.log('[Debug] API_BASE_URL:', API_BASE_URL);
     
-    document.getElementById('opacitySlider').addEventListener('input', function() {
-        updateSliderDisplay('opacitySlider', 'opacityValue', '%');
-    });
+    try {
+        detectTouch();
+        console.log('[Debug] detectTouch() done');
+        
+        initMap();
+        console.log('[Debug] initMap() done');
+        
+        loadTables();
+        console.log('[Debug] loadTables() called');
+        
+        document.getElementById('opacitySlider').addEventListener('input', function() {
+            updateSliderDisplay('opacitySlider', 'opacityValue', '%');
+        });
 
-    document.getElementById('pointSizeSlider').addEventListener('input', function() {
-        updateSliderDisplay('pointSizeSlider', 'pointSizeValue', 'px');
-    });
+        document.getElementById('pointSizeSlider').addEventListener('input', function() {
+            updateSliderDisplay('pointSizeSlider', 'pointSizeValue', 'px');
+        });
 
-    document.getElementById('borderWidthSlider').addEventListener('input', function() {
-        updateSliderDisplay('borderWidthSlider', 'borderWidthValue', 'px');
-    });
-    
-    document.getElementById('tableSelect').addEventListener('change', onTableChange);
-    
-    if (window.innerWidth <= 600) {
-        togglePanel();
+        document.getElementById('borderWidthSlider').addEventListener('input', function() {
+            updateSliderDisplay('borderWidthSlider', 'borderWidthValue', 'px');
+        });
+        
+        document.getElementById('tableSelect').addEventListener('change', onTableChange);
+        
+        if (window.innerWidth <= 600) {
+            togglePanel();
+        }
+        
+        console.log('[Debug] initThematicMap() completed!');
+    } catch (error) {
+        console.error('[Debug] Error during initialization:', error);
     }
 }
+
+console.log('[Debug] thematic_map.js loaded!');
