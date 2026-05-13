@@ -216,10 +216,12 @@ async function applyThematicLayer() {
             source: new ol.source.Vector({
                 features: styledFeatures
             }),
-            style: function(feature) {
-                const s = feature.get('style');
-                return s;
-            }
+            zIndex: 100
+        });
+        
+        // 直接为每个要素设置样式，而不是依赖属性
+        styledFeatures.forEach(feature => {
+            feature.setStyle(feature.get('style'));
         });
         
         map.addLayer(thematicLayer);
@@ -337,7 +339,8 @@ function createStyledFeatures(geoJson, data, fieldName, level) {
             olFeature.setGeometry(pointGeom);
         }
         
-        olFeature.set('style', style);
+        // 直接设置样式，而不是通过属性
+        olFeature.setStyle(style);
         olFeature.set('name', name);
         olFeature.set('value', value);
         features.push(olFeature);
