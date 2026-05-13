@@ -236,6 +236,8 @@ function createStyledFeatures(geoJson, data, fieldName, level) {
     
     const colorScheme = document.getElementById('colorScheme').value;
     const colorScale = colorSchemes[colorScheme] || colorSchemes.blue;
+    console.log('[Debug] Color scheme:', colorScheme, 'Scale length:', colorScale.length);
+    
     const opacity = parseFloat(document.getElementById('opacitySlider').value) / 100;
     const pointSize = parseInt(document.getElementById('pointSizeSlider').value);
     const borderWidth = parseInt(document.getElementById('borderWidthSlider').value);
@@ -253,13 +255,22 @@ function createStyledFeatures(geoJson, data, fieldName, level) {
         );
         
         let value = 0;
-        if (dataItem && dataItem[fieldName]) {
+        if (dataItem && dataItem[fieldName] !== undefined && dataItem[fieldName] !== null && dataItem[fieldName] !== '') {
             value = parseFloat(dataItem[fieldName]);
+            if (isNaN(value)) {
+                value = 0;
+            }
         }
         
-        const normalized = (value - min) / range;
-        const colorIndex = Math.min(Math.floor(normalized * (colorScale.length - 1)), colorScale.length - 1);
-        const color = colorScale[colorIndex];
+        let normalized = 0;
+        if (range > 0) {
+            normalized = (value - min) / range;
+            normalized = Math.max(0, Math.min(normalized, 1));
+        }
+        
+        const colorIndex = Math.max(0, Math.min(Math.floor(normalized * (colorScale.length - 1)), colorScale.length - 1));
+        const color = colorScale[colorIndex] || [200, 200, 200];
+        console.log('[Debug] Feature:', name, 'Value:', value, 'Normalized:', normalized, 'Color index:', colorIndex, 'Color:', color);
         
         let style;
         
@@ -320,7 +331,7 @@ function updateLegend(data, fieldName) {
     legend.innerHTML = '<div class="section-title">图例</div>';
     
     for (let i = 0; i < colorScale.length; i++) {
-        const color = colorScale[i];
+        const color = colorScale[i] || [200, 200, 200];
         const value = min + (max - min) * (i / (colorScale.length - 1));
         
         const item = document.createElement('div');
