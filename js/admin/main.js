@@ -162,13 +162,17 @@ async function login() {
 async function checkUsers() {
     try {
         const response = await fetch(`${API_BASE_URL}/api/users/count`);
+        if (response.status === 401) {
+            return true;
+        }
         if (!response.ok) {
             return false;
         }
         const data = await response.json();
         return data.count > 0;
     } catch (error) {
-        throw error;
+        console.error('Error checking users:', error);
+        return false;
     }
 }
 
