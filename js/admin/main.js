@@ -178,7 +178,9 @@ async function checkUsers() {
 
 async function validateAdminAccess(username) {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/users/${username}`);
+        const response = await fetch(`${API_BASE_URL}/api/users/${username}`, {
+            headers: getAuthHeaders()
+        });
         if (!response.ok) {
             return false;
         }
