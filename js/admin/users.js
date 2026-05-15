@@ -2,7 +2,9 @@ let allUsers = [];
 
 async function loadUsers() {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/users`);
+        const response = await fetch(`${API_BASE_URL}/api/users`, {
+            headers: getAuthHeaders()
+        });
         if (!response.ok) {
             throw new Error('Failed to load users');
         }
@@ -53,7 +55,7 @@ function renderUsers(users) {
         const deleteButton = document.createElement('button');
         deleteButton.className = 'btn btn-danger';
         deleteButton.textContent = '删除';
-        deleteButton.onclick = () => deleteUser(user.id);
+        deleteButton.onclick = () => deleteUser(user.username);
         actionButtons.appendChild(deleteButton);
         
         actionCell.appendChild(actionButtons);
@@ -64,7 +66,7 @@ function renderUsers(users) {
 }
 
 function editUser(user) {
-    document.getElementById('editUserId').value = user.id;
+    document.getElementById('editUserId').value = user.username;
     document.getElementById('editUsername').value = user.username;
     document.getElementById('editStatus').value = user.status || 'pending';
     document.getElementById('editRole').value = user.is_admin ? 'admin' : 'user';
@@ -101,7 +103,7 @@ function submitEditUser() {
 }
 
 function resetPassword(user) {
-    document.getElementById('resetUserId').value = user.id;
+    document.getElementById('resetUserId').value = user.username;
     document.getElementById('resetUsername').value = user.username;
     document.getElementById('resetPasswordModal').style.display = 'block';
 }
@@ -116,10 +118,10 @@ function submitResetPassword() {
         return;
     }
     
-    fetch(`${API_BASE_URL}/api/users/${id}/password`, {
-        method: 'PUT',
+    fetch(`${API_BASE_URL}/api/users/${id}/reset-password`, {
+        method: 'POST',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ password: newPassword })
+        body: JSON.stringify({ new_password: newPassword })
     })
     .then(response => {
         if (response.ok) {
@@ -138,9 +140,9 @@ function submitResetPassword() {
     });
 }
 
-function deleteUser(userId) {
+function deleteUser(username) {
     if (confirm('确定要删除这个用户吗？')) {
-        fetch(`${API_BASE_URL}/api/users/${userId}`, {
+        fetch(`${API_BASE_URL}/api/users/${username}`, {
             method: 'DELETE',
             headers: getAuthHeaders()
         })
@@ -195,10 +197,11 @@ function changePassword() {
         return;
     }
     
-    fetch(`${API_BASE_URL}/api/users/me/change-password`, {
+    fetch(`${API_BASE_URL}/api/users/change-password`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({
+            username: currentUser,
             old_password: oldPassword,
             new_password: newPassword
         })

@@ -5,7 +5,9 @@ const pageSize = 10;
 
 async function loadPhotos(page = 1) {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/photos/all?page=${page}&size=${pageSize}`);
+        const response = await fetch(`${API_BASE_URL}/api/photos/all?page=${page}&size=${pageSize}`, {
+            headers: getAuthHeaders()
+        });
         if (!response.ok) {
             throw new Error('Failed to load photos');
         }
@@ -29,8 +31,16 @@ function renderPhotos(photos) {
     photos.forEach(photo => {
         const row = document.createElement('tr');
         
+        const checkboxCell = document.createElement('td');
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'photo-checkbox';
+        checkbox.value = photo.id;
+        checkboxCell.appendChild(checkbox);
+        row.appendChild(checkboxCell);
+        
         const filenameCell = document.createElement('td');
-        filenameCell.innerHTML = `<a href="${API_BASE_URL}/api/photos/${photo.filename}" target="_blank">${photo.filename}</a>`;
+        filenameCell.innerHTML = `<a href="${API_BASE_URL}/PICS/${photo.filename}" target="_blank">${photo.filename}</a>`;
         row.appendChild(filenameCell);
         
         const uploaderCell = document.createElement('td');
@@ -157,7 +167,7 @@ function deletePhoto(photoId) {
 }
 
 function exportGeoJson() {
-    fetch(`${API_BASE_URL}/api/photos/geojson`, {
+    fetch(`${API_BASE_URL}/api/export/photos/points`, {
         headers: getAuthHeaders()
     })
     .then(response => response.json())
@@ -174,7 +184,7 @@ function exportGeoJson() {
 }
 
 function exportPhotosCSV() {
-    fetch(`${API_BASE_URL}/api/photos/export`, {
+    fetch(`${API_BASE_URL}/api/export/photos/csv`, {
         headers: getAuthHeaders()
     })
     .then(response => response.text())
@@ -241,7 +251,7 @@ function searchPhotos() {
     tableBody.innerHTML = '';
     
     if (filtered.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="6" style="text-align:center;">没有找到匹配的照片</td></tr>';
+        tableBody.innerHTML = '<tr><td colspan="7" style="text-align:center;">没有找到匹配的照片</td></tr>';
         return;
     }
     
@@ -257,7 +267,7 @@ function searchPhotos() {
         row.appendChild(checkboxCell);
         
         const filenameCell = document.createElement('td');
-        filenameCell.innerHTML = `<a href="${API_BASE_URL}/api/photos/${photo.filename}" target="_blank">${photo.filename}</a>`;
+        filenameCell.innerHTML = `<a href="${API_BASE_URL}/PICS/${photo.filename}" target="_blank">${photo.filename}</a>`;
         row.appendChild(filenameCell);
         
         const uploaderCell = document.createElement('td');
