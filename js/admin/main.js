@@ -112,6 +112,8 @@ async function login() {
     const password = document.getElementById('loginPassword').value;
     const loginMsg = document.getElementById('loginMsg');
     
+    console.log('[DEBUG] login called with username:', username);
+    
     if (!username || !password) {
         loginMsg.innerText = '请输入用户名和密码';
         loginMsg.style.color = 'red';
@@ -119,6 +121,8 @@ async function login() {
     }
     
     try {
+        console.log('[DEBUG] Sending login request to:', `${API_BASE_URL}/api/login/json`);
+        
         const response = await fetch(`${API_BASE_URL}/api/login/json`, {
             method: 'POST',
             headers: {
@@ -130,7 +134,11 @@ async function login() {
             })
         });
         
+        console.log('[DEBUG] Login response status:', response.status);
+        
         const data = await response.json();
+        console.log('[DEBUG] Login response data:', data);
+        
         if (response.ok) {
             if (!data.is_admin) {
                 loginMsg.innerText = '只有管理员可以登录此页面';
@@ -141,6 +149,10 @@ async function login() {
             localStorage.setItem('access_token', data.access_token);
             localStorage.setItem('username', username);
             currentUser = username;
+            
+            console.log('[DEBUG] Access token stored:', data.access_token ? 'yes' : 'no');
+            console.log('[DEBUG] Current user set:', currentUser);
+            
             loginMsg.innerText = '登录成功';
             loginMsg.style.color = 'green';
             
@@ -153,40 +165,62 @@ async function login() {
             loginMsg.style.color = 'red';
         }
     } catch (error) {
-        console.error('登录错误:', error);
+        console.error('[DEBUG] Login error:', error);
         loginMsg.innerText = '网络错误: ' + error.message;
         loginMsg.style.color = 'red';
     }
 }
 
 async function checkUsers() {
+    console.log('[DEBUG] checkUsers called');
+    console.log('[DEBUG] API_BASE_URL:', API_BASE_URL);
+    
     try {
         const response = await fetch(`${API_BASE_URL}/api/users/count`);
+        
+        console.log('[DEBUG] checkUsers response status:', response.status);
+        
         if (response.status === 401) {
+            console.log('[DEBUG] checkUsers: Got 401, returning true');
             return true;
         }
         if (!response.ok) {
+            console.log('[DEBUG] checkUsers: Response not ok, returning false');
             return false;
         }
         const data = await response.json();
-        return data.count > 0;
+        console.log('[DEBUG] checkUsers data:', data);
+        const result = data.count > 0;
+        console.log('[DEBUG] checkUsers result:', result);
+        return result;
     } catch (error) {
-        console.error('Error checking users:', error);
+        console.error('[DEBUG] Error checking users:', error);
         return false;
     }
 }
 
 async function validateAdminAccess(username) {
+    console.log('[DEBUG] validateAdminAccess called for:', username);
+    console.log('[DEBUG] Auth headers:', getAuthHeaders());
+    
     try {
         const response = await fetch(`${API_BASE_URL}/api/users/${username}`, {
             headers: getAuthHeaders()
         });
+        
+        console.log('[DEBUG] validateAdminAccess response status:', response.status);
+        
         if (!response.ok) {
+            console.log('[DEBUG] validateAdminAccess: Response not ok, returning false');
             return false;
         }
         const data = await response.json();
-        return data.is_admin;
+        console.log('[DEBUG] validateAdminAccess data:', data);
+        const result = data.is_admin;
+        console.log('[DEBUG] validateAdminAccess result:', result);
+        return result;
     } catch (error) {
+        console.error('[DEBUG] Error validating admin:', error);
         return false;
     }
 }

@@ -1,18 +1,32 @@
 let allUsers = [];
 
 async function loadUsers() {
+    console.log('[DEBUG] loadUsers called');
+    console.log('[DEBUG] API_BASE_URL:', API_BASE_URL);
+    console.log('[DEBUG] Auth headers:', getAuthHeaders());
+    
     try {
         const response = await fetch(`${API_BASE_URL}/api/users`, {
             headers: getAuthHeaders()
         });
+        
+        console.log('[DEBUG] Users API response status:', response.status);
+        
         if (!response.ok) {
-            throw new Error('Failed to load users');
+            const errorData = await response.json().catch(() => null);
+            console.error('[DEBUG] Users API error:', response.status, errorData);
+            throw new Error(`Failed to load users (${response.status})`);
         }
+        
         const data = await response.json();
+        console.log('[DEBUG] Users data received:', data);
+        
         allUsers = data.users || [];
+        console.log('[DEBUG] Users count:', allUsers.length);
+        
         renderUsers(allUsers);
     } catch (error) {
-        console.error('Error loading users:', error);
+        console.error('[DEBUG] Error loading users:', error);
         showMessage('加载用户数据失败: ' + error.message, 'error');
     }
 }

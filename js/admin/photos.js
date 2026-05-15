@@ -4,22 +4,54 @@ let totalPages = 1;
 const pageSize = 10;
 
 async function loadPhotos(page = 1) {
+    console.log('[DEBUG] loadPhotos called, page:', page);
+    console.log('[DEBUG] API_BASE_URL:', API_BASE_URL);
+    console.log('[DEBUG] Auth headers:', getAuthHeaders());
+    
     try {
-        const response = await fetch(`${API_BASE_URL}/api/photos/all?page=${page}&size=${pageSize}`, {
+        const response = await fetch(`${API_BASE_URL}/api/photos`, {
             headers: getAuthHeaders()
         });
-        if (!response.ok) {
-            throw new Error('Failed to load photos');
-        }
-        const data = await response.json();
-        allPhotos = data.photos || [];
-        currentPage = data.page || 1;
-        totalPages = data.total_pages || 1;
         
-        renderPhotos(allPhotos);
+        console.log('[DEBUG] Photos API response status:', response.status);
+        
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => null);
+            console.error('[DEBUG] Photos API error:', response.status, errorData);
+            throw new Error(`Failed to load photos (${response.status})`);
+        }
+        
+        const data = await response.json();
+        console.log('[DEBUG] Photos data received:', data);
+        
+        const features = data.features || [];
+        allPhotos = features.map(feature => ({
+            id: feature.properties?.id || Date.now() + Math.random(),
+            filename: feature.properties?.filename || '',
+            uploader: feature.properties?.uploader || feature.properties?.username || '',
+            upload_time: feature.properties?.upload_time || '',
+            datetime: feature.properties?.datetime || '',
+            lat: feature.geometry?.coordinates?.[1] || feature.properties?.lat || '',
+            lon: feature.geometry?.coordinates?.[0] || feature.properties?.lon || '',
+            device_type: feature.properties?.device_type || '',
+            yaw: feature.properties?.yaw,
+            pitch: feature.properties?.pitch,
+            relative_height: feature.properties?.relative_height,
+            h_fov: feature.properties?.h_fov,
+            v_fov: feature.properties?.v_fov,
+            tide_info: feature.properties?.tide_info || '',
+            problem_type: feature.properties?.problem_type || ''
+        }));
+        
+        console.log('[DEBUG] Processed photos count:', allPhotos.length);
+        
+        currentPage = 1;
+        totalPages = Math.ceil(allPhotos.length / pageSize);
+        
+        renderPhotos(allPhotos.slice(0, pageSize));
         updatePagination();
     } catch (error) {
-        console.error('Error loading photos:', error);
+        console.error('[DEBUG] Error loading photos:', error);
         showMessage('加载照片数据失败: ' + error.message, 'error');
     }
 }
