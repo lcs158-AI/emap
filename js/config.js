@@ -8,9 +8,20 @@ window.API_BASE_URL = (function() {
     
     console.log('[Config] Hostname:', hostname, 'Protocol:', protocol, 'Port:', port);
     
+    // 如果是 file:// 协议（直接打开本地文件），使用本地API
+    if (protocol === 'file:') {
+        console.log('[Config] File protocol detected, using local API');
+        return 'http://localhost:8082';
+    }
+    
     // 如果是本地开发环境（localhost 或 127.0.0.1）
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
         console.log('[Config] Using local API');
+        // 如果前端运行在 8080 端口（分离部署），连接到后端端口
+        if (port === '8080') {
+            return 'http://localhost:8082';
+        }
+        // 如果前端运行在 8082 端口（集成部署），使用同源API
         return 'http://localhost:8082';
     }
     

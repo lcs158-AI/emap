@@ -250,13 +250,25 @@ async function applyThematicLayer() {
 
 function createStyledFeatures(geoJson, data, fieldName, level) {
     console.log('[Debug] createStyledFeatures() called');
+    console.log('[Debug] Level:', level, 'GeoJSON features:', geoJson.features?.length, 'Data rows:', data.length);
+    console.log('[Debug] Field name:', fieldName);
     
-    const values = data.map(item => parseFloat(item[fieldName])).filter(v => !isNaN(v));
-    const min = Math.min(...values);
-    const max = Math.max(...values);
-    const range = max - min || 1;
+    // 解析数值
+    const values = data.map(item => {
+        const val = parseFloat(item[fieldName]);
+        return isNaN(val) ? null : val;
+    }).filter(v => v !== null);
     
-    console.log('[Debug] Data values - min:', min, 'max:', max, 'range:', range);
+    console.log('[Debug] Parsed values (first 10):', values.slice(0, 10));
+    
+    let min = 0, max = 1, range = 1;
+    if (values.length > 0) {
+        min = Math.min(...values);
+        max = Math.max(...values);
+        range = max - min || 1;
+    }
+    
+    console.log('[Debug] Data values - min:', min, 'max:', max, 'range:', range, 'valid values:', values.length);
     
     const colorScheme = document.getElementById('colorScheme').value;
     const colorScale = colorSchemes[colorScheme] || colorSchemes.blue;
@@ -271,17 +283,48 @@ function createStyledFeatures(geoJson, data, fieldName, level) {
     
     let matchedCount = 0;
     
+    // 输出前几个匹配样本用于调试
+    console.log('[Debug] GeoJSON sample names (first 5):');
+    for (let i = 0; i < Math.min(5, geoJson.features.length); i++) {
+        const name = geoJson.features[i].properties.full_name || geoJson.features[i].properties.name;
+        console.log(`  ${i + 1}: ${name}`);
+    }
+    console.log('[Debug] Data sample names (first 5):');
+    for (let i = 0; i < Math.min(5, data.length); i++) {
+        const name = data[i]['省份'] || data[i]['地区'] || data[i]['省（区、市）'] || data[i]['name'];
+        console.log(`  ${i + 1}: ${name}`);
+    }
+    
     geoJson.features.forEach((feature, index) => {
         const name = feature.properties.full_name || feature.properties.name;
-        const dataItem = data.find(item => 
-            item['地区'] === name || 
-            item['省（区、市）'] === name || 
-            item['省份'] === name ||
-            item['name'] === name
-        );
+        
+        // 改进的匹配逻辑
+        const dataItem = data.find(item => {
+            const dataName = item['省份'] || item['地区'] || item['省（区、市）'] || item['name'] || '';
+            
+            // 精确匹配
+            if (item['地区'] === name || 
+                item['省（区、市）'] === name || 
+                item['省份'] === name ||
+                item['name'] === name) {
+                return true;
+            }
+            
+            // 简化后的名称匹配（去掉"省"、"市"、"自治区"等后缀）
+            const normalize = (s) => s.replace(/[省市区自治区特别行政区]+$/, '').trim();
+            if (normalize(name) === normalize(dataName)) {
+                return true;
+            }
+            
+            return false;
+        });
         
         if (dataItem) {
             matchedCount++;
+            // 输出前几个匹配的样本
+            if (matchedCount <= 5) {
+                console.log(`[Debug] Match ${matchedCount}: ${name}`);
+            }
         }
         
         let value = 0;
@@ -355,10 +398,18 @@ function createStyledFeatures(geoJson, data, fieldName, level) {
 
 function updateLegend(data, fieldName) {
     console.log('[Debug] updateLegend() called');
+    console.log('[Debug] Data length:', data.length, 'Field:', fieldName);
     
     const values = data.map(item => parseFloat(item[fieldName])).filter(v => !isNaN(v));
-    const min = Math.min(...values);
-    const max = Math.max(...values);
+    console.log('[Debug] Valid values for legend:', values.length);
+    
+    let min = 0, max = 1;
+    if (values.length > 0) {
+        min = Math.min(...values);
+        max = Math.max(...values);
+    } else {
+        console.warn('[Debug] No valid values found for legend!');
+    }
     
     const colorScheme = document.getElementById('colorScheme').value;
     const colorScale = colorSchemes[colorScheme] || colorSchemes.blue;
