@@ -218,3 +218,41 @@ async function deleteThematicTable() {
     }
     confirmDeleteTable(currentThematicTable);
 }
+
+async function fixThematicFields() {
+    try {
+        showMessage('正在修复字段...', 'info');
+        const response = await fetch(`${API_BASE_URL}/api/thematic/fix-fields`, {
+            method: 'POST',
+            headers: getAuthHeaders()
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            let msg = '字段修复完成！\n';
+            result.results.forEach(r => {
+                if (r.status === 'success') {
+                    if (r.added.length > 0) {
+                        msg += `${r.table}: 新增 ${r.added.length} 个字段\n`;
+                    }
+                    if (r.updated.length > 0) {
+                        msg += `${r.table}: 更新 ${r.updated.length} 个字段\n`;
+                    }
+                    if (r.added.length === 0 && r.updated.length === 0) {
+                        msg += `${r.table}: 无需修复\n`;
+                    }
+                } else {
+                    msg += `${r.table}: ${r.message}\n`;
+                }
+            });
+            showMessage(msg.replace(/\n/g, ' '), 'success');
+            loadThematicTables();
+        } else {
+            showMessage('修复失败: ' + (result.detail || '未知错误'), 'error');
+        }
+    } catch (error) {
+        console.error('Error fixing fields:', error);
+        showMessage('修复失败: ' + error.message, 'error');
+    }
+}

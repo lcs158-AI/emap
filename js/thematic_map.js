@@ -97,6 +97,7 @@ async function onTableChange() {
     
     if (!tableName) {
         document.getElementById('fieldSelect').innerHTML = '<option value="">请先选择数据表</option>';
+        document.getElementById('expressionSection').style.display = 'none';
         return;
     }
     
@@ -111,7 +112,7 @@ async function onTableChange() {
         console.log('[Debug] Fields received:', fields);
         
         const select = document.getElementById('fieldSelect');
-        select.innerHTML = '<option value="">请选择字段</option>';
+        select.innerHTML = '<option value="">请选择字段</option><option value="expression">📊 使用表达式</option>';
         fields.forEach(field => {
             if (field.type === 'REAL' || field.type === 'INTEGER') {
                 const option = document.createElement('option');
@@ -121,10 +122,93 @@ async function onTableChange() {
             }
         });
         console.log('[Debug] Fields loaded into dropdown');
+        
+        // 更新可用字段按钮
+        updateFieldButtons(fields);
     } catch (error) {
         console.error('[Debug] 加载字段失败:', error);
         alert('加载字段失败: ' + error.message);
     }
+}
+
+function updateFieldButtons(fields) {
+    const container = document.getElementById('expressionSection').querySelector('div:last-child');
+    container.innerHTML = '';
+    
+    const numericFields = fields.filter(f => f.type === 'REAL' || f.type === 'INTEGER');
+    numericFields.forEach(field => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.onclick = () => insertField(field.name);
+        button.style.cssText = 'padding: 4px 8px; font-size: 12px; background: #f0f0f0; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; margin: 2px;';
+        button.textContent = field.name;
+        container.appendChild(button);
+    });
+}
+
+function insertField(fieldName) {
+    const input = document.getElementById('expressionInput');
+    input.value += fieldName;
+    input.focus();
+}
+
+function onFieldChange() {
+    const fieldSelect = document.getElementById('fieldSelect');
+    const expressionSection = document.getElementById('expressionSection');
+    
+    if (fieldSelect.value === 'expression') {
+        expressionSection.style.display = 'block';
+    } else {
+        expressionSection.style.display = 'none';
+    }
+}
+
+function evaluateExpression(data, expression, resultFieldName = '表达式') {
+    console.log('[Debug] evaluateExpression() called');
+    console.log('[Debug] Original expression:', expression, 'Result field:', resultFieldName);
+    
+    const allFields = new Set();
+    data.forEach(row => {
+        Object.keys(row).forEach(key => {
+            const value = parseFloat(row[key]);
+            if (!isNaN(value)) {
+                allFields.add(key);
+            }
+        });
+    });
+    
+    console.log('[Debug] Available fields:', Array.from(allFields));
+    
+    const result = data.map(row => {
+        let expr = expression;
+        
+        allFields.forEach(field => {
+            const value = parseFloat(row[field]);
+            if (!isNaN(value)) {
+                expr = expr.replace(new RegExp(field, 'g'), value);
+            }
+        });
+        
+        let resultValue;
+        try {
+            if (/^[\d+\-*/().\s]+$/.test(expr)) {
+                resultValue = eval(expr);
+            } else {
+                console.warn('[Debug] Expression contains invalid characters:', expr);
+                resultValue = null;
+            }
+        } catch (error) {
+            console.error('[Debug] Expression evaluation error:', error);
+            resultValue = null;
+        }
+        
+        const newRow = { ...row };
+        newRow[resultFieldName] = resultValue;
+        
+        return newRow;
+    });
+    
+    return result;
 }
 
 async function loadGeoJson(level) {
@@ -158,16 +242,42 @@ async function loadGeoJson(level) {
     }
 }
 
+function parseExpression(input) {
+    const match = input.match(/^\((.+)\)"([^"]+)"/);
+    if (match) {
+        return {
+            expr: match[1].trim(),
+            name: match[2].trim()
+        };
+    }
+    return {
+        expr: input.trim(),
+        name: '表达式'
+    };
+}
+
 async function applyThematicLayer() {
     console.log('[Debug] applyThematicLayer() called');
     const tableName = document.getElementById('tableSelect').value;
-    const fieldName = document.getElementById('fieldSelect').value;
+    const fieldSelectValue = document.getElementById('fieldSelect').value;
+    const expression = document.getElementById('expressionInput').value;
     const level = document.getElementById('levelSelect').value;
     
-    console.log('[Debug] Parameters:', { tableName, fieldName, level });
+    const isExpression = fieldSelectValue === 'expression';
     
-    if (!tableName || !fieldName) {
-        alert('请选择数据表和字段');
+    let fieldName = fieldSelectValue;
+    let exprStr = expression;
+    
+    if (isExpression) {
+        const parsed = parseExpression(expression);
+        exprStr = parsed.expr;
+        fieldName = parsed.name;
+    }
+    
+    console.log('[Debug] Parameters:', { tableName, fieldName, exprStr, level, isExpression });
+    
+    if (!tableName || (!fieldSelectValue || (isExpression && !expression))) {
+        alert(isExpression ? '请输入表达式' : '请选择数据表和字段');
         return;
     }
 
@@ -188,8 +298,15 @@ async function applyThematicLayer() {
             return;
         }
         
+        let processedData = data.data;
+        if (isExpression) {
+            console.log('[Debug] Processing expression:', exprStr);
+            processedData = evaluateExpression(data.data, exprStr, fieldName);
+            console.log('[Debug] Expression evaluated, processed rows:', processedData.length);
+        }
+        
         console.log('[Debug] Creating styled features...');
-        const styledFeatures = createStyledFeatures(geoJson, data.data, fieldName, level);
+        const styledFeatures = createStyledFeatures(geoJson, processedData, fieldName, level);
         console.log('[Debug] Created', styledFeatures.length, 'styled features');
         
         // 移除基础地图图层
@@ -209,23 +326,53 @@ async function applyThematicLayer() {
         // 验证第一个要素的样式
         if (styledFeatures.length > 0) {
             const firstFeature = styledFeatures[0];
-            console.log('[Debug] First feature style:', firstFeature.get('style'));
+            const featureStyle = firstFeature.getStyle();
+            console.log('[Debug] First feature style:', featureStyle);
+            if (featureStyle) {
+                const fill = featureStyle.getFill();
+                const stroke = featureStyle.getStroke();
+                console.log('[Debug] First feature fill:', fill ? fill.getColor() : 'null');
+                console.log('[Debug] First feature stroke:', stroke ? stroke.getColor() : 'null');
+            }
         }
+        
+        // 检查样式创建是否正确
+        console.log('[Debug] Checking styledFeatures...');
+        styledFeatures.forEach((feature, index) => {
+            if (index < 3) {
+                const style = feature.getStyle();
+                const fill = style ? style.getFill() : null;
+                const color = fill ? fill.getColor() : 'no color';
+                console.log(`[Debug] Feature ${index} style color:`, color);
+            }
+        });
         
         thematicLayer = new ol.layer.Vector({
             source: new ol.source.Vector({
                 features: styledFeatures
             }),
-            zIndex: 100
+            zIndex: 100,
+            style: function(feature) {
+                const style = feature.getStyle();
+                console.log('[Debug] Layer style function called for feature:', feature.get('name'));
+                return style;
+            }
         });
         
         // 直接为每个要素设置样式，而不是依赖属性
         styledFeatures.forEach(feature => {
-            feature.setStyle(feature.get('style'));
+            feature.setStyle(feature.getStyle());
         });
         
         map.addLayer(thematicLayer);
         console.log('[Debug] Thematic layer added to map, layers count:', map.getLayers().getLength());
+        
+        // 验证图层是否正确添加
+        setTimeout(() => {
+            const layers = map.getLayers().getArray();
+            console.log('[Debug] All layers:', layers.map(l => l.get('name') || 'unnamed'));
+            console.log('[Debug] Thematic layer in map:', map.getLayers().getArray().includes(thematicLayer));
+        }, 500);
         
         // 调整视图以适应数据范围
         const extent = thematicLayer.getSource().getExtent();
@@ -237,8 +384,8 @@ async function applyThematicLayer() {
             });
         }
         
-        updateLegend(data.data, fieldName);
-        document.getElementById('dataInfo').innerHTML = `数据记录: ${data.data.length} 条 | 数据来源: ${data.table_label}`;
+        updateLegend(processedData, fieldName);
+        document.getElementById('dataInfo').innerHTML = `数据记录: ${processedData.length} 条 | 数据来源: ${data.table_label}`;
         
     } catch (error) {
         console.error('[Debug] 应用专题图层失败:', error);
@@ -291,7 +438,18 @@ function createStyledFeatures(geoJson, data, fieldName, level) {
     }
     console.log('[Debug] Data sample names (first 5):');
     for (let i = 0; i < Math.min(5, data.length); i++) {
-        const name = data[i]['省份'] || data[i]['地区'] || data[i]['省（区、市）'] || data[i]['name'];
+        // 处理可能的BOM字符
+        let name = data[i]['省份'] || data[i]['地区'] || data[i]['省（区、市）'] || data[i]['name'];
+        // 尝试处理带BOM的字段名
+        if (!name) {
+            const keys = Object.keys(data[i]);
+            for (const key of keys) {
+                if (key.includes('省份') || key.includes('省') || key.trim() === '省份') {
+                    name = data[i][key];
+                    break;
+                }
+            }
+        }
         console.log(`  ${i + 1}: ${name}`);
     }
     
@@ -300,13 +458,31 @@ function createStyledFeatures(geoJson, data, fieldName, level) {
         
         // 改进的匹配逻辑
         const dataItem = data.find(item => {
-            const dataName = item['省份'] || item['地区'] || item['省（区、市）'] || item['name'] || '';
+            // 处理可能的BOM字符和各种字段名变体
+            let dataName = '';
+            const keys = Object.keys(item);
+            
+            // 尝试各种可能的字段名
+            for (const key of keys) {
+                // 去除BOM字符和空白
+                const cleanKey = key.replace(/^\uFEFF|\uFFFE|\ufeff/g, '').trim();
+                if (cleanKey === '省份' || cleanKey === '地区' || cleanKey === '省（区、市）' || cleanKey === 'name') {
+                    dataName = item[key];
+                    break;
+                }
+                // 也检查包含"省"字的字段
+                if (key.includes('省')) {
+                    dataName = item[key];
+                    break;
+                }
+            }
             
             // 精确匹配
             if (item['地区'] === name || 
                 item['省（区、市）'] === name || 
                 item['省份'] === name ||
-                item['name'] === name) {
+                item['name'] === name ||
+                dataName === name) {
                 return true;
             }
             
@@ -386,6 +562,8 @@ function createStyledFeatures(geoJson, data, fieldName, level) {
         olFeature.setStyle(style);
         olFeature.set('name', name);
         olFeature.set('value', value);
+        olFeature.set('dataValue', value);
+        olFeature.set('fieldName', fieldName);
         features.push(olFeature);
     });
     
@@ -474,10 +652,98 @@ function initThematicMap() {
         // 加载并显示省级地图作为底图
         loadAndShowProvinceMap();
         
+        // 添加地图交互
+        addMapInteractions();
+        
         console.log('[Debug] initThematicMap() completed!');
     } catch (error) {
         console.error('[Debug] Error during initialization:', error);
     }
+}
+
+function addMapInteractions() {
+    console.log('[Debug] addMapInteractions() called');
+    
+    // 创建信息弹窗
+    const infoDiv = document.createElement('div');
+    infoDiv.id = 'mapInfoPopup';
+    infoDiv.style.cssText = `
+        position: fixed;
+        background: rgba(255, 255, 255, 0.95);
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        padding: 12px 16px;
+        font-size: 14px;
+        pointer-events: none;
+        z-index: 1000;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+        max-width: 250px;
+        display: none;
+    `;
+    document.body.appendChild(infoDiv);
+    
+    // 鼠标移动事件 - 显示省份名称
+    map.on('pointermove', function(evt) {
+        const pixel = map.getEventPixel(evt.originalEvent);
+        const hit = map.forEachFeatureAtPixel(pixel, function(feature) {
+            return feature;
+        });
+        
+        if (hit) {
+            const name = hit.get('name') || hit.get('full_name') || hit.getProperties().full_name || hit.getProperties().name;
+            const value = hit.get('dataValue');
+            const fieldName = hit.get('fieldName');
+            
+            let content = `<strong>${name}</strong>`;
+            if (value !== undefined && fieldName) {
+                content += `<br>${fieldName}: ${value}`;
+            }
+            
+            infoDiv.innerHTML = content;
+            infoDiv.style.display = 'block';
+            
+            // 定位弹窗
+            infoDiv.style.left = evt.originalEvent.clientX + 15 + 'px';
+            infoDiv.style.top = evt.originalEvent.clientY - 10 + 'px';
+            
+            // 确保弹窗不超出视口
+            const rect = infoDiv.getBoundingClientRect();
+            if (rect.right > window.innerWidth) {
+                infoDiv.style.left = (evt.originalEvent.clientX - rect.width - 15) + 'px';
+            }
+            if (rect.bottom > window.innerHeight) {
+                infoDiv.style.top = (evt.originalEvent.clientY - rect.height - 10) + 'px';
+            }
+            
+            map.getTargetElement().style.cursor = 'pointer';
+        } else {
+            infoDiv.style.display = 'none';
+            map.getTargetElement().style.cursor = '';
+        }
+    });
+    
+    // 点击事件 - 显示省份+换行+专题值
+    map.on('click', function(evt) {
+        const pixel = map.getEventPixel(evt.originalEvent);
+        const hit = map.forEachFeatureAtPixel(pixel, function(feature) {
+            return feature;
+        });
+        
+        if (hit) {
+            const name = hit.get('name') || hit.get('full_name') || hit.getProperties().full_name || hit.getProperties().name;
+            const value = hit.get('dataValue');
+            const fieldName = hit.get('fieldName');
+            
+            let content = `<strong>${name}</strong>`;
+            if (value !== undefined && fieldName) {
+                content += `<br>${fieldName}: ${value}`;
+            }
+            
+            // 使用 alert 显示详细信息
+            const displayText = `${name}\n${fieldName || ''}: ${value !== undefined ? value : ''}`;
+            alert(displayText);
+        }
+    });
 }
 
 async function loadAndShowProvinceMap() {

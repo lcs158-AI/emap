@@ -322,9 +322,27 @@
         
         <div class="section">
             <div class="section-title">选择字段</div>
-            <select id="fieldSelect">
+            <select id="fieldSelect" onchange="onFieldChange()">
                 <option value="">请先选择数据表</option>
+                <option value="expression">📊 使用表达式</option>
             </select>
+        </div>
+        
+        <div class="section" id="expressionSection" style="display: none;">
+            <div class="section-title">表达式</div>
+            <div style="font-size: 12px; color: #666; margin-bottom: 8px;">
+                格式: (字段表达式)"新字段名"<br>
+                示例: (粮食产量_2024*2000/播种面积_2024)"单位面积产量"
+            </div>
+            <input type="text" id="expressionInput" placeholder='如: (粮食产量_2024*2000/播种面积_2024)"单位面积产量"' 
+                   style="width: 100%; padding: 8px; font-size: 13px; border: 1px solid #ddd; border-radius: 4px;">
+            <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px;">
+                <button type="button" onclick="insertField('耕地面积_2019')" style="padding: 4px 8px; font-size: 12px; background: #f0f0f0; border: 1px solid #ccc; border-radius: 4px; cursor: pointer;">耕地面积_2019</button>
+                <button type="button" onclick="insertField('耕地面积_2024')" style="padding: 4px 8px; font-size: 12px; background: #f0f0f0; border: 1px solid #ccc; border-radius: 4px; cursor: pointer;">耕地面积_2024</button>
+                <button type="button" onclick="insertField('耕地面积_2035规划')" style="padding: 4px 8px; font-size: 12px; background: #f0f0f0; border: 1px solid #ccc; border-radius: 4px; cursor: pointer;">耕地面积_2035规划</button>
+                <button type="button" onclick="insertField('播种面积_2024')" style="padding: 4px 8px; font-size: 12px; background: #f0f0f0; border: 1px solid #ccc; border-radius: 4px; cursor: pointer;">播种面积_2024</button>
+                <button type="button" onclick="insertField('粮食产量_2024')" style="padding: 4px 8px; font-size: 12px; background: #f0f0f0; border: 1px solid #ccc; border-radius: 4px; cursor: pointer;">粮食产量_2024</button>
+            </div>
         </div>
         
         <div class="section">
