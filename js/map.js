@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
+﻿﻿//================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
@@ -1413,8 +1413,19 @@ console.log('地图加载完成');
 const loadGeoJsonBtn = document.getElementById('loadGeoJsonBtn');
 const geoJsonFileInput = document.getElementById('geoJsonFileInput');
 
+// 检测是否为file://协议
+const isFileProtocol = window.location.protocol === 'file:';
+
+// 检测是否为手机Chrome浏览器
+const isMobileChrome = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) && /Chrome/i.test(navigator.userAgent);
+
 if (loadGeoJsonBtn) {
     loadGeoJsonBtn.addEventListener('click', function() {
+        // 检测file://协议 + 手机浏览器
+        if (isFileProtocol && isMobileChrome) {
+            alert('⚠️ 手机Chrome浏览器不支持从文件打开。\n\n请选择以下方式之一：\n1. 使用微信浏览器打开\n2. 通过本地Web服务器访问\n3. 使用电脑端浏览器');
+            return;
+        }
         // 触发文件选择对话框
         geoJsonFileInput.click();
     });
