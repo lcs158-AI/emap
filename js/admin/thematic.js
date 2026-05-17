@@ -222,8 +222,36 @@ async function submitThematicImport() {
     }
 }
 
-function exportSingleThematicData(tableName) {
-    window.open(`${API_BASE_URL}/api/thematic/export/${encodeURIComponent(tableName)}`, '_blank');
+async function exportSingleThematicData(tableName) {
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+        showMessage('请先登录', 'error');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/thematic/export/${encodeURIComponent(tableName)}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) {
+            throw new Error('导出失败');
+        }
+        
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${tableName}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        showMessage('导出成功', 'success');
+    } catch (error) {
+        console.error('Export error:', error);
+        showMessage('导出失败: ' + error.message, 'error');
+    }
 }
 
 async function exportThematicData() {

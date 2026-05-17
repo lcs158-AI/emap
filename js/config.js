@@ -37,3 +37,13 @@ window.API_BASE_URL = (function() {
 })();
 
 console.log('[Config] API_BASE_URL:', window.API_BASE_URL);
+
+function getAuthHeaders() {
+    const token = localStorage.getItem('access_token');
+    if (token) {
+        return {
+            'Authorization': `Bearer ${token}`
+        };
+    }
+    return {};
+}

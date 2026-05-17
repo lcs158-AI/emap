@@ -79,12 +79,25 @@ function updateSliderDisplay(sliderId, valueId, unit) {
 
 async function loadTables() {
     console.log('[Debug] loadTables() called');
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+        document.getElementById('tableSelect').innerHTML = '<option value="">需要登录后使用</option>';
+        document.getElementById('fieldSelect').innerHTML = '<option value="">请先登录</option>';
+        return;
+    }
     try {
         const url = `${API_BASE_URL}/api/thematic/tables`;
         console.log('[Debug] Fetching tables from:', url);
         
-        const response = await fetch(url);
+        const response = await fetch(url, {
+            headers: getAuthHeaders()
+        });
         console.log('[Debug] Response status:', response.status);
+        
+        if (!response.ok) {
+            document.getElementById('tableSelect').innerHTML = '<option value="">登录已过期，请重新登录</option>';
+            return;
+        }
         
         const tables = await response.json();
         console.log('[Debug] Tables received:', tables);
@@ -119,7 +132,9 @@ async function onTableChange() {
         const url = `${API_BASE_URL}/api/thematic/fields/${tableName}`;
         console.log('[Debug] Fetching fields from:', url);
         
-        const response = await fetch(url);
+        const response = await fetch(url, {
+            headers: getAuthHeaders()
+        });
         console.log('[Debug] Fields response status:', response.status);
         
         const fields = await response.json();
@@ -297,12 +312,29 @@ async function applyThematicLayer() {
 
     document.getElementById('loadingPanel').style.display = 'block';
     
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+        document.getElementById('loadingPanel').style.display = 'none';
+        alert('请先登录后使用专题地图功能');
+        return;
+    }
+    
     try {
         console.log('[Debug] Fetching GeoJSON and data...');
-        const [geoJson, data] = await Promise.all([
+        const [geoJson, dataRes] = await Promise.all([
             loadGeoJson(level),
-            fetch(`${API_BASE_URL}/api/thematic/data/${tableName}`).then(r => r.json())
+            fetch(`${API_BASE_URL}/api/thematic/data/${tableName}`, {
+                headers: getAuthHeaders()
+            })
         ]);
+        
+        if (!dataRes.ok) {
+            document.getElementById('loadingPanel').style.display = 'none';
+            alert('登录已过期，请重新登录');
+            return;
+        }
+        
+        const data = await dataRes.json();
         
         console.log('[Debug] GeoJSON loaded:', !!geoJson);
         console.log('[Debug] Data loaded:', data);

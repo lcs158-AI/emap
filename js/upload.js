@@ -28,11 +28,8 @@ function initUpload() {
         }
         
         if (!token) { 
-            progressEl.innerText = '请先登录'; 
-            return; 
-        }
-        if (!username) { 
-            progressEl.innerText = '用户信息缺失'; 
+            progressEl.innerText = '📤 请先登录后再上传照片'; 
+            progressEl.style.color = '#e6a23c';
             return; 
         }
 
@@ -99,8 +96,7 @@ function initUpload() {
             formData.append('files', file);
         }
         
-        formData.append('username', username); // 添加用户名参数
-        formData.append('capture_time', getBeijingTime()); // 添加北京时间
+        formData.append('capture_time', getBeijingTime());
         // 不设置 device_type，由后端根据 EXIF 数据判断是 drone 还是 phone
         
         // 添加问题类型
@@ -117,6 +113,12 @@ function initUpload() {
                 body: formData
             });
             const result = await res.json();
+            
+            if (res.status === 401) {
+                progressEl.innerText = '📤 请先登录后再上传照片';
+                progressEl.style.color = '#e6a23c';
+                return;
+            }
             
             if (res.ok) {
                 let message = `上传完成! 成功: ${result.success}, 失败: ${result.failed}, 重复: ${result.duplicate}`;
