@@ -63,6 +63,7 @@ function renderPhotos(photos) {
     photos.forEach(photo => {
         const row = document.createElement('tr');
         
+        // 1. 复选框
         const checkboxCell = document.createElement('td');
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
@@ -71,30 +72,81 @@ function renderPhotos(photos) {
         checkboxCell.appendChild(checkbox);
         row.appendChild(checkboxCell);
         
-        const filenameCell = document.createElement('td');
-        filenameCell.innerHTML = `<a href="${API_BASE_URL}/PICS/${photo.filename}" target="_blank">${photo.filename}</a>`;
-        row.appendChild(filenameCell);
+        // 2. 照片预览
+        const previewCell = document.createElement('td');
+        if (photo.filename) {
+            previewCell.innerHTML = `<a href="${API_BASE_URL}/PICS/${photo.filename}" target="_blank">${photo.filename}</a>`;
+        } else {
+            previewCell.textContent = '-';
+        }
+        row.appendChild(previewCell);
         
+        // 3. 上传人
         const uploaderCell = document.createElement('td');
         uploaderCell.textContent = photo.uploader || '-';
         row.appendChild(uploaderCell);
         
+        // 4. 上传时间
+        const uploadTimeCell = document.createElement('td');
+        uploadTimeCell.textContent = photo.upload_time ? photo.upload_time.substring(0, 19) : '-';
+        row.appendChild(uploadTimeCell);
+        
+        // 5. 拍摄时间
         const datetimeCell = document.createElement('td');
         datetimeCell.textContent = photo.datetime || '-';
         row.appendChild(datetimeCell);
         
-        const locationCell = document.createElement('td');
-        if (photo.lat && photo.lon) {
-            locationCell.textContent = `${photo.lat.toFixed(4)}, ${photo.lon.toFixed(4)}`;
-        } else {
-            locationCell.textContent = '-';
-        }
-        row.appendChild(locationCell);
+        // 6. 纬度
+        const latCell = document.createElement('td');
+        latCell.textContent = photo.lat ? photo.lat.toFixed(4) : '-';
+        row.appendChild(latCell);
         
+        // 7. 经度
+        const lonCell = document.createElement('td');
+        lonCell.textContent = photo.lon ? photo.lon.toFixed(4) : '-';
+        row.appendChild(lonCell);
+        
+        // 8. 设备类型
         const deviceCell = document.createElement('td');
         deviceCell.textContent = photo.device_type || '-';
         row.appendChild(deviceCell);
         
+        // 9. 偏航角
+        const yawCell = document.createElement('td');
+        yawCell.textContent = photo.yaw !== undefined && photo.yaw !== null ? photo.yaw.toFixed(2) : '-';
+        row.appendChild(yawCell);
+        
+        // 10. 俯仰角
+        const pitchCell = document.createElement('td');
+        pitchCell.textContent = photo.pitch !== undefined && photo.pitch !== null ? photo.pitch.toFixed(2) : '-';
+        row.appendChild(pitchCell);
+        
+        // 11. 相对高度
+        const heightCell = document.createElement('td');
+        heightCell.textContent = photo.relative_height !== undefined && photo.relative_height !== null ? photo.relative_height.toFixed(2) : '-';
+        row.appendChild(heightCell);
+        
+        // 12. 水平视场角
+        const hFovCell = document.createElement('td');
+        hFovCell.textContent = photo.h_fov !== undefined && photo.h_fov !== null ? photo.h_fov.toFixed(2) : '-';
+        row.appendChild(hFovCell);
+        
+        // 13. 垂直视场角
+        const vFovCell = document.createElement('td');
+        vFovCell.textContent = photo.v_fov !== undefined && photo.v_fov !== null ? photo.v_fov.toFixed(2) : '-';
+        row.appendChild(vFovCell);
+        
+        // 14. 潮位信息
+        const tideCell = document.createElement('td');
+        tideCell.textContent = photo.tide_info || '-';
+        row.appendChild(tideCell);
+        
+        // 15. 问题类型
+        const problemCell = document.createElement('td');
+        problemCell.textContent = photo.problem_type || '-';
+        row.appendChild(problemCell);
+        
+        // 16. 操作
         const actionCell = document.createElement('td');
         const actionButtons = document.createElement('div');
         actionButtons.className = 'action-buttons';
@@ -140,8 +192,11 @@ function editPhoto(photo) {
     document.getElementById('editPhotoId').value = photo.id;
     document.getElementById('editPhotoFilename').value = photo.filename;
     document.getElementById('editPhotoUploader').value = photo.uploader || '';
-    document.getElementById('editPhotoDateTime').value = photo.datetime || '';
+    document.getElementById('editPhotoDatetime').value = photo.datetime || '';
+    document.getElementById('editPhotoLat').value = photo.lat || '';
+    document.getElementById('editPhotoLon').value = photo.lon || '';
     document.getElementById('editPhotoDeviceType').value = photo.device_type || '';
+    document.getElementById('editPhotoTideInfo').value = photo.tide_info || '';
     document.getElementById('editPhotoProblemType').value = photo.problem_type || '';
     document.getElementById('editPhotoModal').style.display = 'block';
 }
@@ -149,9 +204,11 @@ function editPhoto(photo) {
 function submitEditPhoto() {
     const id = document.getElementById('editPhotoId').value;
     const data = {
-        uploader: document.getElementById('editPhotoUploader').value,
-        datetime: document.getElementById('editPhotoDateTime').value,
+        datetime: document.getElementById('editPhotoDatetime').value,
+        lat: parseFloat(document.getElementById('editPhotoLat').value) || null,
+        lon: parseFloat(document.getElementById('editPhotoLon').value) || null,
         device_type: document.getElementById('editPhotoDeviceType').value,
+        tide_info: document.getElementById('editPhotoTideInfo').value,
         problem_type: document.getElementById('editPhotoProblemType').value
     };
     
@@ -279,49 +336,8 @@ function searchPhotos() {
         photo.uploader.toLowerCase().includes(searchInput)
     );
     
-    const tableBody = document.querySelector('#photos-table tbody');
-    tableBody.innerHTML = '';
-    
-    if (filtered.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="7" style="text-align:center;">没有找到匹配的照片</td></tr>';
-        return;
-    }
-    
-    filtered.forEach(photo => {
-        const row = document.createElement('tr');
-        
-        const checkboxCell = document.createElement('td');
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.className = 'photo-checkbox';
-        checkbox.value = photo.id;
-        checkboxCell.appendChild(checkbox);
-        row.appendChild(checkboxCell);
-        
-        const filenameCell = document.createElement('td');
-        filenameCell.innerHTML = `<a href="${API_BASE_URL}/PICS/${photo.filename}" target="_blank">${photo.filename}</a>`;
-        row.appendChild(filenameCell);
-        
-        const uploaderCell = document.createElement('td');
-        uploaderCell.textContent = photo.uploader || '-';
-        row.appendChild(uploaderCell);
-        
-        const datetimeCell = document.createElement('td');
-        datetimeCell.textContent = photo.datetime || '-';
-        row.appendChild(datetimeCell);
-        
-        const locationCell = document.createElement('td');
-        if (photo.lat && photo.lon) {
-            locationCell.textContent = `${photo.lat.toFixed(4)}, ${photo.lon.toFixed(4)}`;
-        } else {
-            locationCell.textContent = '-';
-        }
-        row.appendChild(locationCell);
-        
-        const deviceCell = document.createElement('td');
-        deviceCell.textContent = photo.device_type || '-';
-        row.appendChild(deviceCell);
-        
-        tableBody.appendChild(row);
-    });
+    renderPhotos(filtered);
+    totalPages = Math.ceil(filtered.length / pageSize);
+    currentPage = 1;
+    updatePagination();
 }
