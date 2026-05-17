@@ -456,7 +456,13 @@
                     <span id="current-table-name">-</span>
                     <button onclick="hideThematicData()" style="margin-left:10px; padding:5px 15px; background:#999; color:white; border:none; border-radius:4px; cursor:pointer;">关闭预览</button>
                 </div>
-                <div class="table-container">
+                <div style="margin-bottom:15px; display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
+                    <button onclick="showAddRowModal()" style="padding:8px 16px; background:#52c41a; color:white; border:none; border-radius:4px; cursor:pointer;">添加行</button>
+                    <button onclick="showAddColumnModal()" style="padding:8px 16px; background:#1890ff; color:white; border:none; border-radius:4px; cursor:pointer;">添加列</button>
+                    <button onclick="showUpdateColumnModal()" style="padding:8px 16px; background:#faad14; color:white; border:none; border-radius:4px; cursor:pointer;">批量更新列</button>
+                    <button onclick="confirmDeleteColumn()" style="padding:8px 16px; background:#ff4d4f; color:white; border:none; border-radius:4px; cursor:pointer;">删除列</button>
+                </div>
+                <div class="table-container" style="max-height:500px; overflow:auto;">
                     <table id="thematic-data-table">
                         <thead>
                             <tr id="thematic-data-header">
@@ -486,6 +492,92 @@
                 <button type="button" class="btn btn-primary" onclick="submitThematicImport()">导入</button>
                 <button type="button" class="btn btn-danger" onclick="closeModal('thematicImportModal')">取消</button>
             </form>
+        </div>
+    </div>
+    
+    <div id="addRowModal" class="modal">
+        <div class="modal-content" style="max-width:500px;">
+            <span class="close" onclick="closeModal('addRowModal')">&times;</span>
+            <h3>添加数据行</h3>
+            <div id="addRowFields" style="max-height:400px;overflow-y:auto;"></div>
+            <div style="margin-top:15px; display:flex; gap:10px;">
+                <button onclick="submitAddRow()" class="btn btn-primary">添加</button>
+                <button onclick="closeModal('addRowModal')" class="btn btn-danger">取消</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="editRowModal" class="modal">
+        <div class="modal-content" style="max-width:500px;">
+            <span class="close" onclick="closeModal('editRowModal')">&times;</span>
+            <h3>编辑数据行（第 <span id="editRowIndex">0</span> 行）</h3>
+            <div id="editRowFields" style="max-height:400px;overflow-y:auto;"></div>
+            <div style="margin-top:15px; display:flex; gap:10px;">
+                <button onclick="submitEditRow()" class="btn btn-primary">保存</button>
+                <button onclick="closeModal('editRowModal')" class="btn btn-danger">取消</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="addColumnModal" class="modal">
+        <div class="modal-content" style="max-width:400px;">
+            <span class="close" onclick="closeModal('addColumnModal')">&times;</span>
+            <h3>添加新字段</h3>
+            <div class="form-group">
+                <label for="newColumnName">字段名 *</label>
+                <input type="text" id="newColumnName" placeholder="字段英文名" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
+            </div>
+            <div class="form-group">
+                <label for="newColumnLabel">显示名称</label>
+                <input type="text" id="newColumnLabel" placeholder="字段中文名" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
+            </div>
+            <div class="form-group">
+                <label for="newColumnDefault">默认值</label>
+                <input type="text" id="newColumnDefault" placeholder="留空则为空字符串" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
+            </div>
+            <div style="margin-top:15px; display:flex; gap:10px;">
+                <button onclick="submitAddColumn()" class="btn btn-primary">添加</button>
+                <button onclick="closeModal('addColumnModal')" class="btn btn-danger">取消</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="updateColumnModal" class="modal">
+        <div class="modal-content" style="max-width:400px;">
+            <span class="close" onclick="closeModal('updateColumnModal')">&times;</span>
+            <h3>批量更新字段值</h3>
+            <div class="form-group">
+                <label for="updateColumnSelect">选择字段</label>
+                <select id="updateColumnSelect" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
+                    <option value="">-- 选择字段 --</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="updateColumnValue">新值（所有行）</label>
+                <input type="text" id="updateColumnValue" placeholder="输入新值" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
+            </div>
+            <div style="margin-top:15px; display:flex; gap:10px;">
+                <button onclick="submitUpdateColumn()" class="btn btn-primary">更新</button>
+                <button onclick="closeModal('updateColumnModal')" class="btn btn-danger">取消</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="deleteColumnModal" class="modal">
+        <div class="modal-content" style="max-width:400px;">
+            <span class="close" onclick="closeModal('deleteColumnModal')">&times;</span>
+            <h3>删除字段</h3>
+            <div class="form-group">
+                <label for="deleteColumnSelect">选择要删除的字段</label>
+                <select id="deleteColumnSelect" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
+                    <option value="">-- 选择字段 --</option>
+                </select>
+            </div>
+            <p style="color:#ff4d4f;font-size:12px;">注意：删除字段会同时删除该列的所有数据！</p>
+            <div style="margin-top:15px; display:flex; gap:10px;">
+                <button onclick="submitDeleteColumn()" class="btn btn-danger">删除</button>
+                <button onclick="closeModal('deleteColumnModal')" class="btn btn-secondary">取消</button>
+            </div>
         </div>
     </div>
     

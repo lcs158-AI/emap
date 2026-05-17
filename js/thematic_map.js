@@ -54,7 +54,21 @@ function initMap() {
 function togglePanel() {
     const panel = document.getElementById('controlPanel');
     isPanelOpen = !isPanelOpen;
-    panel.style.display = isPanelOpen ? 'block' : 'none';
+    
+    if (window.innerWidth <= 600) {
+        // 手机端使用过渡动画
+        if (isPanelOpen) {
+            panel.style.display = 'block';
+            panel.style.animation = 'slideUp 0.3s ease-out';
+        } else {
+            panel.style.animation = 'slideDown 0.3s ease-in';
+            setTimeout(() => {
+                panel.style.display = 'none';
+            }, 300);
+        }
+    } else {
+        panel.style.display = isPanelOpen ? 'block' : 'none';
+    }
 }
 
 function updateSliderDisplay(sliderId, valueId, unit) {
@@ -646,83 +660,157 @@ function initThematicMap() {
         document.getElementById('tableSelect').addEventListener('change', onTableChange);
         
         if (window.innerWidth <= 600) {
-            togglePanel();
+            // 手机端不自动收起面板，让用户更容易操作
+            // togglePanel();
+            showMobileHint();
         }
-        
+
         // 加载并显示省级地图作为底图
         loadAndShowProvinceMap();
-        
+
         // 添加地图交互
         addMapInteractions();
-        
+
+        // 监听窗口大小变化
+        window.addEventListener('resize', function() {
+            // 确保按钮状态正确
+        });
+
         console.log('[Debug] initThematicMap() completed!');
     } catch (error) {
         console.error('[Debug] Error during initialization:', error);
     }
 }
 
+// 显示移动端操作提示
+function showMobileHint() {
+    const isMobile = window.innerWidth <= 600;
+    if (!isMobile) return;
+    
+    // 检查是否已经显示过
+    if (sessionStorage.getItem('mobileHintShown')) return;
+    
+    // 显示提示
+    const hint = document.createElement('div');
+    hint.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0,0,0,0.75);
+        color: white;
+        padding: 12px 24px;
+        border-radius: 20px;
+        font-size: 14px;
+        z-index: 1001;
+        animation: fadeInUp 0.4s ease-out;
+    `;
+    hint.textContent = '📊 点击右上角按钮设置专题地图';
+    document.body.appendChild(hint);
+    
+    // 3秒后消失
+    setTimeout(() => {
+        hint.style.animation = 'fadeOutDown 0.3s ease-in';
+        setTimeout(() => hint.remove(), 300);
+    }, 3000);
+    
+    // 标记已显示
+    sessionStorage.setItem('mobileHintShown', 'true');
+    
+    // 添加动画样式
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+        @keyframes fadeOutDown {
+            from { opacity: 1; transform: translateX(-50%) translateY(0); }
+            to { opacity: 0; transform: translateX(-50%) translateY(20px); }
+        }
+    `;
+    document.head.appendChild(style);
+}
+
 function addMapInteractions() {
     console.log('[Debug] addMapInteractions() called');
+    
+    // 检测是否为触摸设备
+    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
     
     // 创建信息弹窗
     const infoDiv = document.createElement('div');
     infoDiv.id = 'mapInfoPopup';
     infoDiv.style.cssText = `
         position: fixed;
-        background: rgba(255, 255, 255, 0.95);
-        border: 1px solid #ccc;
-        border-radius: 8px;
-        padding: 12px 16px;
-        font-size: 14px;
+        background: rgba(255, 255, 255, 0.98);
+        border: 1px solid #ddd;
+        border-radius: 12px;
+        padding: 14px 18px;
+        font-size: 15px;
         pointer-events: none;
         z-index: 1000;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.15);
-        max-width: 250px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        max-width: 280px;
         display: none;
+        line-height: 1.5;
+        backdrop-filter: blur(4px);
     `;
     document.body.appendChild(infoDiv);
     
-    // 鼠标移动事件 - 显示省份名称
-    map.on('pointermove', function(evt) {
-        const pixel = map.getEventPixel(evt.originalEvent);
-        const hit = map.forEachFeatureAtPixel(pixel, function(feature) {
-            return feature;
+    // 只在非触摸设备上使用鼠标悬停
+    if (!isTouchDevice) {
+        // 鼠标移动事件 - 显示省份名称
+        map.on('pointermove', function(evt) {
+            const pixel = map.getEventPixel(evt.originalEvent);
+            const hit = map.forEachFeatureAtPixel(pixel, function(feature) {
+                return feature;
+            });
+            
+            if (hit) {
+                const name = hit.get('name') || hit.get('full_name') || hit.getProperties().full_name || hit.getProperties().name;
+                const value = hit.get('dataValue');
+                const fieldName = hit.get('fieldName');
+                
+                let content = `<strong style="color: #333; font-size: 16px;">${name}</strong>`;
+                if (value !== undefined && fieldName) {
+                    content += `<div style="color: #666; margin-top: 4px;">${fieldName}: <strong>${value.toLocaleString()}</strong></div>`;
+                }
+                
+                infoDiv.innerHTML = content;
+                infoDiv.style.display = 'block';
+                
+                // 定位弹窗 - 在手机上显示在底部
+                if (window.innerWidth <= 600) {
+                    infoDiv.style.left = '50%';
+                    infoDiv.style.transform = 'translateX(-50%)';
+                    infoDiv.style.bottom = '20px';
+                    infoDiv.style.top = 'auto';
+                } else {
+                    infoDiv.style.left = (evt.originalEvent.clientX + 15) + 'px';
+                    infoDiv.style.top = (evt.originalEvent.clientY - 10) + 'px';
+                    infoDiv.style.transform = 'none';
+                    infoDiv.style.bottom = 'auto';
+                    
+                    // 确保弹窗不超出视口
+                    const rect = infoDiv.getBoundingClientRect();
+                    if (rect.right > window.innerWidth) {
+                        infoDiv.style.left = (evt.originalEvent.clientX - rect.width - 15) + 'px';
+                    }
+                    if (rect.bottom > window.innerHeight) {
+                        infoDiv.style.top = (evt.originalEvent.clientY - rect.height - 10) + 'px';
+                    }
+                }
+                
+                map.getTargetElement().style.cursor = 'pointer';
+            } else {
+                infoDiv.style.display = 'none';
+                map.getTargetElement().style.cursor = '';
+            }
         });
-        
-        if (hit) {
-            const name = hit.get('name') || hit.get('full_name') || hit.getProperties().full_name || hit.getProperties().name;
-            const value = hit.get('dataValue');
-            const fieldName = hit.get('fieldName');
-            
-            let content = `<strong>${name}</strong>`;
-            if (value !== undefined && fieldName) {
-                content += `<br>${fieldName}: ${value}`;
-            }
-            
-            infoDiv.innerHTML = content;
-            infoDiv.style.display = 'block';
-            
-            // 定位弹窗
-            infoDiv.style.left = evt.originalEvent.clientX + 15 + 'px';
-            infoDiv.style.top = evt.originalEvent.clientY - 10 + 'px';
-            
-            // 确保弹窗不超出视口
-            const rect = infoDiv.getBoundingClientRect();
-            if (rect.right > window.innerWidth) {
-                infoDiv.style.left = (evt.originalEvent.clientX - rect.width - 15) + 'px';
-            }
-            if (rect.bottom > window.innerHeight) {
-                infoDiv.style.top = (evt.originalEvent.clientY - rect.height - 10) + 'px';
-            }
-            
-            map.getTargetElement().style.cursor = 'pointer';
-        } else {
-            infoDiv.style.display = 'none';
-            map.getTargetElement().style.cursor = '';
-        }
-    });
+    }
     
-    // 点击事件 - 显示省份+换行+专题值
+    // 点击/触摸事件 - 显示省份+换行+专题值
     map.on('click', function(evt) {
         const pixel = map.getEventPixel(evt.originalEvent);
         const hit = map.forEachFeatureAtPixel(pixel, function(feature) {
@@ -734,16 +822,83 @@ function addMapInteractions() {
             const value = hit.get('dataValue');
             const fieldName = hit.get('fieldName');
             
-            let content = `<strong>${name}</strong>`;
+            // 使用自定义弹窗而不是alert
+            let content = `<strong style="color: #333; font-size: 18px;">${name}</strong>`;
             if (value !== undefined && fieldName) {
-                content += `<br>${fieldName}: ${value}`;
+                content += `<div style="color: #666; margin-top: 8px; font-size: 15px;">${fieldName}</div>`;
+                content += `<div style="color: #1890ff; font-size: 22px; font-weight: 600; margin-top: 4px;">${value.toLocaleString()}</div>`;
             }
             
-            // 使用 alert 显示详细信息
-            const displayText = `${name}\n${fieldName || ''}: ${value !== undefined ? value : ''}`;
-            alert(displayText);
+            // 创建临时弹窗
+            showCustomPopup(name, fieldName, value);
         }
     });
+}
+
+function showCustomPopup(name, fieldName, value) {
+    // 移除旧的弹窗
+    const oldPopup = document.getElementById('customPopup');
+    if (oldPopup) oldPopup.remove();
+    
+    // 创建新弹窗
+    const popup = document.createElement('div');
+    popup.id = 'customPopup';
+    popup.style.cssText = `
+        position: fixed;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        border-radius: 16px;
+        padding: 24px;
+        z-index: 2001;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.25);
+        max-width: 320px;
+        width: 90%;
+        text-align: center;
+        animation: popupIn 0.25s ease-out;
+    `;
+    
+    // 添加动画
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes popupIn {
+            from { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
+            to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        }
+    `;
+    document.head.appendChild(style);
+    
+    let content = `<div style="font-size: 20px; font-weight: 700; color: #333; margin-bottom: 16px;">${name}</div>`;
+    if (value !== undefined && fieldName) {
+        content += `<div style="color: #999; font-size: 14px; margin-bottom: 8px;">${fieldName}</div>`;
+        content += `<div style="color: #1890ff; font-size: 28px; font-weight: 700;">${value.toLocaleString()}</div>`;
+    }
+    
+    content += `
+        <button onclick="document.getElementById('customPopup').remove(); document.getElementById('popupOverlay').remove();" 
+                style="margin-top: 24px; padding: 12px 32px; background: #1890ff; color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; width: 100%;">
+            确定
+        </button>
+    `;
+    
+    popup.innerHTML = content;
+    document.body.appendChild(popup);
+    
+    // 遮罩层
+    const overlay = document.createElement('div');
+    overlay.id = 'popupOverlay';
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.4);
+        z-index: 2000;
+    `;
+    overlay.onclick = function() {
+        popup.remove();
+        overlay.remove();
+    };
+    document.body.appendChild(overlay);
 }
 
 async function loadAndShowProvinceMap() {
