@@ -4,13 +4,29 @@ let currentThematicData = [];
 
 async function loadThematicTables() {
     try {
+        console.log('[DEBUG] loadThematicTables called');
+        console.log('[DEBUG] API_BASE_URL:', API_BASE_URL);
+        console.log('[DEBUG] Auth headers:', getAuthHeaders());
+        
         const response = await fetch(`${API_BASE_URL}/api/thematic/tables`, {
-            headers: getAuthHeaders()
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('access_token') || ''}`,
+                'Accept': 'application/json'
+            },
+            credentials: 'include'
         });
+        
+        console.log('[DEBUG] Response status:', response.status);
+        
         if (!response.ok) {
-            throw new Error('Failed to load thematic tables');
+            const errorData = await response.json().catch(() => null);
+            console.error('[DEBUG] Response error:', response.status, errorData);
+            throw new Error(`HTTP ${response.status}: ${errorData?.detail || 'Failed to load thematic tables'}`);
         }
+        
         const data = await response.json();
+        console.log('[DEBUG] Received tables:', data);
         renderThematicTables(data);
     } catch (error) {
         console.error('Error loading thematic tables:', error);
