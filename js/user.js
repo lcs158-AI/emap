@@ -308,7 +308,8 @@ async function loadUserUploadedData() {
         while (retries > 0 && !success) {
             try {
                 
-                res = await fetch(`${window.API_BASE_URL}/api/photos`, {
+                // 地图页面需要加载所有照片数据，使用很大的page_size
+                res = await fetch(`${window.API_BASE_URL}/api/photos?page=1&page_size=10000`, {
                     method: 'GET',
                     headers: {
                         'Accept': 'application/json',
