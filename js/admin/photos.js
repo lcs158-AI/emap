@@ -9,7 +9,7 @@ async function loadPhotos(page = 1) {
     console.log('[DEBUG] Auth headers:', getAuthHeaders());
     
     try {
-        const response = await fetch(`${API_BASE_URL}/api/photos`, {
+        const response = await fetch(`${API_BASE_URL}/api/photos?page=${page}&page_size=${pageSize}`, {
             headers: getAuthHeaders()
         });
         
@@ -45,10 +45,10 @@ async function loadPhotos(page = 1) {
         
         console.log('[DEBUG] Processed photos count:', allPhotos.length);
         
-        currentPage = 1;
-        totalPages = Math.ceil(allPhotos.length / pageSize);
+        currentPage = data.page;
+        totalPages = Math.ceil(data.total / pageSize);
         
-        renderPhotos(allPhotos.slice(0, pageSize));
+        renderPhotos(allPhotos);
         updatePagination();
     } catch (error) {
         console.error('[DEBUG] Error loading photos:', error);
