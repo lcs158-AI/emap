@@ -12,6 +12,71 @@ console.log('API_BASE_URL:', API_BASE_URL);
 
 let currentUser = null;
 
+// 检查Token有效性
+async function checkTokenValidity() {
+    const token = localStorage.getItem('access_token');
+    const username = localStorage.getItem('username');
+    
+    if (!token || !username) {
+        return { valid: false, message: '未登录' };
+    }
+    
+    try {
+        // 使用获取用户信息的API来验证Token
+        const response = await fetch(`${API_BASE_URL}/api/users/${username}`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (response.ok) {
+            return { valid: true, message: 'Token有效' };
+        } else if (response.status === 401) {
+            return { valid: false, message: 'Token已过期' };
+        } else {
+            return { valid: false, message: 'Token验证失败' };
+        }
+    } catch (error) {
+        console.error('检查Token有效性失败:', error);
+        return { valid: false, message: '网络错误' };
+    }
+}
+
+// 显示Token过期提示
+function showTokenExpiredMessage() {
+    const messageDiv = document.createElement('div');
+    messageDiv.id = 'tokenExpiredMessage';
+    messageDiv.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background-color: #f56c6c;
+        color: white;
+        padding: 20px 40px;
+        border-radius: 8px;
+        z-index: 10000;
+        font-size: 16px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        text-align: center;
+        cursor: pointer;
+    `;
+    messageDiv.innerHTML = `
+        <div style="font-size: 32px; margin-bottom: 10px;">⚠️</div>
+        <div>登录已过期</div>
+        <div style="font-size: 14px; margin-top: 10px; opacity: 0.9;">请点击此处重新登录</div>
+    `;
+    
+    messageDiv.addEventListener('click', () => {
+        messageDiv.remove();
+        logout();
+    });
+    
+    document.body.appendChild(messageDiv);
+}
+
 function switchTab(tabId, event) {
     document.querySelectorAll('.tab-content').forEach(content => {
         content.classList.remove('active');
@@ -53,6 +118,7 @@ function handleAuthError(response) {
     if (response.status === 401) {
         localStorage.removeItem('access_token');
         localStorage.removeItem('username');
+        currentUser = null;
         showLoginForm();
         showMessage('登录已过期，请重新登录', 'error');
         return true;
@@ -136,6 +202,13 @@ async function login() {
         
         console.log('[DEBUG] Login response status:', response.status);
         
+        // 处理401错误
+        if (response.status === 401) {
+            loginMsg.innerText = '用户名或密码错误';
+            loginMsg.style.color = 'red';
+            return;
+        }
+        
         const data = await response.json();
         console.log('[DEBUG] Login response data:', data);
         
@@ -210,6 +283,14 @@ async function validateAdminAccess(username) {
         
         console.log('[DEBUG] validateAdminAccess response status:', response.status);
         
+        // 处理401错误 - Token过期
+        if (response.status === 401) {
+            console.log('[DEBUG] validateAdminAccess: Token expired');
+            logout();
+            showTokenExpiredMessage();
+            return false;
+        }
+        
         if (!response.ok) {
             console.log('[DEBUG] validateAdminAccess: Response not ok, returning false');
             return false;
@@ -275,7 +356,7 @@ async function loadDeviceTypes() {
                 if (option.value === currentValue) {
                     option.selected = true;
                 }
-                select.appendChild(option);
+                option.appendChild(select);
             });
         });
     } catch (error) {
@@ -298,7 +379,7 @@ async function loadProblemTypes() {
                 if (option.value === currentValue) {
                     option.selected = true;
                 }
-                select.appendChild(option);
+                option.appendChild(select);
             });
         });
     } catch (error) {
@@ -335,6 +416,17 @@ window.addEventListener('DOMContentLoaded', async () => {
         const username = localStorage.getItem('username');
         
         if (token && username) {
+            // 先检查Token有效性
+            const tokenResult = await checkTokenValidity();
+            
+            if (!tokenResult.valid) {
+                console.warn('Token无效:', tokenResult.message);
+                logout();
+                showTokenExpiredMessage();
+                return;
+            }
+            
+            // Token有效，验证管理员权限
             let isAdmin = false;
             try {
                 isAdmin = await validateAdminAccess(username);

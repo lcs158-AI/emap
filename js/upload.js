@@ -13,16 +13,13 @@ function initUpload() {
     sidebarUploadBtn.addEventListener('click', async () => {
         const cameraInput = document.getElementById('cameraInput');
         const localImageInput = document.getElementById('localImageInput');
-        const localFileInput = document.getElementById('localFileInput');
         const token = localStorage.getItem('access_token');
-        const username = localStorage.getItem('username');
         
-        // 检查是否选择了文件（添加空值检查）
+        // 检查是否选择了文件
         const hasCameraFiles = cameraInput && cameraInput.files && cameraInput.files.length > 0;
         const hasLocalImageFiles = localImageInput && localImageInput.files && localImageInput.files.length > 0;
-        const hasLocalFiles = localFileInput && localFileInput.files && localFileInput.files.length > 0;
         
-        if (!hasCameraFiles && !hasLocalImageFiles && !hasLocalFiles) {
+        if (!hasCameraFiles && !hasLocalImageFiles) {
             progressEl.innerText = '请选择文件';
             return;
         }
@@ -31,55 +28,6 @@ function initUpload() {
             progressEl.innerText = '📤 请先登录后再上传照片'; 
             progressEl.style.color = '#e6a23c';
             return; 
-        }
-
-        // 检查用户角色（本地文件上传仅管理员可用）
-        let isAdmin = false;
-        try {
-            const response = await fetch(`${window.API_BASE_URL}/api/users`);
-            if (response.ok) {
-                const data = await response.json();
-                const users = data.users || [];
-                const currentUser = users.find(user => user.username === username);
-                
-                if (currentUser && currentUser.role === 'admin') {
-                    isAdmin = true;
-                }
-            }
-        } catch (error) {
-            console.error('检查用户角色失败:', error);
-        }
-        
-        // 本地文件上传仅管理员可用
-        if (hasLocalFiles && !isAdmin) {
-            progressEl.innerText = '本地文件上传仅管理员可用';
-            progressEl.style.color = 'red';
-            return;
-        }
-
-        // 处理本地文件上传（GeoJSON、KML、KMZ）
-        if (hasLocalFiles) {
-            
-            // 模拟点击原有的文件输入，触发现有的本地文件加载逻辑
-            const geoJsonFileInput = document.getElementById('geoJsonFileInput');
-            if (geoJsonFileInput) {
-                // 复制文件到原有的输入元素
-                // 注意：由于安全限制，不能直接设置files属性，需要触发change事件
-                // 这里我们使用一种间接的方法，创建一个新的change事件
-                const file = localFileInput.files[0];
-                if (file) {
-                    // 临时存储文件名，以便在map.js中处理
-                    window.tempLocalFileName = file.name;
-                    
-                    // 触发原有的文件输入点击，让用户重新选择文件
-                    // 这是一种变通方法，因为直接设置files属性会受到浏览器安全限制
-                    geoJsonFileInput.click();
-                }
-            }
-            
-            // 清空本地文件输入
-            localFileInput.value = '';
-            return;
         }
 
         const formData = new FormData();
@@ -91,18 +39,19 @@ function initUpload() {
             }
         }
         
-        // 添加本地图片文件
+        // 添加本地图片文件（所有登录用户都可以上传本地图片）
         for (let file of localImageInput.files) {
             formData.append('files', file);
         }
         
+        // 传递当前时间为capture_time（用于没有EXIF数据的照片）
         formData.append('capture_time', getBeijingTime());
         // 不设置 device_type，由后端根据 EXIF 数据判断是 drone 还是 phone
         
         // 添加问题类型
         const problemTypeSelect = document.getElementById('problemTypeSelect');
         const problemType = problemTypeSelect ? problemTypeSelect.value : '';
-        formData.append('problem_type', problemType); // 添加问题类型
+        formData.append('problem_type', problemType);
 
         progressEl.innerText = '上传中...';
         
@@ -112,13 +61,21 @@ function initUpload() {
                 headers: { 'Authorization': `Bearer ${token}` },
                 body: formData
             });
-            const result = await res.json();
             
             if (res.status === 401) {
-                progressEl.innerText = '📤 请先登录后再上传照片';
+                progressEl.innerText = '📤 登录已过期，请重新登录';
                 progressEl.style.color = '#e6a23c';
+                // 清除本地登录状态
+                localStorage.removeItem('access_token');
+                localStorage.removeItem('username');
+                // 刷新UI
+                if (typeof updateSidebarUI === 'function') {
+                    updateSidebarUI();
+                }
                 return;
             }
+            
+            const result = await res.json();
             
             if (res.ok) {
                 let message = `上传完成! 成功: ${result.success}, 失败: ${result.failed}, 重复: ${result.duplicate}`;
@@ -154,7 +111,6 @@ function initUpload() {
                         loadUserUploadedData();
                     }
                 }
-                
 
             } else {
                 console.error('上传失败:', result);
@@ -191,7 +147,7 @@ function getCurrentLocation(forceNew = false) {
             {
                 enableHighAccuracy: true,
                 timeout: 10000,
-                maximumAge: forceNew ? 0 : 60000 // 强制获取新位置时设置为0，否则保留1分钟缓存
+                maximumAge: forceNew ? 0 : 60000
             }
         );
     });

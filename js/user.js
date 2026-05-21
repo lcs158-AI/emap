@@ -15,13 +15,88 @@ async function authFetch(url, options = {}) {
     return fetch(url, { ...options, headers });
 }
 
+// 检查Token有效性
+async function checkTokenValidity() {
+    const token = localStorage.getItem('access_token');
+    const username = localStorage.getItem('username');
+    
+    if (!token || !username) {
+        return { valid: false, message: '未登录' };
+    }
+    
+    try {
+        // 使用一个需要认证的API来验证Token
+        const response = await fetch(`${window.API_BASE_URL}/api/users/${username}`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (response.ok) {
+            return { valid: true, message: 'Token有效' };
+        } else if (response.status === 401) {
+            return { valid: false, message: 'Token已过期' };
+        } else {
+            return { valid: false, message: 'Token验证失败' };
+        }
+    } catch (error) {
+        console.error('检查Token有效性失败:', error);
+        return { valid: false, message: '网络错误' };
+    }
+}
+
+// 清除登录状态
+function clearLoginState() {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('username');
+}
+
+// 显示登录已过期提示
+function showTokenExpiredMessage() {
+    // 创建提示元素
+    const messageDiv = document.createElement('div');
+    messageDiv.id = 'tokenExpiredMessage';
+    messageDiv.style.cssText = `
+        position: fixed;
+        top: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: #f56c6c;
+        color: white;
+        padding: 12px 24px;
+        border-radius: 4px;
+        z-index: 10000;
+        font-size: 14px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        cursor: pointer;
+    `;
+    messageDiv.textContent = '⚠️ 登录已过期，请重新登录';
+    
+    // 点击提示关闭并刷新页面
+    messageDiv.addEventListener('click', () => {
+        messageDiv.remove();
+        window.location.reload();
+    });
+    
+    // 添加到页面
+    document.body.appendChild(messageDiv);
+    
+    // 5秒后自动关闭
+    setTimeout(() => {
+        if (document.getElementById('tokenExpiredMessage')) {
+            document.getElementById('tokenExpiredMessage').remove();
+        }
+    }, 5000);
+}
+
 async function updateSidebarUI() {
     const authForm = document.getElementById('sidebarAuthForm');
     const cameraPanel = document.getElementById('sidebarCameraPanel');
     const uploadForm = document.getElementById('sidebarUploadForm');
     const userStatus = document.getElementById('sidebarUserStatus');
     const usernameSpan = document.getElementById('sidebarUsername');
-    const adminOnlyUpload = document.getElementById('adminOnlyUpload');
     
     const token = localStorage.getItem('access_token');
     
@@ -35,38 +110,12 @@ async function updateSidebarUI() {
         // 从 localStorage 中获取用户名
         const username = localStorage.getItem('username');
         usernameSpan.innerText = username || 'User';
-        
-        // 检查用户角色，非管理员隐藏本地文件上传
-        if (adminOnlyUpload) {
-            try {
-                const response = await fetch(`${window.API_BASE_URL}/api/users`);
-                if (response.ok) {
-                    const data = await response.json();
-                    const users = data.users || [];
-                    const currentUser = users.find(user => user.username === username);
-                    
-                    if (currentUser && currentUser.role === 'admin') {
-                        adminOnlyUpload.style.display = 'block';
-                    } else {
-                        adminOnlyUpload.style.display = 'none';
-                    }
-                } else {
-                    adminOnlyUpload.style.display = 'none';
-                }
-            } catch (error) {
-                console.error('检查用户角色失败:', error);
-                adminOnlyUpload.style.display = 'none';
-            }
-        }
     } else {
         // 未登录
         authForm.style.display = 'block';
         cameraPanel.style.display = 'none';
         uploadForm.style.display = 'none';
         userStatus.style.display = 'none';
-        if (adminOnlyUpload) {
-            adminOnlyUpload.style.display = 'none';
-        }
     }
 }
 
@@ -319,6 +368,16 @@ async function loadUserUploadedData() {
                     credentials: 'include'
                 });
                 
+                // 处理401错误 - Token过期
+                if (res.status === 401) {
+                    console.warn('Token已过期，清除登录状态');
+                    clearLoginState();
+                    showTokenExpiredMessage();
+                    updateSidebarUI();
+                    removeUserLayers();
+                    return;
+                }
+                
                 if (res.ok) {
                     
                     success = true;
@@ -538,23 +597,38 @@ function initLogout() {
         localStorage.removeItem('access_token');
         localStorage.removeItem('username');
         updateSidebarUI();
+        removeUserLayers();
         alert('已退出登录');
     });
 }
 
 // 初始化用户相关功能
-function initUserFunctions() {
+async function initUserFunctions() {
     updateSidebarUI();
     initLogin();
     initRegister();
     initLogout();
     
-    // 页面加载时检查登录状态并加载用户数据
-    window.addEventListener('load', () => {
+    // 页面加载时检查登录状态并验证Token
+    window.addEventListener('load', async () => {
         const token = localStorage.getItem('access_token');
+        
         if (token) {
-            // 延迟加载，确保地图已经初始化
-            setTimeout(loadUserUploadedData, 1000);
+            // 先检查Token是否有效
+            const result = await checkTokenValidity();
+            
+            if (result.valid) {
+                // Token有效，加载用户数据
+                console.log('Token验证通过:', result.message);
+                setTimeout(loadUserUploadedData, 1000);
+            } else {
+                // Token无效（过期或其他原因），清除登录状态
+                console.warn('Token无效:', result.message);
+                clearLoginState();
+                showTokenExpiredMessage();
+                updateSidebarUI();
+                removeUserLayers();
+            }
         }
     });
 }
@@ -564,3 +638,5 @@ window.updateSidebarUI = updateSidebarUI;
 window.loadUserUploadedData = loadUserUploadedData;
 window.loadUserDataToMap = loadUserDataToMap;
 window.initUserFunctions = initUserFunctions;
+window.checkTokenValidity = checkTokenValidity;
+window.clearLoginState = clearLoginState;
