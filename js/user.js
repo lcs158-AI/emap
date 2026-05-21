@@ -49,8 +49,7 @@ async function checkTokenValidity() {
 
 // 清除登录状态
 function clearLoginState() {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('username');
+    clearAllUserData();
 }
 
 // 显示登录已过期提示
@@ -591,13 +590,37 @@ function initRegister() {
     });
 }
 
+// 清除用户所有数据
+function clearAllUserData() {
+    // 1. 清除localStorage
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('username');
+    
+    // 2. 清除用户图层
+    removeUserLayers();
+    
+    // 3. 清理上传表单
+    const cameraInput = document.getElementById('cameraInput');
+    const localImageInput = document.getElementById('localImageInput');
+    const problemTypeSelect = document.getElementById('problemTypeSelect');
+    const progressEl = document.getElementById('sidebarUploadProgress');
+    
+    if (cameraInput) cameraInput.value = '';
+    if (localImageInput) localImageInput.value = '';
+    if (problemTypeSelect) problemTypeSelect.value = '';
+    if (progressEl) {
+        progressEl.innerText = '';
+        progressEl.style.color = '';
+    }
+    
+    // 4. 更新侧边栏UI
+    updateSidebarUI();
+}
+
 // 退出登录
 function initLogout() {
     document.getElementById('sidebarLogoutBtn').addEventListener('click', () => {
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('username');
-        updateSidebarUI();
-        removeUserLayers();
+        clearAllUserData();
         alert('已退出登录');
     });
 }
@@ -626,8 +649,6 @@ async function initUserFunctions() {
                 console.warn('Token无效:', result.message);
                 clearLoginState();
                 showTokenExpiredMessage();
-                updateSidebarUI();
-                removeUserLayers();
             }
         }
     });
@@ -640,3 +661,4 @@ window.loadUserDataToMap = loadUserDataToMap;
 window.initUserFunctions = initUserFunctions;
 window.checkTokenValidity = checkTokenValidity;
 window.clearLoginState = clearLoginState;
+window.clearAllUserData = clearAllUserData;
