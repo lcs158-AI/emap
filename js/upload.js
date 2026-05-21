@@ -33,20 +33,27 @@ function initUpload() {
         const formData = new FormData();
         
         // 添加相机拍摄的文件
-        if (cameraInput) {
+        if (cameraInput && hasCameraFiles) {
             for (let file of cameraInput.files) {
                 formData.append('files', file);
             }
         }
         
         // 添加本地图片文件（所有登录用户都可以上传本地图片）
-        for (let file of localImageInput.files) {
-            formData.append('files', file);
+        if (hasLocalImageFiles) {
+            for (let file of localImageInput.files) {
+                formData.append('files', file);
+            }
         }
         
-        // 传递当前时间为capture_time（用于没有EXIF数据的照片）
-        formData.append('capture_time', getBeijingTime());
-        // 不设置 device_type，由后端根据 EXIF 数据判断是 drone 还是 phone
+        // 时间字段处理规则：
+        // 1. 拍照上传：capture_time = 上传时间（当前时间），后端直接使用
+        // 2. 本地照片上传：不传capture_time，让后端从EXIF读取拍照时间
+        if (hasCameraFiles) {
+            // 拍照上传：传递当前时间为capture_time
+            formData.append('capture_time', getBeijingTime());
+        }
+        // 本地照片上传：不传递capture_time，后端从EXIF读取
         
         // 添加问题类型
         const problemTypeSelect = document.getElementById('problemTypeSelect');
