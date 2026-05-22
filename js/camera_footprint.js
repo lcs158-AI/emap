@@ -413,10 +413,18 @@ async function uploadPhoto() {
         formData.append('h_fov', capturedParams.h_fov);
         formData.append('v_fov', capturedParams.v_fov);
         
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+            alert('📤 请先登录后再上传照片');
+            return;
+        }
+        
         const response = await fetch(`${API_BASE_URL}/api/upload`, {
             method: 'POST',
-            body: formData,
-            credentials: 'include'
+            headers: {
+                'Authorization': `Bearer ${token}`
+            },
+            body: formData
         });
         
         const result = await response.json();

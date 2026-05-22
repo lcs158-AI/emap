@@ -60,6 +60,17 @@ function initUpload() {
         const problemType = problemTypeSelect ? problemTypeSelect.value : '';
         formData.append('problem_type', problemType);
 
+        // 上传前尝试获取当前地理位置（手机端选择拍摄时可能需要）
+        // 即使获取失败也继续上传
+        try {
+            const location = await getCurrentLocation(true);
+            formData.append('latitude', location.lat);
+            formData.append('longitude', location.lon);
+        } catch (locationError) {
+            console.warn('获取当前位置失败:', locationError.message);
+            // 位置获取失败不中断上传，继续执行
+        }
+
         progressEl.innerText = '上传中...';
         
         try {
