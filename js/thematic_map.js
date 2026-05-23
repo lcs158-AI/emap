@@ -33,13 +33,61 @@ const colorSchemes = {
     ]
 };
 
+let baseMapLayers = { esri: null, vec: null, cva: null };
+
+// 检查是否在 lzywhy.com 域名下运行
+function isOnLzywhyDomain() {
+    const hostname = window.location.hostname;
+    return hostname === 'lzywhy.com' || hostname.endsWith('.lzywhy.com');
+}
+
 function initMap() {
     console.log('[Debug] initMap() called');
     try {
         console.log('[Debug] Creating OpenLayers map...');
+        
+        // 初始化底图
+        baseMapLayers.esri = new ol.layer.Tile({
+            source: new ol.source.XYZ({
+                url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                crossOrigin: 'anonymous',
+                maxZoom: 19
+            })
+        });
+        
+        baseMapLayers.vec = new ol.layer.Tile({
+            source: new ol.source.XYZ({
+                url: `https://t0.tianditu.gov.cn/vec_w/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=vec&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&TileMatrix={z}&TileCol={x}&TileRow={y}&tk=${TIANDITU_KEY}`,
+                crossOrigin: 'anonymous',
+                tileSize: 256,
+                zoomOffset: 1
+            })
+        });
+        
+        baseMapLayers.cva = new ol.layer.Tile({
+            source: new ol.source.XYZ({
+                url: `https://t0.tianditu.gov.cn/cva_w/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=cva&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&TileMatrix={z}&TileCol={x}&TileRow={y}&tk=${TIANDITU_KEY}`,
+                crossOrigin: 'anonymous',
+                tileSize: 256,
+                zoomOffset: 1
+            })
+        });
+        
+        const initialLayers = [];
+        
+        // 根据域名选择底图
+        if (isOnLzywhyDomain()) {
+            baseMapLayers.esri.setVisible(false);
+            initialLayers.push(baseMapLayers.vec);
+            initialLayers.push(baseMapLayers.cva);
+        } else {
+            baseMapLayers.esri.setVisible(true);
+            initialLayers.push(baseMapLayers.esri);
+        }
+        
         map = new ol.Map({
             target: 'map',
-            layers: [],
+            layers: initialLayers,
             view: new ol.View({
                 center: ol.proj.fromLonLat([104.1954, 35.8617]),
                 zoom: 4
@@ -355,13 +403,7 @@ async function applyThematicLayer() {
         const styledFeatures = createStyledFeatures(geoJson, processedData, fieldName, level);
         console.log('[Debug] Created', styledFeatures.length, 'styled features');
         
-        // 移除基础地图图层
-        if (baseProvinceLayer) {
-            console.log('[Debug] Removing base province layer');
-            map.removeLayer(baseProvinceLayer);
-            baseProvinceLayer = null;
-        }
-        
+        // 移除旧的专题图层
         if (thematicLayer) {
             console.log('[Debug] Removing existing thematic layer');
             map.removeLayer(thematicLayer);
@@ -706,9 +748,6 @@ function initThematicMap() {
             showMobileHint();
         }
 
-        // 加载并显示省级地图作为底图
-        loadAndShowProvinceMap();
-
         // 添加地图交互
         addMapInteractions();
 
@@ -942,40 +981,6 @@ function showCustomPopup(name, fieldName, value) {
     document.body.appendChild(overlay);
 }
 
-async function loadAndShowProvinceMap() {
-    console.log('[Debug] loadAndShowProvinceMap() called');
-    
-    try {
-        const geoJson = await loadGeoJson('province');
-        
-        if (geoJson) {
-            console.log('[Debug] Creating base province map layer');
-            
-            const vectorSource = new ol.source.Vector({
-                features: new ol.format.GeoJSON().readFeatures(geoJson, {
-                    featureProjection: 'EPSG:3857'
-                })
-            });
-            
-            baseProvinceLayer = new ol.layer.Vector({
-                source: vectorSource,
-                style: new ol.style.Style({
-                    fill: new ol.style.Fill({
-                        color: 'rgba(200, 200, 200, 0.3)'
-                    }),
-                    stroke: new ol.style.Stroke({
-                        color: '#999',
-                        width: 1
-                    })
-                })
-            });
-            
-            map.addLayer(baseProvinceLayer);
-            console.log('[Debug] Base province map layer added');
-        }
-    } catch (error) {
-        console.error('[Debug] Error loading base province map:', error);
-    }
-}
+
 
 console.log('[Debug] thematic_map.js loaded!');
