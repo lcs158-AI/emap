@@ -485,7 +485,12 @@ function createStyledFeatures(geoJson, data, fieldName, level) {
     console.log('[Debug] Data sample names (first 5):');
     for (let i = 0; i < Math.min(5, data.length); i++) {
         // 处理可能的BOM字符
-        let name = data[i]['省份'] || data[i]['地区'] || data[i]['省（区、市）'] || data[i]['name'];
+        let name;
+        if (level === 'country') {
+            name = data[i]['name'];
+        } else {
+            name = data[i]['省份'] || data[i]['地区'] || data[i]['省（区、市）'] || data[i]['name'];
+        }
         // 尝试处理带BOM的字段名
         if (!name) {
             const keys = Object.keys(data[i]);
@@ -502,43 +507,47 @@ function createStyledFeatures(geoJson, data, fieldName, level) {
     geoJson.features.forEach((feature, index) => {
         const name = feature.properties.full_name || feature.properties.name;
         
-        // 改进的匹配逻辑
+        // 改进的匹配逻辑 - 根据级别选择匹配字段
         const dataItem = data.find(item => {
-            // 处理可能的BOM字符和各种字段名变体
             let dataName = '';
             const keys = Object.keys(item);
             
-            // 尝试各种可能的字段名
-            for (const key of keys) {
-                // 去除BOM字符和空白
-                const cleanKey = key.replace(/^\uFEFF|\uFFFE|\ufeff/g, '').trim();
-                if (cleanKey === '省份' || cleanKey === '地区' || cleanKey === '省（区、市）' || cleanKey === 'name') {
-                    dataName = item[key];
-                    break;
+            if (level === 'country') {
+                // 国家级别：只用name字段匹配
+                dataName = item['name'];
+                return dataName === name;
+            } else {
+                // 省级/市级：尝试各种字段
+                for (const key of keys) {
+                    // 去除BOM字符和空白
+                    const cleanKey = key.replace(/^\uFEFF|\uFFFE|\ufeff/g, '').trim();
+                    if (cleanKey === '省份' || cleanKey === '地区' || cleanKey === '省（区、市）' || cleanKey === 'name') {
+                        dataName = item[key];
+                        break;
+                    }
+                    if (key.includes('省')) {
+                        dataName = item[key];
+                        break;
+                    }
                 }
-                // 也检查包含"省"字的字段
-                if (key.includes('省')) {
-                    dataName = item[key];
-                    break;
+                
+                // 精确匹配
+                if (item['地区'] === name || 
+                    item['省（区、市）'] === name || 
+                    item['省份'] === name ||
+                    item['name'] === name ||
+                    dataName === name) {
+                    return true;
                 }
+                
+                // 简化后的名称匹配（去掉"省"、"市"、"自治区"等后缀）
+                const normalize = (s) => s.replace(/[省市区自治区特别行政区]+$/, '').trim();
+                if (normalize(name) === normalize(dataName)) {
+                    return true;
+                }
+                
+                return false;
             }
-            
-            // 精确匹配
-            if (item['地区'] === name || 
-                item['省（区、市）'] === name || 
-                item['省份'] === name ||
-                item['name'] === name ||
-                dataName === name) {
-                return true;
-            }
-            
-            // 简化后的名称匹配（去掉"省"、"市"、"自治区"等后缀）
-            const normalize = (s) => s.replace(/[省市区自治区特别行政区]+$/, '').trim();
-            if (normalize(name) === normalize(dataName)) {
-                return true;
-            }
-            
-            return false;
         });
         
         if (dataItem) {
