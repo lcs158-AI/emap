@@ -185,6 +185,58 @@
             display: block;
         }
 
+        #legendAxis .axis-class-control {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding: 6px 8px;
+            background: #f5f5f5;
+            border-radius: 6px;
+        }
+
+        #legendAxis .axis-class-label {
+            font-size: 12px;
+            color: #666;
+        }
+
+        #legendAxis .axis-class-buttons {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        #legendAxis .axis-class-btn {
+            width: 24px;
+            height: 24px;
+            border: 1px solid #d9d9d9;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            line-height: 1;
+            color: #666;
+            transition: all 0.15s;
+        }
+
+        #legendAxis .axis-class-btn:hover {
+            background: #1890ff;
+            border-color: #1890ff;
+            color: white;
+        }
+
+        #legendAxis .axis-class-btn:active {
+            background: #096dd9;
+        }
+
+        #legendAxis .axis-class-value {
+            min-width: 24px;
+            text-align: center;
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+        }
+
         #legendAxis .axis-title {
             font-size: 12px;
             font-weight: 600;
@@ -629,6 +681,14 @@
     <!-- 左侧数轴图例 -->
     <div id="legendAxis">
         <div class="axis-title">图例</div>
+        <div class="axis-class-control">
+            <span class="axis-class-label">分级</span>
+            <div class="axis-class-buttons">
+                <button class="axis-class-btn" onclick="adjustClassCount(-1)">−</button>
+                <span id="axisClassCount" class="axis-class-value">9</span>
+                <button class="axis-class-btn" onclick="adjustClassCount(1)">+</button>
+            </div>
+        </div>
         <div class="axis-wrapper">
             <div class="axis-labels">
                 <div class="axis-label-max" id="axisLabelMax">-</div>

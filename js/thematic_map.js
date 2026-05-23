@@ -811,6 +811,11 @@ function updateAxisLegend(breaks, colorScale, classCount) {
     labelMax.textContent = formatNumber(breaks[breaks.length - 1] || 0);
     labelMin.textContent = formatNumber(breaks[0] || 0);
     
+    const axisClassCount = document.getElementById('axisClassCount');
+    if (axisClassCount) {
+        axisClassCount.textContent = classCount;
+    }
+    
     for (let i = 0; i < classCount; i++) {
         const color = colorScale[i] || [200, 200, 200];
         const segment = document.createElement('div');
@@ -930,6 +935,34 @@ function updateAxisLegendBar() {
             markers[i].style.top = `${percent}%`;
         }
     });
+}
+
+function adjustClassCount(delta) {
+    const classCountInput = document.getElementById('classCount');
+    const currentCount = parseInt(classCountInput.value);
+    const newCount = Math.max(3, Math.min(12, currentCount + delta));
+    classCountInput.value = newCount;
+    document.getElementById('classCountValue').textContent = newCount + '级';
+    document.getElementById('axisClassCount').textContent = newCount;
+    
+    if (currentBreaks.length > 0) {
+        const min = currentBreaks[0];
+        const max = currentBreaks[currentBreaks.length - 1];
+        const classifyMethod = document.getElementById('classifyMethod').value;
+        currentBreaks = classifyMethods[classifyMethod]([], newCount);
+        
+        const values = [];
+        for (let i = 0; i <= newCount; i++) {
+            values.push(min + (max - min) * i / newCount);
+        }
+        currentBreaks = values;
+        
+        const colorScheme = document.getElementById('colorScheme').value;
+        const colorScale = colorSchemes[colorScheme] || colorSchemes.blue;
+        updateAxisLegend(currentBreaks, colorScale, newCount);
+        
+        applyThematicLayerWithBreaks(currentBreaks);
+    }
 }
 
 function formatNumber(num) {
