@@ -555,9 +555,21 @@ function createStyledFeatures(geoJson, data, fieldName, level) {
             const keys = Object.keys(item);
             
             if (level === 'country') {
-                // 国家级别：只用name字段匹配
-                dataName = item['name'];
-                return dataName === name;
+                // 国家级别：使用iso_a3字段精确匹配
+                const geoCode = feature.properties.iso_a3;
+                if (!geoCode) {
+                    return false;
+                }
+                // 尝试各种可能的iso3字段名
+                const keys = Object.keys(item);
+                for (const key of keys) {
+                    if (key.toLowerCase().includes('iso') && key.toLowerCase().includes('3')) {
+                        if (item[key] === geoCode) {
+                            return true;
+                        }
+                    }
+                }
+                return false;
             } else {
                 // 省级/市级：尝试各种字段
                 for (const key of keys) {
