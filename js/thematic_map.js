@@ -791,33 +791,350 @@ function updateLegend(breaks, fieldName) {
     legend.innerHTML = '<div class="section-title">图例</div>';
     
     if (breaks.length === 0) {
-        const item = document.createElement('div');
-        item.className = 'legend-item';
-        item.innerHTML = '<span style="color: #999;">无有效数据</span>';
-        legend.appendChild(item);
+        const container = document.createElement('div');
+        container.className = 'legend-bar-container';
+        container.innerHTML = '<span style="color: #999; font-size: 12px;">无有效数据</span>';
+        legend.appendChild(container);
         return;
     }
     
+    const container = document.createElement('div');
+    container.className = 'legend-bar-container';
+    
+    const track = document.createElement('div');
+    track.className = 'legend-bar-track';
+    track.id = 'legendBarTrack';
+    
+    const gradientStops = [];
+    for (let i = 0; i < classCount; i++) {
+        const color = colorScale[i] || [200, 200, 200];
+        const startPercent = (i / classCount) * 100;
+        const endPercent = ((i + 1) / classCount) * 100;
+        gradientStops.push(`rgb(${color[0]}, ${color[1]}, ${color[2]}) ${startPercent}% ${endPercent}%`);
+    }
+    track.style.background = `linear-gradient(to right, ${gradientStops.join(', ')})`;
+    
+    for (let i = 0; i < breaks.length; i++) {
+        const handle = document.createElement('div');
+        handle.className = 'legend-handle';
+        if (i === 0 || i === breaks.length - 1) {
+            handle.classList.add('fixed');
+        }
+        handle.dataset.index = i;
+        
+        const percent = classCount > 0 ? (i / classCount) * 100 : 0;
+        handle.style.left = `${percent}%`;
+        
+        const label = document.createElement('div');
+        label.className = 'legend-label';
+        if (i === 0) {
+            label.classList.add('left');
+        } else if (i === breaks.length - 1) {
+            label.classList.add('right');
+        }
+        label.textContent = formatNumber(breaks[i]);
+        handle.appendChild(label);
+        
+        if (i > 0 && i < breaks.length - 1) {
+            handle.addEventListener('mousedown', startDrag);
+            handle.addEventListener('touchstart', startDrag, { passive: false });
+        }
+        
+        track.appendChild(handle);
+    }
+    
+    container.appendChild(track);
+    legend.appendChild(container);
+    
     const noDataItem = document.createElement('div');
-    noDataItem.className = 'legend-item';
+    noDataItem.className = 'legend-no-data';
     noDataItem.innerHTML = `
-        <div class="legend-color" style="background: rgba(200, 200, 200, 0.3); border: 1px solid rgba(150, 150, 150, 0.5);"></div>
-        <span style="color: #999;">无数据</span>
+        <div class="legend-no-data-box"></div>
+        <span>无数据</span>
     `;
     legend.appendChild(noDataItem);
     
+    currentBreaks = [...breaks];
+}
+
+let isDragging = false;
+let dragIndex = -1;
+let dragTrack = null;
+
+function startDrag(e) {
+    e.preventDefault();
+    isDragging = true;
+    dragIndex = parseInt(e.target.dataset.index);
+    dragTrack = document.getElementById('legendBarTrack');
+    
+    document.addEventListener('mousemove', doDrag);
+    document.addEventListener('mouseup', endDrag);
+    document.addEventListener('touchmove', doDrag, { passive: false });
+    document.addEventListener('touchend', endDrag);
+}
+
+function doDrag(e) {
+    if (!isDragging || !dragTrack) return;
+    e.preventDefault();
+    
+    const rect = dragTrack.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    let percent = (clientX - rect.left) / rect.width;
+    percent = Math.max(0, Math.min(1, percent));
+    
+    const classCount = currentBreaks.length - 1;
+    const newValue = currentBreaks[0] + percent * (currentBreaks[classCount] - currentBreaks[0]);
+    
+    const prevValue = currentBreaks[dragIndex - 1] || currentBreaks[0];
+    const nextValue = currentBreaks[dragIndex + 1] || currentBreaks[classCount];
+    
+    const clampedValue = Math.max(prevValue + 0.001, Math.min(nextValue - 0.001, newValue));
+    currentBreaks[dragIndex] = clampedValue;
+    
+    updateLegendBar();
+}
+
+function endDrag() {
+    if (isDragging) {
+        isDragging = false;
+        document.removeEventListener('mousemove', doDrag);
+        document.removeEventListener('mouseup', endDrag);
+        document.removeEventListener('touchmove', doDrag);
+        document.removeEventListener('touchend', endDrag);
+        
+        if (thematicLayer && currentBreaks.length > 0) {
+            applyThematicLayerWithBreaks(currentBreaks);
+        }
+    }
+    dragIndex = -1;
+    dragTrack = null;
+}
+
+function updateLegendBar() {
+    const colorScheme = document.getElementById('colorScheme').value;
+    const colorScale = colorSchemes[colorScheme] || colorSchemes.blue;
+    const classCount = currentBreaks.length - 1;
+    
+    const track = document.getElementById('legendBarTrack');
+    if (!track) return;
+    
+    const gradientStops = [];
     for (let i = 0; i < classCount; i++) {
         const color = colorScale[i] || [200, 200, 200];
-        const minVal = breaks[i];
-        const maxVal = breaks[i + 1];
+        const startPercent = (i / classCount) * 100;
+        const endPercent = ((i + 1) / classCount) * 100;
+        gradientStops.push(`rgb(${color[0]}, ${color[1]}, ${color[2]}) ${startPercent}% ${endPercent}%`);
+    }
+    track.style.background = `linear-gradient(to right, ${gradientStops.join(', ')})`;
+    
+    const handles = track.querySelectorAll('.legend-handle');
+    handles.forEach((handle, i) => {
+        const percent = classCount > 0 ? (i / classCount) * 100 : 0;
+        handle.style.left = `${percent}%`;
+        const label = handle.querySelector('.legend-label');
+        if (label) {
+            label.textContent = formatNumber(currentBreaks[i]);
+        }
+    });
+}
+
+function formatNumber(num) {
+    if (num >= 100000000) {
+        return (num / 100000000).toFixed(1) + '亿';
+    } else if (num >= 10000) {
+        return (num / 10000).toFixed(1) + '万';
+    } else if (num >= 1000) {
+        return num.toLocaleString('zh-CN', { maximumFractionDigits: 0 });
+    } else {
+        return num.toFixed(1);
+    }
+}
+
+async function applyThematicLayerWithBreaks(breaks) {
+    console.log('[Debug] applyThematicLayerWithBreaks() called');
+    
+    const tableName = document.getElementById('tableSelect').value;
+    const fieldSelectValue = document.getElementById('fieldSelect').value;
+    const expression = document.getElementById('expressionInput').value;
+    const level = document.getElementById('levelSelect').value;
+    const isExpression = fieldSelectValue === 'expression';
+    
+    let fieldName = isExpression ? parseExpression(expression).name : fieldSelectValue;
+    
+    const token = localStorage.getItem('access_token');
+    if (!token) return;
+    
+    try {
+        const [geoJson, dataRes] = await Promise.all([
+            loadGeoJson(level),
+            fetch(`${API_BASE_URL}/api/thematic/data/${tableName}`, {
+                headers: getAuthHeaders()
+            })
+        ]);
         
-        const item = document.createElement('div');
-        item.className = 'legend-item';
-        item.innerHTML = `
-            <div class="legend-color" style="background: rgb(${color[0]}, ${color[1]}, ${color[2]})"></div>
-            <span>${minVal.toLocaleString('zh-CN', { maximumFractionDigits: 0 })} - ${maxVal.toLocaleString('zh-CN', { maximumFractionDigits: 0 })}</span>
-        `;
-        legend.appendChild(item);
+        if (!dataRes.ok) return;
+        
+        const data = await dataRes.json();
+        let processedData = data.data;
+        if (isExpression) {
+            processedData = evaluateExpression(data.data, parseExpression(expression).expr, fieldName);
+        }
+        
+        const styledFeatures = createStyledFeaturesWithBreaks(geoJson, processedData, fieldName, level, breaks);
+        
+        if (thematicLayer) {
+            map.removeLayer(thematicLayer);
+        }
+        
+        thematicLayer = new ol.layer.Vector({
+            source: new ol.source.Vector({
+                features: styledFeatures
+            }),
+            zIndex: 100
+        });
+        
+        map.addLayer(thematicLayer);
+        console.log('[Debug] Thematic layer updated with custom breaks');
+        
+    } catch (error) {
+        console.error('[Debug] 应用专题图层失败:', error);
+    }
+}
+
+function createStyledFeaturesWithBreaks(geoJson, data, fieldName, level, breaks) {
+    const colorScheme = document.getElementById('colorScheme').value;
+    const colorScale = colorSchemes[colorScheme] || colorSchemes.blue;
+    const opacity = parseFloat(document.getElementById('opacitySlider').value) / 100;
+    const pointSize = parseInt(document.getElementById('pointSizeSlider').value);
+    const borderWidth = parseInt(document.getElementById('borderWidthSlider').value);
+    const renderType = document.querySelector('input[name="renderType"]:checked').value;
+    
+    const features = [];
+    
+    geoJson.features.forEach((feature) => {
+        const name = feature.properties.full_name || feature.properties.name;
+        
+        const dataItem = findDataItem(data, name, level, feature.properties.iso_a3);
+        
+        let value = null;
+        let hasData = false;
+        if (dataItem && dataItem[fieldName] !== undefined && dataItem[fieldName] !== null && dataItem[fieldName] !== '') {
+            const parsed = parseFloat(dataItem[fieldName]);
+            if (!isNaN(parsed)) {
+                value = parsed;
+                hasData = true;
+            }
+        }
+        
+        let style;
+        
+        if (!hasData || breaks.length === 0) {
+            style = new ol.style.Style({
+                fill: new ol.style.Fill({
+                    color: 'rgba(200, 200, 200, 0.3)'
+                }),
+                stroke: new ol.style.Stroke({
+                    color: 'rgba(150, 150, 150, 0.5)',
+                    width: 1
+                })
+            });
+        } else {
+            let colorIndex = 0;
+            for (let i = 0; i < breaks.length - 1; i++) {
+                if (value >= breaks[i] && value <= breaks[i + 1]) {
+                    colorIndex = i;
+                    break;
+                }
+            }
+            
+            const color = colorScale[colorIndex] || [200, 200, 200];
+            
+            if (renderType === 'point') {
+                const normalized = (value - breaks[0]) / (breaks[breaks.length - 1] - breaks[0]);
+                const size = pointSize * (0.5 + normalized * 0.5);
+                style = new ol.style.Style({
+                    image: new ol.style.Circle({
+                        radius: size,
+                        fill: new ol.style.Fill({
+                            color: `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity})`
+                        }),
+                        stroke: new ol.style.Stroke({
+                            color: 'rgba(0, 0, 0, 0.5)',
+                            width: borderWidth
+                        })
+                    })
+                });
+            } else {
+                style = new ol.style.Style({
+                    fill: new ol.style.Fill({
+                        color: `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity})`
+                    }),
+                    stroke: new ol.style.Stroke({
+                        color: 'rgba(0, 0, 0, 0.3)',
+                        width: borderWidth
+                    })
+                });
+            }
+        }
+        
+        const olFeature = new ol.format.GeoJSON().readFeature(feature, {
+            featureProjection: 'EPSG:3857'
+        });
+        
+        if (renderType === 'point') {
+            const centroid = ol.extent.getCenter(olFeature.getGeometry().getExtent());
+            const pointGeom = new ol.geom.Point(centroid);
+            olFeature.setGeometry(pointGeom);
+        }
+        
+        olFeature.setStyle(style);
+        olFeature.set('name', name);
+        olFeature.set('value', value);
+        olFeature.set('dataValue', value);
+        olFeature.set('fieldName', fieldName);
+        features.push(olFeature);
+    });
+    
+    return features;
+}
+
+function findDataItem(data, name, level, isoCode) {
+    if (level === 'country') {
+        if (!isoCode) return null;
+        const keys = Object.keys(data[0] || {});
+        for (const item of data) {
+            for (const key of keys) {
+                if (key.toLowerCase().includes('iso') && key.toLowerCase().includes('3')) {
+                    if (item[key] === isoCode) {
+                        return item;
+                    }
+                }
+            }
+        }
+        return null;
+    } else {
+        for (const item of data) {
+            const keys = Object.keys(item);
+            let dataName = '';
+            for (const key of keys) {
+                const cleanKey = key.replace(/^\uFEFF|\uFFFE|\ufeff/g, '').trim();
+                if (cleanKey === '省份' || cleanKey === '地区' || cleanKey === '省（区、市）' || cleanKey === 'name') {
+                    dataName = item[key];
+                    break;
+                }
+            }
+            
+            if (item['地区'] === name || item['省（区、市）'] === name || 
+                item['省份'] === name || item['name'] === name || dataName === name) {
+                return item;
+            }
+            
+            const normalize = (s) => s.replace(/[省市区自治区特别行政区]+$/, '').trim();
+            if (normalize(name) === normalize(dataName)) {
+                return item;
+            }
+        }
+        return null;
     }
 }
 
