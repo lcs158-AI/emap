@@ -820,10 +820,10 @@ function updateAxisLegend(breaks, colorScale, classCount) {
         const color = colorScale[i] || [200, 200, 200];
         const segment = document.createElement('div');
         segment.className = 'axis-segment';
-        const topPercent = (i / classCount) * 100;
-        const heightPercent = (1 / classCount) * 100;
-        segment.style.top = `${topPercent}%`;
-        segment.style.height = `${heightPercent}%`;
+        const leftPercent = (i / classCount) * 100;
+        const widthPercent = (1 / classCount) * 100;
+        segment.style.left = `${leftPercent}%`;
+        segment.style.width = `${widthPercent}%`;
         segment.style.backgroundColor = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
         track.appendChild(segment);
     }
@@ -832,7 +832,7 @@ function updateAxisLegend(breaks, colorScale, classCount) {
         const marker = document.createElement('div');
         marker.className = 'axis-marker';
         const percent = classCount > 0 ? (i / classCount) * 100 : 0;
-        marker.style.top = `${percent}%`;
+        marker.style.left = `${percent}%`;
         track.appendChild(marker);
         
         const handle = document.createElement('div');
@@ -841,7 +841,7 @@ function updateAxisLegend(breaks, colorScale, classCount) {
             handle.classList.add('fixed');
         }
         handle.dataset.index = i;
-        handle.style.top = `${percent}%`;
+        handle.style.left = `${percent}%`;
         
         if (i > 0 && i < breaks.length - 1) {
             handle.addEventListener('mousedown', startAxisDrag);
@@ -874,8 +874,8 @@ function doAxisDrag(e) {
     e.preventDefault();
     
     const rect = dragTrack.getBoundingClientRect();
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    let percent = (rect.bottom - clientY) / rect.height;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    let percent = (clientX - rect.left) / rect.width;
     percent = Math.max(0, Math.min(1, percent));
     
     const classCount = currentBreaks.length - 1;
@@ -929,10 +929,18 @@ function updateAxisLegendBar() {
     const markers = track.querySelectorAll('.axis-marker');
     const handles = track.querySelectorAll('.axis-handle');
     handles.forEach((handle, i) => {
-        const percent = classCount > 0 ? (i / classCount) * 100 : 0;
-        handle.style.top = `${percent}%`;
+        let percent;
+        if (currentBreaks.length > 1) {
+            // 根据数值计算百分比
+            const min = currentBreaks[0];
+            const max = currentBreaks[currentBreaks.length - 1];
+            percent = ((currentBreaks[i] - min) / (max - min)) * 100;
+        } else {
+            percent = classCount > 0 ? (i / classCount) * 100 : 0;
+        }
+        handle.style.left = `${percent}%`;
         if (markers[i]) {
-            markers[i].style.top = `${percent}%`;
+            markers[i].style.left = `${percent}%`;
         }
     });
 }

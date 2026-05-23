@@ -167,16 +167,18 @@
             transform: scale(0.98);
         }
 
-        /* 左侧数轴图例 */
+        /* 底部数轴图例 */
         #legendAxis {
             position: absolute;
-            left: 10px;
-            top: 60px;
-            width: 80px;
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 8px;
-            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
-            padding: 12px 8px;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: calc(100% - 40px);
+            max-width: 900px;
+            background: rgba(255, 255, 255, 0.96);
+            border-radius: 10px;
+            box-shadow: 0 2px 16px rgba(0, 0, 0, 0.18);
+            padding: 12px 16px;
             z-index: 100;
             display: none;
         }
@@ -190,30 +192,30 @@
             align-items: center;
             justify-content: space-between;
             margin-bottom: 10px;
-            padding: 6px 8px;
+            padding: 6px 12px;
             background: #f5f5f5;
             border-radius: 6px;
         }
 
         #legendAxis .axis-class-label {
-            font-size: 12px;
+            font-size: 13px;
             color: #666;
         }
 
         #legendAxis .axis-class-buttons {
             display: flex;
             align-items: center;
-            gap: 4px;
+            gap: 8px;
         }
 
         #legendAxis .axis-class-btn {
-            width: 24px;
-            height: 24px;
+            width: 28px;
+            height: 28px;
             border: 1px solid #d9d9d9;
             background: white;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 16px;
+            font-size: 18px;
             line-height: 1;
             color: #666;
             transition: all 0.15s;
@@ -230,15 +232,15 @@
         }
 
         #legendAxis .axis-class-value {
-            min-width: 24px;
+            min-width: 28px;
             text-align: center;
-            font-size: 14px;
+            font-size: 16px;
             font-weight: 600;
             color: #333;
         }
 
         #legendAxis .axis-title {
-            font-size: 12px;
+            font-size: 14px;
             font-weight: 600;
             color: #333;
             text-align: center;
@@ -247,18 +249,16 @@
 
         #legendAxis .axis-wrapper {
             display: flex;
-            align-items: stretch;
-            gap: 6px;
+            align-items: center;
+            gap: 8px;
         }
 
         #legendAxis .axis-labels {
             display: flex;
-            flex-direction: column;
             justify-content: space-between;
-            font-size: 11px;
+            font-size: 12px;
             color: #666;
-            min-width: 50px;
-            text-align: right;
+            margin-top: 8px;
         }
 
         #legendAxis .axis-label-max,
@@ -269,7 +269,7 @@
         #legendAxis .axis-container {
             position: relative;
             flex: 1;
-            height: 280px;
+            height: 36px;
         }
 
         #legendAxis .axis-track {
@@ -278,33 +278,33 @@
             position: absolute;
             left: 0;
             background: #e8e8e8;
-            border-radius: 4px;
+            border-radius: 6px;
         }
 
         #legendAxis .axis-segment {
             position: absolute;
-            left: 0;
-            width: 100%;
+            top: 0;
+            height: 100%;
             box-sizing: border-box;
         }
 
         #legendAxis .axis-handle {
             position: absolute;
-            width: 20px;
-            height: 20px;
+            width: 24px;
+            height: 24px;
             background: white;
             border: 2px solid #1890ff;
             border-radius: 50%;
-            left: 50%;
+            top: 50%;
             transform: translate(-50%, -50%);
-            cursor: ns-resize;
+            cursor: ew-resize;
             z-index: 10;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.25);
             transition: box-shadow 0.15s;
         }
 
         #legendAxis .axis-handle:hover {
-            box-shadow: 0 3px 10px rgba(0,0,0,0.35);
+            box-shadow: 0 3px 12px rgba(0,0,0,0.35);
         }
 
         #legendAxis .axis-handle:active {
@@ -324,11 +324,11 @@
 
         #legendAxis .axis-marker {
             position: absolute;
-            left: 0;
-            width: 100%;
-            height: 2px;
+            top: 0;
+            height: 100%;
+            width: 2px;
             background: rgba(0,0,0,0.15);
-            transform: translateY(-50%);
+            transform: translateX(-50%);
         }
 
         #legendAxis .axis-min-label {
@@ -678,31 +678,7 @@
 <body>
     <div id="map"></div>
     
-    <!-- 左侧数轴图例 -->
-    <div id="legendAxis">
-        <div class="axis-title">图例</div>
-        <div class="axis-class-control">
-            <span class="axis-class-label">分级</span>
-            <div class="axis-class-buttons">
-                <button class="axis-class-btn" onclick="adjustClassCount(-1)">−</button>
-                <span id="axisClassCount" class="axis-class-value">9</span>
-                <button class="axis-class-btn" onclick="adjustClassCount(1)">+</button>
-            </div>
-        </div>
-        <div class="axis-wrapper">
-            <div class="axis-labels">
-                <div class="axis-label-max" id="axisLabelMax">-</div>
-                <div class="axis-label-min" id="axisLabelMin">-</div>
-            </div>
-            <div class="axis-container" id="axisContainer">
-                <div class="axis-track" id="axisTrack"></div>
-            </div>
-        </div>
-        <div class="no-data-indicator">
-            <div class="no-data-box"></div>
-            <span>无数据</span>
-        </div>
-    </div>
+
     
     <!-- 工具栏 -->
     <div class="toolbar">
@@ -827,6 +803,32 @@
         <button id="applyBtn" onclick="applyThematicLayer()">应用</button>
         
         <div id="dataInfo"></div>
+    </div>
+
+    <!-- 底部数轴图例 -->
+    <div id="legendAxis">
+        <div class="axis-title">图例</div>
+        <div class="axis-class-control">
+            <span class="axis-class-label">分级</span>
+            <div class="axis-class-buttons">
+                <button class="axis-class-btn" onclick="adjustClassCount(-1)">−</button>
+                <span id="axisClassCount" class="axis-class-value">9</span>
+                <button class="axis-class-btn" onclick="adjustClassCount(1)">+</button>
+            </div>
+        </div>
+        <div class="axis-wrapper">
+            <div class="axis-container" id="axisContainer">
+                <div class="axis-track" id="axisTrack"></div>
+            </div>
+            <div class="axis-labels">
+                <div class="axis-label-min" id="axisLabelMin">-</div>
+                <div class="axis-label-max" id="axisLabelMax">-</div>
+            </div>
+        </div>
+        <div class="no-data-indicator">
+            <div class="no-data-box"></div>
+            <span>无数据</span>
+        </div>
     </div>
 
     <!-- 加载提示 -->
