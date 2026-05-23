@@ -167,6 +167,121 @@
             transform: scale(0.98);
         }
 
+        /* 左侧数轴图例 */
+        #legendAxis {
+            position: absolute;
+            left: 10px;
+            top: 60px;
+            width: 60px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 8px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+            padding: 12px 8px;
+            z-index: 100;
+            display: none;
+        }
+
+        #legendAxis.visible {
+            display: block;
+        }
+
+        #legendAxis .axis-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: #333;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        #legendAxis .axis-container {
+            position: relative;
+            height: 300px;
+            margin: 0 auto;
+        }
+
+        #legendAxis .axis-track {
+            width: 20px;
+            height: 100%;
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(to bottom, #e0e0e0, #f0f0f0);
+            border-radius: 4px;
+        }
+
+        #legendAxis .axis-handle {
+            position: absolute;
+            width: 24px;
+            height: 10px;
+            background: white;
+            border: 2px solid #1890ff;
+            border-radius: 3px;
+            left: 50%;
+            transform: translateX(-50%);
+            cursor: ns-resize;
+            z-index: 10;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            transition: transform 0.1s;
+        }
+
+        #legendAxis .axis-handle:hover {
+            transform: translateX(-50%) scale(1.1);
+        }
+
+        #legendAxis .axis-handle.fixed {
+            border-color: #999;
+            cursor: not-allowed;
+        }
+
+        #legendAxis .axis-label {
+            position: absolute;
+            right: 100%;
+            font-size: 11px;
+            color: #666;
+            white-space: nowrap;
+            padding-right: 6px;
+            text-align: right;
+            transform: translateY(-50%);
+            top: 50%;
+        }
+
+        #legendAxis .axis-min-label {
+            position: absolute;
+            bottom: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 10px;
+            color: #666;
+            white-space: nowrap;
+        }
+
+        #legendAxis .axis-max-label {
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 10px;
+            color: #666;
+            white-space: nowrap;
+        }
+
+        #legendAxis .no-data-indicator {
+            display: flex;
+            align-items: center;
+            margin-top: 10px;
+            font-size: 11px;
+            color: #999;
+        }
+
+        #legendAxis .no-data-box {
+            width: 16px;
+            height: 16px;
+            background: rgba(200, 200, 200, 0.3);
+            border: 1px solid rgba(150, 150, 150, 0.5);
+            border-radius: 3px;
+            margin-right: 6px;
+        }
+
         .legend {
             margin-top: 12px;
             padding-top: 12px;
@@ -476,6 +591,18 @@
 </head>
 <body>
     <div id="map"></div>
+    
+    <!-- 左侧数轴图例 -->
+    <div id="legendAxis">
+        <div class="axis-title">图例</div>
+        <div class="axis-container" id="axisContainer">
+            <div class="axis-track" id="axisTrack"></div>
+        </div>
+        <div class="no-data-indicator">
+            <div class="no-data-box"></div>
+            <span>无数据</span>
+        </div>
+    </div>
     
     <!-- 工具栏 -->
     <div class="toolbar">

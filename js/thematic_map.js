@@ -790,13 +790,20 @@ function updateLegend(breaks, fieldName) {
     const legend = document.getElementById('legend');
     legend.innerHTML = '<div class="section-title">图例</div>';
     
+    currentBreaks = [...breaks];
+    
     if (breaks.length === 0) {
+        document.getElementById('legendAxis').classList.remove('visible');
         const container = document.createElement('div');
         container.className = 'legend-bar-container';
         container.innerHTML = '<span style="color: #999; font-size: 12px;">无有效数据</span>';
         legend.appendChild(container);
         return;
     }
+    
+    document.getElementById('legendAxis').classList.add('visible');
+    
+    updateAxisLegend(breaks, colorScale, classCount);
     
     const container = document.createElement('div');
     container.className = 'legend-bar-container';
@@ -853,11 +860,51 @@ function updateLegend(breaks, fieldName) {
         <span>无数据</span>
     `;
     legend.appendChild(noDataItem);
+}
+
+function updateAxisLegend(breaks, colorScale, classCount) {
+    const container = document.getElementById('axisContainer');
+    const track = document.getElementById('axisTrack');
     
-    currentBreaks = [...breaks];
+    container.innerHTML = '';
+    container.appendChild(track);
+    
+    const gradientStops = [];
+    for (let i = 0; i < classCount; i++) {
+        const color = colorScale[i] || [200, 200, 200];
+        const startPercent = (i / classCount) * 100;
+        const endPercent = ((i + 1) / classCount) * 100;
+        gradientStops.push(`rgb(${color[0]}, ${color[1]}, ${color[2]}) ${(100 - endPercent)}% ${(100 - startPercent)}%`);
+    }
+    track.style.background = `linear-gradient(to bottom, ${gradientStops.join(', ')})`;
+    
+    for (let i = 0; i < breaks.length; i++) {
+        const handle = document.createElement('div');
+        handle.className = 'axis-handle';
+        if (i === 0 || i === breaks.length - 1) {
+            handle.classList.add('fixed');
+        }
+        handle.dataset.index = i;
+        
+        const percent = classCount > 0 ? (i / classCount) * 100 : 0;
+        handle.style.top = `${percent}%`;
+        
+        const label = document.createElement('div');
+        label.className = 'axis-label';
+        label.textContent = formatNumber(breaks[i]);
+        handle.appendChild(label);
+        
+        if (i > 0 && i < breaks.length - 1) {
+            handle.addEventListener('mousedown', startAxisDrag);
+            handle.addEventListener('touchstart', startAxisDrag, { passive: false });
+        }
+        
+        container.appendChild(handle);
+    }
 }
 
 let isDragging = false;
+let isAxisDragging = false;
 let dragIndex = -1;
 let dragTrack = null;
 
@@ -908,6 +955,87 @@ function endDrag() {
     }
     dragIndex = -1;
     dragTrack = null;
+}
+
+function startAxisDrag(e) {
+    e.preventDefault();
+    isAxisDragging = true;
+    dragIndex = parseInt(e.target.dataset.index);
+    dragTrack = document.getElementById('axisContainer');
+    
+    document.addEventListener('mousemove', doAxisDrag);
+    document.addEventListener('mouseup', endAxisDrag);
+    document.addEventListener('touchmove', doAxisDrag, { passive: false });
+    document.addEventListener('touchend', endAxisDrag);
+}
+
+function doAxisDrag(e) {
+    if (!isAxisDragging || !dragTrack) return;
+    e.preventDefault();
+    
+    const rect = dragTrack.getBoundingClientRect();
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    let percent = (rect.bottom - clientY) / rect.height;
+    percent = Math.max(0, Math.min(1, percent));
+    
+    const classCount = currentBreaks.length - 1;
+    const newValue = currentBreaks[0] + percent * (currentBreaks[classCount] - currentBreaks[0]);
+    
+    const prevValue = currentBreaks[dragIndex - 1] || currentBreaks[0];
+    const nextValue = currentBreaks[dragIndex + 1] || currentBreaks[classCount];
+    
+    const clampedValue = Math.max(prevValue + 0.001, Math.min(nextValue - 0.001, newValue));
+    currentBreaks[dragIndex] = clampedValue;
+    
+    updateAxisLegendBar();
+}
+
+function endAxisDrag() {
+    if (isAxisDragging) {
+        isAxisDragging = false;
+        document.removeEventListener('mousemove', doAxisDrag);
+        document.removeEventListener('mouseup', endAxisDrag);
+        document.removeEventListener('touchmove', doAxisDrag);
+        document.removeEventListener('touchend', endAxisDrag);
+        
+        if (thematicLayer && currentBreaks.length > 0) {
+            applyThematicLayerWithBreaks(currentBreaks);
+        }
+    }
+    dragIndex = -1;
+    dragTrack = null;
+}
+
+function updateAxisLegendBar() {
+    const colorScheme = document.getElementById('colorScheme').value;
+    const colorScale = colorSchemes[colorScheme] || colorSchemes.blue;
+    const classCount = currentBreaks.length - 1;
+    
+    const container = document.getElementById('axisContainer');
+    if (!container) return;
+    
+    const gradientStops = [];
+    for (let i = 0; i < classCount; i++) {
+        const color = colorScale[i] || [200, 200, 200];
+        const startPercent = (i / classCount) * 100;
+        const endPercent = ((i + 1) / classCount) * 100;
+        gradientStops.push(`rgb(${color[0]}, ${color[1]}, ${color[2]}) ${(100 - endPercent)}% ${(100 - startPercent)}%`);
+    }
+    
+    const track = document.getElementById('axisTrack');
+    if (track) {
+        track.style.background = `linear-gradient(to bottom, ${gradientStops.join(', ')})`;
+    }
+    
+    const handles = container.querySelectorAll('.axis-handle');
+    handles.forEach((handle, i) => {
+        const percent = classCount > 0 ? (i / classCount) * 100 : 0;
+        handle.style.top = `${percent}%`;
+        const label = handle.querySelector('.axis-label');
+        if (label) {
+            label.textContent = formatNumber(currentBreaks[i]);
+        }
+    });
 }
 
 function updateLegendBar() {
