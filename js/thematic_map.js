@@ -3,6 +3,7 @@ let thematicLayer;
 let baseProvinceLayer;
 let geoJsonData = {};
 let isPanelOpen = false;
+let currentBreaks = [];
 
 const colorSchemes = {
     blue: [
@@ -31,6 +32,87 @@ const colorSchemes = {
         [217, 239, 139], [255, 255, 191], [254, 224, 139],
         [253, 174, 97], [252, 124, 69], [215, 48, 39]
     ]
+};
+
+const classifyMethods = {
+    equalInterval: function(values, classes) {
+        const min = Math.min(...values);
+        const max = Math.max(...values);
+        const breaks = [];
+        const step = (max - min) / classes;
+        for (let i = 0; i <= classes; i++) {
+            breaks.push(min + step * i);
+        }
+        return breaks;
+    },
+    
+    quantile: function(values, classes) {
+        const sorted = [...values].sort((a, b) => a - b);
+        const breaks = [];
+        for (let i = 0; i <= classes; i++) {
+            const index = Math.floor(i * (sorted.length - 1) / classes);
+            breaks.push(sorted[index]);
+        }
+        return breaks;
+    },
+    
+    naturalBreaks: function(values, classes) {
+        const sorted = [...values].sort((a, b) => a - b);
+        const n = sorted.length;
+        
+        if (n <= classes) {
+            const breaks = [sorted[0]];
+            for (let i = 1; i < n; i++) {
+                breaks.push(sorted[i]);
+            }
+            while (breaks.length <= classes) {
+                breaks.push(sorted[n - 1]);
+            }
+            return breaks;
+        }
+        
+        let matrix = [];
+        let backtrack = [];
+        
+        for (let i = 0; i <= n; i++) {
+            matrix[i] = [];
+            backtrack[i] = [];
+            for (let j = 0; j <= classes; j++) {
+                matrix[i][j] = Infinity;
+                backtrack[i][j] = 0;
+            }
+        }
+        
+        matrix[0][0] = 0;
+        
+        for (let l = 1; l <= n; l++) {
+            let sum = 0;
+            let sumSq = 0;
+            
+            for (let m = 1; m <= l; m++) {
+                sum += sorted[l - m];
+                sumSq += sorted[l - m] * sorted[l - m];
+                const variance = sumSq - (sum * sum) / m;
+                
+                for (let k = 1; k <= classes; k++) {
+                    if (matrix[l - m][k - 1] + variance < matrix[l][k]) {
+                        matrix[l][k] = matrix[l - m][k - 1] + variance;
+                        backtrack[l][k] = l - m;
+                    }
+                }
+            }
+        }
+        
+        const breaks = [];
+        let k = n;
+        for (let j = classes; j > 0; j--) {
+            breaks.unshift(sorted[k - 1]);
+            k = backtrack[k][j];
+        }
+        breaks.unshift(sorted[0]);
+        
+        return breaks;
+    }
 };
 
 let baseMapLayers = { esri: null, vec: null, cva: null };
@@ -472,7 +554,7 @@ async function applyThematicLayer() {
             });
         }
         
-        updateLegend(processedData, fieldName);
+        updateLegend(currentBreaks, fieldName);
         document.getElementById('dataInfo').innerHTML = `数据记录: ${processedData.length} 条 | 数据来源: ${data.table_label}`;
         
     } catch (error) {
@@ -488,7 +570,6 @@ function createStyledFeatures(geoJson, data, fieldName, level) {
     console.log('[Debug] Level:', level, 'GeoJSON features:', geoJson.features?.length, 'Data rows:', data.length);
     console.log('[Debug] Field name:', fieldName);
     
-    // 解析数值
     const values = data.map(item => {
         const val = parseFloat(item[fieldName]);
         return isNaN(val) ? null : val;
@@ -496,23 +577,22 @@ function createStyledFeatures(geoJson, data, fieldName, level) {
     
     console.log('[Debug] Parsed values (first 10):', values.slice(0, 10));
     
-    let min = 0, max = 1, range = 1;
-    if (values.length > 0) {
-        min = Math.min(...values);
-        max = Math.max(...values);
-        range = max - min || 1;
-    }
-    
-    console.log('[Debug] Data values - min:', min, 'max:', max, 'range:', range, 'valid values:', values.length);
-    
     const colorScheme = document.getElementById('colorScheme').value;
     const colorScale = colorSchemes[colorScheme] || colorSchemes.blue;
-    console.log('[Debug] Color scheme:', colorScheme, 'Scale length:', colorScale.length);
-    
+    const classifyMethod = document.getElementById('classifyMethod').value;
+    const classCount = parseInt(document.getElementById('classCount').value);
     const opacity = parseFloat(document.getElementById('opacitySlider').value) / 100;
     const pointSize = parseInt(document.getElementById('pointSizeSlider').value);
     const borderWidth = parseInt(document.getElementById('borderWidthSlider').value);
     const renderType = document.querySelector('input[name="renderType"]:checked').value;
+    
+    let breaks = [];
+    if (values.length > 0) {
+        breaks = classifyMethods[classifyMethod](values, classCount);
+        currentBreaks = breaks;
+    }
+    
+    console.log('[Debug] Classify method:', classifyMethod, 'Classes:', classCount, 'Breaks:', breaks);
     
     const features = [];
     
@@ -612,49 +692,65 @@ function createStyledFeatures(geoJson, data, fieldName, level) {
             }
         }
         
-        let value = 0;
+        let value = null;
+        let hasData = false;
         if (dataItem && dataItem[fieldName] !== undefined && dataItem[fieldName] !== null && dataItem[fieldName] !== '') {
-            value = parseFloat(dataItem[fieldName]);
-            if (isNaN(value)) {
-                value = 0;
+            const parsed = parseFloat(dataItem[fieldName]);
+            if (!isNaN(parsed)) {
+                value = parsed;
+                hasData = true;
             }
         }
         
-        let normalized = 0;
-        if (range > 0) {
-            normalized = (value - min) / range;
-            normalized = Math.max(0, Math.min(normalized, 1));
-        }
-        
-        const colorIndex = Math.max(0, Math.min(Math.floor(normalized * (colorScale.length - 1)), colorScale.length - 1));
-        const color = colorScale[colorIndex] || [200, 200, 200];
-        
         let style;
         
-        if (renderType === 'point') {
-            const size = pointSize * (0.5 + normalized * 0.5);
+        if (!hasData || breaks.length === 0) {
             style = new ol.style.Style({
-                image: new ol.style.Circle({
-                    radius: size,
+                fill: new ol.style.Fill({
+                    color: 'rgba(200, 200, 200, 0.3)'
+                }),
+                stroke: new ol.style.Stroke({
+                    color: 'rgba(150, 150, 150, 0.5)',
+                    width: 1
+                })
+            });
+        } else {
+            let colorIndex = 0;
+            for (let i = 0; i < breaks.length - 1; i++) {
+                if (value >= breaks[i] && value <= breaks[i + 1]) {
+                    colorIndex = i;
+                    break;
+                }
+            }
+            
+            const color = colorScale[colorIndex] || [200, 200, 200];
+            const normalized = (value - breaks[0]) / (breaks[breaks.length - 1] - breaks[0]);
+            
+            if (renderType === 'point') {
+                const size = pointSize * (0.5 + normalized * 0.5);
+                style = new ol.style.Style({
+                    image: new ol.style.Circle({
+                        radius: size,
+                        fill: new ol.style.Fill({
+                            color: `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity})`
+                        }),
+                        stroke: new ol.style.Stroke({
+                            color: 'rgba(0, 0, 0, 0.5)',
+                            width: borderWidth
+                        })
+                    })
+                });
+            } else {
+                style = new ol.style.Style({
                     fill: new ol.style.Fill({
                         color: `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity})`
                     }),
                     stroke: new ol.style.Stroke({
-                        color: 'rgba(0, 0, 0, 0.5)',
+                        color: 'rgba(0, 0, 0, 0.3)',
                         width: borderWidth
                     })
-                })
-            });
-        } else {
-            style = new ol.style.Style({
-                fill: new ol.style.Fill({
-                    color: `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity})`
-                }),
-                stroke: new ol.style.Stroke({
-                    color: 'rgba(0, 0, 0, 0.3)',
-                    width: borderWidth
-                })
-            });
+                });
+            }
         }
         
         const olFeature = new ol.format.GeoJSON().readFeature(feature, {
@@ -683,36 +779,43 @@ function createStyledFeatures(geoJson, data, fieldName, level) {
     return features;
 }
 
-function updateLegend(data, fieldName) {
+function updateLegend(breaks, fieldName) {
     console.log('[Debug] updateLegend() called');
-    console.log('[Debug] Data length:', data.length, 'Field:', fieldName);
-    
-    const values = data.map(item => parseFloat(item[fieldName])).filter(v => !isNaN(v));
-    console.log('[Debug] Valid values for legend:', values.length);
-    
-    let min = 0, max = 1;
-    if (values.length > 0) {
-        min = Math.min(...values);
-        max = Math.max(...values);
-    } else {
-        console.warn('[Debug] No valid values found for legend!');
-    }
+    console.log('[Debug] Breaks:', breaks, 'Field:', fieldName);
     
     const colorScheme = document.getElementById('colorScheme').value;
     const colorScale = colorSchemes[colorScheme] || colorSchemes.blue;
+    const classCount = breaks.length - 1;
     
     const legend = document.getElementById('legend');
     legend.innerHTML = '<div class="section-title">图例</div>';
     
-    for (let i = 0; i < colorScale.length; i++) {
+    if (breaks.length === 0) {
+        const item = document.createElement('div');
+        item.className = 'legend-item';
+        item.innerHTML = '<span style="color: #999;">无有效数据</span>';
+        legend.appendChild(item);
+        return;
+    }
+    
+    const noDataItem = document.createElement('div');
+    noDataItem.className = 'legend-item';
+    noDataItem.innerHTML = `
+        <div class="legend-color" style="background: rgba(200, 200, 200, 0.3); border: 1px solid rgba(150, 150, 150, 0.5);"></div>
+        <span style="color: #999;">无数据</span>
+    `;
+    legend.appendChild(noDataItem);
+    
+    for (let i = 0; i < classCount; i++) {
         const color = colorScale[i] || [200, 200, 200];
-        const value = min + (max - min) * (i / (colorScale.length - 1));
+        const minVal = breaks[i];
+        const maxVal = breaks[i + 1];
         
         const item = document.createElement('div');
         item.className = 'legend-item';
         item.innerHTML = `
             <div class="legend-color" style="background: rgb(${color[0]}, ${color[1]}, ${color[2]})"></div>
-            <span>${value.toLocaleString('zh-CN', { maximumFractionDigits: 0 })}</span>
+            <span>${minVal.toLocaleString('zh-CN', { maximumFractionDigits: 0 })} - ${maxVal.toLocaleString('zh-CN', { maximumFractionDigits: 0 })}</span>
         `;
         legend.appendChild(item);
     }
@@ -750,6 +853,10 @@ function initThematicMap() {
 
         document.getElementById('borderWidthSlider').addEventListener('input', function() {
             updateSliderDisplay('borderWidthSlider', 'borderWidthValue', 'px');
+        });
+        
+        document.getElementById('classCount').addEventListener('input', function() {
+            updateSliderDisplay('classCount', 'classCountValue', '级');
         });
         
         document.getElementById('tableSelect').addEventListener('change', onTableChange);
