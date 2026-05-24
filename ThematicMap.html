@@ -178,13 +178,75 @@
             background: rgba(255, 255, 255, 0.96);
             border-radius: 10px;
             box-shadow: 0 2px 16px rgba(0, 0, 0, 0.18);
-            padding: 12px 16px;
+            padding: 0;
             z-index: 100;
             display: none;
+            overflow: hidden;
         }
 
         #legendAxis.visible {
             display: block;
+        }
+
+        #legendAxis.minimized {
+            width: auto;
+            max-width: none;
+        }
+
+        #legendAxis .axis-title-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 16px;
+            border-bottom: 1px solid #eee;
+        }
+
+        #legendAxis .axis-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            margin: 0;
+        }
+
+        #legendAxis .axis-controls {
+            display: flex;
+            gap: 6px;
+        }
+
+        #legendAxis .axis-control-btn {
+            width: 24px;
+            height: 24px;
+            border: 1px solid #d9d9d9;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            line-height: 1;
+            color: #666;
+            transition: all 0.15s;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #legendAxis .axis-control-btn:hover {
+            background: #1890ff;
+            border-color: #1890ff;
+            color: white;
+        }
+
+        #legendAxis .axis-control-btn:active {
+            background: #096dd9;
+        }
+
+        #legendAxis .axis-content {
+            padding: 12px 16px;
+            transition: all 0.3s ease;
+        }
+
+        #legendAxis.minimized .axis-content {
+            display: none;
         }
 
         #legendAxis .axis-class-control {
@@ -240,14 +302,6 @@
             font-size: 16px;
             font-weight: 600;
             color: #333;
-        }
-
-        #legendAxis .axis-title {
-            font-size: 14px;
-            font-weight: 600;
-            color: #333;
-            text-align: center;
-            margin-bottom: 8px;
         }
 
         #legendAxis .axis-wrapper {
@@ -804,6 +858,7 @@
                 <option value="rainbow">彩虹色</option>
                 <option value="gray">灰度</option>
                 <option value="greenred">绿红渐变</option>
+                <option value="size_only">单色调（大小分级）</option>
             </select>
         </div>
         
@@ -838,27 +893,35 @@
 
     <!-- 底部数轴图例 -->
     <div id="legendAxis">
-        <div class="axis-title">图例</div>
-        <div class="axis-wrapper">
-            <div class="axis-container" id="axisContainer">
-                <div class="axis-track" id="axisTrack"></div>
-            </div>
-            <div class="axis-labels">
-                <div class="axis-label-min" id="axisLabelMin">-</div>
-                <div class="axis-label-max" id="axisLabelMax">-</div>
+        <div class="axis-title-bar">
+            <div class="axis-title">图例</div>
+            <div class="axis-controls">
+                <button class="axis-control-btn" id="minimizeBtn" onclick="toggleLegendMinimize()" title="最小化">−</button>
+                <button class="axis-control-btn" id="closeBtn" onclick="closeLegend()" title="关闭">×</button>
             </div>
         </div>
-        <div class="bottom-row">
-            <div class="no-data-indicator">
-                <div class="no-data-box"></div>
-                <span>无数据</span>
+        <div class="axis-content" id="axisContent">
+            <div class="axis-wrapper">
+                <div class="axis-container" id="axisContainer">
+                    <div class="axis-track" id="axisTrack"></div>
+                </div>
+                <div class="axis-labels">
+                    <div class="axis-label-min" id="axisLabelMin">-</div>
+                    <div class="axis-label-max" id="axisLabelMax">-</div>
+                </div>
             </div>
-            <div class="axis-class-control">
-                <span class="axis-class-label">分级</span>
-                <div class="axis-class-buttons">
-                    <button class="axis-class-btn" onclick="adjustClassCount(-1)">−</button>
-                    <span id="axisClassCount" class="axis-class-value">9</span>
-                    <button class="axis-class-btn" onclick="adjustClassCount(1)">+</button>
+            <div class="bottom-row">
+                <div class="no-data-indicator">
+                    <div class="no-data-box"></div>
+                    <span>无数据</span>
+                </div>
+                <div class="axis-class-control">
+                    <span class="axis-class-label">分级</span>
+                    <div class="axis-class-buttons">
+                        <button class="axis-class-btn" onclick="adjustClassCount(-1)">−</button>
+                        <span id="axisClassCount" class="axis-class-value">9</span>
+                        <button class="axis-class-btn" onclick="adjustClassCount(1)">+</button>
+                    </div>
                 </div>
             </div>
         </div>

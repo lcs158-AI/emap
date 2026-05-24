@@ -7,6 +7,103 @@ let currentBreaks = [];
 let currentData = []; // 保存当前加载的数据
 let currentLayerId = 0; // 当前图层ID
 
+/**
+ * 计算多边形的面积（用于找出最大图斑）
+ */
+function calculatePolygonArea(coordinates) {
+    let area = 0;
+    const ring = coordinates[0];
+    for (let i = 0; i < ring.length - 1; i++) {
+        area += ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1];
+    }
+    return Math.abs(area / 2);
+}
+
+/**
+ * 找到面积最大的多边形（最本土图斑）
+ */
+function findLargestPolygon(geometry) {
+    let largestCoords = null;
+    let maxArea = 0;
+    
+    if (geometry.getType() === 'MultiPolygon') {
+        const polygons = geometry.getPolygons();
+        for (const polygon of polygons) {
+            const coords = polygon.getCoordinates();
+            const area = calculatePolygonArea(coords);
+            if (area > maxArea) {
+                maxArea = area;
+                largestCoords = coords;
+            }
+        }
+    } else if (geometry.getType() === 'Polygon') {
+        largestCoords = geometry.getCoordinates();
+    }
+    
+    return largestCoords;
+}
+
+/**
+ * 计算多边形的质心
+ */
+function calculateCentroid(coordinates) {
+    const ring = coordinates[0];
+    let area = 0;
+    let cx = 0;
+    let cy = 0;
+    
+    for (let i = 0; i < ring.length - 1; i++) {
+        const x1 = ring[i][0];
+        const y1 = ring[i][1];
+        const x2 = ring[i + 1][0];
+        const y2 = ring[i + 1][1];
+        const cross = x1 * y2 - x2 * y1;
+        area += cross;
+        cx += (x1 + x2) * cross;
+        cy += (y1 + y2) * cross;
+    }
+    
+    area /= 2;
+    cx /= (6 * area);
+    cy /= (6 * area);
+    
+    return [cx, cy];
+}
+
+/**
+ * 确保点在多边形内部（如果质心不在内部，使用polylabel找内部点）
+ * 简化版：如果质心不在内部，使用多边形的第一个内环点或边界上的点
+ */
+function getPointInsidePolygon(coordinates, centroid) {
+    const polygon = new ol.geom.Polygon(coordinates);
+    const point = new ol.geom.Point(centroid);
+    
+    if (polygon.intersectsCoordinate(centroid)) {
+        return centroid;
+    }
+    
+    // 如果质心在外部，使用polylabel算法找内部点（简化版）
+    // 这里用一个简化方法：取多边形边缘的中点
+    const ring = coordinates[0];
+    const midIdx = Math.floor(ring.length / 2);
+    return ring[midIdx];
+}
+
+/**
+ * 获取最合适的国家中心点
+ */
+function getCountryCenter(geometry) {
+    const largestCoords = findLargestPolygon(geometry);
+    if (!largestCoords) {
+        return ol.extent.getCenter(geometry.getExtent());
+    }
+    
+    let centroid = calculateCentroid(largestCoords);
+    centroid = getPointInsidePolygon(largestCoords, centroid);
+    
+    return centroid;
+}
+
 const colorSchemes = {
     blue: [
         [247, 251, 255], [222, 235, 247], [198, 219, 239],
@@ -33,6 +130,11 @@ const colorSchemes = {
         [26, 152, 80], [102, 189, 99], [166, 217, 106],
         [217, 239, 139], [255, 255, 191], [254, 224, 139],
         [253, 174, 97], [252, 124, 69], [215, 48, 39]
+    ],
+    size_only: [
+        [66, 146, 198], [66, 146, 198], [66, 146, 198],
+        [66, 146, 198], [66, 146, 198], [66, 146, 198],
+        [66, 146, 198], [66, 146, 198], [66, 146, 198]
     ]
 };
 
@@ -808,14 +910,20 @@ function createStyledFeatures(geoJson, data, fieldName, level) {
             const classCount = breaks.length - 1;
             
             if (renderType === 'point') {
-                const minSize = pointSize * 0.3;
-                const maxSize = pointSize;
+                const isSizeOnly = colorScheme === 'size_only';
+                const minSize = pointSize * 0.2;
+                const maxSize = isSizeOnly ? pointSize * 2.5 : pointSize;
                 const size = minSize + (maxSize - minSize) * (colorIndex / (classCount - 1));
+                
+                const fillColor = isSizeOnly ? 
+                    `rgba(66, 146, 198, ${opacity})` : 
+                    `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity})`;
+                
                 style = new ol.style.Style({
                     image: new ol.style.Circle({
                         radius: size,
                         fill: new ol.style.Fill({
-                            color: `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity})`
+                            color: fillColor
                         }),
                         stroke: new ol.style.Stroke({
                             color: 'rgba(0, 0, 0, 0.5)',
@@ -841,8 +949,9 @@ function createStyledFeatures(geoJson, data, fieldName, level) {
         });
         
         if (renderType === 'point') {
-            const centroid = ol.extent.getCenter(olFeature.getGeometry().getExtent());
-            const pointGeom = new ol.geom.Point(centroid);
+            const geometry = olFeature.getGeometry();
+            const center = getCountryCenter(geometry);
+            const pointGeom = new ol.geom.Point(center);
             olFeature.setGeometry(pointGeom);
         }
         
@@ -886,6 +995,7 @@ function updateAxisLegend(breaks, colorScale, classCount) {
     const track = document.getElementById('axisTrack');
     const labelMax = document.getElementById('axisLabelMax');
     const labelMin = document.getElementById('axisLabelMin');
+    const colorScheme = document.getElementById('colorScheme').value;
     
     container.innerHTML = '';
     track.innerHTML = '';
@@ -903,21 +1013,75 @@ function updateAxisLegend(breaks, colorScale, classCount) {
     const max = breaks[breaks.length - 1];
     const range = max - min;
     
-    for (let i = 0; i < classCount; i++) {
-        const color = colorScale[i] || [200, 200, 200];
+    if (colorScheme === 'size_only') {
+        // 单色调大小分级：展示大小对比的图例
+        const pointSize = parseInt(document.getElementById('pointSizeSlider').value);
+        const minSize = pointSize * 0.2;
+        const maxSize = pointSize * 2.5;
+        
+        // 添加大小说明
+        const sizeLegend = document.createElement('div');
+        sizeLegend.style.cssText = 'display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 10px 0;';
+        
+        // 左侧：小点
+        const smallDot = document.createElement('div');
+        smallDot.style.cssText = `width: ${minSize*2}px; height: ${minSize*2}px; background: rgb(66, 146, 198); border-radius: 50%;`;
+        const smallLabel = document.createElement('span');
+        smallLabel.textContent = '小';
+        smallLabel.style.cssText = 'font-size: 12px; color: #666; margin-left: 5px;';
+        
+        const leftContainer = document.createElement('div');
+        leftContainer.style.cssText = 'display: flex; align-items: center;';
+        leftContainer.appendChild(smallDot);
+        leftContainer.appendChild(smallLabel);
+        sizeLegend.appendChild(leftContainer);
+        
+        // 右侧：大点
+        const largeDot = document.createElement('div');
+        largeDot.style.cssText = `width: ${maxSize*2}px; height: ${maxSize*2}px; background: rgb(66, 146, 198); border-radius: 50%;`;
+        const largeLabel = document.createElement('span');
+        largeLabel.textContent = '大';
+        largeLabel.style.cssText = 'font-size: 12px; color: #666; margin-right: 5px;';
+        
+        const rightContainer = document.createElement('div');
+        rightContainer.style.cssText = 'display: flex; align-items: center;';
+        rightContainer.appendChild(largeLabel);
+        rightContainer.appendChild(largeDot);
+        sizeLegend.appendChild(rightContainer);
+        
+        container.appendChild(sizeLegend);
+        
+        // 添加可拖动的断点（保持在底层）
+        track.style.height = '20px';
+        track.style.marginTop = '5px';
+        
+        // 使用单一蓝色作为背景条
         const segment = document.createElement('div');
         segment.className = 'axis-segment';
-        
-        // 根据数值计算位置
-        const startPercent = range > 0 ? ((breaks[i] - min) / range) * 100 : (i / classCount) * 100;
-        const endPercent = range > 0 ? ((breaks[i + 1] - min) / range) * 100 : ((i + 1) / classCount) * 100;
-        
-        segment.style.left = `${startPercent}%`;
-        segment.style.width = `${endPercent - startPercent}%`;
-        segment.style.backgroundColor = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+        segment.style.left = '0%';
+        segment.style.width = '100%';
+        segment.style.backgroundColor = 'rgb(66, 146, 198)';
         track.appendChild(segment);
+        
+    } else {
+        // 普通颜色渐变图例
+        for (let i = 0; i < classCount; i++) {
+            const color = colorScale[i] || [200, 200, 200];
+            const segment = document.createElement('div');
+            segment.className = 'axis-segment';
+            
+            // 根据数值计算位置
+            const startPercent = range > 0 ? ((breaks[i] - min) / range) * 100 : (i / classCount) * 100;
+            const endPercent = range > 0 ? ((breaks[i + 1] - min) / range) * 100 : ((i + 1) / classCount) * 100;
+            
+            segment.style.left = `${startPercent}%`;
+            segment.style.width = `${endPercent - startPercent}%`;
+            segment.style.backgroundColor = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+            track.appendChild(segment);
+        }
     }
     
+    // 添加断点标记和拖动handle
     for (let i = 0; i < breaks.length; i++) {
         const marker = document.createElement('div');
         marker.className = 'axis-marker';
@@ -1026,16 +1190,26 @@ function updateAxisLegendBar() {
         const max = currentBreaks[currentBreaks.length - 1];
         const range = max - min;
         
-        segments.forEach((segment, i) => {
-            const color = colorScale[i] || [200, 200, 200];
-            segment.style.backgroundColor = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
-            
-            // 计算颜色段位置和宽度
-            const startPercent = range > 0 ? ((currentBreaks[i] - min) / range) * 100 : 0;
-            const endPercent = range > 0 ? ((currentBreaks[i + 1] - min) / range) * 100 : 100;
-            segment.style.left = `${startPercent}%`;
-            segment.style.width = `${endPercent - startPercent}%`;
-        });
+        if (colorScheme === 'size_only') {
+            // 单色调模式：只更新唯一的颜色段
+            if (segments.length > 0) {
+                segments[0].style.backgroundColor = 'rgb(66, 146, 198)';
+                segments[0].style.left = '0%';
+                segments[0].style.width = '100%';
+            }
+        } else {
+            // 普通颜色渐变模式
+            segments.forEach((segment, i) => {
+                const color = colorScale[i] || [200, 200, 200];
+                segment.style.backgroundColor = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+                
+                // 计算颜色段位置和宽度
+                const startPercent = range > 0 ? ((currentBreaks[i] - min) / range) * 100 : 0;
+                const endPercent = range > 0 ? ((currentBreaks[i + 1] - min) / range) * 100 : 100;
+                segment.style.left = `${startPercent}%`;
+                segment.style.width = `${endPercent - startPercent}%`;
+            });
+        }
         
         // 更新断点位置和标签
         handles.forEach((handle, i) => {
@@ -1217,14 +1391,20 @@ function createStyledFeaturesWithBreaks(geoJson, data, fieldName, level, breaks)
             const classCount = breaks.length - 1;
             
             if (renderType === 'point') {
-                const minSize = pointSize * 0.3;
-                const maxSize = pointSize;
+                const isSizeOnly = colorScheme === 'size_only';
+                const minSize = pointSize * 0.2;
+                const maxSize = isSizeOnly ? pointSize * 2.5 : pointSize;
                 const size = minSize + (maxSize - minSize) * (colorIndex / (classCount - 1));
+                
+                const fillColor = isSizeOnly ? 
+                    `rgba(66, 146, 198, ${opacity})` : 
+                    `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity})`;
+                
                 style = new ol.style.Style({
                     image: new ol.style.Circle({
                         radius: size,
                         fill: new ol.style.Fill({
-                            color: `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity})`
+                            color: fillColor
                         }),
                         stroke: new ol.style.Stroke({
                             color: 'rgba(0, 0, 0, 0.5)',
@@ -1250,8 +1430,9 @@ function createStyledFeaturesWithBreaks(geoJson, data, fieldName, level, breaks)
         });
         
         if (renderType === 'point') {
-            const centroid = ol.extent.getCenter(olFeature.getGeometry().getExtent());
-            const pointGeom = new ol.geom.Point(centroid);
+            const geometry = olFeature.getGeometry();
+            const center = getCountryCenter(geometry);
+            const pointGeom = new ol.geom.Point(center);
             olFeature.setGeometry(pointGeom);
         }
         
@@ -1588,3 +1769,31 @@ function showCustomPopup(name, fieldName, value) {
 
 
 console.log('[Debug] thematic_map.js loaded!');
+
+// 图例最小化/展开功能
+function toggleLegendMinimize() {
+    const legend = document.getElementById('legendAxis');
+    const btn = document.getElementById('minimizeBtn');
+    
+    legend.classList.toggle('minimized');
+    
+    if (legend.classList.contains('minimized')) {
+        btn.textContent = '+';
+        btn.title = '展开';
+    } else {
+        btn.textContent = '−';
+        btn.title = '最小化';
+    }
+}
+
+// 关闭图例功能
+function closeLegend() {
+    const legend = document.getElementById('legendAxis');
+    legend.classList.remove('visible');
+    legend.classList.remove('minimized');
+    
+    // 重置按钮状态
+    const btn = document.getElementById('minimizeBtn');
+    btn.textContent = '−';
+    btn.title = '最小化';
+}

@@ -132,10 +132,8 @@ function closeModal(modalId) {
 
 function showUserInfo(username) {
     const userInfo = document.getElementById('userInfo');
-    userInfo.innerHTML = `
-        <p>当前用户: ${username}</p>
-        <button class="btn btn-danger" onclick="logout()">退出登录</button>
-    `;
+    document.getElementById('userName').textContent = `当前用户: ${username}`;
+    document.getElementById('userRole').textContent = '角色: 管理员';
     userInfo.style.display = 'block';
 }
 
@@ -162,15 +160,20 @@ function showAdminPanel() {
     document.getElementById('loginForm').style.display = 'none';
     document.getElementById('navTabs').style.display = 'flex';
     document.getElementById('userInfo').style.display = 'block';
+    
+    // 显示所有标签页内容区域
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.style.display = '';
+    });
+    
     document.getElementById('users-tab').classList.add('active');
     document.getElementById('photos-tab').classList.remove('active');
     document.getElementById('thematic-tab').classList.remove('active');
     
-    requestAnimationFrame(() => {
-        setTimeout(() => {
-            loadUsers();
-        }, 100);
-    });
+    // 立即加载所有数据，不需要延迟
+    loadUsers();
+    loadPhotos();
+    loadThematicTables();
 }
 
 async function login() {
@@ -229,10 +232,9 @@ async function login() {
             loginMsg.innerText = '登录成功';
             loginMsg.style.color = 'green';
             
-            setTimeout(() => {
-                showUserInfo(username);
-                showAdminPanel();
-            }, 1000);
+            // 立即显示管理面板，不需要延迟
+            showUserInfo(username);
+            showAdminPanel();
         } else {
             loginMsg.innerText = data.detail || '登录失败';
             loginMsg.style.color = 'red';
