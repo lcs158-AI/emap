@@ -1338,17 +1338,17 @@ let isDragging = false;
 let isAxisDragging = false;
 let dragIndex = -1;
 let dragTrack = null;
-let dragLegendElement = null;
+let axisDragLegendElement = null;
 
 function startAxisDrag(e) {
     e.preventDefault();
     isAxisDragging = true;
     dragIndex = parseInt(e.target.dataset.index);
     
-    dragLegendElement = e.target.closest('.legend-axis');
-    if (!dragLegendElement) return;
+    axisDragLegendElement = e.target.closest('.legend-axis');
+    if (!axisDragLegendElement) return;
     
-    dragTrack = dragLegendElement.querySelector('.axis-container');
+    dragTrack = axisDragLegendElement.querySelector('.axis-container');
     
     document.addEventListener('mousemove', doAxisDrag);
     document.addEventListener('mouseup', endAxisDrag);
@@ -1357,7 +1357,7 @@ function startAxisDrag(e) {
 }
 
 function doAxisDrag(e) {
-    if (!isAxisDragging || !dragTrack || !dragLegendElement) return;
+    if (!isAxisDragging || !dragTrack || !axisDragLegendElement) return;
     e.preventDefault();
     
     const rect = dragTrack.getBoundingClientRect();
@@ -1374,9 +1374,9 @@ function doAxisDrag(e) {
     const clampedValue = Math.max(prevValue + 0.001, Math.min(nextValue - 0.001, newValue));
     currentBreaks[dragIndex] = clampedValue;
     
-    updateAxisLegendBar(dragLegendElement);
+    updateAxisLegendBar(axisDragLegendElement);
     
-    const layerId = parseInt(dragLegendElement.dataset.layerId);
+    const layerId = parseInt(axisDragLegendElement.dataset.layerId);
     const targetLayer = thematicLayers.find(l => l.get('id') === layerId);
     
     if (targetLayer && currentBreaks.length > 0) {
@@ -1392,8 +1392,8 @@ function endAxisDrag() {
         document.removeEventListener('touchmove', doAxisDrag);
         document.removeEventListener('touchend', endAxisDrag);
         
-        if (dragLegendElement && currentBreaks.length > 0) {
-            const layerId = parseInt(dragLegendElement.dataset.layerId);
+        if (axisDragLegendElement && currentBreaks.length > 0) {
+            const layerId = parseInt(axisDragLegendElement.dataset.layerId);
             const targetLayer = thematicLayers.find(l => l.get('id') === layerId);
             
             if (targetLayer) {
@@ -1403,7 +1403,7 @@ function endAxisDrag() {
     }
     dragIndex = -1;
     dragTrack = null;
-    dragLegendElement = null;
+    axisDragLegendElement = null;
 }
 
 function updateAxisLegendBar(legendElement) {
