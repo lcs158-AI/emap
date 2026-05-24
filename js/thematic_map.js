@@ -8,6 +8,14 @@ let currentData = []; // 保存当前加载的数据
 let currentLayerId = 0; // 当前图层ID
 let currentLegendLayerId = null; // 记录当前图例对应的图层ID
 
+// 图例拖动相关变量
+let isDraggingLegend = false;
+let dragLegendElement = null;
+let dragStartX = 0;
+let dragStartY = 0;
+let dragStartLeft = 0;
+let dragStartTop = 0;
+
 function getCurrentThematicLayer() {
     if (thematicLayers.length === 0) return null;
     return thematicLayers[thematicLayers.length - 1];
@@ -2021,7 +2029,8 @@ function closeLegend(legendElement) {
 function toggleLegendMinimize(legendElement) {
     if (!legendElement) return;
     
-    const btn = legendElement.querySelector('.axis-control-btn');
+    const buttons = legendElement.querySelectorAll('.axis-control-btn');
+    const btn = buttons.length > 0 ? buttons[0] : null; // 第一个按钮是最小化/展开
     
     legendElement.classList.toggle('minimized');
     
@@ -2092,4 +2101,75 @@ function updateMapStyles(targetLayer) {
         
         feature.setStyle(style);
     });
+}
+
+// 开始拖动图例
+function startDragLegend(e, legendElement) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    isDraggingLegend = true;
+    dragLegendElement = legendElement;
+    
+    // 设置图例为绝对定位
+    legendElement.style.position = 'fixed';
+    legendElement.style.zIndex = '1000';
+    
+    // 获取鼠标开始位置
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    
+    dragStartX = clientX;
+    dragStartY = clientY;
+    
+    // 获取图例当前位置
+    const rect = legendElement.getBoundingClientRect();
+    dragStartLeft = rect.left;
+    dragStartTop = rect.top;
+    
+    legendElement.classList.add('dragging');
+    
+    // 添加事件监听器
+    document.addEventListener('mousemove', doDragLegend);
+    document.addEventListener('mouseup', endDragLegend);
+    document.addEventListener('touchmove', doDragLegend, { passive: false });
+    document.addEventListener('touchend', endDragLegend);
+}
+
+// 拖动图例
+function doDragLegend(e) {
+    if (!isDraggingLegend || !dragLegendElement) return;
+    
+    e.preventDefault();
+    
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    
+    // 计算移动距离
+    const deltaX = clientX - dragStartX;
+    const deltaY = clientY - dragStartY;
+    
+    // 更新位置
+    dragLegendElement.style.left = (dragStartLeft + deltaX) + 'px';
+    dragLegendElement.style.top = (dragStartTop + deltaY) + 'px';
+    dragLegendElement.style.bottom = 'auto';
+}
+
+// 结束拖动图例
+function endDragLegend() {
+    if (isDraggingLegend) {
+        isDraggingLegend = false;
+        
+        if (dragLegendElement) {
+            dragLegendElement.classList.remove('dragging');
+        }
+        
+        // 移除事件监听器
+        document.removeEventListener('mousemove', doDragLegend);
+        document.removeEventListener('mouseup', endDragLegend);
+        document.removeEventListener('touchmove', doDragLegend);
+        document.removeEventListener('touchend', endDragLegend);
+    }
+    
+    dragLegendElement = null;
 }

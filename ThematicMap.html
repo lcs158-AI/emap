@@ -351,7 +351,7 @@
         .legend-axis .axis-container {
             position: relative;
             flex: 1;
-            height: 20px;
+            height: 40px;
         }
 
         .legend-axis .axis-track {
@@ -372,8 +372,8 @@
 
         .legend-axis .axis-handle {
             position: absolute;
-            width: 20px;
-            height: 20px;
+            width: 30px;
+            height: 30px;
             background: white;
             border: 2px solid #1890ff;
             border-radius: 50%;
@@ -406,7 +406,7 @@
 
         .legend-axis .axis-handle-label {
             position: absolute;
-            top: -28px;
+            top: -35px;
             left: 50%;
             transform: translateX(-50%);
             font-size: 12px;
@@ -472,17 +472,24 @@
             transform: translateX(-50%);
             z-index: 100;
             display: flex;
-            flex-direction: row;
-            align-items: flex-end;
+            flex-direction: column;
+            align-items: center;
             gap: 10px;
             width: calc(100% - 60px);
-            max-width: 1100px;
+            max-width: 2200px;
         }
 
         .legend-axis {
-            flex: 1;
-            min-width: 280px;
-            max-width: 400px;
+            width: 100%;
+            min-width: 560px;
+            max-width: 800px;
+            position: relative;
+        }
+
+        .legend-axis.dragging {
+            opacity: 0.8;
+            z-index: 1000;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
         }
 
         .legend {
@@ -955,15 +962,15 @@
     <!-- 图例模板（用于JavaScript克隆） -->
     <template id="legendAxisTemplate">
         <div class="legend-axis" data-layer-id="">
-            <div class="axis-title-bar" onclick="toggleLegendCollapse(this.parentElement)">
+            <div class="axis-title-bar">
                 <div style="display: flex; align-items: center; gap: 8px;">
-                    <span class="axis-collapse-icon" style="font-size: 14px; cursor: pointer;">▼</span>
+                    <span class="axis-drag-handle" onmousedown="startDragLegend(event, this.closest('.legend-axis'))" ontouchstart="startDragLegend(event, this.closest('.legend-axis'))" style="font-size: 14px; cursor: grab; user-select: none;">⋮⋮</span>
+                    <span class="axis-collapse-icon" onclick="toggleLegendCollapse(this.closest('.legend-axis'))" style="font-size: 14px; cursor: pointer;">▼</span>
                     <h3 class="axis-title" style="margin: 0; font-size: 14px; font-weight: 600;">图层</h3>
                     <span class="axis-class-count" style="font-size: 12px; color: #999;"></span>
                 </div>
                 <div class="axis-controls">
-                    <button class="axis-control-btn" onclick="event.stopPropagation(); toggleLegendMinimize(this.parentElement.parentElement)" title="最小化">−</button>
-                    <button class="axis-control-btn" onclick="event.stopPropagation(); closeLegend(this.parentElement.parentElement)" title="关闭">×</button>
+                    <button class="axis-control-btn" onclick="toggleLegendMinimize(this.closest('.legend-axis'))" title="最小化">−</button>
                 </div>
             </div>
             <div class="axis-content">
