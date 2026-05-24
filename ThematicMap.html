@@ -167,8 +167,8 @@
             transform: scale(0.98);
         }
 
-        /* 底部数轴图例 */
-        #legendAxis {
+        /* 底部数轴图例 - 支持多个 */
+        .legend-axis {
             position: absolute;
             bottom: 20px;
             left: 50%;
@@ -182,38 +182,63 @@
             z-index: 100;
             display: none;
             overflow: hidden;
+            margin-bottom: 10px;
         }
 
-        #legendAxis.visible {
+        .legend-axis.visible {
             display: block;
         }
 
-        #legendAxis.minimized {
+        .legend-axis.minimized {
             width: auto;
             max-width: none;
         }
 
-        #legendAxis .axis-title-bar {
+        .legend-axis .axis-title-bar {
             display: flex;
             justify-content: space-between;
             align-items: center;
             padding: 10px 16px;
             border-bottom: 1px solid #eee;
+            cursor: pointer;
+            transition: background 0.15s;
         }
 
-        #legendAxis .axis-title {
+        .legend-axis .axis-title-bar:hover {
+            background: #f8f8f8;
+        }
+
+        .legend-axis.active .axis-title-bar {
+            background: #e6f7ff;
+            border-bottom-color: #91d5ff;
+        }
+
+        .legend-axis.collapsed .axis-content {
+            display: none;
+        }
+
+        .legend-axis.collapsed .axis-collapse-icon {
+            transform: rotate(-90deg);
+        }
+
+        .legend-axis .axis-collapse-icon {
+            transition: transform 0.2s;
+            display: inline-block;
+        }
+
+        .legend-axis .axis-title {
             font-size: 14px;
             font-weight: 600;
             color: #333;
             margin: 0;
         }
 
-        #legendAxis .axis-controls {
+        .legend-axis .axis-controls {
             display: flex;
             gap: 6px;
         }
 
-        #legendAxis .axis-control-btn {
+        .legend-axis .axis-control-btn {
             width: 24px;
             height: 24px;
             border: 1px solid #d9d9d9;
@@ -230,50 +255,50 @@
             justify-content: center;
         }
 
-        #legendAxis .axis-control-btn:hover {
+        .legend-axis .axis-control-btn:hover {
             background: #1890ff;
             border-color: #1890ff;
             color: white;
         }
 
-        #legendAxis .axis-control-btn:active {
+        .legend-axis .axis-control-btn:active {
             background: #096dd9;
         }
 
-        #legendAxis .axis-content {
+        .legend-axis .axis-content {
             padding: 12px 16px;
             transition: all 0.3s ease;
         }
 
-        #legendAxis.minimized .axis-content {
+        .legend-axis.minimized .axis-content {
             display: none;
         }
 
-        #legendAxis .axis-class-control {
+        .legend-axis .axis-class-control {
             display: flex;
             align-items: center;
             gap: 8px;
         }
 
-        #legendAxis .bottom-row {
+        .legend-axis .bottom-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-top: 10px;
         }
 
-        #legendAxis .axis-class-label {
+        .legend-axis .axis-class-label {
             font-size: 13px;
             color: #666;
         }
 
-        #legendAxis .axis-class-buttons {
+        .legend-axis .axis-class-buttons {
             display: flex;
             align-items: center;
             gap: 8px;
         }
 
-        #legendAxis .axis-class-btn {
+        .legend-axis .axis-class-btn {
             width: 28px;
             height: 28px;
             border: 1px solid #d9d9d9;
@@ -286,17 +311,17 @@
             transition: all 0.15s;
         }
 
-        #legendAxis .axis-class-btn:hover {
+        .legend-axis .axis-class-btn:hover {
             background: #1890ff;
             border-color: #1890ff;
             color: white;
         }
 
-        #legendAxis .axis-class-btn:active {
+        .legend-axis .axis-class-btn:active {
             background: #096dd9;
         }
 
-        #legendAxis .axis-class-value {
+        .legend-axis .axis-class-value {
             min-width: 28px;
             text-align: center;
             font-size: 16px;
@@ -304,13 +329,13 @@
             color: #333;
         }
 
-        #legendAxis .axis-wrapper {
+        .legend-axis .axis-wrapper {
             display: flex;
             align-items: center;
             gap: 8px;
         }
 
-        #legendAxis .axis-labels {
+        .legend-axis .axis-labels {
             display: flex;
             justify-content: space-between;
             font-size: 12px;
@@ -318,18 +343,18 @@
             margin-top: 8px;
         }
 
-        #legendAxis .axis-label-max,
-        #legendAxis .axis-label-min {
+        .legend-axis .axis-label-max,
+        .legend-axis .axis-label-min {
             white-space: nowrap;
         }
 
-        #legendAxis .axis-container {
+        .legend-axis .axis-container {
             position: relative;
             flex: 1;
             height: 20px;
         }
 
-        #legendAxis .axis-track {
+        .legend-axis .axis-track {
             width: 100%;
             height: 100%;
             position: absolute;
@@ -338,14 +363,14 @@
             border-radius: 3px;
         }
 
-        #legendAxis .axis-segment {
+        .legend-axis .axis-segment {
             position: absolute;
             top: 0;
             height: 100%;
             box-sizing: border-box;
         }
 
-        #legendAxis .axis-handle {
+        .legend-axis .axis-handle {
             position: absolute;
             width: 20px;
             height: 20px;
@@ -360,26 +385,26 @@
             transition: box-shadow 0.15s;
         }
 
-        #legendAxis .axis-handle:hover {
+        .legend-axis .axis-handle:hover {
             box-shadow: 0 3px 12px rgba(0,0,0,0.35);
         }
 
-        #legendAxis .axis-handle:active {
+        .legend-axis .axis-handle:active {
             box-shadow: 0 1px 4px rgba(0,0,0,0.3);
             background: #f5f5f5;
         }
 
-        #legendAxis .axis-handle.fixed {
+        .legend-axis .axis-handle.fixed {
             border-color: #ccc;
             cursor: not-allowed;
             box-shadow: none;
         }
 
-        #legendAxis .axis-handle.fixed:hover {
+        .legend-axis .axis-handle.fixed:hover {
             box-shadow: none;
         }
 
-        #legendAxis .axis-handle-label {
+        .legend-axis .axis-handle-label {
             position: absolute;
             top: -28px;
             left: 50%;
@@ -394,7 +419,7 @@
             pointer-events: none;
         }
 
-        #legendAxis .axis-marker {
+        .legend-axis .axis-marker {
             position: absolute;
             top: 0;
             height: 100%;
@@ -403,7 +428,7 @@
             transform: translateX(-50%);
         }
 
-        #legendAxis .axis-min-label {
+        .legend-axis .axis-min-label {
             position: absolute;
             bottom: -20px;
             left: 50%;
@@ -413,7 +438,7 @@
             white-space: nowrap;
         }
 
-        #legendAxis .axis-max-label {
+        .legend-axis .axis-max-label {
             position: absolute;
             top: -20px;
             left: 50%;
@@ -423,7 +448,7 @@
             white-space: nowrap;
         }
 
-        #legendAxis .no-data-indicator {
+        .legend-axis .no-data-indicator {
             display: flex;
             align-items: center;
             margin-top: 10px;
@@ -431,13 +456,33 @@
             color: #999;
         }
 
-        #legendAxis .no-data-box {
+        .legend-axis .no-data-box {
             width: 16px;
             height: 16px;
             background: rgba(200, 200, 200, 0.3);
             border: 1px solid rgba(150, 150, 150, 0.5);
             border-radius: 3px;
             margin-right: 6px;
+        }
+
+        #legendAxesContainer {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+            display: flex;
+            flex-direction: row;
+            align-items: flex-end;
+            gap: 10px;
+            width: calc(100% - 60px);
+            max-width: 1100px;
+        }
+
+        .legend-axis {
+            flex: 1;
+            min-width: 280px;
+            max-width: 400px;
         }
 
         .legend {
@@ -660,6 +705,19 @@
             input[type="range"] {
                 height: 28px;
                 cursor: pointer;
+            }
+
+            /* 多图例移动端适配 */
+            #legendAxesContainer {
+                flex-direction: column;
+                align-items: center;
+                width: calc(100% - 20px);
+            }
+
+            .legend-axis {
+                width: 100%;
+                max-width: 100%;
+                min-width: auto;
             }
         }
 
@@ -891,41 +949,40 @@
         <div id="dataInfo"></div>
     </div>
 
-    <!-- 底部数轴图例 -->
-    <div id="legendAxis">
-        <div class="axis-title-bar">
-            <div class="axis-title">图例</div>
-            <div class="axis-controls">
-                <button class="axis-control-btn" id="minimizeBtn" onclick="toggleLegendMinimize()" title="最小化">−</button>
-                <button class="axis-control-btn" id="closeBtn" onclick="closeLegend()" title="关闭">×</button>
+    <!-- 底部数轴图例容器 -->
+    <div id="legendAxesContainer"></div>
+
+    <!-- 图例模板（用于JavaScript克隆） -->
+    <template id="legendAxisTemplate">
+        <div class="legend-axis" data-layer-id="">
+            <div class="axis-title-bar" onclick="toggleLegendCollapse(this.parentElement)">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span class="axis-collapse-icon" style="font-size: 14px; cursor: pointer;">▼</span>
+                    <h3 class="axis-title" style="margin: 0; font-size: 14px; font-weight: 600;">图层</h3>
+                    <span class="axis-class-count" style="font-size: 12px; color: #999;"></span>
+                </div>
+                <div class="axis-controls">
+                    <button class="axis-control-btn" onclick="event.stopPropagation(); toggleLegendMinimize(this.parentElement.parentElement)" title="最小化">−</button>
+                    <button class="axis-control-btn" onclick="event.stopPropagation(); closeLegend(this.parentElement.parentElement)" title="关闭">×</button>
+                </div>
             </div>
-        </div>
-        <div class="axis-content" id="axisContent">
-            <div class="axis-wrapper">
-                <div class="axis-container" id="axisContainer">
-                    <div class="axis-track" id="axisTrack"></div>
+            <div class="axis-content">
+                <div class="axis-wrapper">
+                    <div class="axis-container">
+                        <div class="axis-track"></div>
+                    </div>
                 </div>
                 <div class="axis-labels">
-                    <div class="axis-label-min" id="axisLabelMin">-</div>
-                    <div class="axis-label-max" id="axisLabelMax">-</div>
+                    <span class="axis-label-min">0</span>
+                    <span class="axis-label-max">0</span>
                 </div>
-            </div>
-            <div class="bottom-row">
                 <div class="no-data-indicator">
                     <div class="no-data-box"></div>
                     <span>无数据</span>
                 </div>
-                <div class="axis-class-control">
-                    <span class="axis-class-label">分级</span>
-                    <div class="axis-class-buttons">
-                        <button class="axis-class-btn" onclick="adjustClassCount(-1)">−</button>
-                        <span id="axisClassCount" class="axis-class-value">9</span>
-                        <button class="axis-class-btn" onclick="adjustClassCount(1)">+</button>
-                    </div>
-                </div>
             </div>
         </div>
-    </div>
+    </template>
 
     <!-- 加载提示 -->
     <div id="loadingPanel">

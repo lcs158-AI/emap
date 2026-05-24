@@ -6,6 +6,185 @@ let isPanelOpen = false;
 let currentBreaks = [];
 let currentData = []; // 保存当前加载的数据
 let currentLayerId = 0; // 当前图层ID
+let currentLegendLayerId = null; // 记录当前图例对应的图层ID
+
+function getCurrentThematicLayer() {
+    if (thematicLayers.length === 0) return null;
+    return thematicLayers[thematicLayers.length - 1];
+}
+
+function createLayerLegend(layerId, layerName, breaks, colorScale, classCount) {
+    const container = document.getElementById('legendAxesContainer');
+    const template = document.getElementById('legendAxisTemplate');
+    
+    if (!template) {
+        console.error('[Debug] Legend template not found');
+        return null;
+    }
+    
+    if (thematicLayers.length > 5) {
+        console.warn('[Debug] Maximum 5 legends allowed');
+        return null;
+    }
+    
+    const legendClone = template.content.cloneNode(true);
+    const legendElement = legendClone.querySelector('.legend-axis');
+    
+    legendElement.dataset.layerId = layerId;
+    legendElement.querySelector('.axis-title').textContent = layerName;
+    legendElement.querySelector('.axis-class-count').textContent = `${classCount}级`;
+    
+    container.appendChild(legendClone);
+    
+    updateLegendContent(legendElement, breaks, colorScale, classCount);
+    
+    setActiveLegend(legendElement);
+    
+    return legendElement;
+}
+
+function updateLegendContent(legendElement, breaks, colorScale, classCount) {
+    if (!legendElement) return;
+    
+    const container = legendElement.querySelector('.axis-container');
+    const track = legendElement.querySelector('.axis-track');
+    const labelMax = legendElement.querySelector('.axis-label-max');
+    const labelMin = legendElement.querySelector('.axis-label-min');
+    const classCountEl = legendElement.querySelector('.axis-class-count');
+    
+    container.innerHTML = '';
+    track.innerHTML = '';
+    container.appendChild(track);
+    
+    if (breaks.length === 0) return;
+    
+    labelMax.textContent = formatNumber(breaks[breaks.length - 1] || 0);
+    labelMin.textContent = formatNumber(breaks[0] || 0);
+    
+    if (classCountEl) {
+        classCountEl.textContent = `${classCount}级`;
+    }
+    
+    const min = breaks[0];
+    const max = breaks[breaks.length - 1];
+    const range = max - min;
+    
+    const colorScheme = document.getElementById('colorScheme').value;
+    
+    if (colorScheme === 'size_only') {
+        const pointSize = parseInt(document.getElementById('pointSizeSlider').value);
+        const minSize = pointSize * 0.2;
+        const maxSize = pointSize * 2.5;
+        
+        const sizeLegend = document.createElement('div');
+        sizeLegend.style.cssText = 'display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 10px 0;';
+        
+        const smallDot = document.createElement('div');
+        smallDot.style.cssText = `width: ${minSize*2}px; height: ${minSize*2}px; background: rgb(66, 146, 198); border-radius: 50%;`;
+        const smallLabel = document.createElement('span');
+        smallLabel.textContent = '小';
+        smallLabel.style.cssText = 'font-size: 12px; color: #666; margin-left: 5px;';
+        
+        const leftContainer = document.createElement('div');
+        leftContainer.style.cssText = 'display: flex; align-items: center;';
+        leftContainer.appendChild(smallDot);
+        leftContainer.appendChild(smallLabel);
+        sizeLegend.appendChild(leftContainer);
+        
+        const largeDot = document.createElement('div');
+        largeDot.style.cssText = `width: ${maxSize*2}px; height: ${maxSize*2}px; background: rgb(66, 146, 198); border-radius: 50%;`;
+        const largeLabel = document.createElement('span');
+        largeLabel.textContent = '大';
+        largeLabel.style.cssText = 'font-size: 12px; color: #666; margin-right: 5px;';
+        
+        const rightContainer = document.createElement('div');
+        rightContainer.style.cssText = 'display: flex; align-items: center;';
+        rightContainer.appendChild(largeLabel);
+        rightContainer.appendChild(largeDot);
+        sizeLegend.appendChild(rightContainer);
+        
+        container.appendChild(sizeLegend);
+        
+        track.style.height = '20px';
+        track.style.marginTop = '5px';
+        
+        const segment = document.createElement('div');
+        segment.className = 'axis-segment';
+        segment.style.left = '0%';
+        segment.style.width = '100%';
+        segment.style.backgroundColor = 'rgb(66, 146, 198)';
+        track.appendChild(segment);
+    } else {
+        for (let i = 0; i < classCount; i++) {
+            const color = colorScale[i] || [200, 200, 200];
+            const segment = document.createElement('div');
+            segment.className = 'axis-segment';
+            
+            const startPercent = range > 0 ? ((breaks[i] - min) / range) * 100 : (i / classCount) * 100;
+            const endPercent = range > 0 ? ((breaks[i + 1] - min) / range) * 100 : ((i + 1) / classCount) * 100;
+            
+            segment.style.left = `${startPercent}%`;
+            segment.style.width = `${endPercent - startPercent}%`;
+            segment.style.backgroundColor = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+            track.appendChild(segment);
+        }
+    }
+    
+    for (let i = 0; i < breaks.length; i++) {
+        const marker = document.createElement('div');
+        marker.className = 'axis-marker';
+        const percent = range > 0 ? ((breaks[i] - min) / range) * 100 : (i / classCount) * 100;
+        marker.style.left = `${percent}%`;
+        track.appendChild(marker);
+        
+        const handle = document.createElement('div');
+        handle.className = 'axis-handle';
+        if (i === 0 || i === breaks.length - 1) {
+            handle.classList.add('fixed');
+        }
+        handle.dataset.index = i;
+        handle.style.left = `${percent}%`;
+        
+        const label = document.createElement('div');
+        label.className = 'axis-handle-label';
+        label.textContent = formatNumber(breaks[i]);
+        handle.appendChild(label);
+        
+        if (i > 0 && i < breaks.length - 1) {
+            handle.addEventListener('mousedown', startAxisDrag);
+            handle.addEventListener('touchstart', startAxisDrag, { passive: false });
+        }
+        
+        track.appendChild(handle);
+    }
+}
+
+function setActiveLegend(legendElement) {
+    document.querySelectorAll('.legend-axis').forEach(el => {
+        el.classList.remove('active');
+    });
+    
+    if (legendElement) {
+        legendElement.classList.add('active');
+        currentLegendLayerId = parseInt(legendElement.dataset.layerId);
+    }
+}
+
+function getActiveLegend() {
+    return document.querySelector('.legend-axis.active');
+}
+
+function toggleLegendCollapse(legendElement) {
+    if (!legendElement) return;
+    
+    const wasActive = legendElement.classList.contains('active');
+    
+    legendElement.classList.toggle('collapsed');
+    
+    if (!wasActive) {
+        setActiveLegend(legendElement);
+    }
+}
 
 /**
  * 计算多边形的面积（用于找出最大图斑）
@@ -693,6 +872,11 @@ function removeAllThematicLayers() {
         map.removeLayer(layer);
     });
     thematicLayers = [];
+    
+    document.querySelectorAll('.legend-axis').forEach(legend => {
+        legend.remove();
+    });
+    
     updateLayerList();
 }
 
@@ -701,6 +885,18 @@ function removeThematicLayer(layerId) {
     if (index !== -1) {
         map.removeLayer(thematicLayers[index]);
         thematicLayers.splice(index, 1);
+        
+        const legendElement = document.querySelector(`.legend-axis[data-layer-id="${layerId}"]`);
+        if (legendElement) {
+            legendElement.remove();
+        }
+        
+        if (thematicLayers.length > 0) {
+            const lastLayer = thematicLayers[thematicLayers.length - 1];
+            const lastLegend = document.querySelector(`.legend-axis[data-layer-id="${lastLayer.get('id')}"]`);
+            setActiveLegend(lastLegend);
+        }
+        
         updateLayerList();
     }
 }
@@ -982,12 +1178,30 @@ function updateLegend(breaks, fieldName) {
     currentBreaks = [...breaks];
     
     if (breaks.length === 0) {
-        document.getElementById('legendAxis').classList.remove('visible');
         return;
     }
     
-    document.getElementById('legendAxis').classList.add('visible');
-    updateAxisLegend(breaks, colorScale, classCount);
+    const currentLayer = getCurrentThematicLayer();
+    if (!currentLayer) {
+        console.warn('[Debug] No current thematic layer');
+        return;
+    }
+    
+    const layerId = currentLayer.get('id');
+    const layerName = currentLayer.get('name') || `图层${layerId}`;
+    
+    let legendElement = document.querySelector(`.legend-axis[data-layer-id="${layerId}"]`);
+    
+    if (!legendElement) {
+        legendElement = createLayerLegend(layerId, layerName, breaks, colorScale, classCount);
+    } else {
+        updateLegendContent(legendElement, breaks, colorScale, classCount);
+        setActiveLegend(legendElement);
+    }
+    
+    if (legendElement) {
+        legendElement.style.display = 'block';
+    }
 }
 
 function updateAxisLegend(breaks, colorScale, classCount) {
@@ -1116,12 +1330,17 @@ let isDragging = false;
 let isAxisDragging = false;
 let dragIndex = -1;
 let dragTrack = null;
+let dragLegendElement = null;
 
 function startAxisDrag(e) {
     e.preventDefault();
     isAxisDragging = true;
     dragIndex = parseInt(e.target.dataset.index);
-    dragTrack = document.getElementById('axisContainer');
+    
+    dragLegendElement = e.target.closest('.legend-axis');
+    if (!dragLegendElement) return;
+    
+    dragTrack = dragLegendElement.querySelector('.axis-container');
     
     document.addEventListener('mousemove', doAxisDrag);
     document.addEventListener('mouseup', endAxisDrag);
@@ -1130,7 +1349,7 @@ function startAxisDrag(e) {
 }
 
 function doAxisDrag(e) {
-    if (!isAxisDragging || !dragTrack) return;
+    if (!isAxisDragging || !dragTrack || !dragLegendElement) return;
     e.preventDefault();
     
     const rect = dragTrack.getBoundingClientRect();
@@ -1147,11 +1366,13 @@ function doAxisDrag(e) {
     const clampedValue = Math.max(prevValue + 0.001, Math.min(nextValue - 0.001, newValue));
     currentBreaks[dragIndex] = clampedValue;
     
-    updateAxisLegendBar();
+    updateAxisLegendBar(dragLegendElement);
     
-    // 实时更新地图上的专题图层样式
-    if (thematicLayer && currentBreaks.length > 0) {
-        updateMapStyles();
+    const layerId = parseInt(dragLegendElement.dataset.layerId);
+    const targetLayer = thematicLayers.find(l => l.get('id') === layerId);
+    
+    if (targetLayer && currentBreaks.length > 0) {
+        updateMapStyles(targetLayer);
     }
 }
 
@@ -1163,22 +1384,30 @@ function endAxisDrag() {
         document.removeEventListener('touchmove', doAxisDrag);
         document.removeEventListener('touchend', endAxisDrag);
         
-        if (thematicLayer && currentBreaks.length > 0) {
-            applyThematicLayerWithBreaks(currentBreaks);
+        if (dragLegendElement && currentBreaks.length > 0) {
+            const layerId = parseInt(dragLegendElement.dataset.layerId);
+            const targetLayer = thematicLayers.find(l => l.get('id') === layerId);
+            
+            if (targetLayer) {
+                applyThematicLayerWithBreaks(currentBreaks, targetLayer);
+            }
         }
     }
     dragIndex = -1;
     dragTrack = null;
+    dragLegendElement = null;
 }
 
-function updateAxisLegendBar() {
+function updateAxisLegendBar(legendElement) {
+    if (!legendElement) return;
+    
     const colorScheme = document.getElementById('colorScheme').value;
     const colorScale = colorSchemes[colorScheme] || colorSchemes.blue;
     const classCount = currentBreaks.length - 1;
     
-    const track = document.getElementById('axisTrack');
-    const labelMax = document.getElementById('axisLabelMax');
-    const labelMin = document.getElementById('axisLabelMin');
+    const track = legendElement.querySelector('.axis-track');
+    const labelMax = legendElement.querySelector('.axis-label-max');
+    const labelMin = legendElement.querySelector('.axis-label-min');
     
     if (!track) return;
     
@@ -1265,7 +1494,10 @@ function adjustClassCount(delta) {
         const colorScale = colorSchemes[colorScheme] || colorSchemes.blue;
         updateAxisLegend(currentBreaks, colorScale, newCount);
         
-        applyThematicLayerWithBreaks(currentBreaks);
+        const currentLayer = getCurrentThematicLayer();
+        if (currentLayer) {
+            applyThematicLayerWithBreaks(currentBreaks, currentLayer);
+        }
     }
 }
 
@@ -1295,7 +1527,7 @@ function formatNumber(num) {
     }
 }
 
-async function applyThematicLayerWithBreaks(breaks) {
+async function applyThematicLayerWithBreaks(breaks, targetLayer) {
     console.log('[Debug] applyThematicLayerWithBreaks() called');
     
     const tableName = document.getElementById('tableSelect').value;
@@ -1327,18 +1559,11 @@ async function applyThematicLayerWithBreaks(breaks) {
         
         const styledFeatures = createStyledFeaturesWithBreaks(geoJson, processedData, fieldName, level, breaks);
         
-        if (thematicLayer) {
-            map.removeLayer(thematicLayer);
+        if (targetLayer) {
+            targetLayer.getSource().clear();
+            targetLayer.getSource().addFeatures(styledFeatures);
         }
         
-        thematicLayer = new ol.layer.Vector({
-            source: new ol.source.Vector({
-                features: styledFeatures
-            }),
-            zIndex: 100
-        });
-        
-        map.addLayer(thematicLayer);
         console.log('[Debug] Thematic layer updated with custom breaks');
         
     } catch (error) {
@@ -1775,36 +2000,48 @@ function showCustomPopup(name, fieldName, value) {
 
 console.log('[Debug] thematic_map.js loaded!');
 
-// 图例最小化/展开功能
-function toggleLegendMinimize() {
-    const legend = document.getElementById('legendAxis');
-    const btn = document.getElementById('minimizeBtn');
+// 关闭图例功能（隐藏单个图例并删除对应图层）
+function closeLegend(legendElement) {
+    if (!legendElement) {
+        legendElement = getActiveLegend();
+    }
     
-    legend.classList.toggle('minimized');
+    if (!legendElement) return;
     
-    if (legend.classList.contains('minimized')) {
-        btn.textContent = '+';
-        btn.title = '展开';
-    } else {
-        btn.textContent = '−';
-        btn.title = '最小化';
+    const layerId = parseInt(legendElement.dataset.layerId);
+    
+    legendElement.style.display = 'none';
+    
+    if (layerId) {
+        removeThematicLayer(layerId);
     }
 }
 
-// 关闭图例功能
-function closeLegend() {
-    const legend = document.getElementById('legendAxis');
-    legend.classList.remove('visible');
-    legend.classList.remove('minimized');
+// 最小化图例功能
+function toggleLegendMinimize(legendElement) {
+    if (!legendElement) return;
     
-    // 重置按钮状态
-    const btn = document.getElementById('minimizeBtn');
-    btn.textContent = '−';
-    btn.title = '最小化';
+    const btn = legendElement.querySelector('.axis-control-btn');
+    
+    legendElement.classList.toggle('minimized');
+    
+    if (legendElement.classList.contains('minimized')) {
+        if (btn) {
+            btn.textContent = '+';
+            btn.title = '展开';
+        }
+    } else {
+        if (btn) {
+            btn.textContent = '−';
+            btn.title = '最小化';
+        }
+    }
 }
 
 // 实时更新地图上的专题图层样式
-function updateMapStyles() {
+function updateMapStyles(targetLayer) {
+    if (!targetLayer) return;
+    
     const renderType = document.querySelector('input[name="renderType"]:checked').value;
     const colorScheme = document.getElementById('colorScheme').value;
     const colorScale = colorSchemes[colorScheme] || colorSchemes.blue;
@@ -1815,14 +2052,13 @@ function updateMapStyles() {
     
     if (renderType !== 'point') return;
     
-    const source = thematicLayer.getSource();
+    const source = targetLayer.getSource();
     const features = source.getFeatures();
     
     features.forEach(feature => {
         const value = feature.get('value');
         if (value === undefined || value === null || currentBreaks.length === 0) return;
         
-        // 计算当前值属于哪个分级
         let colorIndex = 0;
         for (let i = 0; i < currentBreaks.length - 1; i++) {
             if (value >= currentBreaks[i] && value <= currentBreaks[i + 1]) {
