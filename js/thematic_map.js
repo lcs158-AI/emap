@@ -1,10 +1,11 @@
 let map;
-let thematicLayer;
+let thematicLayers = []; // 支持多个专题图层
 let baseProvinceLayer;
 let geoJsonData = {};
 let isPanelOpen = false;
 let currentBreaks = [];
 let currentData = []; // 保存当前加载的数据
+let currentLayerId = 0; // 当前图层ID
 
 const colorSchemes = {
     blue: [
@@ -422,6 +423,7 @@ async function applyThematicLayer() {
     const fieldSelectValue = document.getElementById('fieldSelect').value;
     const expression = document.getElementById('expressionInput').value;
     const level = document.getElementById('levelSelect').value;
+    const overlayMode = document.getElementById('overlayMode')?.checked || false;
     
     const isExpression = fieldSelectValue === 'expression';
     
@@ -434,7 +436,7 @@ async function applyThematicLayer() {
         fieldName = parsed.name;
     }
     
-    console.log('[Debug] Parameters:', { tableName, fieldName, exprStr, level, isExpression });
+    console.log('[Debug] Parameters:', { tableName, fieldName, exprStr, level, isExpression, overlayMode });
     
     if (!tableName || (!fieldSelectValue || (isExpression && !expression))) {
         alert(isExpression ? '请输入表达式' : '请选择数据表和字段');
@@ -489,11 +491,15 @@ async function applyThematicLayer() {
         const styledFeatures = createStyledFeatures(geoJson, processedData, fieldName, level);
         console.log('[Debug] Created', styledFeatures.length, 'styled features');
         
-        // 移除旧的专题图层
-        if (thematicLayer) {
-            console.log('[Debug] Removing existing thematic layer');
-            map.removeLayer(thematicLayer);
+        // 如果不是叠加模式，移除所有旧的专题图层
+        if (!overlayMode) {
+            console.log('[Debug] Removing all existing thematic layers');
+            removeAllThematicLayers();
         }
+        
+        // 生成新图层ID
+        currentLayerId++;
+        const layerId = currentLayerId;
         
         console.log('[Debug] Creating new thematic layer with', styledFeatures.length, 'features');
         
@@ -521,41 +527,52 @@ async function applyThematicLayer() {
             }
         });
         
-        thematicLayer = new ol.layer.Vector({
+        const newLayer = new ol.layer.Vector({
             source: new ol.source.Vector({
                 features: styledFeatures
             }),
-            zIndex: 100,
+            zIndex: 100 + thematicLayers.length,
             style: function(feature) {
                 const style = feature.getStyle();
-                console.log('[Debug] Layer style function called for feature:', feature.get('name'));
                 return style;
             }
         });
+        
+        // 设置图层元数据
+        newLayer.set('id', layerId);
+        newLayer.set('name', fieldName);
+        newLayer.set('visible', true);
+        newLayer.set('tableName', tableName);
+        newLayer.set('renderType', document.querySelector('input[name="renderType"]:checked').value);
         
         // 直接为每个要素设置样式，而不是依赖属性
         styledFeatures.forEach(feature => {
             feature.setStyle(feature.getStyle());
         });
         
-        map.addLayer(thematicLayer);
+        map.addLayer(newLayer);
+        thematicLayers.push(newLayer);
         console.log('[Debug] Thematic layer added to map, layers count:', map.getLayers().getLength());
+        
+        // 更新图层列表UI
+        updateLayerList();
         
         // 验证图层是否正确添加
         setTimeout(() => {
             const layers = map.getLayers().getArray();
             console.log('[Debug] All layers:', layers.map(l => l.get('name') || 'unnamed'));
-            console.log('[Debug] Thematic layer in map:', map.getLayers().getArray().includes(thematicLayer));
         }, 500);
         
-        // 调整视图以适应数据范围
-        const extent = thematicLayer.getSource().getExtent();
-        if (extent && extent.length === 4) {
-            console.log('[Debug] Fitting view to extent:', extent);
-            map.getView().fit(extent, {
-                padding: [50, 50, 50, 50],
-                maxZoom: 10
-            });
+        // 调整视图以适应数据范围（仅在非叠加模式下）
+        if (!overlayMode) {
+            const extent = newLayer.getSource().getExtent();
+            if (extent && extent.length === 4) {
+                console.log('[Debug] Fitting view to extent:', extent);
+                map.getView().fit(extent, {
+                    padding: [50, 50, 50, 50],
+                    maxZoom: 10
+                });
+            }
         }
         
         updateLegend(currentBreaks, fieldName);
@@ -567,6 +584,66 @@ async function applyThematicLayer() {
     } finally {
         document.getElementById('loadingPanel').style.display = 'none';
     }
+}
+
+function removeAllThematicLayers() {
+    thematicLayers.forEach(layer => {
+        map.removeLayer(layer);
+    });
+    thematicLayers = [];
+    updateLayerList();
+}
+
+function removeThematicLayer(layerId) {
+    const index = thematicLayers.findIndex(l => l.get('id') === layerId);
+    if (index !== -1) {
+        map.removeLayer(thematicLayers[index]);
+        thematicLayers.splice(index, 1);
+        updateLayerList();
+    }
+}
+
+function toggleLayerVisibility(layerId) {
+    const layer = thematicLayers.find(l => l.get('id') === layerId);
+    if (layer) {
+        const visible = !layer.get('visible');
+        layer.setVisible(visible);
+        updateLayerList();
+    }
+}
+
+function updateLayerList() {
+    const container = document.getElementById('layerList');
+    if (!container) return;
+    
+    if (thematicLayers.length === 0) {
+        container.innerHTML = '<div style="font-size: 12px; color: #999; text-align: center; padding: 8px;">暂无专题图层</div>';
+        return;
+    }
+    
+    container.innerHTML = thematicLayers.map((layer, index) => {
+        const id = layer.get('id');
+        const name = layer.get('name') || `图层${id}`;
+        const visible = layer.get('visible');
+        const renderType = layer.get('renderType') === 'point' ? '●' : '■';
+        
+        return `
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 12px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="color: #666;">${renderType}</span>
+                    <span style="color: #333;">${name}</span>
+                </div>
+                <div style="display: flex; gap: 6px;">
+                    <button onclick="toggleLayerVisibility(${id})" style="width: 24px; height: 24px; border: none; border-radius: 4px; background: ${visible ? '#1890ff' : '#f0f0f0'}; color: white; cursor: pointer; font-size: 12px;">
+                        ${visible ? '✓' : ''}
+                    </button>
+                    <button onclick="removeThematicLayer(${id})" style="width: 24px; height: 24px; border: none; border-radius: 4px; background: #f5f5f5; color: #999; cursor: pointer; font-size: 14px;" title="移除图层">
+                        ×
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
 }
 
 function createStyledFeatures(geoJson, data, fieldName, level) {
@@ -728,10 +805,12 @@ function createStyledFeatures(geoJson, data, fieldName, level) {
             }
             
             const color = colorScale[colorIndex] || [200, 200, 200];
-            const normalized = (value - breaks[0]) / (breaks[breaks.length - 1] - breaks[0]);
+            const classCount = breaks.length - 1;
             
             if (renderType === 'point') {
-                const size = pointSize * (0.5 + normalized * 0.5);
+                const minSize = pointSize * 0.3;
+                const maxSize = pointSize;
+                const size = minSize + (maxSize - minSize) * (colorIndex / (classCount - 1));
                 style = new ol.style.Style({
                     image: new ol.style.Circle({
                         radius: size,
@@ -1135,10 +1214,12 @@ function createStyledFeaturesWithBreaks(geoJson, data, fieldName, level, breaks)
             }
             
             const color = colorScale[colorIndex] || [200, 200, 200];
+            const classCount = breaks.length - 1;
             
             if (renderType === 'point') {
-                const normalized = (value - breaks[0]) / (breaks[breaks.length - 1] - breaks[0]);
-                const size = pointSize * (0.5 + normalized * 0.5);
+                const minSize = pointSize * 0.3;
+                const maxSize = pointSize;
+                const size = minSize + (maxSize - minSize) * (colorIndex / (classCount - 1));
                 style = new ol.style.Style({
                     image: new ol.style.Circle({
                         radius: size,

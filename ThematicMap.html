@@ -784,6 +784,19 @@
         </div>
         
         <div class="section">
+            <div class="section-title">叠加模式</div>
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                <input type="checkbox" id="overlayMode" style="width: 16px; height: 16px;">
+                <span style="font-size: 13px; color: #666;">叠加到现有图层（不清除原有专题图）</span>
+            </label>
+        </div>
+        
+        <div class="section">
+            <div class="section-title">已加载图层</div>
+            <div id="layerList" style="max-height: 120px; overflow-y: auto; border: 1px solid #eee; border-radius: 4px;"></div>
+        </div>
+        
+        <div class="section">
             <div class="section-title">颜色方案</div>
             <select id="colorScheme">
                 <option value="blue">蓝色渐变</option>
