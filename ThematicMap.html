@@ -173,8 +173,8 @@
             bottom: 20px;
             left: 50%;
             transform: translateX(-50%);
-            width: calc(100% - 40px);
-            max-width: 900px;
+            width: calc(100% - 60px);
+            max-width: 1100px;
             background: rgba(255, 255, 255, 0.96);
             border-radius: 10px;
             box-shadow: 0 2px 16px rgba(0, 0, 0, 0.18);
@@ -190,11 +190,14 @@
         #legendAxis .axis-class-control {
             display: flex;
             align-items: center;
+            gap: 8px;
+        }
+
+        #legendAxis .bottom-row {
+            display: flex;
             justify-content: space-between;
-            margin-bottom: 10px;
-            padding: 6px 12px;
-            background: #f5f5f5;
-            border-radius: 6px;
+            align-items: center;
+            margin-top: 10px;
         }
 
         #legendAxis .axis-class-label {
@@ -269,7 +272,7 @@
         #legendAxis .axis-container {
             position: relative;
             flex: 1;
-            height: 36px;
+            height: 20px;
         }
 
         #legendAxis .axis-track {
@@ -278,7 +281,7 @@
             position: absolute;
             left: 0;
             background: #e8e8e8;
-            border-radius: 6px;
+            border-radius: 3px;
         }
 
         #legendAxis .axis-segment {
@@ -290,8 +293,8 @@
 
         #legendAxis .axis-handle {
             position: absolute;
-            width: 24px;
-            height: 24px;
+            width: 20px;
+            height: 20px;
             background: white;
             border: 2px solid #1890ff;
             border-radius: 50%;
@@ -823,14 +826,6 @@
     <!-- 底部数轴图例 -->
     <div id="legendAxis">
         <div class="axis-title">图例</div>
-        <div class="axis-class-control">
-            <span class="axis-class-label">分级</span>
-            <div class="axis-class-buttons">
-                <button class="axis-class-btn" onclick="adjustClassCount(-1)">−</button>
-                <span id="axisClassCount" class="axis-class-value">9</span>
-                <button class="axis-class-btn" onclick="adjustClassCount(1)">+</button>
-            </div>
-        </div>
         <div class="axis-wrapper">
             <div class="axis-container" id="axisContainer">
                 <div class="axis-track" id="axisTrack"></div>
@@ -840,9 +835,19 @@
                 <div class="axis-label-max" id="axisLabelMax">-</div>
             </div>
         </div>
-        <div class="no-data-indicator">
-            <div class="no-data-box"></div>
-            <span>无数据</span>
+        <div class="bottom-row">
+            <div class="no-data-indicator">
+                <div class="no-data-box"></div>
+                <span>无数据</span>
+            </div>
+            <div class="axis-class-control">
+                <span class="axis-class-label">分级</span>
+                <div class="axis-class-buttons">
+                    <button class="axis-class-btn" onclick="adjustClassCount(-1)">−</button>
+                    <span id="axisClassCount" class="axis-class-value">9</span>
+                    <button class="axis-class-btn" onclick="adjustClassCount(1)">+</button>
+                </div>
+            </div>
         </div>
     </div>
 
