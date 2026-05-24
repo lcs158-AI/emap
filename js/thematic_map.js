@@ -4,6 +4,7 @@ let baseProvinceLayer;
 let geoJsonData = {};
 let isPanelOpen = false;
 let currentBreaks = [];
+let currentData = []; // 保存当前加载的数据
 
 const colorSchemes = {
     blue: [
@@ -481,6 +482,9 @@ async function applyThematicLayer() {
             console.log('[Debug] Expression evaluated, processed rows:', processedData.length);
         }
         
+        // 保存当前数据
+        currentData = { data: processedData, fieldName };
+        
         console.log('[Debug] Creating styled features...');
         const styledFeatures = createStyledFeatures(geoJson, processedData, fieldName, level);
         console.log('[Debug] Created', styledFeatures.length, 'styled features');
@@ -816,14 +820,21 @@ function updateAxisLegend(breaks, colorScale, classCount) {
         axisClassCount.textContent = classCount;
     }
     
+    const min = breaks[0];
+    const max = breaks[breaks.length - 1];
+    const range = max - min;
+    
     for (let i = 0; i < classCount; i++) {
         const color = colorScale[i] || [200, 200, 200];
         const segment = document.createElement('div');
         segment.className = 'axis-segment';
-        const leftPercent = (i / classCount) * 100;
-        const widthPercent = (1 / classCount) * 100;
-        segment.style.left = `${leftPercent}%`;
-        segment.style.width = `${widthPercent}%`;
+        
+        // 根据数值计算位置
+        const startPercent = range > 0 ? ((breaks[i] - min) / range) * 100 : (i / classCount) * 100;
+        const endPercent = range > 0 ? ((breaks[i + 1] - min) / range) * 100 : ((i + 1) / classCount) * 100;
+        
+        segment.style.left = `${startPercent}%`;
+        segment.style.width = `${endPercent - startPercent}%`;
         segment.style.backgroundColor = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
         track.appendChild(segment);
     }
@@ -831,7 +842,7 @@ function updateAxisLegend(breaks, colorScale, classCount) {
     for (let i = 0; i < breaks.length; i++) {
         const marker = document.createElement('div');
         marker.className = 'axis-marker';
-        const percent = classCount > 0 ? (i / classCount) * 100 : 0;
+        const percent = range > 0 ? ((breaks[i] - min) / range) * 100 : (i / classCount) * 100;
         marker.style.left = `${percent}%`;
         track.appendChild(marker);
         
@@ -842,6 +853,12 @@ function updateAxisLegend(breaks, colorScale, classCount) {
         }
         handle.dataset.index = i;
         handle.style.left = `${percent}%`;
+        
+        // 添加断点数值标签
+        const label = document.createElement('div');
+        label.className = 'axis-handle-label';
+        label.textContent = formatNumber(breaks[i]);
+        handle.appendChild(label);
         
         if (i > 0 && i < breaks.length - 1) {
             handle.addEventListener('mousedown', startAxisDrag);
@@ -921,28 +938,43 @@ function updateAxisLegendBar() {
     labelMin.textContent = formatNumber(currentBreaks[0] || 0);
     
     const segments = track.querySelectorAll('.axis-segment');
-    segments.forEach((segment, i) => {
-        const color = colorScale[i] || [200, 200, 200];
-        segment.style.backgroundColor = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
-    });
-    
     const markers = track.querySelectorAll('.axis-marker');
     const handles = track.querySelectorAll('.axis-handle');
-    handles.forEach((handle, i) => {
-        let percent;
-        if (currentBreaks.length > 1) {
-            // 根据数值计算百分比
-            const min = currentBreaks[0];
-            const max = currentBreaks[currentBreaks.length - 1];
-            percent = ((currentBreaks[i] - min) / (max - min)) * 100;
-        } else {
-            percent = classCount > 0 ? (i / classCount) * 100 : 0;
-        }
-        handle.style.left = `${percent}%`;
-        if (markers[i]) {
-            markers[i].style.left = `${percent}%`;
-        }
-    });
+    
+    // 更新颜色段 - 跟随断点位置
+    if (currentBreaks.length > 1) {
+        const min = currentBreaks[0];
+        const max = currentBreaks[currentBreaks.length - 1];
+        const range = max - min;
+        
+        segments.forEach((segment, i) => {
+            const color = colorScale[i] || [200, 200, 200];
+            segment.style.backgroundColor = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+            
+            // 计算颜色段位置和宽度
+            const startPercent = range > 0 ? ((currentBreaks[i] - min) / range) * 100 : 0;
+            const endPercent = range > 0 ? ((currentBreaks[i + 1] - min) / range) * 100 : 100;
+            segment.style.left = `${startPercent}%`;
+            segment.style.width = `${endPercent - startPercent}%`;
+        });
+        
+        // 更新断点位置和标签
+        handles.forEach((handle, i) => {
+            const percent = range > 0 ? ((currentBreaks[i] - min) / range) * 100 : (i / classCount) * 100;
+            handle.style.left = `${percent}%`;
+            
+            // 更新标签
+            const label = handle.querySelector('.axis-handle-label');
+            if (label) {
+                label.textContent = formatNumber(currentBreaks[i]);
+            }
+        });
+        
+        markers.forEach((marker, i) => {
+            const percent = range > 0 ? ((currentBreaks[i] - min) / range) * 100 : (i / classCount) * 100;
+            marker.style.left = `${percent}%`;
+        });
+    }
 }
 
 function adjustClassCount(delta) {
@@ -957,13 +989,19 @@ function adjustClassCount(delta) {
         const min = currentBreaks[0];
         const max = currentBreaks[currentBreaks.length - 1];
         const classifyMethod = document.getElementById('classifyMethod').value;
-        currentBreaks = classifyMethods[classifyMethod]([], newCount);
         
-        const values = [];
-        for (let i = 0; i <= newCount; i++) {
-            values.push(min + (max - min) * i / newCount);
+        // 先获取实际数据来计算合理的断点
+        const validData = getAllDataValues();
+        if (validData.length > 0) {
+            currentBreaks = classifyMethods[classifyMethod](validData, newCount);
+        } else {
+            // 如果没有数据，创建等间距断点
+            const values = [];
+            for (let i = 0; i <= newCount; i++) {
+                values.push(min + (max - min) * i / newCount);
+            }
+            currentBreaks = values;
         }
-        currentBreaks = values;
         
         const colorScheme = document.getElementById('colorScheme').value;
         const colorScale = colorSchemes[colorScheme] || colorSchemes.blue;
@@ -971,6 +1009,20 @@ function adjustClassCount(delta) {
         
         applyThematicLayerWithBreaks(currentBreaks);
     }
+}
+
+function getAllDataValues() {
+    if (!currentData || !currentData.data || !currentData.fieldName) {
+        return [];
+    }
+    const values = [];
+    for (const row of currentData.data) {
+        const value = parseFloat(row[currentData.fieldName]);
+        if (!isNaN(value)) {
+            values.push(value);
+        }
+    }
+    return values;
 }
 
 function formatNumber(num) {
