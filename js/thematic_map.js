@@ -1148,6 +1148,11 @@ function doAxisDrag(e) {
     currentBreaks[dragIndex] = clampedValue;
     
     updateAxisLegendBar();
+    
+    // 实时更新地图上的专题图层样式
+    if (thematicLayer && currentBreaks.length > 0) {
+        updateMapStyles();
+    }
 }
 
 function endAxisDrag() {
@@ -1796,4 +1801,59 @@ function closeLegend() {
     const btn = document.getElementById('minimizeBtn');
     btn.textContent = '−';
     btn.title = '最小化';
+}
+
+// 实时更新地图上的专题图层样式
+function updateMapStyles() {
+    const renderType = document.querySelector('input[name="renderType"]:checked').value;
+    const colorScheme = document.getElementById('colorScheme').value;
+    const colorScale = colorSchemes[colorScheme] || colorSchemes.blue;
+    const opacity = parseFloat(document.getElementById('opacitySlider').value) / 100;
+    const pointSize = parseInt(document.getElementById('pointSizeSlider').value);
+    const borderWidth = parseInt(document.getElementById('borderWidthSlider').value);
+    const classCount = currentBreaks.length - 1;
+    
+    if (renderType !== 'point') return;
+    
+    const source = thematicLayer.getSource();
+    const features = source.getFeatures();
+    
+    features.forEach(feature => {
+        const value = feature.get('value');
+        if (value === undefined || value === null || currentBreaks.length === 0) return;
+        
+        // 计算当前值属于哪个分级
+        let colorIndex = 0;
+        for (let i = 0; i < currentBreaks.length - 1; i++) {
+            if (value >= currentBreaks[i] && value <= currentBreaks[i + 1]) {
+                colorIndex = i;
+                break;
+            }
+        }
+        
+        const isSizeOnly = colorScheme === 'size_only';
+        const minSize = pointSize * 0.2;
+        const maxSize = isSizeOnly ? pointSize * 2.5 : pointSize;
+        const size = minSize + (maxSize - minSize) * (colorIndex / (classCount - 1 || 1));
+        
+        const color = colorScale[colorIndex] || [200, 200, 200];
+        const fillColor = isSizeOnly ? 
+            `rgba(66, 146, 198, ${opacity})` : 
+            `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity})`;
+        
+        const style = new ol.style.Style({
+            image: new ol.style.Circle({
+                radius: size,
+                fill: new ol.style.Fill({
+                    color: fillColor
+                }),
+                stroke: new ol.style.Stroke({
+                    color: 'rgba(0, 0, 0, 0.5)',
+                    width: borderWidth
+                })
+            })
+        });
+        
+        feature.setStyle(style);
+    });
 }
