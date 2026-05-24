@@ -22,6 +22,7 @@ let dragStartX = 0;
 let dragStartY = 0;
 let dragStartLeft = 0;
 let dragStartTop = 0;
+let hasMoved = false; // 标记是否真正发生了移动
 
 function getCurrentThematicLayer() {
     if (thematicLayers.length === 0) return null;
@@ -191,6 +192,9 @@ function getActiveLegend() {
 
 function toggleLegendCollapse(legendElement) {
     if (!legendElement) return;
+    
+    // 如果正在拖动或刚刚拖动过，不要执行折叠
+    if (isDraggingLegend || hasMoved) return;
     
     const wasActive = legendElement.classList.contains('active');
     
@@ -2110,6 +2114,7 @@ function startDragLegend(e, legendElement) {
     e.stopPropagation();
     
     isDraggingLegend = true;
+    hasMoved = false;
     dragLegendElement = legendElement;
     
     // 设置图例为绝对定位
@@ -2150,6 +2155,11 @@ function doDragLegend(e) {
     const deltaX = clientX - dragStartX;
     const deltaY = clientY - dragStartY;
     
+    // 如果移动距离大于5px，才算真正的拖动
+    if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
+        hasMoved = true;
+    }
+    
     // 更新位置
     dragLegendElement.style.left = (dragStartLeft + deltaX) + 'px';
     dragLegendElement.style.top = (dragStartTop + deltaY) + 'px';
@@ -2164,6 +2174,11 @@ function endDragLegend() {
         if (dragLegendElement) {
             dragLegendElement.classList.remove('dragging');
         }
+        
+        // 延迟重置 hasMoved，防止拖动结束后的点击事件触发折叠
+        setTimeout(() => {
+            hasMoved = false;
+        }, 100);
         
         // 移除事件监听器
         document.removeEventListener('mousemove', doDragLegend);
