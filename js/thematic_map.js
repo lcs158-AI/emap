@@ -8,6 +8,13 @@ let currentData = []; // 保存当前加载的数据
 let currentLayerId = 0; // 当前图层ID
 let currentLegendLayerId = null; // 记录当前图例对应的图层ID
 
+// 轴拖动相关变量
+let isDragging = false;
+let isAxisDragging = false;
+let dragIndex = -1;
+let dragTrack = null;
+let axisDragLegendElement = null;
+
 // 图例拖动相关变量
 let isDraggingLegend = false;
 let dragLegendElement = null;
@@ -1333,12 +1340,6 @@ function updateAxisLegend(breaks, colorScale, classCount) {
         track.appendChild(handle);
     }
 }
-
-let isDragging = false;
-let isAxisDragging = false;
-let dragIndex = -1;
-let dragTrack = null;
-let axisDragLegendElement = null;
 
 function startAxisDrag(e) {
     e.preventDefault();
