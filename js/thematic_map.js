@@ -2046,7 +2046,7 @@ function showCustomPopup(name, fieldName, value) {
 
 console.log('[Debug] thematic_map.js loaded!');
 
-// 关闭图例功能（隐藏单个图例并删除对应图层）
+// 关闭图例功能（只移除图例，不删除专题图层）
 function closeLegend(legendElement) {
     if (!legendElement) {
         legendElement = getActiveLegend();
@@ -2054,12 +2054,20 @@ function closeLegend(legendElement) {
     
     if (!legendElement) return;
     
-    const layerId = parseInt(legendElement.dataset.layerId);
+    // 直接移除图例元素
+    legendElement.remove();
     
-    legendElement.style.display = 'none';
+    // 更新图例计数
+    updateLegendCount();
     
-    if (layerId) {
-        removeThematicLayer(layerId);
+    // 如果没有图例了，隐藏图例面板
+    const axesContainer = document.getElementById('legendAxesContainer');
+    const legendPanel = document.getElementById('legendPanel');
+    if (axesContainer && legendPanel) {
+        const remainingLegends = axesContainer.querySelectorAll('.legend-axis');
+        if (remainingLegends.length === 0) {
+            legendPanel.style.display = 'none';
+        }
     }
 }
 

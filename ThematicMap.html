@@ -585,19 +585,6 @@
             max-width: 2200px;
         }
 
-        .legend-axis {
-            width: 100%;
-            min-width: 560px;
-            max-width: 800px;
-            position: relative;
-        }
-
-        .legend-axis.dragging {
-            opacity: 0.8;
-            z-index: 1000;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
-        }
-
         .legend {
             margin-top: 12px;
             padding-top: 12px;
@@ -1091,7 +1078,7 @@
                     <span class="axis-class-count" style="font-size: 12px; color: #999;"></span>
                 </div>
                 <div class="axis-controls">
-                    <button class="axis-control-btn" onclick="closeLegend(this.closest('.legend-axis'))" title="关闭">×</button>
+                    <button class="axis-control-btn" onclick="closeLegend(this.closest('.legend-axis'))" title="移除图例">×</button>
                 </div>
             </div>
             <div class="axis-content">
