@@ -296,6 +296,15 @@
     </style>
 </head>
 <body>
+    <div id="debugPanel" style="position: fixed; bottom: 10px; right: 10px; width: 400px; max-height: 300px; background: rgba(0,0,0,0.9); color: #0f0; font-family: 'Courier New', monospace; font-size: 12px; padding: 10px; border-radius: 5px; overflow-y: auto; z-index: 10000; display: none;">
+        <div style="font-weight: bold; margin-bottom: 5px; border-bottom: 1px solid #0f0; padding-bottom: 5px;">
+            🔧 调试信息
+            <button onclick="clearDebugPanel()" style="float: right; background: #f00; color: #fff; border: none; padding: 2px 8px; cursor: pointer; font-size: 10px;">清除</button>
+        </div>
+        <div id="debugContent"></div>
+    </div>
+    <button onclick="toggleDebugPanel()" style="position: fixed; bottom: 10px; right: 10px; z-index: 9999; background: #ff6b6b; color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; font-size: 12px;">🐛 调试</button>
+    
     <div class="user-info" id="userInfo" style="display: none;">
         <div id="userName"></div>
         <div id="userRole" style="font-size: 12px; color: #666; margin-top: 5px;"></div>
@@ -744,6 +753,139 @@
             </form>
         </div>
     </div>
+    
+    <script>
+    // ==================== 调试工具函数 ====================
+    let debugPanelVisible = false;
+    
+    function toggleDebugPanel() {
+        const panel = document.getElementById('debugPanel');
+        debugPanelVisible = !debugPanelVisible;
+        panel.style.display = debugPanelVisible ? 'block' : 'none';
+    }
+    
+    function clearDebugPanel() {
+        document.getElementById('debugContent').innerHTML = '';
+    }
+    
+    function addDebugInfo(type, message, data = null) {
+        const content = document.getElementById('debugContent');
+        const timestamp = new Date().toLocaleTimeString();
+        let color = '#0f0';
+        
+        if (type === 'error') color = '#f00';
+        else if (type === 'warning') color = '#ff0';
+        else if (type === 'info') color = '#00f';
+        else if (type === 'success') color = '#0f0';
+        
+        let html = `<div style="margin-bottom: 5px; color: ${color};">`;
+        html += `<span style="color: #888;">[${timestamp}]</span> `;
+        html += `<strong>[${type.toUpperCase()}]</strong> ${message}`;
+        
+        if (data) {
+            html += `<br><pre style="margin: 2px 0 0 15px; padding: 2px; background: rgba(255,255,255,0.1); font-size: 10px;">${JSON.stringify(data, null, 2)}</pre>`;
+        }
+        
+        html += '</div>';
+        content.innerHTML += html;
+        content.scrollTop = content.scrollHeight;
+        
+        // 同时打印到控制台
+        console.log(`[${type.toUpperCase()}] ${message}`, data || '');
+    }
+    
+    function debugEditUser(user) {
+        addDebugInfo('info', '打开编辑用户弹窗', user);
+        addDebugInfo('info', '准备编辑的用户信息：');
+        addDebugInfo('info', `  - 用户ID: ${user.username}`);
+        addDebugInfo('info', `  - 当前状态: ${user.status}`);
+        addDebugInfo('info', `  - 当前角色: ${user.is_admin ? '管理员' : '普通用户'}`);
+    }
+    
+    function debugSubmitEdit() {
+        const id = document.getElementById('editUserId').value;
+        const status = document.getElementById('editStatus').value;
+        const role = document.getElementById('editRole').value;
+        
+        addDebugInfo('info', '提交编辑用户请求');
+        addDebugInfo('info', `  - 请求URL: /api/users/${id}`);
+        addDebugInfo('info', `  - 请求方法: PUT`);
+        addDebugInfo('info', `  - 请求数据:`, { status, role, is_admin: role === 'admin' });
+    }
+    
+    function debugDeleteUser(username) {
+        addDebugInfo('warning', '准备删除用户', { username });
+    }
+    
+    function debugDeleteConfirm(username, result) {
+        if (result) {
+            addDebugInfo('info', '确认删除用户', { username, result: 'confirmed' });
+            addDebugInfo('info', `  - 请求URL: DELETE /api/users/${username}`);
+        } else {
+            addDebugInfo('info', '取消删除用户', { username, result: 'cancelled' });
+        }
+    }
+    
+    function debugLoadUsers(result, data) {
+        if (result === 'success') {
+            addDebugInfo('success', `加载用户列表成功，共 ${data.length} 个用户`);
+        } else {
+            addDebugInfo('error', '加载用户列表失败', data);
+        }
+    }
+    
+    function debugApiResponse(endpoint, status, data) {
+        const statusColor = status >= 200 && status < 300 ? 'success' : 'error';
+        addDebugInfo(statusColor, `API响应: ${endpoint}`, { status, data });
+    }
+    
+    // 全局错误处理
+    window.onerror = function(msg, url, line, col, error) {
+        addDebugInfo('error', `JavaScript错误: ${msg}`, { url, line, col });
+        return false;
+    };
+    
+    // 拦截fetch请求
+    const originalFetch = window.fetch;
+    window.fetch = function() {
+        const url = arguments[0];
+        const method = arguments[1]?.method || 'GET';
+        const body = arguments[1]?.body;
+        
+        addDebugInfo('info', `发起请求: ${method} ${url}`);
+        if (body) {
+            try {
+                const bodyObj = JSON.parse(body);
+                addDebugInfo('info', `请求数据:`, bodyObj);
+            } catch(e) {
+                // body不是JSON
+            }
+        }
+        
+        return originalFetch.apply(this, arguments).then(response => {
+            const status = response.status;
+            const statusColor = status >= 200 && status < 300 ? 'success' : (status >= 400 ? 'error' : 'warning');
+            addDebugInfo(statusColor, `收到响应: ${method} ${url}`, { status, ok: response.ok });
+            
+            // 克隆响应以便读取
+            const clone = response.clone();
+            clone.json().then(data => {
+                if (status >= 200 && status < 300) {
+                    addDebugInfo('success', `响应数据:`, data);
+                } else {
+                    addDebugInfo('error', `响应数据:`, data);
+                }
+            }).catch(() => {});
+            
+            return response;
+        }).catch(error => {
+            addDebugInfo('error', `请求失败: ${method} ${url}`, { error: error.message });
+            throw error;
+        });
+    };
+    
+    console.log('🐛 调试模式已启用 - 点击右下角"🐛 调试"按钮查看详细信息');
+    </script>
     
     <script src="js/admin/main.js"></script>
     <script src="js/admin/users.js"></script>

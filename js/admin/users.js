@@ -24,10 +24,20 @@ async function loadUsers() {
         allUsers = data.users || [];
         console.log('[DEBUG] Users count:', allUsers.length);
         
+        // 调用调试函数
+        if (typeof debugLoadUsers === 'function') {
+            debugLoadUsers('success', allUsers);
+        }
+        
         renderUsers(allUsers);
     } catch (error) {
         console.error('[DEBUG] Error loading users:', error);
         showMessage('加载用户数据失败: ' + error.message, 'error');
+        
+        // 调用调试函数
+        if (typeof debugLoadUsers === 'function') {
+            debugLoadUsers('error', error.message);
+        }
     }
 }
 
@@ -85,6 +95,11 @@ function editUser(user) {
     document.getElementById('editStatus').value = user.status || 'pending';
     document.getElementById('editRole').value = user.is_admin ? 'admin' : 'user';
     document.getElementById('editUserModal').style.display = 'block';
+    
+    // 调用调试函数
+    if (typeof debugEditUser === 'function') {
+        debugEditUser(user);
+    }
 }
 
 function submitEditUser() {
@@ -111,6 +126,11 @@ function submitEditUser() {
     const url = `${API_BASE_URL}/api/users/${id}`;
     console.log('[DEBUG] Request URL:', url);
     console.log('[DEBUG] Request method:', 'PUT');
+    
+    // 调用调试函数
+    if (typeof debugSubmitEdit === 'function') {
+        debugSubmitEdit();
+    }
     
     fetch(url, {
         method: 'PUT',
@@ -186,6 +206,11 @@ function submitResetPassword() {
 function deleteUser(username) {
     console.log('[DEBUG] deleteUser called with username:', username);
     
+    // 调用调试函数
+    if (typeof debugDeleteUser === 'function') {
+        debugDeleteUser(username);
+    }
+    
     if (confirm('确定要删除这个用户吗？')) {
         const authHeaders = getAuthHeaders();
         console.log('[DEBUG] Auth headers:', authHeaders);
@@ -193,6 +218,11 @@ function deleteUser(username) {
         
         const url = `${API_BASE_URL}/api/users/${username}`;
         console.log('[DEBUG] Delete URL:', url);
+        
+        // 调用调试函数
+        if (typeof debugDeleteConfirm === 'function') {
+            debugDeleteConfirm(username, true);
+        }
         
         fetch(url, {
             method: 'DELETE',
