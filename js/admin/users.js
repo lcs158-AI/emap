@@ -88,30 +88,59 @@ function editUser(user) {
 }
 
 function submitEditUser() {
+    console.log('[DEBUG] submitEditUser called');
+    
     const id = document.getElementById('editUserId').value;
     const status = document.getElementById('editStatus').value;
     const role = document.getElementById('editRole').value;
     
-    fetch(`${API_BASE_URL}/api/users/${id}`, {
+    console.log('[DEBUG] editUserId:', id);
+    console.log('[DEBUG] editStatus:', status);
+    console.log('[DEBUG] editRole:', role);
+    
+    const authHeaders = getAuthHeaders();
+    console.log('[DEBUG] Auth headers:', authHeaders);
+    console.log('[DEBUG] Token present:', !!authHeaders['Authorization']);
+    
+    const bodyData = {
+        status: status,
+        is_admin: role === 'admin'
+    };
+    console.log('[DEBUG] Request body:', bodyData);
+    
+    const url = `${API_BASE_URL}/api/users/${id}`;
+    console.log('[DEBUG] Request URL:', url);
+    console.log('[DEBUG] Request method:', 'PUT');
+    
+    fetch(url, {
         method: 'PUT',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({
-            status: status,
-            is_admin: role === 'admin'
-        })
+        headers: authHeaders,
+        body: JSON.stringify(bodyData)
     })
     .then(response => {
+        console.log('[DEBUG] Response status:', response.status);
+        console.log('[DEBUG] Response ok:', response.ok);
+        console.log('[DEBUG] Response headers:', response.headers);
+        
         if (response.ok) {
+            console.log('[DEBUG] User update successful');
             showMessage('用户信息更新成功', 'success');
             closeModal('editUserModal');
             loadUsers();
         } else {
             response.json().then(data => {
+                console.error('[DEBUG] Update error response:', data);
                 showMessage('更新失败: ' + (data.detail || '未知错误'), 'error');
+            }).catch(err => {
+                console.error('[DEBUG] Failed to parse error response:', err);
+                showMessage('更新失败: 无法解析错误信息', 'error');
             });
         }
     })
     .catch(error => {
+        console.error('[DEBUG] Fetch error:', error);
+        console.error('[DEBUG] Error message:', error.message);
+        console.error('[DEBUG] Error stack:', error.stack);
         showMessage('更新失败: ' + error.message, 'error');
     });
 }
@@ -155,24 +184,46 @@ function submitResetPassword() {
 }
 
 function deleteUser(username) {
+    console.log('[DEBUG] deleteUser called with username:', username);
+    
     if (confirm('确定要删除这个用户吗？')) {
-        fetch(`${API_BASE_URL}/api/users/${username}`, {
+        const authHeaders = getAuthHeaders();
+        console.log('[DEBUG] Auth headers:', authHeaders);
+        console.log('[DEBUG] Token present:', !!authHeaders['Authorization']);
+        
+        const url = `${API_BASE_URL}/api/users/${username}`;
+        console.log('[DEBUG] Delete URL:', url);
+        
+        fetch(url, {
             method: 'DELETE',
-            headers: getAuthHeaders()
+            headers: authHeaders
         })
         .then(response => {
+            console.log('[DEBUG] Delete response status:', response.status);
+            console.log('[DEBUG] Delete response ok:', response.ok);
+            
             if (response.ok) {
+                console.log('[DEBUG] User delete successful');
                 showMessage('用户删除成功', 'success');
                 loadUsers();
             } else {
                 response.json().then(data => {
+                    console.error('[DEBUG] Delete error response:', data);
                     showMessage('删除失败: ' + (data.detail || '未知错误'), 'error');
+                }).catch(err => {
+                    console.error('[DEBUG] Failed to parse delete error:', err);
+                    showMessage('删除失败: 无法解析错误信息', 'error');
                 });
             }
         })
         .catch(error => {
+            console.error('[DEBUG] Delete fetch error:', error);
+            console.error('[DEBUG] Delete error message:', error.message);
+            console.error('[DEBUG] Delete error stack:', error.stack);
             showMessage('删除失败: ' + error.message, 'error');
         });
+    } else {
+        console.log('[DEBUG] Delete cancelled by user');
     }
 }
 
