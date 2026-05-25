@@ -15,7 +15,14 @@ let dragIndex = -1;
 let dragTrack = null;
 let axisDragLegendElement = null;
 
-// 图例拖动相关变量
+// 图例面板拖动相关变量
+let isDraggingLegendPanel = false;
+let legendPanelStartX = 0;
+let legendPanelStartY = 0;
+let legendPanelStartLeft = 0;
+let legendPanelStartTop = 0;
+
+// 单个图例拖动相关变量（保留用于旧功能兼容）
 let isDraggingLegend = false;
 let dragLegendElement = null;
 let dragStartX = 0;
@@ -897,6 +904,13 @@ function removeAllThematicLayers() {
     });
     
     updateLayerList();
+    
+    // 更新图例计数并隐藏面板
+    updateLegendCount();
+    const legendPanel = document.getElementById('legendPanel');
+    if (legendPanel) {
+        legendPanel.style.display = 'none';
+    }
 }
 
 function removeThematicLayer(layerId) {
@@ -917,6 +931,17 @@ function removeThematicLayer(layerId) {
         }
         
         updateLayerList();
+        
+        // 更新图例计数
+        updateLegendCount();
+        
+        // 如果没有图层了，隐藏图例面板
+        if (thematicLayers.length === 0) {
+            const legendPanel = document.getElementById('legendPanel');
+            if (legendPanel) {
+                legendPanel.style.display = 'none';
+            }
+        }
     }
 }
 
@@ -1218,9 +1243,14 @@ function updateLegend(breaks, fieldName) {
         setActiveLegend(legendElement);
     }
     
-    if (legendElement) {
-        legendElement.style.display = 'block';
+    // 显示图例面板
+    const legendPanel = document.getElementById('legendPanel');
+    if (legendPanel) {
+        legendPanel.style.display = 'block';
     }
+    
+    // 更新图例计数
+    updateLegendCount();
 }
 
 function updateAxisLegend(breaks, colorScale, classCount) {
@@ -1778,6 +1808,9 @@ function initThematicMap() {
 
         // 添加地图交互
         addMapInteractions();
+        
+        // 初始化图例面板
+        initLegendPanel();
 
         // 监听窗口大小变化
         window.addEventListener('resize', function() {
@@ -2188,4 +2221,160 @@ function endDragLegend() {
     }
     
     dragLegendElement = null;
+}
+
+// ========== 图例面板操作函数 ==========
+
+function initLegendPanel() {
+    const legendPanel = document.getElementById('legendPanel');
+    const header = document.getElementById('legendPanelHeader');
+    
+    if (header) {
+        header.addEventListener('mousedown', startDragLegendPanel);
+        header.addEventListener('touchstart', startDragLegendPanel, { passive: false });
+    }
+    
+    // 初始化隐藏状态
+    updateLegendCount();
+}
+
+function startDragLegendPanel(e) {
+    e.preventDefault();
+    const legendPanel = document.getElementById('legendPanel');
+    if (!legendPanel) return;
+    
+    isDraggingLegendPanel = true;
+    
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    
+    legendPanelStartX = clientX;
+    legendPanelStartY = clientY;
+    
+    const rect = legendPanel.getBoundingClientRect();
+    legendPanelStartLeft = rect.left;
+    legendPanelStartTop = rect.top;
+    
+    legendPanel.style.position = 'fixed';
+    legendPanel.classList.add('dragging');
+    
+    document.addEventListener('mousemove', doDragLegendPanel);
+    document.addEventListener('mouseup', endDragLegendPanel);
+    document.addEventListener('touchmove', doDragLegendPanel, { passive: false });
+    document.addEventListener('touchend', endDragLegendPanel);
+}
+
+function doDragLegendPanel(e) {
+    if (!isDraggingLegendPanel) return;
+    
+    e.preventDefault();
+    
+    const legendPanel = document.getElementById('legendPanel');
+    if (!legendPanel) return;
+    
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    
+    const deltaX = clientX - legendPanelStartX;
+    const deltaY = clientY - legendPanelStartY;
+    
+    let newLeft = legendPanelStartLeft + deltaX;
+    let newTop = legendPanelStartTop + deltaY;
+    
+    // 限制在视口内
+    const panelWidth = legendPanel.offsetWidth;
+    const panelHeight = legendPanel.offsetHeight;
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    
+    newLeft = Math.max(10, Math.min(newLeft, viewportWidth - panelWidth - 10));
+    newTop = Math.max(10, Math.min(newTop, viewportHeight - panelHeight - 10));
+    
+    legendPanel.style.left = newLeft + 'px';
+    legendPanel.style.top = newTop + 'px';
+    legendPanel.style.bottom = 'auto';
+    legendPanel.style.transform = 'none';
+}
+
+function endDragLegendPanel() {
+    if (isDraggingLegendPanel) {
+        isDraggingLegendPanel = false;
+        
+        const legendPanel = document.getElementById('legendPanel');
+        if (legendPanel) {
+            legendPanel.classList.remove('dragging');
+        }
+        
+        document.removeEventListener('mousemove', doDragLegendPanel);
+        document.removeEventListener('mouseup', endDragLegendPanel);
+        document.removeEventListener('touchmove', doDragLegendPanel);
+        document.removeEventListener('touchend', endDragLegendPanel);
+    }
+}
+
+function toggleLegendPanelMinimize() {
+    const legendPanel = document.getElementById('legendPanel');
+    const legendAxesContainer = document.getElementById('legendAxesContainer');
+    const legendMinimizeBtn = document.getElementById('legendMinimizeBtn');
+    const legendPanelTitle = document.getElementById('legendPanelTitle');
+    
+    if (!legendPanel) return;
+    
+    legendPanel.classList.toggle('minimized');
+    
+    if (legendPanel.classList.contains('minimized')) {
+        legendAxesContainer.style.display = 'none';
+        legendMinimizeBtn.textContent = '+';
+        legendMinimizeBtn.title = '展开';
+        legendPanelTitle.innerHTML = '<span>📊</span><span>图例</span>';
+    } else {
+        legendAxesContainer.style.display = 'flex';
+        legendMinimizeBtn.textContent = '−';
+        legendMinimizeBtn.title = '最小化';
+        legendPanelTitle.innerHTML = '<span>📊</span><span>图例面板</span><span id="legendCount" style="font-size: 12px; color: #999; font-weight: 400;">(' + thematicLayers.length + ')</span>';
+    }
+}
+
+function hideLegendPanel() {
+    const legendPanel = document.getElementById('legendPanel');
+    const showLegendBtn = document.getElementById('showLegendBtn');
+    const toolbar = document.querySelector('.toolbar');
+    
+    if (legendPanel) {
+        legendPanel.style.display = 'none';
+    }
+    
+    if (showLegendBtn) {
+        showLegendBtn.style.display = 'flex';
+        // 添加到工具栏
+        if (toolbar) {
+            toolbar.appendChild(showLegendBtn);
+        }
+    }
+}
+
+function showLegendPanel() {
+    const legendPanel = document.getElementById('legendPanel');
+    const showLegendBtn = document.getElementById('showLegendBtn');
+    
+    if (legendPanel) {
+        legendPanel.style.display = 'block';
+        // 重置位置到底部中央（如果之前被拖动过）
+        legendPanel.style.position = 'fixed';
+        legendPanel.style.left = '50%';
+        legendPanel.style.top = 'auto';
+        legendPanel.style.bottom = '20px';
+        legendPanel.style.transform = 'translateX(-50%)';
+    }
+    
+    if (showLegendBtn) {
+        showLegendBtn.style.display = 'none';
+    }
+}
+
+function updateLegendCount() {
+    const legendCount = document.getElementById('legendCount');
+    if (legendCount) {
+        legendCount.textContent = '(' + thematicLayers.length + ')';
+    }
 }

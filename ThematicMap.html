@@ -167,31 +167,137 @@
             transform: scale(0.98);
         }
 
-        /* 底部数轴图例 - 支持多个 */
-        .legend-axis {
-            position: absolute;
+        /* 图例容器面板 */
+        #legendPanel {
+            position: fixed;
             bottom: 20px;
             left: 50%;
             transform: translateX(-50%);
             width: calc(100% - 60px);
-            max-width: 1100px;
-            background: rgba(255, 255, 255, 0.96);
-            border-radius: 10px;
-            box-shadow: 0 2px 16px rgba(0, 0, 0, 0.18);
-            padding: 0;
+            max-width: 900px;
+            min-width: 560px;
+            background: rgba(255, 255, 255, 0.98);
+            border-radius: 12px;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.18);
             z-index: 100;
-            display: none;
             overflow: hidden;
-            margin-bottom: 10px;
+            border: 1px solid rgba(0,0,0,0.08);
+            transition: all 0.3s ease;
         }
 
-        .legend-axis.visible {
-            display: block;
-        }
-
-        .legend-axis.minimized {
+        #legendPanel.minimized {
+            max-width: 120px;
+            min-width: 80px;
             width: auto;
-            max-width: none;
+        }
+
+        #legendPanel.dragging {
+            opacity: 0.9;
+            z-index: 1000;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+        }
+
+        /* 图例面板标题栏 */
+        #legendPanelHeader {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 16px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-bottom: 1px solid #dee2e6;
+            cursor: grab;
+            user-select: none;
+        }
+
+        #legendPanelHeader:active {
+            cursor: grabbing;
+        }
+
+        #legendPanelTitle {
+            font-size: 14px;
+            font-weight: 600;
+            color: #495057;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        #legendPanel .panel-controls {
+            display: flex;
+            gap: 4px;
+        }
+
+        #legendPanel .panel-control-btn {
+            width: 26px;
+            height: 26px;
+            border: 1px solid #ced4da;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            line-height: 1;
+            color: #6c757d;
+            transition: all 0.15s;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #legendPanel .panel-control-btn:hover {
+            background: #1890ff;
+            border-color: #1890ff;
+            color: white;
+        }
+
+        #legendPanel .panel-control-btn:active {
+            background: #096dd9;
+        }
+
+        /* 图例数轴容器 */
+        #legendAxesContainer {
+            padding: 8px;
+            max-height: 360px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        #legendAxesContainer::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        #legendAxesContainer::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 2px;
+        }
+
+        #legendAxesContainer::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 2px;
+        }
+
+        /* 底部数轴图例 - 支持多个 */
+        .legend-axis {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 8px;
+            box-shadow: 0 1px 8px rgba(0, 0, 0, 0.08);
+            padding: 0;
+            display: block;
+            overflow: hidden;
+            border: 1px solid #e9ecef;
+            transition: all 0.2s ease;
+        }
+
+        .legend-axis:hover {
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
+        }
+
+        .legend-axis.active {
+            border-color: #91d5ff;
+            background: rgba(230, 247, 255, 0.8);
         }
 
         .legend-axis .axis-title-bar {
@@ -956,21 +1062,36 @@
         <div id="dataInfo"></div>
     </div>
 
-    <!-- 底部数轴图例容器 -->
-    <div id="legendAxesContainer"></div>
+    <!-- 图例面板容器 -->
+    <div id="legendPanel">
+        <div id="legendPanelHeader">
+            <div id="legendPanelTitle">
+                <span>📊</span>
+                <span>图例面板</span>
+                <span id="legendCount" style="font-size: 12px; color: #999; font-weight: 400;">(0)</span>
+            </div>
+            <div class="panel-controls">
+                <button class="panel-control-btn" id="legendMinimizeBtn" onclick="toggleLegendPanelMinimize()" title="最小化/展开">−</button>
+                <button class="panel-control-btn" id="legendCloseBtn" onclick="hideLegendPanel()" title="隐藏">×</button>
+            </div>
+        </div>
+        <div id="legendAxesContainer"></div>
+    </div>
+    
+    <!-- 显示图例面板按钮 -->
+    <button id="showLegendBtn" class="action-btn" data-title="显示图例" onclick="showLegendPanel()" style="display: none;">📊</button>
 
     <!-- 图例模板（用于JavaScript克隆） -->
     <template id="legendAxisTemplate">
         <div class="legend-axis" data-layer-id="">
             <div class="axis-title-bar">
                 <div style="display: flex; align-items: center; gap: 8px;">
-                    <span class="axis-drag-handle" onmousedown="startDragLegend(event, this.closest('.legend-axis'))" ontouchstart="startDragLegend(event, this.closest('.legend-axis'))" style="font-size: 14px; cursor: grab; user-select: none;">⋮⋮</span>
                     <span class="axis-collapse-icon" onclick="toggleLegendCollapse(this.closest('.legend-axis'))" style="font-size: 14px; cursor: pointer;">▼</span>
                     <h3 class="axis-title" style="margin: 0; font-size: 14px; font-weight: 600;">图层</h3>
                     <span class="axis-class-count" style="font-size: 12px; color: #999;"></span>
                 </div>
                 <div class="axis-controls">
-                    <button class="axis-control-btn" onclick="toggleLegendMinimize(this.closest('.legend-axis'))" title="最小化">−</button>
+                    <button class="axis-control-btn" onclick="closeLegend(this.closest('.legend-axis'))" title="关闭">×</button>
                 </div>
             </div>
             <div class="axis-content">
