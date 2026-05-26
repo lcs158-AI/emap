@@ -1751,7 +1751,7 @@ function findDataItem(data, name, level, isoCode) {
                 return item;
             }
             
-            const normalize = (s) => s.replace(/[省市区自治区特别行政区]+$/, '').trim();
+            const normalize = (s) => s.replace(/(省|市|区|自治区|特别行政区|自治州|盟|地区|县)$/, '').trim();
             if (normalize(name) === normalize(dataName)) {
                 return item;
             }
