@@ -1625,7 +1625,15 @@ function createStyledFeaturesWithBreaks(geoJson, data, fieldName, level, breaks)
     const features = [];
     
     geoJson.features.forEach((feature) => {
-        const name = feature.properties.full_name || feature.properties.name;
+        // 根据级别选择不同的空间数据字段
+        let name;
+        if (level === 'province') {
+            name = feature.properties.full_name;  // 省级数据用全称
+        } else if (level === 'city') {
+            name = feature.properties.name;  // 市级数据用简称
+        } else {  // country 级别
+            name = feature.properties.full_name || feature.properties.name;
+        }
         
         const dataItem = findDataItem(data, name, level, feature.properties.iso_a3);
         
@@ -1722,6 +1730,7 @@ function createStyledFeaturesWithBreaks(geoJson, data, fieldName, level, breaks)
 
 function findDataItem(data, name, level, isoCode) {
     if (level === 'country') {
+        // 国家级数据：使用 iso_a3 字段匹配
         if (!isoCode) return null;
         const keys = Object.keys(data[0] || {});
         for (const item of data) {
@@ -1734,30 +1743,42 @@ function findDataItem(data, name, level, isoCode) {
             }
         }
         return null;
-    } else {
+    } else if (level === 'province') {
+        // 省级数据：使用 full_name 字段（省份全称）匹配
         for (const item of data) {
             const keys = Object.keys(item);
             let dataName = '';
             for (const key of keys) {
                 const cleanKey = key.replace(/^\uFEFF|\uFFFE|\ufeff/g, '').trim();
-                if (cleanKey === '省份' || cleanKey === '地区' || cleanKey === '省（区、市）' || cleanKey === 'name' || cleanKey === '城市') {
+                if (cleanKey === '省份' || cleanKey === '省（区、市）' || cleanKey === 'full_name') {
                     dataName = item[key];
                     break;
                 }
             }
-            
-            if (item['地区'] === name || item['省（区、市）'] === name || 
-                item['省份'] === name || item['name'] === name || item['城市'] === name || dataName === name) {
+            if (dataName === name) {
                 return item;
             }
-            
-            const normalize = (s) => s.replace(/(省|市|区|自治区|特别行政区|自治州|盟|地区|县)$/, '').trim();
-            if (normalize(name) === normalize(dataName)) {
+        }
+        return null;
+    } else if (level === 'city') {
+        // 市级数据：使用 name 字段（市、自治州、盟等简称）匹配
+        for (const item of data) {
+            const keys = Object.keys(item);
+            let dataName = '';
+            for (const key of keys) {
+                const cleanKey = key.replace(/^\uFEFF|\uFFFE|\ufeff/g, '').trim();
+                if (cleanKey === '城市' || cleanKey === 'name') {
+                    dataName = item[key];
+                    break;
+                }
+            }
+            if (dataName === name) {
                 return item;
             }
         }
         return null;
     }
+    return null;
 }
 
 function detectTouch() {
