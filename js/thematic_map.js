@@ -1740,14 +1740,14 @@ function findDataItem(data, name, level, isoCode) {
             let dataName = '';
             for (const key of keys) {
                 const cleanKey = key.replace(/^\uFEFF|\uFFFE|\ufeff/g, '').trim();
-                if (cleanKey === '省份' || cleanKey === '地区' || cleanKey === '省（区、市）' || cleanKey === 'name') {
+                if (cleanKey === '省份' || cleanKey === '地区' || cleanKey === '省（区、市）' || cleanKey === 'name' || cleanKey === '城市') {
                     dataName = item[key];
                     break;
                 }
             }
             
             if (item['地区'] === name || item['省（区、市）'] === name || 
-                item['省份'] === name || item['name'] === name || dataName === name) {
+                item['省份'] === name || item['name'] === name || item['城市'] === name || dataName === name) {
                 return item;
             }
             
