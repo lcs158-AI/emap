@@ -1050,61 +1050,34 @@ function createStyledFeatures(geoJson, data, fieldName, level) {
     }
     
     geoJson.features.forEach((feature, index) => {
-        const name = feature.properties.full_name || feature.properties.name;
         
         // 改进的匹配逻辑 - 根据级别选择匹配字段
         const dataItem = data.find(item => {
-            let dataName = '';
-            const keys = Object.keys(item);
             
             if (level === 'country') {
-                // 国家级别：使用iso_a3字段精确匹配
+                // 1、国家级：空间数据iso_a3 ↔ 专题数据iso_a3
                 const geoCode = feature.properties.iso_a3;
                 if (!geoCode) {
                     return false;
                 }
-                // 尝试各种可能的iso3字段名
-                const keys = Object.keys(item);
-                for (const key of keys) {
-                    if (key.toLowerCase().includes('iso') && key.toLowerCase().includes('3')) {
-                        if (item[key] === geoCode) {
-                            return true;
-                        }
-                    }
+                return item['iso_a3'] === geoCode;
+            } else if (level === 'province') {
+                // 2、省级：空间数据full_name ↔ 专题数据省份
+                const geoName = feature.properties.full_name;
+                if (!geoName) {
+                    return false;
                 }
-                return false;
-            } else {
-                // 省级/市级：尝试各种字段
-                for (const key of keys) {
-                    // 去除BOM字符和空白
-                    const cleanKey = key.replace(/^\uFEFF|\uFFFE|\ufeff/g, '').trim();
-                    if (cleanKey === '省份' || cleanKey === '地区' || cleanKey === '省（区、市）' || cleanKey === 'name') {
-                        dataName = item[key];
-                        break;
-                    }
-                    if (key.includes('省')) {
-                        dataName = item[key];
-                        break;
-                    }
+                return item['省份'] === geoName;
+            } else if (level === 'city') {
+                // 3、市级：空间数据name ↔ 专题数据name
+                const geoName = feature.properties.name;
+                if (!geoName) {
+                    return false;
                 }
-                
-                // 精确匹配
-                if (item['地区'] === name || 
-                    item['省（区、市）'] === name || 
-                    item['省份'] === name ||
-                    item['name'] === name ||
-                    dataName === name) {
-                    return true;
-                }
-                
-                // 简化后的名称匹配（去掉"省"、"市"、"自治区"等后缀）
-                const normalize = (s) => s.replace(/[省市区自治区特别行政区]+$/, '').trim();
-                if (normalize(name) === normalize(dataName)) {
-                    return true;
-                }
-                
-                return false;
+                return item['name'] === geoName;
             }
+            
+            return false;
         });
         
         if (dataItem) {
