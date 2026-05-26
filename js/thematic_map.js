@@ -992,6 +992,8 @@ function createStyledFeatures(geoJson, data, fieldName, level) {
     console.log('[Debug] createStyledFeatures() called');
     console.log('[Debug] Level:', level, 'GeoJSON features:', geoJson.features?.length, 'Data rows:', data.length);
     console.log('[Debug] Field name:', fieldName);
+    console.log('[Debug] First 5 data rows:', data.slice(0, 5));
+    console.log('[Debug] Data row keys:', data.length &gt; 0 ? Object.keys(data[0]) : 'none');
     
     const values = data.map(item => {
         const val = parseFloat(item[fieldName]);
@@ -1049,7 +1051,16 @@ function createStyledFeatures(geoJson, data, fieldName, level) {
         console.log(`  ${i + 1}: ${name}`);
     }
     
-    geoJson.features.forEach((feature, index) => {
+    geoJson.features.forEach((feature, index) =&gt; {
+        // 获取当前地理名称用于调试和匹配
+        let currentGeoName;
+        if (level === 'country') {
+            currentGeoName = feature.properties.iso_a3;
+        } else if (level === 'province') {
+            currentGeoName = feature.properties.full_name;
+        } else {
+            currentGeoName = feature.properties.name;
+        }
         
         // 改进的匹配逻辑 - 根据级别选择匹配字段
         const dataItem = data.find(item => {
@@ -1060,21 +1071,54 @@ function createStyledFeatures(geoJson, data, fieldName, level) {
                 if (!geoCode) {
                     return false;
                 }
-                return item['iso_a3'] === geoCode;
+                const cleanGeoCode = String(geoCode).trim();
+                for (const key of Object.keys(item)) {
+                    const cleanKey = key.trim();
+                    if (cleanKey.toLowerCase() === 'iso_a3' || cleanKey.toLowerCase() === 'iso3') {
+                        const cleanDataCode = String(item[key]).trim();
+                        if (cleanDataCode === cleanGeoCode) {
+                            return true;
+                        }
+                    }
+                }
+                return String(item['iso_a3'] || '').trim() === cleanGeoCode;
             } else if (level === 'province') {
                 // 2、省级：空间数据full_name ↔ 专题数据省份
                 const geoName = feature.properties.full_name;
                 if (!geoName) {
                     return false;
                 }
-                return item['省份'] === geoName;
+                const cleanGeoName = String(geoName).trim();
+                for (const key of Object.keys(item)) {
+                    const cleanKey = key.trim();
+                    if (cleanKey === '省份' || cleanKey === '省（区、市）' || cleanKey === '地区' || cleanKey === 'name') {
+                        const cleanDataName = String(item[key]).trim();
+                        if (cleanDataName === cleanGeoName) {
+                            return true;
+                        }
+                    }
+                }
+                // 直接尝试
+                return String(item['省份'] || item['省（区、市）'] || item['地区'] || item['name'] || '').trim() === cleanGeoName;
             } else if (level === 'city') {
                 // 3、市级：空间数据name ↔ 专题数据name
                 const geoName = feature.properties.name;
                 if (!geoName) {
                     return false;
                 }
-                return item['name'] === geoName;
+                // 容错处理：清理空白字符
+                const cleanGeoName = String(geoName).trim();
+                for (const key of Object.keys(item)) {
+                    const cleanKey = key.trim();
+                    if (cleanKey === 'name') {
+                        const cleanDataName = String(item[key]).trim();
+                        if (cleanDataName === cleanGeoName) {
+                            return true;
+                        }
+                    }
+                }
+                // 直接尝试
+                return String(item['name'] || '').trim() === cleanGeoName;
             }
             
             return false;
@@ -1084,7 +1128,7 @@ function createStyledFeatures(geoJson, data, fieldName, level) {
             matchedCount++;
             // 输出前几个匹配的样本
             if (matchedCount <= 5) {
-                console.log(`[Debug] Match ${matchedCount}: ${name}`);
+                console.log(`[Debug] Match ${matchedCount}: ${currentGeoName}`);
             }
         }
         
@@ -1170,7 +1214,7 @@ function createStyledFeatures(geoJson, data, fieldName, level) {
         
         // 直接设置样式，而不是通过属性
         olFeature.setStyle(style);
-        olFeature.set('name', name);
+        olFeature.set('name', currentGeoName);
         olFeature.set('value', value);
         olFeature.set('dataValue', value);
         olFeature.set('fieldName', fieldName);
