@@ -993,7 +993,7 @@ function createStyledFeatures(geoJson, data, fieldName, level) {
     console.log('[Debug] Level:', level, 'GeoJSON features:', geoJson.features?.length, 'Data rows:', data.length);
     console.log('[Debug] Field name:', fieldName);
     console.log('[Debug] First 5 data rows:', data.slice(0, 5));
-    console.log('[Debug] Data row keys:', data.length &gt; 0 ? Object.keys(data[0]) : 'none');
+    console.log('[Debug] Data row keys:', data.length > 0 ? Object.keys(data[0]) : 'none');
     
     const values = data.map(item => {
         const val = parseFloat(item[fieldName]);
@@ -1051,7 +1051,7 @@ function createStyledFeatures(geoJson, data, fieldName, level) {
         console.log(`  ${i + 1}: ${name}`);
     }
     
-    geoJson.features.forEach((feature, index) =&gt; {
+    geoJson.features.forEach((feature, index) => {
         // 获取当前地理名称用于调试和匹配
         let currentGeoName;
         if (level === 'country') {
@@ -1747,49 +1747,26 @@ function createStyledFeaturesWithBreaks(geoJson, data, fieldName, level, breaks)
 
 function findDataItem(data, name, level, isoCode) {
     if (level === 'country') {
-        // 国家级数据：使用 iso_a3 字段匹配
+        // 1. 国家级数据：空间数据 iso_a3 ↔ 专题数据 iso_a3
         if (!isoCode) return null;
-        const keys = Object.keys(data[0] || {});
         for (const item of data) {
-            for (const key of keys) {
-                if (key.toLowerCase().includes('iso') && key.toLowerCase().includes('3')) {
-                    if (item[key] === isoCode) {
-                        return item;
-                    }
-                }
+            if (item['iso_a3'] === isoCode) {
+                return item;
             }
         }
         return null;
     } else if (level === 'province') {
-        // 省级数据：使用 full_name 字段（省份全称）匹配
+        // 2. 省级数据：空间数据 full_name ↔ 专题数据 省份
         for (const item of data) {
-            const keys = Object.keys(item);
-            let dataName = '';
-            for (const key of keys) {
-                const cleanKey = key.replace(/^\uFEFF|\uFFFE|\ufeff/g, '').trim();
-                if (cleanKey === '省份' || cleanKey === '省（区、市）' || cleanKey === 'full_name') {
-                    dataName = item[key];
-                    break;
-                }
-            }
-            if (dataName === name) {
+            if (item['省份'] === name) {
                 return item;
             }
         }
         return null;
     } else if (level === 'city') {
-        // 市级数据：使用 name 字段（市、自治州、盟等简称）匹配
+        // 3. 市级数据：空间数据 name ↔ 专题数据 name
         for (const item of data) {
-            const keys = Object.keys(item);
-            let dataName = '';
-            for (const key of keys) {
-                const cleanKey = key.replace(/^\uFEFF|\uFFFE|\ufeff/g, '').trim();
-                if (cleanKey === '城市' || cleanKey === 'name') {
-                    dataName = item[key];
-                    break;
-                }
-            }
-            if (dataName === name) {
+            if (item['name'] === name) {
                 return item;
             }
         }
