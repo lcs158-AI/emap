@@ -10,6 +10,7 @@ let currentLegendLayerId = null; // 记录当前图例对应的图层ID
 
 // 时间轴相关变量
 let timelineFields = []; // 年份字段列表
+let selectedTimelineIndices = []; // 选中的字段索引列表
 let currentTimelineIndex = 0; // 当前时间轴索引
 let timelineInterval = null; // 播放定时器
 let isTimelinePlaying = false; // 是否正在播放
@@ -642,11 +643,11 @@ function showTimeline() {
         return;
     }
     
-    // 更新时间轴标签
-    const yearLabels = timelineFields.map(f => {
-        const year = extractYear(f.name) || extractYear(f.label);
-        return year || f.name;
-    });
+    // 默认全选所有字段
+    selectedTimelineIndices = timelineFields.map((_, index) => index);
+    
+    // 更新字段选择面板
+    updateFieldSelectionPanel();
     
     const slider = document.getElementById('timelineSlider');
     slider.min = 0;
@@ -670,38 +671,145 @@ function hideTimeline() {
 }
 
 function createTimeline() {
-    const controlPanel = document.getElementById('controlPanel');
+    const mapContainer = document.getElementById('map');
+    if (!mapContainer) return;
     
     const timelineHTML = `
-        <div id="timelineContainer" class="section" style="display: none; margin-top: 16px; padding-top: 12px; border-top: 1px solid #eee;">
-            <div class="section-title" style="display: flex; align-items: center; gap: 8px;">
-                <span>⏱️ 时间轴</span>
-                <span id="timelineYearDisplay" style="font-weight: 600; color: #1890ff; font-size: 14px;"></span>
-            </div>
-            <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
+        <div id="timelineContainer" style="display: none; position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%); z-index: 200; 
+            background: rgba(255, 255, 255, 0.95); border-radius: 10px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15); 
+            padding: 12px 20px; min-width: 500px; max-width: 700px;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <span style="font-size: 14px; font-weight: 600; color: #666;">⏱️ 时间轴</span>
+                <span id="timelineYearDisplay" style="font-weight: 600; color: #1890ff; font-size: 16px; min-width: 60px;"></span>
+                
                 <button id="timelinePrevBtn" onclick="prevTimeline()" 
-                    style="width: 32px; height: 32px; border: 1px solid #ddd; border-radius: 4px; background: white; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center;">
+                    style="width: 30px; height: 30px; border: 1px solid #ddd; border-radius: 6px; background: white; cursor: pointer; 
+                           font-size: 14px; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">
                     ⏮
                 </button>
                 <button id="timelinePlayBtn" onclick="toggleTimelinePlay()" 
-                    style="width: 32px; height: 32px; border: 1px solid #ddd; border-radius: 4px; background: white; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center;">
+                    style="width: 30px; height: 30px; border: 1px solid #ddd; border-radius: 6px; background: white; cursor: pointer; 
+                           font-size: 14px; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">
                     ▶
                 </button>
                 <button id="timelineNextBtn" onclick="nextTimeline()" 
-                    style="width: 32px; height: 32px; border: 1px solid #ddd; border-radius: 4px; background: white; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center;">
+                    style="width: 30px; height: 30px; border: 1px solid #ddd; border-radius: 6px; background: white; cursor: pointer; 
+                           font-size: 14px; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">
                     ⏭
                 </button>
-                <input type="range" id="timelineSlider" oninput="onTimelineChange()" 
-                    style="flex: 1; height: 6px; border-radius: 3px; background: #ddd; outline: none; cursor: pointer;">
+                
+                <div style="flex: 1; margin: 0 10px;">
+                    <input type="range" id="timelineSlider" oninput="onTimelineChange()" 
+                        style="width: 100%; height: 6px; border-radius: 3px; background: #ddd; outline: none; cursor: pointer;
+                               -webkit-appearance: none;">
+                    <div style="display: flex; justify-content: space-between; margin-top: 4px; font-size: 11px; color: #999;">
+                        <span>${extractYear(timelineFields[0].name) || extractYear(timelineFields[0].label)}</span>
+                        <span>${extractYear(timelineFields[timelineFields.length-1].name) || extractYear(timelineFields[timelineFields.length-1].label)}</span>
+                    </div>
+                </div>
+                
+                <button id="timelineFieldsBtn" onclick="toggleFieldSelection()" 
+                    style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; background: #f8f9fa; cursor: pointer; 
+                           font-size: 12px; color: #666; transition: all 0.2s;">
+                    字段选择 ▼
+                </button>
             </div>
-            <div style="display: flex; justify-content: space-between; margin-top: 4px; font-size: 11px; color: #999;">
-                <span>${extractYear(timelineFields[0].name) || extractYear(timelineFields[0].label)}</span>
-                <span>${extractYear(timelineFields[timelineFields.length-1].name) || extractYear(timelineFields[timelineFields.length-1].label)}</span>
+            
+            <!-- 字段选择面板 -->
+            <div id="timelineFieldPanel" style="display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid #eee;">
+                <div style="display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 8px;">
+                    <button onclick="selectAllTimelineFields()" 
+                        style="padding: 4px 8px; font-size: 11px; border: 1px solid #1890ff; border-radius: 3px; 
+                               background: white; color: #1890ff; cursor: pointer;">
+                        全选
+                    </button>
+                    <button onclick="deselectAllTimelineFields()" 
+                        style="padding: 4px 8px; font-size: 11px; border: 1px solid #ccc; border-radius: 3px; 
+                               background: white; color: #666; cursor: pointer;">
+                        全不选
+                    </button>
+                </div>
+                <div id="timelineFieldList" style="max-height: 120px; overflow-y: auto; display: flex; flex-wrap: gap: 8px;">
+                </div>
             </div>
         </div>
     `;
     
-    controlPanel.insertAdjacentHTML('beforeend', timelineHTML);
+    document.body.insertAdjacentHTML('beforeend', timelineHTML);
+}
+
+function toggleFieldSelection() {
+    const panel = document.getElementById('timelineFieldPanel');
+    const btn = document.getElementById('timelineFieldsBtn');
+    if (panel.style.display === 'none') {
+        panel.style.display = 'block';
+        btn.innerHTML = '字段选择 ▲';
+    } else {
+        panel.style.display = 'none';
+        btn.innerHTML = '字段选择 ▼';
+    }
+}
+
+function updateFieldSelectionPanel() {
+    const container = document.getElementById('timelineFieldList');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    timelineFields.forEach((field, index) => {
+        const year = extractYear(field.name) || extractYear(field.label);
+        const isSelected = selectedTimelineIndices.includes(index);
+        
+        const checkbox = document.createElement('label');
+        checkbox.style.cssText = `
+            display: inline-flex; align-items: center; gap: 4px; 
+            padding: 4px 8px; margin: 2px; background: #f8f9fa; 
+            border-radius: 4px; cursor: pointer; font-size: 12px;
+        `;
+        
+        checkbox.innerHTML = `
+            <input type="checkbox" ${isSelected ? 'checked' : ''} 
+                   onchange="toggleTimelineField(${index})" 
+                   style="width: 14px; height: 14px;">
+            <span>${year || field.name}</span>
+        `;
+        
+        container.appendChild(checkbox);
+    });
+}
+
+function toggleTimelineField(index) {
+    const idx = selectedTimelineIndices.indexOf(index);
+    if (idx > -1) {
+        selectedTimelineIndices.splice(idx, 1);
+    } else {
+        selectedTimelineIndices.push(index);
+        selectedTimelineIndices.sort((a, b) => a - b);
+    }
+    
+    // 如果取消了当前选中的字段，切换到第一个选中的字段
+    if (!selectedTimelineIndices.includes(currentTimelineIndex) && selectedTimelineIndices.length > 0) {
+        currentTimelineIndex = selectedTimelineIndices[0];
+        document.getElementById('timelineSlider').value = currentTimelineIndex;
+        updateTimelineDisplay();
+        updateTimelineLayer();
+    }
+    
+    // 如果没有选中任何字段，停止播放
+    if (selectedTimelineIndices.length === 0) {
+        stopTimeline();
+    }
+}
+
+function selectAllTimelineFields() {
+    selectedTimelineIndices = timelineFields.map((_, index) => index);
+    updateFieldSelectionPanel();
+}
+
+function deselectAllTimelineFields() {
+    selectedTimelineIndices = [];
+    updateFieldSelectionPanel();
+    stopTimeline();
 }
 
 function updateTimelineDisplay() {
@@ -721,8 +829,11 @@ function onTimelineChange() {
 }
 
 function prevTimeline() {
-    if (currentTimelineIndex > 0) {
-        currentTimelineIndex--;
+    if (selectedTimelineIndices.length === 0) return;
+    
+    const currentPos = selectedTimelineIndices.indexOf(currentTimelineIndex);
+    if (currentPos > 0) {
+        currentTimelineIndex = selectedTimelineIndices[currentPos - 1];
         document.getElementById('timelineSlider').value = currentTimelineIndex;
         updateTimelineDisplay();
         updateTimelineLayer();
@@ -730,8 +841,11 @@ function prevTimeline() {
 }
 
 function nextTimeline() {
-    if (currentTimelineIndex < timelineFields.length - 1) {
-        currentTimelineIndex++;
+    if (selectedTimelineIndices.length === 0) return;
+    
+    const currentPos = selectedTimelineIndices.indexOf(currentTimelineIndex);
+    if (currentPos < selectedTimelineIndices.length - 1) {
+        currentTimelineIndex = selectedTimelineIndices[currentPos + 1];
         document.getElementById('timelineSlider').value = currentTimelineIndex;
         updateTimelineDisplay();
         updateTimelineLayer();
@@ -750,15 +864,18 @@ function toggleTimelinePlay() {
 }
 
 function startTimeline() {
+    if (selectedTimelineIndices.length === 0) return;
+    
     isTimelinePlaying = true;
     document.getElementById('timelinePlayBtn').textContent = '⏸';
     
     timelineInterval = setInterval(() => {
-        if (currentTimelineIndex < timelineFields.length - 1) {
+        const currentPos = selectedTimelineIndices.indexOf(currentTimelineIndex);
+        if (currentPos < selectedTimelineIndices.length - 1) {
             nextTimeline();
         } else {
-            // 循环播放
-            currentTimelineIndex = 0;
+            // 循环播放 - 回到第一个选中的字段
+            currentTimelineIndex = selectedTimelineIndices[0];
             document.getElementById('timelineSlider').value = currentTimelineIndex;
             updateTimelineDisplay();
             updateTimelineLayer();
