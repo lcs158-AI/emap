@@ -917,11 +917,42 @@
         </div>
         
         <div class="section">
+            <div class="section-title">渲染模式</div>
+            <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                <label style="flex: 1; text-align: center; padding: 6px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;">
+                    <input type="radio" name="renderMode" value="single" checked style="margin-right: 4px;">
+                    <span style="font-size: 12px;">单字段</span>
+                </label>
+                <label style="flex: 1; text-align: center; padding: 6px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;">
+                    <input type="radio" name="renderMode" value="expression" style="margin-right: 4px;">
+                    <span style="font-size: 12px;">表达式</span>
+                </label>
+                <label style="flex: 1; text-align: center; padding: 6px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;">
+                    <input type="radio" name="renderMode" value="multi" style="margin-right: 4px;">
+                    <span style="font-size: 12px;">多字段</span>
+                </label>
+                <label style="flex: 1; text-align: center; padding: 6px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;">
+                    <input type="radio" name="renderMode" value="timeline" style="margin-right: 4px;">
+                    <span style="font-size: 12px;">时间轴</span>
+                </label>
+            </div>
+        </div>
+        
+        <div class="section" id="singleFieldSection">
             <div class="section-title">选择字段</div>
             <select id="fieldSelect" onchange="onFieldChange()">
                 <option value="">请先选择数据表</option>
-                <option value="expression">📊 使用表达式</option>
             </select>
+        </div>
+        
+        <div class="section" id="multiFieldSection" style="display: none;">
+            <div class="section-title">选择字段（可多选）</div>
+            <div id="multiFieldList" style="max-height: 150px; overflow-y: auto; display: flex; flex-wrap: wrap; gap: 4px;">
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px;">
+                <button onclick="selectAllMultiFields()" style="padding: 4px 8px; font-size: 11px; border: 1px solid #1890ff; border-radius: 3px; background: white; color: #1890ff; cursor: pointer;">全选</button>
+                <button onclick="deselectAllMultiFields()" style="padding: 4px 8px; font-size: 11px; border: 1px solid #ccc; border-radius: 3px; background: white; color: #666; cursor: pointer;">全不选</button>
+            </div>
         </div>
         
         <div class="section" id="expressionSection" style="display: none;">
@@ -932,12 +963,7 @@
             </div>
             <input type="text" id="expressionInput" placeholder='如: (粮食产量_2024*2000/播种面积_2024)"单位面积产量"' 
                    style="width: 100%; padding: 8px; font-size: 13px; border: 1px solid #ddd; border-radius: 4px;">
-            <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px;">
-                <button type="button" onclick="insertField('耕地面积_2019')" style="padding: 4px 8px; font-size: 12px; background: #f0f0f0; border: 1px solid #ccc; border-radius: 4px; cursor: pointer;">耕地面积_2019</button>
-                <button type="button" onclick="insertField('耕地面积_2024')" style="padding: 4px 8px; font-size: 12px; background: #f0f0f0; border: 1px solid #ccc; border-radius: 4px; cursor: pointer;">耕地面积_2024</button>
-                <button type="button" onclick="insertField('耕地面积_2035规划')" style="padding: 4px 8px; font-size: 12px; background: #f0f0f0; border: 1px solid #ccc; border-radius: 4px; cursor: pointer;">耕地面积_2035规划</button>
-                <button type="button" onclick="insertField('播种面积_2024')" style="padding: 4px 8px; font-size: 12px; background: #f0f0f0; border: 1px solid #ccc; border-radius: 4px; cursor: pointer;">播种面积_2024</button>
-                <button type="button" onclick="insertField('粮食产量_2024')" style="padding: 4px 8px; font-size: 12px; background: #f0f0f0; border: 1px solid #ccc; border-radius: 4px; cursor: pointer;">粮食产量_2024</button>
+            <div id="expressionFields" style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px;">
             </div>
         </div>
         
@@ -982,6 +1008,52 @@
         </div>
         
         <div class="section">
+            <div class="section-title">渲染方案</div>
+            <select id="colorScheme">
+                <option value="blue">蓝色渐变</option>
+                <option value="heatmap">热力图</option>
+                <option value="rainbow">彩虹色</option>
+                <option value="gray">灰度</option>
+                <option value="greenred">绿红渐变</option>
+                <option value="orange">橙红渐变</option>
+                <option value="purple">紫色渐变</option>
+                <option value="coolwarm">冷暖色渐变</option>
+                <option value="viridis">Viridis</option>
+                <option value="size_only">单色调（大小分级）</option>
+            </select>
+        </div>
+        
+        <div class="section" id="multiRenderSection" style="display: none;">
+            <div class="section-title">多字段渲染方式</div>
+            <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                <label style="flex: 1; text-align: center; padding: 6px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;">
+                    <input type="radio" name="multiRenderType" value="sideBySide" checked style="margin-right: 4px;">
+                    <span style="font-size: 12px;">并列柱状</span>
+                </label>
+                <label style="flex: 1; text-align: center; padding: 6px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;">
+                    <input type="radio" name="multiRenderType" value="stacked" style="margin-right: 4px;">
+                    <span style="font-size: 12px;">堆叠柱状</span>
+                </label>
+                <label style="flex: 1; text-align: center; padding: 6px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;">
+                    <input type="radio" name="multiRenderType" value="pie" style="margin-right: 4px;">
+                    <span style="font-size: 12px;">饼图</span>
+                </label>
+                <label style="flex: 1; text-align: center; padding: 6px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;">
+                    <input type="radio" name="multiRenderType" value="line" style="margin-right: 4px;">
+                    <span style="font-size: 12px;">曲线图</span>
+                </label>
+                <label style="flex: 1; text-align: center; padding: 6px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;">
+                    <input type="radio" name="multiRenderType" value="groupedBar" style="margin-right: 4px;">
+                    <span style="font-size: 12px;">分组柱状</span>
+                </label>
+                <label style="flex: 1; text-align: center; padding: 6px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;">
+                    <input type="radio" name="multiRenderType" value="radar" style="margin-right: 4px;">
+                    <span style="font-size: 12px;">雷达图</span>
+                </label>
+            </div>
+        </div>
+        
+        <div class="section">
             <div class="section-title">叠加模式</div>
             <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
                 <input type="checkbox" id="overlayMode" style="width: 16px; height: 16px;">
@@ -992,18 +1064,6 @@
         <div class="section">
             <div class="section-title">已加载图层</div>
             <div id="layerList" style="max-height: 120px; overflow-y: auto; border: 1px solid #eee; border-radius: 4px;"></div>
-        </div>
-        
-        <div class="section">
-            <div class="section-title">颜色方案</div>
-            <select id="colorScheme">
-                <option value="blue">蓝色渐变</option>
-                <option value="heatmap">热力图</option>
-                <option value="rainbow">彩虹色</option>
-                <option value="gray">灰度</option>
-                <option value="greenred">绿红渐变</option>
-                <option value="size_only">单色调（大小分级）</option>
-            </select>
         </div>
         
         <div class="section">

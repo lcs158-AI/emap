@@ -901,15 +901,48 @@ function updateTimelineLayer() {
         const currentField = timelineFields[currentTimelineIndex];
         console.log('[Timeline] Updating layer to field:', currentField.name);
         
-        // 获取当前选择的数据表
+        // 获取当前选择的数据表和级别
         const tableName = document.getElementById('tableSelect').value;
+        const level = document.getElementById('levelSelect').value;
+        
         if (tableName) {
+            // 保留地图视图状态
+            const view = map.getView();
+            const center = view.getCenter();
+            const zoom = view.getZoom();
+            const rotation = view.getRotation();
+            
             // 移除所有专题图层
             removeAllThematicLayers();
             
-            // 使用当前时间轴字段重新渲染
-            document.getElementById('fieldSelect').value = currentField.name;
-            applyThematicLayer();
+            // 重新创建图层
+            loadGeoJson(level).then(geoJson => {
+                fetch(`${API_BASE_URL}/api/thematic/data/${tableName}`, {
+                    headers: getAuthHeaders()
+                }).then(dataRes => dataRes.json()).then(data => {
+                    const styledFeatures = createStyledFeatures(geoJson, data.data, currentField.name, level);
+                    
+                    const newLayer = new ol.layer.Vector({
+                        source: new ol.source.Vector({
+                            features: styledFeatures
+                        }),
+                        style: function(feature) {
+                            return feature.getStyle();
+                        },
+                        zIndex: 10
+                    });
+                    
+                    newLayer.set('layerId', 1);
+                    newLayer.set('fieldName', currentField.name);
+                    thematicLayers.push(newLayer);
+                    map.addLayer(newLayer);
+                    
+                    // 恢复地图视图状态
+                    view.setCenter(center);
+                    view.setZoom(zoom);
+                    view.setRotation(rotation);
+                });
+            });
         }
     }
 }
@@ -1042,26 +1075,52 @@ function parseExpression(input) {
 async function applyThematicLayer() {
     console.log('[Debug] applyThematicLayer() called');
     const tableName = document.getElementById('tableSelect').value;
-    const fieldSelectValue = document.getElementById('fieldSelect').value;
-    const expression = document.getElementById('expressionInput').value;
     const level = document.getElementById('levelSelect').value;
     const overlayMode = document.getElementById('overlayMode')?.checked || false;
     
-    const isExpression = fieldSelectValue === 'expression';
+    // 获取当前渲染模式
+    const renderMode = document.querySelector('input[name="renderMode"]:checked').value;
     
-    let fieldName = fieldSelectValue;
-    let exprStr = expression;
+    let fieldName = '';
+    let exprStr = '';
+    let isExpression = false;
     
-    if (isExpression) {
-        const parsed = parseExpression(expression);
-        exprStr = parsed.expr;
-        fieldName = parsed.name;
+    // 根据渲染模式获取字段信息
+    switch(renderMode) {
+        case 'single':
+            fieldName = document.getElementById('fieldSelect').value;
+            if (!fieldName) {
+                alert('请选择字段');
+                return;
+            }
+            break;
+        case 'expression':
+            exprStr = document.getElementById('expressionInput').value;
+            if (!exprStr) {
+                alert('请输入表达式');
+                return;
+            }
+            isExpression = true;
+            const parsed = parseExpression(exprStr);
+            exprStr = parsed.expr;
+            fieldName = parsed.name;
+            break;
+        case 'multi':
+            if (selectedMultiFields.length === 0) {
+                alert('请选择至少一个字段');
+                return;
+            }
+            fieldName = selectedMultiFields.join(',');
+            break;
+        case 'timeline':
+            // 时间轴模式：检测年份字段并显示时间轴
+            break;
     }
     
-    console.log('[Debug] Parameters:', { tableName, fieldName, exprStr, level, isExpression, overlayMode });
+    console.log('[Debug] Parameters:', { tableName, fieldName, exprStr, level, isExpression, overlayMode, renderMode });
     
-    if (!tableName || (!fieldSelectValue || (isExpression && !expression))) {
-        alert(isExpression ? '请输入表达式' : '请选择数据表和字段');
+    if (!tableName) {
+        alert('请选择数据表');
         return;
     }
 
@@ -1104,6 +1163,57 @@ async function applyThematicLayer() {
             console.log('[Debug] Processing expression:', exprStr);
             processedData = evaluateExpression(data.data, exprStr, fieldName);
             console.log('[Debug] Expression evaluated, processed rows:', processedData.length);
+        }
+        
+        // 时间轴模式处理
+        if (renderMode === 'timeline') {
+            // 检测年份字段
+            timelineFields = detectTimelineFields(data.data);
+            if (timelineFields.length === 0) {
+                document.getElementById('loadingPanel').style.display = 'none';
+                alert('该数据表中未检测到年份字段');
+                return;
+            }
+            
+            // 默认全选所有年份字段
+            selectedTimelineIndices = timelineFields.map((_, index) => index);
+            
+            // 保存当前数据
+            currentData = { data: data.data, fieldName: timelineFields[0].name };
+            
+            // 创建第一个时间点的图层
+            console.log('[Debug] Creating timeline layer with field:', timelineFields[0].name);
+            const timelineFeatures = createStyledFeatures(geoJson, data.data, timelineFields[0].name, level);
+            
+            // 移除所有旧的专题图层
+            if (!overlayMode) {
+                removeAllThematicLayers();
+            }
+            
+            currentLayerId++;
+            const layerId = currentLayerId;
+            
+            const newLayer = new ol.layer.Vector({
+                source: new ol.source.Vector({
+                    features: timelineFeatures
+                }),
+                style: function(feature) {
+                    return feature.getStyle();
+                },
+                zIndex: 10 + layerId
+            });
+            
+            newLayer.set('layerId', layerId);
+            newLayer.set('fieldName', timelineFields[0].name);
+            thematicLayers.push(newLayer);
+            map.addLayer(newLayer);
+            
+            // 隐藏图例面板，显示时间轴
+            hideLegendPanel();
+            showTimeline();
+            
+            document.getElementById('loadingPanel').style.display = 'none';
+            return;
         }
         
         // 保存当前数据
@@ -2153,6 +2263,104 @@ function showCustomPopup(name, fieldName, value) {
 }
 
 
+
+// 多字段选择相关变量
+let selectedMultiFields = [];
+
+// 渲染模式切换事件处理
+document.addEventListener('DOMContentLoaded', function() {
+    const radioButtons = document.querySelectorAll('input[name="renderMode"]');
+    radioButtons.forEach(radio => {
+        radio.addEventListener('change', onRenderModeChange);
+    });
+});
+
+function onRenderModeChange() {
+    const mode = document.querySelector('input[name="renderMode"]:checked').value;
+    
+    // 隐藏所有字段选择区域
+    document.getElementById('singleFieldSection').style.display = 'none';
+    document.getElementById('multiFieldSection').style.display = 'none';
+    document.getElementById('expressionSection').style.display = 'none';
+    document.getElementById('multiRenderSection').style.display = 'none';
+    
+    // 根据模式显示相应区域
+    switch(mode) {
+        case 'single':
+            document.getElementById('singleFieldSection').style.display = 'block';
+            hideTimeline();
+            break;
+        case 'expression':
+            document.getElementById('expressionSection').style.display = 'block';
+            hideTimeline();
+            break;
+        case 'multi':
+            document.getElementById('multiFieldSection').style.display = 'block';
+            document.getElementById('multiRenderSection').style.display = 'block';
+            hideTimeline();
+            break;
+        case 'timeline':
+            document.getElementById('singleFieldSection').style.display = 'none';
+            // 时间轴模式会在应用图层时显示时间轴
+            break;
+    }
+}
+
+function updateMultiFieldPanel(fields) {
+    const container = document.getElementById('multiFieldList');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    const numericFields = fields.filter(f => f.type === 'REAL' || f.type === 'INTEGER');
+    numericFields.forEach((field, index) => {
+        const isSelected = selectedMultiFields.includes(field.name);
+        
+        const checkbox = document.createElement('label');
+        checkbox.style.cssText = `
+            display: inline-flex; align-items: center; gap: 4px; 
+            padding: 4px 8px; margin: 2px; background: #f8f9fa; 
+            border-radius: 4px; cursor: pointer; font-size: 12px;
+        `;
+        
+        checkbox.innerHTML = `
+            <input type="checkbox" ${isSelected ? 'checked' : ''} 
+                   onchange="toggleMultiField('${field.name}')" 
+                   style="width: 14px; height: 14px;">
+            <span>${field.label || field.name}</span>
+        `;
+        
+        container.appendChild(checkbox);
+    });
+}
+
+function toggleMultiField(fieldName) {
+    const idx = selectedMultiFields.indexOf(fieldName);
+    if (idx > -1) {
+        selectedMultiFields.splice(idx, 1);
+    } else {
+        selectedMultiFields.push(fieldName);
+    }
+}
+
+function selectAllMultiFields() {
+    const fields = document.querySelectorAll('#multiFieldList input[type="checkbox"]');
+    fields.forEach(field => {
+        field.checked = true;
+        const fieldName = field.nextElementSibling.textContent;
+        if (!selectedMultiFields.includes(fieldName)) {
+            selectedMultiFields.push(fieldName);
+        }
+    });
+}
+
+function deselectAllMultiFields() {
+    const fields = document.querySelectorAll('#multiFieldList input[type="checkbox"]');
+    fields.forEach(field => {
+        field.checked = false;
+    });
+    selectedMultiFields = [];
+}
 
 console.log('[Debug] thematic_map.js loaded!');
 
