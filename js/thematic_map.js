@@ -8,6 +8,12 @@ let currentData = []; // 保存当前加载的数据
 let currentLayerId = 0; // 当前图层ID
 let currentLegendLayerId = null; // 记录当前图例对应的图层ID
 
+// 时间轴相关变量
+let timelineFields = []; // 年份字段列表
+let currentTimelineIndex = 0; // 当前时间轴索引
+let timelineInterval = null; // 播放定时器
+let isTimelinePlaying = false; // 是否正在播放
+
 // 轴拖动相关变量
 let isDragging = false;
 let isAxisDragging = false;
@@ -564,6 +570,7 @@ async function onTableChange() {
     if (!tableName) {
         document.getElementById('fieldSelect').innerHTML = '<option value="">请先选择数据表</option>';
         document.getElementById('expressionSection').style.display = 'none';
+        hideTimeline();
         return;
     }
     
@@ -593,9 +600,200 @@ async function onTableChange() {
         
         // 更新可用字段按钮
         updateFieldButtons(fields);
+        
+        // 检测年份字段并创建时间轴
+        detectTimelineFields(fields);
     } catch (error) {
         console.error('[Debug] 加载字段失败:', error);
         alert('加载字段失败: ' + error.message);
+    }
+}
+
+function detectTimelineFields(fields) {
+    // 检测年份字段（匹配格式：2020年、2020、产量_2020等）
+    const yearFieldRegex = /(\d{4})年?|_(\d{4})/;
+    timelineFields = fields
+        .filter(f => f.type === 'REAL' || f.type === 'INTEGER')
+        .filter(f => yearFieldRegex.test(f.name) || yearFieldRegex.test(f.label))
+        .sort((a, b) => {
+            const yearA = extractYear(a.name) || extractYear(a.label);
+            const yearB = extractYear(b.name) || extractYear(b.label);
+            return yearA - yearB;
+        });
+    
+    console.log('[Timeline] Detected timeline fields:', timelineFields.map(f => f.name));
+    
+    if (timelineFields.length >= 2) {
+        showTimeline();
+    } else {
+        hideTimeline();
+    }
+}
+
+function extractYear(str) {
+    const match = str.match(/(\d{4})/);
+    return match ? parseInt(match[1]) : null;
+}
+
+function showTimeline() {
+    const timelineContainer = document.getElementById('timelineContainer');
+    if (!timelineContainer) {
+        createTimeline();
+        return;
+    }
+    
+    // 更新时间轴标签
+    const yearLabels = timelineFields.map(f => {
+        const year = extractYear(f.name) || extractYear(f.label);
+        return year || f.name;
+    });
+    
+    const slider = document.getElementById('timelineSlider');
+    slider.min = 0;
+    slider.max = timelineFields.length - 1;
+    slider.value = 0;
+    currentTimelineIndex = 0;
+    
+    // 更新时间显示
+    updateTimelineDisplay();
+    
+    timelineContainer.style.display = 'block';
+}
+
+function hideTimeline() {
+    const timelineContainer = document.getElementById('timelineContainer');
+    if (timelineContainer) {
+        timelineContainer.style.display = 'none';
+    }
+    // 停止播放
+    stopTimeline();
+}
+
+function createTimeline() {
+    const controlPanel = document.getElementById('controlPanel');
+    
+    const timelineHTML = `
+        <div id="timelineContainer" class="section" style="display: none; margin-top: 16px; padding-top: 12px; border-top: 1px solid #eee;">
+            <div class="section-title" style="display: flex; align-items: center; gap: 8px;">
+                <span>⏱️ 时间轴</span>
+                <span id="timelineYearDisplay" style="font-weight: 600; color: #1890ff; font-size: 14px;"></span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
+                <button id="timelinePrevBtn" onclick="prevTimeline()" 
+                    style="width: 32px; height: 32px; border: 1px solid #ddd; border-radius: 4px; background: white; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center;">
+                    ⏮
+                </button>
+                <button id="timelinePlayBtn" onclick="toggleTimelinePlay()" 
+                    style="width: 32px; height: 32px; border: 1px solid #ddd; border-radius: 4px; background: white; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center;">
+                    ▶
+                </button>
+                <button id="timelineNextBtn" onclick="nextTimeline()" 
+                    style="width: 32px; height: 32px; border: 1px solid #ddd; border-radius: 4px; background: white; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center;">
+                    ⏭
+                </button>
+                <input type="range" id="timelineSlider" oninput="onTimelineChange()" 
+                    style="flex: 1; height: 6px; border-radius: 3px; background: #ddd; outline: none; cursor: pointer;">
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-top: 4px; font-size: 11px; color: #999;">
+                <span>${extractYear(timelineFields[0].name) || extractYear(timelineFields[0].label)}</span>
+                <span>${extractYear(timelineFields[timelineFields.length-1].name) || extractYear(timelineFields[timelineFields.length-1].label)}</span>
+            </div>
+        </div>
+    `;
+    
+    controlPanel.insertAdjacentHTML('beforeend', timelineHTML);
+}
+
+function updateTimelineDisplay() {
+    const yearDisplay = document.getElementById('timelineYearDisplay');
+    const currentField = timelineFields[currentTimelineIndex];
+    const year = extractYear(currentField.name) || extractYear(currentField.label);
+    yearDisplay.textContent = year ? `${year}年` : currentField.name;
+}
+
+function onTimelineChange() {
+    const slider = document.getElementById('timelineSlider');
+    currentTimelineIndex = parseInt(slider.value);
+    updateTimelineDisplay();
+    
+    // 如果有活跃的专题图层，更新为当前年份字段
+    updateTimelineLayer();
+}
+
+function prevTimeline() {
+    if (currentTimelineIndex > 0) {
+        currentTimelineIndex--;
+        document.getElementById('timelineSlider').value = currentTimelineIndex;
+        updateTimelineDisplay();
+        updateTimelineLayer();
+    }
+}
+
+function nextTimeline() {
+    if (currentTimelineIndex < timelineFields.length - 1) {
+        currentTimelineIndex++;
+        document.getElementById('timelineSlider').value = currentTimelineIndex;
+        updateTimelineDisplay();
+        updateTimelineLayer();
+    } else {
+        // 播放到最后，停止播放
+        stopTimeline();
+    }
+}
+
+function toggleTimelinePlay() {
+    if (isTimelinePlaying) {
+        stopTimeline();
+    } else {
+        startTimeline();
+    }
+}
+
+function startTimeline() {
+    isTimelinePlaying = true;
+    document.getElementById('timelinePlayBtn').textContent = '⏸';
+    
+    timelineInterval = setInterval(() => {
+        if (currentTimelineIndex < timelineFields.length - 1) {
+            nextTimeline();
+        } else {
+            // 循环播放
+            currentTimelineIndex = 0;
+            document.getElementById('timelineSlider').value = currentTimelineIndex;
+            updateTimelineDisplay();
+            updateTimelineLayer();
+        }
+    }, 2000); // 每2秒切换一次
+}
+
+function stopTimeline() {
+    isTimelinePlaying = false;
+    if (timelineInterval) {
+        clearInterval(timelineInterval);
+        timelineInterval = null;
+    }
+    const playBtn = document.getElementById('timelinePlayBtn');
+    if (playBtn) {
+        playBtn.textContent = '▶';
+    }
+}
+
+function updateTimelineLayer() {
+    // 如果当前有专题图层，更新为当前时间轴字段
+    if (thematicLayers.length > 0 && timelineFields.length > 0) {
+        const currentField = timelineFields[currentTimelineIndex];
+        console.log('[Timeline] Updating layer to field:', currentField.name);
+        
+        // 获取当前选择的数据表
+        const tableName = document.getElementById('tableSelect').value;
+        if (tableName) {
+            // 移除所有专题图层
+            removeAllThematicLayers();
+            
+            // 使用当前时间轴字段重新渲染
+            document.getElementById('fieldSelect').value = currentField.name;
+            applyThematicLayer();
+        }
     }
 }
 
