@@ -672,6 +672,10 @@ async function onTableChange() {
     if (!tableName) {
         document.getElementById('fieldSelect').innerHTML = '<option value="">请先选择数据表</option>';
         document.getElementById('expressionSection').style.display = 'none';
+        // 清空多字段面板
+        const multiFieldList = document.getElementById('multiFieldList');
+        if (multiFieldList) multiFieldList.innerHTML = '';
+        if (typeof selectedMultiFields !== 'undefined') selectedMultiFields = [];
         hideTimeline();
         return;
     }
@@ -699,6 +703,10 @@ async function onTableChange() {
             }
         });
         console.log('[Debug] Fields loaded into dropdown');
+        
+        // 重置多字段选择并更新面板
+        selectedMultiFields = [];
+        updateMultiFieldPanel(fields);
         
         // 更新可用字段按钮
         updateFieldButtons(fields);
@@ -2649,6 +2657,51 @@ function initThematicMap() {
         });
         
         document.getElementById('tableSelect').addEventListener('change', onTableChange);
+        
+        // 渲染模式切换：显示/隐藏各模式对应的配置区块
+        document.querySelectorAll('input[name="renderMode"]').forEach(radio => {
+            radio.addEventListener('change', function() {
+                const mode = this.value;
+                const showSingle = (mode === 'single');
+                const showMulti = (mode === 'multi');
+                const showTimeline = (mode === 'timeline');
+                const showExpression = (mode === 'expression');
+
+                // 字段选择区
+                document.getElementById('singleFieldSection').style.display = (showSingle || showExpression) ? 'block' : 'none';
+                document.getElementById('multiFieldSection').style.display = showMulti ? 'block' : 'none';
+                // 表达式区块由 onFieldChange() 控制，此处只处理模式切换时的默认状态
+                if (!showExpression) {
+                    document.getElementById('expressionSection').style.display = 'none';
+                }
+
+                // 分级方法区
+                const singleCls = document.getElementById('singleClassifySection');
+                const multiCls = document.getElementById('multiClassifySection');
+                const timelineCls = document.getElementById('timelineClassifySection');
+                if (singleCls) singleCls.style.display = (showSingle || showExpression) ? 'block' : 'none';
+                if (multiCls) multiCls.style.display = showMulti ? 'block' : 'none';
+                if (timelineCls) timelineCls.style.display = showTimeline ? 'block' : 'none';
+
+                // 配色方案区
+                const singleColor = document.getElementById('singleColorSection');
+                const multiColor = document.getElementById('multiColorSection');
+                const timelineColor = document.getElementById('timelineColorSection');
+                if (singleColor) singleColor.style.display = (showSingle || showExpression) ? 'block' : 'none';
+                if (multiColor) multiColor.style.display = showMulti ? 'block' : 'none';
+                if (timelineColor) timelineColor.style.display = showTimeline ? 'block' : 'none';
+
+                // 多字段渲染方式区
+                const multiRender = document.getElementById('multiRenderSection');
+                if (multiRender) multiRender.style.display = showMulti ? 'block' : 'none';
+            });
+        });
+
+        // 页面初始化时，根据默认选中的渲染模式同步显示区块
+        const defaultRadio = document.querySelector('input[name="renderMode"]:checked');
+        if (defaultRadio) {
+            defaultRadio.dispatchEvent(new Event('change'));
+        }
         
         if (window.innerWidth <= 600) {
             // 手机端不自动收起面板，让用户更容易操作
