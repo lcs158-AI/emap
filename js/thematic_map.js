@@ -738,6 +738,8 @@ function detectTimelineFields(fields) {
     } else {
         hideTimeline();
     }
+    
+    return timelineFields;
 }
 
 function extractYear(str) {
