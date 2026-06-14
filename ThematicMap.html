@@ -976,7 +976,7 @@
             </select>
         </div>
         
-        <div class="section">
+        <div class="section" id="singleClassifySection">
             <div class="section-title">📊 分级方法</div>
             <select id="classifyMethod">
                 <option value="equalInterval">等间距</option>
@@ -984,7 +984,25 @@
                 <option value="naturalBreaks">自然断点</option>
             </select>
         </div>
-        
+
+        <div class="section" id="multiClassifySection" style="display: none;">
+            <div class="section-title">📊 多字段分级方法</div>
+            <select id="multiClassifyMethod">
+                <option value="proportional">比例（占总和百分比）</option>
+                <option value="normalized">归一化（相对全局最大值）</option>
+                <option value="relative">相对差异（偏离各字段均值）</option>
+            </select>
+        </div>
+
+        <div class="section" id="timelineClassifySection" style="display: none;">
+            <div class="section-title">📊 时间轴分级方法（全局统一）</div>
+            <select id="timelineClassifyMethod">
+                <option value="globalEqualInterval">全局等间距</option>
+                <option value="globalQuantile">全局分位数</option>
+                <option value="globalNaturalBreaks">全局自然断点</option>
+            </select>
+        </div>
+
         <div class="section">
             <div class="section-title">分级数量</div>
             <div style="display: flex; align-items: center; gap: 8px;">
@@ -992,7 +1010,7 @@
                 <span id="classCountValue" style="font-size: 12px; color: #666; width: 40px;">9级</span>
             </div>
         </div>
-        
+
         <div class="section">
             <div class="section-title">🎨 渲染类型</div>
             <div style="display: flex; gap: 8px;">
@@ -1006,8 +1024,8 @@
                 </label>
             </div>
         </div>
-        
-        <div class="section">
+
+        <div class="section" id="singleColorSection">
             <div class="section-title">渲染方案</div>
             <select id="colorScheme">
                 <option value="blue">蓝色渐变</option>
@@ -1019,6 +1037,34 @@
                 <option value="purple">紫色渐变</option>
                 <option value="coolwarm">冷暖色渐变</option>
                 <option value="viridis">Viridis</option>
+                <option value="size_only">单色调（大小分级）</option>
+            </select>
+        </div>
+
+        <div class="section" id="multiColorSection" style="display: none;">
+            <div class="section-title">多字段配色方案</div>
+            <select id="multiColorScheme">
+                <option value="tableau10">Tableau 10 分类色（推荐）</option>
+                <option value="okabe">Okabe-Ito 色盲友好色</option>
+                <option value="spectral">Spectral 彩虹分类</option>
+                <option value="category3">三类高对比色</option>
+                <option value="blue">蓝色渐变</option>
+                <option value="viridis">Viridis 渐变</option>
+            </select>
+        </div>
+
+        <div class="section" id="timelineColorSection" style="display: none;">
+            <div class="section-title">时间轴配色方案（各年份保持一致）</div>
+            <select id="timelineColorScheme">
+                <option value="blue">蓝色渐变</option>
+                <option value="heatmap">热力图</option>
+                <option value="greenred">绿红渐变</option>
+                <option value="orange">橙红渐变</option>
+                <option value="purple">紫色渐变</option>
+                <option value="coolwarm">冷暖色渐变</option>
+                <option value="viridis">Viridis</option>
+                <option value="gray">灰度</option>
+                <option value="rainbow">彩虹色</option>
                 <option value="size_only">单色调（大小分级）</option>
             </select>
         </div>

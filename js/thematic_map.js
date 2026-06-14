@@ -14,6 +14,7 @@ let selectedTimelineIndices = []; // 选中的字段索引列表
 let currentTimelineIndex = 0; // 当前时间轴索引
 let timelineInterval = null; // 播放定时器
 let isTimelinePlaying = false; // 是否正在播放
+let timelineGlobalBreaks = []; // 时间轴模式下全局统一的分级断点
 
 // 轴拖动相关变量
 let isDragging = false;
@@ -98,8 +99,8 @@ function updateLegendContent(legendElement, breaks, colorScale, classCount) {
     const min = breaks[0];
     const max = breaks[breaks.length - 1];
     const range = max - min;
-    
-    const colorScheme = document.getElementById('colorScheme').value;
+
+    const colorScheme = getCurrentColorScheme();
     
     if (colorScheme === 'size_only') {
         const pointSize = parseInt(document.getElementById('pointSizeSlider').value);
@@ -322,6 +323,26 @@ const colorSchemes = {
         [158, 202, 225], [107, 174, 214], [66, 146, 198],
         [33, 113, 181], [8, 81, 156], [8, 48, 107]
     ],
+    orange: [
+        [255, 247, 237], [254, 230, 206], [253, 208, 162],
+        [253, 174, 107], [253, 141, 60], [230, 85, 13],
+        [179, 70, 38], [127, 39, 4], [102, 37, 6]
+    ],
+    purple: [
+        [245, 243, 250], [231, 225, 239], [212, 197, 224],
+        [188, 158, 204], [158, 118, 183], [128, 80, 161],
+        [101, 54, 135], [65, 33, 89], [40, 11, 54]
+    ],
+    coolwarm: [
+        [44, 123, 182], [96, 165, 206], [145, 200, 222],
+        [209, 229, 240], [255, 255, 255], [253, 219, 199],
+        [244, 165, 130], [214, 96, 77], [165, 15, 21]
+    ],
+    viridis: [
+        [68, 1, 84], [59, 28, 110], [49, 52, 133], [38, 76, 149],
+        [33, 97, 152], [34, 120, 147], [39, 141, 139],
+        [58, 165, 119], [94, 188, 92], [144, 208, 58], [222, 226, 31]
+    ],
     heatmap: [
         [255, 255, 204], [255, 237, 160], [254, 217, 118],
         [254, 178, 76], [253, 141, 60], [252, 78, 42],
@@ -347,6 +368,25 @@ const colorSchemes = {
         [66, 146, 198], [66, 146, 198], [66, 146, 198],
         [66, 146, 198], [66, 146, 198], [66, 146, 198],
         [66, 146, 198], [66, 146, 198], [66, 146, 198]
+    ],
+    tableau10: [
+        [78, 121, 167], [242, 142, 43], [225, 87, 89],
+        [118, 183, 178], [153, 107, 167], [156, 158, 55],
+        [237, 139, 193], [94, 94, 94], [176, 122, 89],
+        [129, 184, 120], [191, 144, 0], [64, 120, 184]
+    ],
+    okabe: [
+        [0, 0, 0], [230, 159, 0], [86, 180, 233], [0, 158, 115],
+        [240, 228, 66], [0, 114, 178], [213, 94, 0], [204, 121, 167]
+    ],
+    spectral: [
+        [158, 1, 66], [213, 62, 79], [244, 109, 67], [253, 141, 60],
+        [254, 174, 97], [254, 224, 139], [255, 255, 191],
+        [230, 245, 152], [171, 221, 164], [102, 194, 165],
+        [50, 136, 189], [94, 79, 162]
+    ],
+    category3: [
+        [215, 48, 39], [254, 224, 139], [26, 152, 80]
     ]
 };
 
@@ -375,7 +415,7 @@ const classifyMethods = {
     naturalBreaks: function(values, classes) {
         const sorted = [...values].sort((a, b) => a - b);
         const n = sorted.length;
-        
+
         if (n <= classes) {
             const breaks = [sorted[0]];
             for (let i = 1; i < n; i++) {
@@ -386,10 +426,10 @@ const classifyMethods = {
             }
             return breaks;
         }
-        
+
         let matrix = [];
         let backtrack = [];
-        
+
         for (let i = 0; i <= n; i++) {
             matrix[i] = [];
             backtrack[i] = [];
@@ -398,18 +438,18 @@ const classifyMethods = {
                 backtrack[i][j] = 0;
             }
         }
-        
+
         matrix[0][0] = 0;
-        
+
         for (let l = 1; l <= n; l++) {
             let sum = 0;
             let sumSq = 0;
-            
+
             for (let m = 1; m <= l; m++) {
                 sum += sorted[l - m];
                 sumSq += sorted[l - m] * sorted[l - m];
                 const variance = sumSq - (sum * sum) / m;
-                
+
                 for (let k = 1; k <= classes; k++) {
                     if (matrix[l - m][k - 1] + variance < matrix[l][k]) {
                         matrix[l][k] = matrix[l - m][k - 1] + variance;
@@ -418,7 +458,7 @@ const classifyMethods = {
                 }
             }
         }
-        
+
         const breaks = [];
         let k = n;
         for (let j = classes; j > 0; j--) {
@@ -426,8 +466,69 @@ const classifyMethods = {
             k = backtrack[k][j];
         }
         breaks.unshift(sorted[0]);
-        
+
         return breaks;
+    },
+
+    proportional: function(values, classes) {
+        return [0, 20, 40, 60, 80, 100];
+    },
+
+    normalized: function(values, classes) {
+        return [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0];
+    },
+
+    relative: function(values, classes) {
+        const absValues = values.map(v => Math.abs(v)).filter(v => !isNaN(v) && isFinite(v));
+        const maxAbs = absValues.length > 0 ? Math.max(...absValues) : 1;
+        const breaks = [];
+        const step = (2 * maxAbs) / classes;
+        for (let i = 0; i <= classes; i++) {
+            breaks.push(-maxAbs + step * i);
+        }
+        return breaks;
+    },
+
+    globalEqualInterval: function(values, classes) {
+        const filtered = values.filter(v => !isNaN(v) && isFinite(v));
+        if (filtered.length === 0) return [0, 1];
+        const min = Math.min(...filtered);
+        const max = Math.max(...filtered);
+        const breaks = [];
+        const step = (max - min) / classes;
+        for (let i = 0; i <= classes; i++) {
+            breaks.push(min + step * i);
+        }
+        return breaks;
+    },
+
+    globalQuantile: function(values, classes) {
+        const filtered = values.filter(v => !isNaN(v) && isFinite(v));
+        const sorted = [...filtered].sort((a, b) => a - b);
+        if (sorted.length === 0) return [0, 1];
+        const breaks = [];
+        for (let i = 0; i <= classes; i++) {
+            const index = Math.floor(i * (sorted.length - 1) / classes);
+            breaks.push(sorted[index]);
+        }
+        return breaks;
+    },
+
+    globalNaturalBreaks: function(values, classes) {
+        const filtered = values.filter(v => !isNaN(v) && isFinite(v));
+        if (filtered.length <= classes) {
+            const sorted = [...filtered].sort((a, b) => a - b);
+            if (sorted.length === 0) return [0, 1];
+            const breaks = [sorted[0]];
+            for (let i = 1; i < sorted.length; i++) {
+                breaks.push(sorted[i]);
+            }
+            while (breaks.length <= classes) {
+                breaks.push(sorted[sorted.length - 1]);
+            }
+            return breaks;
+        }
+        return classifyMethods.naturalBreaks(filtered, classes);
     }
 };
 
@@ -896,32 +997,33 @@ function stopTimeline() {
 }
 
 function updateTimelineLayer() {
-    // 如果当前有专题图层，更新为当前时间轴字段
     if (thematicLayers.length > 0 && timelineFields.length > 0) {
         const currentField = timelineFields[currentTimelineIndex];
         console.log('[Timeline] Updating layer to field:', currentField.name);
-        
-        // 获取当前选择的数据表和级别
+
         const tableName = document.getElementById('tableSelect').value;
         const level = document.getElementById('levelSelect').value;
-        
+
         if (tableName) {
-            // 保留地图视图状态
             const view = map.getView();
             const center = view.getCenter();
             const zoom = view.getZoom();
             const rotation = view.getRotation();
-            
-            // 移除所有专题图层
+
             removeAllThematicLayers();
-            
-            // 重新创建图层
+
             loadGeoJson(level).then(geoJson => {
                 fetch(`${API_BASE_URL}/api/thematic/data/${tableName}`, {
                     headers: getAuthHeaders()
                 }).then(dataRes => dataRes.json()).then(data => {
-                    const styledFeatures = createStyledFeatures(geoJson, data.data, currentField.name, level);
-                    
+                    let styledFeatures;
+                    // 使用全局统一的 breaks（时间轴模式下保持一致的配色
+                    if (timelineGlobalBreaks && timelineGlobalBreaks.length > 0) {
+                        styledFeatures = createStyledFeaturesWithBreaks(geoJson, data.data, currentField.name, level, timelineGlobalBreaks);
+                    } else {
+                        styledFeatures = createStyledFeatures(geoJson, data.data, currentField.name, level);
+                    }
+
                     const newLayer = new ol.layer.Vector({
                         source: new ol.source.Vector({
                             features: styledFeatures
@@ -931,16 +1033,19 @@ function updateTimelineLayer() {
                         },
                         zIndex: 10
                     });
-                    
+
                     newLayer.set('layerId', 1);
+                    newLayer.set('name', `${currentField.name} (时间轴)`);
+                    newLayer.set('timelineMode', true);
                     newLayer.set('fieldName', currentField.name);
                     thematicLayers.push(newLayer);
                     map.addLayer(newLayer);
-                    
-                    // 恢复地图视图状态
+
                     view.setCenter(center);
                     view.setZoom(zoom);
                     view.setRotation(rotation);
+
+                    updateLayerList();
                 });
             });
         }
@@ -1174,25 +1279,43 @@ async function applyThematicLayer() {
                 alert('该数据表中未检测到年份字段');
                 return;
             }
-            
+
             // 默认全选所有年份字段
             selectedTimelineIndices = timelineFields.map((_, index) => index);
-            
+
+            // 收集所有年份数据，计算全局统一 breaks
+            const allYearValues = [];
+            const fieldNames = timelineFields.map(f => f.name);
+            for (const row of data.data) {
+                for (const fn of fieldNames) {
+                    const parsed = parseFloat(row[fn]);
+                    if (!isNaN(parsed)) {
+                        allYearValues.push(parsed);
+                    }
+                }
+            }
+
+            const classifyMethod = getCurrentClassifyMethod();
+            const classCount = parseInt(document.getElementById('classCount').value);
+            let globalBreaks = classifyMethods[classifyMethod](allYearValues, classCount);
+            timelineGlobalBreaks = globalBreaks;
+            currentBreaks = globalBreaks;
+
             // 保存当前数据
             currentData = { data: data.data, fieldName: timelineFields[0].name };
-            
-            // 创建第一个时间点的图层
-            console.log('[Debug] Creating timeline layer with field:', timelineFields[0].name);
-            const timelineFeatures = createStyledFeatures(geoJson, data.data, timelineFields[0].name, level);
-            
+
+            // 使用全局 breaks 创建第一个时间点的图层
+            console.log('[Debug] Creating timeline layer with global breaks:', globalBreaks);
+            const timelineFeatures = createStyledFeaturesWithBreaks(geoJson, data.data, timelineFields[0].name, level, globalBreaks);
+
             // 移除所有旧的专题图层
             if (!overlayMode) {
                 removeAllThematicLayers();
             }
-            
+
             currentLayerId++;
             const layerId = currentLayerId;
-            
+
             const newLayer = new ol.layer.Vector({
                 source: new ol.source.Vector({
                     features: timelineFeatures
@@ -1202,20 +1325,74 @@ async function applyThematicLayer() {
                 },
                 zIndex: 10 + layerId
             });
-            
+
             newLayer.set('layerId', layerId);
-            newLayer.set('fieldName', timelineFields[0].name);
+            newLayer.set('name', `${timelineFields[0].name} (时间轴)`);
+            newLayer.set('visible', true);
+            newLayer.set('timelineMode', true);
             thematicLayers.push(newLayer);
             map.addLayer(newLayer);
-            
-            // 隐藏图例面板，显示时间轴
-            hideLegendPanel();
+
+            // 显示时间轴和图例（图例使用全局 breaks）
+            updateLegend(globalBreaks, `${fieldNames[0]} - ${fieldNames[fieldNames.length - 1]} (${fieldNames.length}个时间点)`);
             showTimeline();
-            
+
+            // 更新图层列表
+            updateLayerList();
+
             document.getElementById('loadingPanel').style.display = 'none';
             return;
         }
-        
+
+        // 多字段模式处理
+        if (renderMode === 'multi') {
+            const multiRenderType = document.querySelector('input[name="multiRenderType"]:checked')?.value || 'sideBySide';
+            console.log('[Debug] Multi-field render mode:', multiRenderType, 'fields:', selectedMultiFields);
+
+            const multiFeatures = createMultiFieldFeatures(geoJson, data.data, selectedMultiFields, level, multiRenderType);
+            console.log('[Debug] Created', multiFeatures.length, 'multi-field features');
+
+            if (!overlayMode) {
+                removeAllThematicLayers();
+            }
+
+            currentLayerId++;
+            const layerId = currentLayerId;
+
+            const newLayer = new ol.layer.Vector({
+                source: new ol.source.Vector({ features: multiFeatures }),
+                zIndex: 100 + thematicLayers.length,
+                style: function(feature) { return feature.getStyle(); }
+            });
+
+            newLayer.set('id', layerId);
+            newLayer.set('name', `多字段对比: ${selectedMultiFields.slice(0, 3).join(', ')}${selectedMultiFields.length > 3 ? '...' : ''}`);
+            newLayer.set('visible', true);
+            newLayer.set('tableName', tableName);
+            newLayer.set('renderType', 'multi');
+
+            map.addLayer(newLayer);
+            thematicLayers.push(newLayer);
+
+            updateLayerList();
+
+            // 显示多字段图例
+            hideLegendPanel();
+            const legendPanel = document.getElementById('legendPanel');
+            if (legendPanel) {
+                legendPanel.innerHTML = '';
+                legendPanel.style.display = 'block';
+                const legend = createMultiFieldLegend(selectedMultiFields);
+                legendPanel.appendChild(legend);
+            }
+
+            currentBreaks = [];
+            currentData = { data: data.data, fieldName: selectedMultiFields.join(',') };
+
+            document.getElementById('loadingPanel').style.display = 'none';
+            return;
+        }
+
         // 保存当前数据
         currentData = { data: processedData, fieldName };
         
@@ -1414,30 +1591,28 @@ function updateLayerList() {
 }
 
 function createStyledFeatures(geoJson, data, fieldName, level) {
-    // 生成分段
     const values = data.map(item => {
         const val = parseFloat(item[fieldName]);
         return isNaN(val) ? null : val;
     }).filter(v => v !== null);
-    
-    const classifyMethod = document.getElementById('classifyMethod').value;
+
+    const classifyMethod = getCurrentClassifyMethod();
     const classCount = parseInt(document.getElementById('classCount').value);
-    
+
     let breaks = [];
     if (values.length > 0) {
         breaks = classifyMethods[classifyMethod](values, classCount);
         currentBreaks = breaks;
     }
-    
-    // 调用统一的带分段的创建函数
+
     return createStyledFeaturesWithBreaks(geoJson, data, fieldName, level, breaks);
 }
 
 function updateLegend(breaks, fieldName) {
     console.log('[Debug] updateLegend() called');
     console.log('[Debug] Breaks:', breaks, 'Field:', fieldName);
-    
-    const colorScheme = document.getElementById('colorScheme').value;
+
+    const colorScheme = getCurrentColorScheme();
     const colorScale = colorSchemes[colorScheme] || colorSchemes.blue;
     const classCount = breaks.length - 1;
     
@@ -1480,8 +1655,8 @@ function updateAxisLegend(breaks, colorScale, classCount) {
     const track = document.getElementById('axisTrack');
     const labelMax = document.getElementById('axisLabelMax');
     const labelMin = document.getElementById('axisLabelMin');
-    const colorScheme = document.getElementById('colorScheme').value;
-    
+    const colorScheme = getCurrentColorScheme();
+
     container.innerHTML = '';
     track.innerHTML = '';
     container.appendChild(track);
@@ -1665,8 +1840,8 @@ function endAxisDrag() {
 
 function updateAxisLegendBar(legendElement) {
     if (!legendElement) return;
-    
-    const colorScheme = document.getElementById('colorScheme').value;
+
+    const colorScheme = getCurrentColorScheme();
     const colorScale = colorSchemes[colorScheme] || colorSchemes.blue;
     const classCount = currentBreaks.length - 1;
     
@@ -1740,8 +1915,8 @@ function adjustClassCount(delta) {
     if (currentBreaks.length > 0) {
         const min = currentBreaks[0];
         const max = currentBreaks[currentBreaks.length - 1];
-        const classifyMethod = document.getElementById('classifyMethod').value;
-        
+        const classifyMethod = getCurrentClassifyMethod();
+
         // 先获取实际数据来计算合理的断点
         const validData = getAllDataValues();
         if (validData.length > 0) {
@@ -1754,8 +1929,8 @@ function adjustClassCount(delta) {
             }
             currentBreaks = values;
         }
-        
-        const colorScheme = document.getElementById('colorScheme').value;
+
+        const colorScheme = getCurrentColorScheme();
         const colorScale = colorSchemes[colorScheme] || colorSchemes.blue;
         updateAxisLegend(currentBreaks, colorScale, newCount);
         
@@ -1837,7 +2012,7 @@ async function applyThematicLayerWithBreaks(breaks, targetLayer) {
 }
 
 function createStyledFeaturesWithBreaks(geoJson, data, fieldName, level, breaks) {
-    const colorScheme = document.getElementById('colorScheme').value;
+    const colorScheme = getCurrentColorScheme();
     const colorScale = colorSchemes[colorScheme] || colorSchemes.blue;
     const opacity = parseFloat(document.getElementById('opacitySlider').value) / 100;
     const pointSize = parseInt(document.getElementById('pointSizeSlider').value);
@@ -1948,6 +2123,461 @@ function createStyledFeaturesWithBreaks(geoJson, data, fieldName, level, breaks)
     });
     
     return features;
+}
+
+function rgbToRgba(rgb, alpha) {
+    return `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${alpha})`;
+}
+
+function getMultiFieldColor(i, total) {
+    const colorScheme = getCurrentColorScheme();
+    const scheme = colorSchemes[colorScheme];
+    if (scheme && scheme.length > 0) {
+        if (colorScheme === 'tableau10' || colorScheme === 'okabe' || colorScheme === 'category3') {
+            return scheme[i % scheme.length];
+        }
+        const idx = Math.floor((i / Math.max(total - 1, 1)) * (scheme.length - 1));
+        return scheme[idx];
+    }
+    return [31, 119, 180];
+}
+
+function createPieChart(values, labels, colors, size = 60) {
+    const canvas = document.createElement('canvas');
+    canvas.width = size * 2;
+    canvas.height = size * 2;
+    const ctx = canvas.getContext('2d');
+    const cx = size;
+    const cy = size;
+    const radius = size * 0.85;
+
+    const total = values.reduce((sum, v) => sum + v, 0);
+    if (total <= 0) {
+        ctx.strokeStyle = '#999';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(2, 2, size * 2 - 4, size * 2 - 4);
+        return canvas.toDataURL();
+    }
+
+    let startAngle = -Math.PI / 2;
+    values.forEach((value, i) => {
+        const sliceAngle = (value / total) * 2 * Math.PI;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, radius, startAngle, startAngle + sliceAngle);
+        ctx.closePath();
+        const color = colors[i % colors.length];
+        ctx.fillStyle = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        startAngle += sliceAngle;
+    });
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, 2 * Math.PI);
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    return canvas.toDataURL();
+}
+
+function createStackedBar(values, labels, colors, width = 140, height = 70) {
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+
+    const total = values.reduce((sum, v) => sum + v, 0);
+    if (total <= 0) {
+        ctx.strokeStyle = '#999';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(0, 0, width, height);
+        return canvas.toDataURL();
+    }
+
+    const padding = { top: 5, bottom: 5, left: 5, right: 5 };
+    const chartWidth = width - padding.left - padding.right;
+    const chartHeight = height - padding.top - padding.bottom;
+
+    let x = padding.left;
+    values.forEach((value, i) => {
+        const barWidth = (value / total) * chartWidth;
+        const color = colors[i % colors.length];
+        ctx.fillStyle = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+        ctx.fillRect(x, padding.top, barWidth, chartHeight);
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, padding.top, barWidth, chartHeight);
+        x += barWidth;
+    });
+
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(padding.left, padding.top, chartWidth, chartHeight);
+
+    return canvas.toDataURL();
+}
+
+function createSideBySideBar(values, labels, colors, width = 160, height = 80) {
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+
+    const padding = { top: 8, bottom: 18, left: 15, right: 8 };
+    const chartWidth = width - padding.left - padding.right;
+    const chartHeight = height - padding.top - padding.bottom;
+    const maxVal = Math.max(...values, 1);
+    const barWidth = chartWidth / values.length * 0.7;
+    const gap = chartWidth / values.length * 0.3;
+
+    ctx.strokeStyle = '#999';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(padding.left, padding.top + chartHeight);
+    ctx.lineTo(padding.left + chartWidth, padding.top + chartHeight);
+    ctx.stroke();
+
+    values.forEach((value, i) => {
+        const barHeight = (value / maxVal) * chartHeight;
+        const x = padding.left + i * (barWidth + gap) + gap / 2;
+        const y = padding.top + chartHeight - barHeight;
+        const color = colors[i % colors.length];
+        ctx.fillStyle = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+        ctx.fillRect(x, y, barWidth, barHeight);
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, barWidth, barHeight);
+    });
+
+    return canvas.toDataURL();
+}
+
+function createGroupedBar(fieldValues, fieldNames, rowLabels, colors, width = 180, height = 100) {
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+
+    const padding = { top: 8, bottom: 18, left: 15, right: 8 };
+    const chartWidth = width - padding.left - padding.right;
+    const chartHeight = height - padding.top - padding.bottom;
+
+    const numGroups = fieldValues.length;
+    const numFields = fieldNames.length;
+    const groupWidth = chartWidth / numGroups;
+    const barWidth = groupWidth / numFields * 0.7;
+
+    let maxVal = 1;
+    for (const row of fieldValues) {
+        for (const v of row) {
+            if (v > maxVal) maxVal = v;
+        }
+    }
+
+    ctx.strokeStyle = '#999';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(padding.left, padding.top + chartHeight);
+    ctx.lineTo(padding.left + chartWidth, padding.top + chartHeight);
+    ctx.stroke();
+
+    fieldValues.forEach((rowVals, rowIdx) => {
+        rowVals.forEach((value, fieldIdx) => {
+            const barHeight = (value / maxVal) * chartHeight;
+            const x = padding.left + rowIdx * groupWidth + fieldIdx * barWidth + (groupWidth - barWidth * numFields) / 2;
+            const y = padding.top + chartHeight - barHeight;
+            const color = colors[fieldIdx % colors.length];
+            ctx.fillStyle = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+            ctx.fillRect(x, y, barWidth, barHeight);
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(x, y, barWidth, barHeight);
+        });
+    });
+
+    return canvas.toDataURL();
+}
+
+function createLineChart(values, labels, colors, width = 160, height = 80) {
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+
+    const padding = { top: 8, bottom: 18, left: 15, right: 8 };
+    const chartWidth = width - padding.left - padding.right;
+    const chartHeight = height - padding.top - padding.bottom;
+
+    const maxVal = Math.max(...values, 1);
+    const minVal = Math.min(...values, 0);
+    const range = Math.max(maxVal - minVal, 1);
+
+    ctx.strokeStyle = '#999';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(padding.left, padding.top + chartHeight);
+    ctx.lineTo(padding.left + chartWidth, padding.top + chartHeight);
+    ctx.stroke();
+
+    if (values.length > 1) {
+        ctx.beginPath();
+        values.forEach((value, i) => {
+            const x = padding.left + (i / (values.length - 1)) * chartWidth;
+            const y = padding.top + chartHeight - ((value - minVal) / range) * chartHeight;
+            if (i === 0) {
+                ctx.moveTo(x, y);
+            } else {
+                ctx.lineTo(x, y);
+            }
+        });
+        const color = colors[0] || [31, 119, 180];
+        ctx.strokeStyle = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        values.forEach((value, i) => {
+            const x = padding.left + (i / (values.length - 1)) * chartWidth;
+            const y = padding.top + chartHeight - ((value - minVal) / range) * chartHeight;
+            ctx.beginPath();
+            ctx.arc(x, y, 3, 0, 2 * Math.PI);
+            ctx.fillStyle = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+            ctx.fill();
+        });
+    }
+
+    return canvas.toDataURL();
+}
+
+function createRadarChart(values, labels, colors, size = 80) {
+    const canvas = document.createElement('canvas');
+    canvas.width = size * 2;
+    canvas.height = size * 2;
+    const ctx = canvas.getContext('2d');
+
+    const cx = size;
+    const cy = size;
+    const radius = size * 0.75;
+    const numAxes = values.length;
+
+    if (numAxes < 3) {
+        ctx.strokeStyle = '#999';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(2, 2, size * 2 - 4, size * 2 - 4);
+        return canvas.toDataURL();
+    }
+
+    const maxVal = Math.max(...values, 1);
+
+    for (let level = 1; level <= 4; level++) {
+        const r = (radius * level) / 4;
+        ctx.beginPath();
+        for (let i = 0; i < numAxes; i++) {
+            const angle = (Math.PI * 2 * i) / numAxes - Math.PI / 2;
+            const x = cx + r * Math.cos(angle);
+            const y = cy + r * Math.sin(angle);
+            if (i === 0) {
+                ctx.moveTo(x, y);
+            } else {
+                ctx.lineTo(x, y);
+            }
+        }
+        ctx.closePath();
+        ctx.strokeStyle = '#ddd';
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+    }
+
+    for (let i = 0; i < numAxes; i++) {
+        const angle = (Math.PI * 2 * i) / numAxes - Math.PI / 2;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(cx + radius * Math.cos(angle), cy + radius * Math.sin(angle));
+        ctx.strokeStyle = '#bbb';
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+    }
+
+    ctx.beginPath();
+    const color = colors[0] || [31, 119, 180];
+    for (let i = 0; i < numAxes; i++) {
+        const angle = (Math.PI * 2 * i) / numAxes - Math.PI / 2;
+        const r = (values[i] / maxVal) * radius;
+        const x = cx + r * Math.cos(angle);
+        const y = cy + r * Math.sin(angle);
+        if (i === 0) {
+            ctx.moveTo(x, y);
+        } else {
+            ctx.lineTo(x, y);
+        }
+    }
+    ctx.closePath();
+    ctx.fillStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]}, 0.45)`;
+    ctx.fill();
+    ctx.strokeStyle = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    return canvas.toDataURL();
+}
+
+function computeMultiFieldValues(dataItems, fieldNames, classifyMethod) {
+    const results = [];
+    for (const item of dataItems) {
+        const values = [];
+        let valid = true;
+        for (const fn of fieldNames) {
+            const parsed = parseFloat(item[fn]);
+            if (isNaN(parsed)) {
+                values.push(0);
+                valid = false;
+            } else {
+                values.push(parsed);
+            }
+        }
+        results.push({
+            values: values,
+            labels: fieldNames,
+            valid: valid
+        });
+    }
+    return results;
+}
+
+function createMultiFieldFeatures(geoJson, data, fieldNames, level, renderType) {
+    const multiColors = [];
+    for (let i = 0; i < fieldNames.length; i++) {
+        multiColors.push(getMultiFieldColor(i, fieldNames.length));
+    }
+
+    const features = [];
+
+    geoJson.features.forEach((feature) => {
+        let name;
+        if (level === 'province') {
+            name = feature.properties.full_name;
+        } else if (level === 'city') {
+            name = feature.properties.name;
+        } else {
+            name = feature.properties.full_name || feature.properties.name;
+        }
+
+        const dataItem = findDataItem(data, name, level, feature.properties.iso_a3);
+        if (!dataItem) return;
+
+        const values = [];
+        for (const fn of fieldNames) {
+            const parsed = parseFloat(dataItem[fn]);
+            values.push(isNaN(parsed) ? 0 : parsed);
+        }
+
+        const geometry = feature.geometry;
+        let centerLonLat;
+        if (geometry.type === 'Polygon') {
+            const coords = geometry.coordinates[0];
+            let sumLon = 0, sumLat = 0;
+            for (const c of coords) {
+                sumLon += c[0];
+                sumLat += c[1];
+            }
+            centerLonLat = [sumLon / coords.length, sumLat / coords.length];
+        } else if (geometry.type === 'MultiPolygon') {
+            const coords = geometry.coordinates[0][0];
+            let sumLon = 0, sumLat = 0;
+            for (const c of coords) {
+                sumLon += c[0];
+                sumLat += c[1];
+            }
+            centerLonLat = [sumLon / coords.length, sumLat / coords.length];
+        } else {
+            centerLonLat = [feature.properties.longitude || 0, feature.properties.latitude || 0];
+        }
+
+        let dataUrl;
+        let iconSize;
+
+        switch(renderType) {
+            case 'pie':
+                dataUrl = createPieChart(values, fieldNames, multiColors, 50);
+                iconSize = [100, 100];
+                break;
+            case 'stacked':
+                dataUrl = createStackedBar(values, fieldNames, multiColors, 120, 60);
+                iconSize = [120, 60];
+                break;
+            case 'line':
+                dataUrl = createLineChart(values, fieldNames, multiColors, 140, 70);
+                iconSize = [140, 70];
+                break;
+            case 'radar':
+                dataUrl = createRadarChart(values, fieldNames, multiColors, 60);
+                iconSize = [120, 120];
+                break;
+            case 'groupedBar':
+                dataUrl = createSideBySideBar(values, fieldNames, multiColors, 160, 80);
+                iconSize = [160, 80];
+                break;
+            case 'sideBySide':
+            default:
+                dataUrl = createSideBySideBar(values, fieldNames, multiColors, 140, 70);
+                iconSize = [140, 70];
+                break;
+        }
+
+        const centerCoord = ol.proj.fromLonLat(centerLonLat);
+        const pointGeom = new ol.geom.Point(centerCoord);
+        const olFeature = new ol.Feature({ geometry: pointGeom });
+
+        olFeature.setStyle(new ol.style.Style({
+            image: new ol.style.Icon({
+                src: dataUrl,
+                scale: 1,
+                opacity: 0.95
+            })
+        }));
+
+        olFeature.set('name', name);
+        olFeature.set('fieldNames', fieldNames.join(', '));
+        olFeature.set('values', values.join(', '));
+        features.push(olFeature);
+    });
+
+    return features;
+}
+
+function createMultiFieldLegend(fieldNames) {
+    const container = document.createElement('div');
+    container.style.cssText = 'padding: 8px; background: rgba(255,255,255,0.95); border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.15);';
+
+    const title = document.createElement('div');
+    title.style.cssText = 'font-weight: 600; font-size: 13px; margin-bottom: 6px; color: #333;';
+    title.textContent = `多字段对比 (${fieldNames.length}个字段)`;
+    container.appendChild(title);
+
+    const colorScheme = getCurrentColorScheme();
+    const scheme = colorSchemes[colorScheme];
+
+    fieldNames.forEach((fn, i) => {
+        const color = getMultiFieldColor(i, fieldNames.length);
+        const row = document.createElement('div');
+        row.style.cssText = 'display: flex; align-items: center; gap: 6px; font-size: 12px; margin: 2px 0;';
+
+        const colorBox = document.createElement('div');
+        colorBox.style.cssText = `width: 14px; height: 14px; background: rgb(${color[0]}, ${color[1]}, ${color[2]}); border: 1px solid #999; border-radius: 2px;`;
+
+        const label = document.createElement('span');
+        label.style.cssText = 'color: #555;';
+        label.textContent = fn;
+
+        row.appendChild(colorBox);
+        row.appendChild(label);
+        container.appendChild(row);
+    });
+
+    return container;
 }
 
 function findDataItem(data, name, level, isoCode) {
@@ -2277,32 +2907,68 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function onRenderModeChange() {
     const mode = document.querySelector('input[name="renderMode"]:checked').value;
-    
-    // 隐藏所有字段选择区域
+
     document.getElementById('singleFieldSection').style.display = 'none';
     document.getElementById('multiFieldSection').style.display = 'none';
     document.getElementById('expressionSection').style.display = 'none';
     document.getElementById('multiRenderSection').style.display = 'none';
-    
-    // 根据模式显示相应区域
+
+    document.getElementById('singleClassifySection').style.display = 'none';
+    document.getElementById('multiClassifySection').style.display = 'none';
+    document.getElementById('timelineClassifySection').style.display = 'none';
+
+    document.getElementById('singleColorSection').style.display = 'none';
+    document.getElementById('multiColorSection').style.display = 'none';
+    document.getElementById('timelineColorSection').style.display = 'none';
+
     switch(mode) {
         case 'single':
             document.getElementById('singleFieldSection').style.display = 'block';
+            document.getElementById('singleClassifySection').style.display = 'block';
+            document.getElementById('singleColorSection').style.display = 'block';
             hideTimeline();
             break;
         case 'expression':
             document.getElementById('expressionSection').style.display = 'block';
+            document.getElementById('singleClassifySection').style.display = 'block';
+            document.getElementById('singleColorSection').style.display = 'block';
             hideTimeline();
             break;
         case 'multi':
             document.getElementById('multiFieldSection').style.display = 'block';
             document.getElementById('multiRenderSection').style.display = 'block';
+            document.getElementById('multiClassifySection').style.display = 'block';
+            document.getElementById('multiColorSection').style.display = 'block';
             hideTimeline();
             break;
         case 'timeline':
-            document.getElementById('singleFieldSection').style.display = 'none';
-            // 时间轴模式会在应用图层时显示时间轴
+            document.getElementById('timelineClassifySection').style.display = 'block';
+            document.getElementById('timelineColorSection').style.display = 'block';
             break;
+    }
+}
+
+function getCurrentClassifyMethod() {
+    const mode = document.querySelector('input[name="renderMode"]:checked').value;
+    switch(mode) {
+        case 'multi':
+            return document.getElementById('multiClassifyMethod').value;
+        case 'timeline':
+            return document.getElementById('timelineClassifyMethod').value;
+        default:
+            return document.getElementById('classifyMethod').value;
+    }
+}
+
+function getCurrentColorScheme() {
+    const mode = document.querySelector('input[name="renderMode"]:checked').value;
+    switch(mode) {
+        case 'multi':
+            return document.getElementById('multiColorScheme').value;
+        case 'timeline':
+            return document.getElementById('timelineColorScheme').value;
+        default:
+            return document.getElementById('colorScheme').value;
     }
 }
 
@@ -2416,7 +3082,7 @@ function updateMapStyles(targetLayer) {
     if (!targetLayer) return;
     
     const renderType = document.querySelector('input[name="renderType"]:checked').value;
-    const colorScheme = document.getElementById('colorScheme').value;
+    const colorScheme = getCurrentColorScheme();
     const colorScale = colorSchemes[colorScheme] || colorSchemes.blue;
     const opacity = parseFloat(document.getElementById('opacitySlider').value) / 100;
     const pointSize = parseInt(document.getElementById('pointSizeSlider').value);
