@@ -1282,11 +1282,32 @@ async function applyThematicLayer() {
         
         // 时间轴模式处理
         if (renderMode === 'timeline') {
-            // 检测年份字段
-            timelineFields = detectTimelineFields(data.data);
-            if (timelineFields.length === 0) {
+            // 复用 onTableChange() 已检测到的年份字段（字段元数据有 type/label 信息）
+            // 如果为空，则从数据行字段名中检测（兼容直接打开页面的情况）
+            if (!timelineFields || timelineFields.length === 0) {
+                const yearRegex = /(\d{4})/;
+                const firstRow = data.data[0] || {};
+                const fieldCandidates = Object.keys(firstRow)
+                    .filter(key => yearRegex.test(key))
+                    .filter(key => {
+                        const sample = data.data.find(row => row[key] != null);
+                        return sample && !isNaN(parseFloat(sample[key]));
+                    })
+                    .sort((a, b) => {
+                        const yearA = parseInt(a.match(yearRegex)[1]);
+                        const yearB = parseInt(b.match(yearRegex)[1]);
+                        return yearA - yearB;
+                    })
+                    .map(name => ({ name, type: 'REAL', label: name }));
+                timelineFields = fieldCandidates;
+                if (timelineFields.length > 0) {
+                    showTimeline();
+                }
+            }
+
+            if (!timelineFields || timelineFields.length === 0) {
                 document.getElementById('loadingPanel').style.display = 'none';
-                alert('该数据表中未检测到年份字段');
+                alert('该数据表中未检测到年份字段（字段名需包含4位年份，如 GDP2020、产量_2020）');
                 return;
             }
 
