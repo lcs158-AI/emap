@@ -15,6 +15,9 @@ let currentTimelineIndex = 0; // 当前时间轴索引
 let timelineInterval = null; // 播放定时器
 let isTimelinePlaying = false; // 是否正在播放
 let timelineGlobalBreaks = []; // 时间轴模式下全局统一的分级断点
+let timelineDataCache = null; // 时间轴模式下所有年份的缓存数据
+let timelineGeoJsonCache = null; // 时间轴模式下GeoJSON缓存
+let timelineLayer = null; // 时间轴模式下的单一图层（用于更新而非重建）
 
 // 轴拖动相关变量
 let isDragging = false;
@@ -1007,59 +1010,83 @@ function stopTimeline() {
 }
 
 function updateTimelineLayer() {
-    if (thematicLayers.length > 0 && timelineFields.length > 0) {
-        const currentField = timelineFields[currentTimelineIndex];
-        console.log('[Timeline] Updating layer to field:', currentField.name);
+    if (!timelineLayer || timelineFields.length === 0) return;
 
-        const tableName = document.getElementById('tableSelect').value;
-        const level = document.getElementById('levelSelect').value;
+    const currentField = timelineFields[currentTimelineIndex];
+    console.log('[Timeline] Updating layer to field:', currentField.name);
 
-        if (tableName) {
-            const view = map.getView();
-            const center = view.getCenter();
-            const zoom = view.getZoom();
-            const rotation = view.getRotation();
+    // 使用缓存的数据和 GeoJSON
+    const data = timelineDataCache;
+    const geoJson = timelineGeoJsonCache;
+    const level = getCurrentLevel();
 
-            removeAllThematicLayers();
+    if (!data || !geoJson) {
+        console.error('[Timeline] No cached data available');
+        return;
+    }
 
-            loadGeoJson(level).then(geoJson => {
-                fetch(`${API_BASE_URL}/api/thematic/data/${tableName}`, {
-                    headers: getAuthHeaders()
-                }).then(dataRes => dataRes.json()).then(data => {
-                    let styledFeatures;
-                    // 使用全局统一的 breaks（时间轴模式下保持一致的配色
-                    if (timelineGlobalBreaks && timelineGlobalBreaks.length > 0) {
-                        styledFeatures = createStyledFeaturesWithBreaks(geoJson, data.data, currentField.name, level, timelineGlobalBreaks);
-                    } else {
-                        styledFeatures = createStyledFeatures(geoJson, data.data, currentField.name, level);
-                    }
+    // 获取地图视图状态
+    const view = map.getView();
+    const center = view.getCenter();
+    const zoom = view.getZoom();
+    const rotation = view.getRotation();
 
-                    const newLayer = new ol.layer.Vector({
-                        source: new ol.source.Vector({
-                            features: styledFeatures
-                        }),
-                        style: function(feature) {
-                            return feature.getStyle();
-                        },
-                        zIndex: 10
-                    });
+    // 淡出当前图层
+    animateOpacity(timelineLayer, 1, 0, 150, () => {
+        // 淡出完成后，更新图层数据并淡入
+        if (timelineGlobalBreaks && timelineGlobalBreaks.length > 0) {
+            const styledFeatures = createStyledFeaturesWithBreaks(geoJson, data, currentField.name, level, timelineGlobalBreaks);
+            timelineLayer.setSource(new ol.source.Vector({ features: styledFeatures }));
+        } else {
+            const styledFeatures = createStyledFeatures(geoJson, data, currentField.name, level);
+            timelineLayer.setSource(new ol.source.Vector({ features: styledFeatures }));
+        }
 
-                    newLayer.set('layerId', 1);
-                    newLayer.set('name', `${currentField.name} (时间轴)`);
-                    newLayer.set('timelineMode', true);
-                    newLayer.set('fieldName', currentField.name);
-                    thematicLayers.push(newLayer);
-                    map.addLayer(newLayer);
+        // 恢复视图状态
+        view.setCenter(center);
+        view.setZoom(zoom);
+        view.setRotation(rotation);
 
-                    view.setCenter(center);
-                    view.setZoom(zoom);
-                    view.setRotation(rotation);
+        // 淡入新图层
+        animateOpacity(timelineLayer, 0, 1, 150);
+    });
 
-                    updateLayerList();
-                });
-            });
+    updateLayerList();
+}
+
+// ========== 淡入淡出动画函数 ==========
+function animateOpacity(layer, from, to, duration, callback) {
+    if (!layer) {
+        if (callback) callback();
+        return;
+    }
+
+    const startTime = performance.now();
+    const diff = to - from;
+
+    function update(currentTime) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+
+        // 使用 easeOut 缓动函数使动画更平滑
+        const easeProgress = 1 - Math.pow(1 - progress, 3);
+        const currentOpacity = from + (diff * easeProgress);
+
+        layer.setOpacity(currentOpacity);
+
+        if (progress < 1) {
+            requestAnimationFrame(update);
+        } else {
+            if (callback) callback();
         }
     }
+
+    requestAnimationFrame(update);
+}
+
+// ========== 获取当前级别 ==========
+function getCurrentLevel() {
+    return document.getElementById('levelSelect')?.value || 'country';
 }
 
 function updateFieldButtons(fields) {
@@ -1313,10 +1340,14 @@ async function applyThematicLayer() {
 
             // 默认全选所有年份字段
             selectedTimelineIndices = timelineFields.map((_, index) => index);
-
-            // 收集所有年份数据，计算全局统一 breaks
-            const allYearValues = [];
             const fieldNames = timelineFields.map(f => f.name);
+
+            // ========== 优化1: 缓存所有数据和 GeoJSON ==========
+            timelineDataCache = data.data;
+            timelineGeoJsonCache = geoJson;
+
+            // ========== 优化2: 基于所有年份计算全局断点 ==========
+            const allYearValues = [];
             for (const row of data.data) {
                 for (const fn of fieldNames) {
                     const parsed = parseFloat(row[fn]);
@@ -1335,34 +1366,41 @@ async function applyThematicLayer() {
             // 保存当前数据
             currentData = { data: data.data, fieldName: timelineFields[0].name };
 
-            // 使用全局 breaks 创建第一个时间点的图层
-            console.log('[Debug] Creating timeline layer with global breaks:', globalBreaks);
-            const timelineFeatures = createStyledFeaturesWithBreaks(geoJson, data.data, timelineFields[0].name, level, globalBreaks);
-
             // 移除所有旧的专题图层
             if (!overlayMode) {
                 removeAllThematicLayers();
             }
 
+            // ========== 优化3: 创建单一图层用于后续更新 ==========
             currentLayerId++;
             const layerId = currentLayerId;
 
-            const newLayer = new ol.layer.Vector({
+            // 使用全局 breaks 创建第一个时间点的要素
+            const timelineFeatures = createStyledFeaturesWithBreaks(geoJson, data.data, timelineFields[0].name, level, globalBreaks);
+
+            timelineLayer = new ol.layer.Vector({
                 source: new ol.source.Vector({
                     features: timelineFeatures
                 }),
                 style: function(feature) {
                     return feature.getStyle();
                 },
-                zIndex: 10 + layerId
+                opacity: 0, // 初始透明度为0，用于淡入动画
+                zIndex: 10
             });
 
-            newLayer.set('layerId', layerId);
-            newLayer.set('name', `${timelineFields[0].name} (时间轴)`);
-            newLayer.set('visible', true);
-            newLayer.set('timelineMode', true);
-            thematicLayers.push(newLayer);
-            map.addLayer(newLayer);
+            timelineLayer.set('layerId', layerId);
+            timelineLayer.set('name', `${timelineFields[0].name} (时间轴)`);
+            timelineLayer.set('visible', true);
+            timelineLayer.set('timelineMode', true);
+            
+            map.addLayer(timelineLayer);
+
+            // ========== 优化4: 淡入动画 ==========
+            // 延迟设置透明度，使用 setTimeout 确保图层已添加
+            setTimeout(() => {
+                animateOpacity(timelineLayer, 0, 1, 300); // 300ms 淡入
+            }, 50);
 
             // 显示时间轴和图例（图例使用全局 breaks）
             updateLegend(globalBreaks, `${fieldNames[0]} - ${fieldNames[fieldNames.length - 1]} (${fieldNames.length}个时间点)`);
