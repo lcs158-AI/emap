@@ -200,7 +200,7 @@ function createFootballStyle(feature) {
     if (!renderedCountries.has(iso)) {
         renderedCountries.add(iso);
         
-        // 只显示国旗
+        // 国旗显示
         style.setText(new ol.style.Text({
             text: flag,
             font: '28px Arial',
@@ -261,10 +261,14 @@ function createCountryListPanel() {
 
 /**
  * 创建信息弹出窗口
+ * @param {Object} countryData - 国家数据
+ * @param {string} iso - ISO代码
+ * @param {string} displayName - 显示名称（可选，用于地区名称如英格兰/苏格兰）
  */
-function createInfoPopup(countryData, iso) {
+function createInfoPopup(countryData, iso, displayName) {
     const flag = FLAG_MAP[iso] || '🏳️';
-    const name = COUNTRY_NAMES[iso] || countryData['国家名称'] || iso;
+    // 优先使用传入的显示名称，否则使用国家名称映射
+    const name = displayName || COUNTRY_NAMES[iso] || countryData['国家名称'] || iso;
     
     return `
         <div style="
@@ -279,7 +283,7 @@ function createInfoPopup(countryData, iso) {
             <div style="padding: 20px; text-align: center; background: rgba(255,255,255,0.1); border-radius: 12px 12px 0 0;">
                 <div style="font-size: 48px; margin-bottom: 10px;">${flag}</div>
                 <h2 style="margin: 0; font-size: 24px; font-weight: bold;">${name}</h2>
-                <div style="font-size: 14px; opacity: 0.8; margin-top: 5px;">2026世界杯参赛国</div>
+                <div style="font-size: 14px; opacity: 0.8; margin-top: 5px;">2026世界杯参赛地区</div>
             </div>
             
             <div style="padding: 15px; background: rgba(255,255,255,0.95); color: #333; border-radius: 0 0 12px 12px;">
@@ -372,7 +376,21 @@ function flyToCountry(iso, displayName) {
             map.getView().animate({
                 center: center,
                 zoom: 4,
-                duration: 1500
+                duration: 1500,
+                complete: () => {
+                    // 动画完成后显示弹窗
+                    const countryData = worldCupData[mappedIso] || {};
+                    const popupElement = worldCupOverlay.getElement();
+                    popupElement.innerHTML = createInfoPopup(countryData, mappedIso, displayName);
+                    popupElement.style.cursor = 'pointer';
+                    
+                    popupElement.onclick = (e) => {
+                        e.stopPropagation();
+                        worldCupOverlay.setPosition(undefined);
+                    };
+                    
+                    worldCupOverlay.setPosition(center);
+                }
             });
             
             // 高亮显示
