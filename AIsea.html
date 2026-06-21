@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes">
-    <title>跬步地图2.921</title>
+    <title>跬步地图2.93</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.5.2/ol.css">
     <script src="/js/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
@@ -39,6 +39,7 @@
         <button id="toggleLayerPanelBtn" class="action-btn" data-title="图层管理">🗂️</button>
         <button id="loadGeoJsonBtn" class="action-btn" data-title="加载 GeoJSON">📁</button>
         <button id="thematicMapBtn" class="action-btn" data-title="专题地图" onclick="window.location.href='ThematicMap.html'">📊</button>
+        <button id="worldCupBtn" class="action-btn" data-title="2026世界杯">⚽</button>
     </div>
     <style>
         /* Fix: Avoid overflow: visible on img, video, canvas for shared element transitions */
@@ -301,6 +302,9 @@
     <!-- 拍照视域功能脚本 -->
     <script src="js/camera_footprint.js"></script>
     
+    <!-- 世界杯功能脚本 -->
+    <script src="js/worldcup.js"></script>
+    
     <script>
         // --- 侧边栏控制逻辑 ---
         const sidebar = document.getElementById('uploadSidebar');
@@ -342,6 +346,21 @@
             // 初始化拍照视域功能
             if (typeof initCameraFootprint === 'function') {
                 initCameraFootprint();
+            }
+            
+            // 初始化世界杯功能
+            if (typeof initWorldCup === 'function') {
+                initWorldCup();
+            }
+            
+            // 世界杯按钮点击事件
+            const worldCupBtn = document.getElementById('worldCupBtn');
+            if (worldCupBtn) {
+                worldCupBtn.addEventListener('click', () => {
+                    if (typeof toggleWorldCupLayer === 'function') {
+                        toggleWorldCupLayer();
+                    }
+                });
             }
         });
     </script>
