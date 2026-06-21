@@ -136,13 +136,15 @@ async function loadWorldCupData() {
         for (let i = 1; i < lines.length; i++) {
             if (!lines[i].trim()) continue;
             const values = lines[i].split(',');
-            const iso = values[1];
+            const iso = values[1] ? values[1].trim() : '';
+            if (!iso) continue;
             const countryData = {};
             headers.forEach((header, index) => {
                 countryData[header.trim()] = values[index] ? values[index].trim() : '';
             });
             data[iso] = countryData;
         }
+        console.log('世界杯数据加载成功，共', Object.keys(data).length, '个国家');
         return data;
     } catch (error) {
         console.error('加载世界杯数据失败:', error);
@@ -267,8 +269,13 @@ function createCountryListPanel() {
  */
 function createInfoPopup(countryData, iso, displayName) {
     const flag = FLAG_MAP[iso] || '🏳️';
-    // 优先使用传入的显示名称，否则使用国家名称映射
-    const name = displayName || COUNTRY_NAMES[iso] || countryData['国家名称'] || iso;
+    const name = displayName || COUNTRY_NAMES[iso] || (countryData ? countryData['国家名称'] : '') || iso;
+    
+    const getValue = (key) => {
+        if (!countryData) return '--';
+        const val = countryData[key];
+        return val && val !== '' && val !== 'undefined' ? val : '--';
+    };
     
     return `
         <div style="
@@ -288,24 +295,24 @@ function createInfoPopup(countryData, iso, displayName) {
             
             <div style="padding: 15px; background: rgba(255,255,255,0.95); color: #333; border-radius: 0 0 12px 12px;">
                 ${createDataSection('📊 基本数据', [
-                    ['国土面积', `${countryData['国土面积(km²)']} km²`],
-                    ['人口(2024)', formatNumber(countryData['人口(2024)'])],
-                    ['最新GDP', `${formatNumber(countryData['最新GDP(百万美元)'])} 百万美元`],
-                    ['人均GDP', `${formatNumber(countryData['人均GDP(美元)'])} 美元`]
+                    ['国土面积', `${getValue('国土面积(km²)')} km²`],
+                    ['人口(2024)', formatNumber(getValue('人口(2024)'))],
+                    ['最新GDP', `${formatNumber(getValue('最新GDP(百万美元)'))} 百万美元`],
+                    ['人均GDP', `${formatNumber(getValue('人均GDP(美元)'))} 美元`]
                 ])}
                 
                 ${createDataSection('🏭 经济产业', [
-                    ['主要产业', countryData['主要产业']]
+                    ['主要产业', getValue('主要产业')]
                 ])}
                 
                 ${createDataSection('⚽ 足球数据', [
-                    ['足球人口', formatNumber(countryData['足球人口'])],
-                    ['世界杯夺冠', `${countryData['世界杯夺冠次数']} 次`],
-                    ['本洲杯赛夺冠', `${countryData['本洲杯赛夺冠次数']} 次`]
+                    ['足球人口', formatNumber(getValue('足球人口'))],
+                    ['世界杯夺冠', `${getValue('世界杯夺冠次数')} 次`],
+                    ['本洲杯赛夺冠', `${getValue('本洲杯赛夺冠次数')} 次`]
                 ])}
                 
                 ${createDataSection('🇨🇳 对华贸易', [
-                    ['与中国贸易量', `${formatNumber(countryData['与中国贸易量(百万美元)'])} 百万美元`]
+                    ['与中国贸易量', `${formatNumber(getValue('与中国贸易量(百万美元)'))} 百万美元`]
                 ])}
             </div>
         </div>
@@ -470,20 +477,18 @@ async function initWorldCup() {
     });
     map.addOverlay(worldCupOverlay);
     
-    // 点击事件 - 阻止事件冒泡，防止"要素"窗口弹出
-    map.on('click', (evt) => {
-        if (!worldCupLayer.getVisible()) return;
+    // 点击事件 - 使用图层点击事件，防止"要素"窗口弹出
+    worldCupLayer.on('click', (evt) => {
+        // 阻止事件传播到map级别，防止map.js中的点击处理程序触发"要素"窗口
+        evt.stopPropagation ? evt.stopPropagation() : (evt.propagationStopped = true);
         
-        const feature = map.forEachFeatureAtPixel(evt.pixel, (f) => f, {
-            layerFilter: (layer) => layer === worldCupLayer
-        });
-        
+        const feature = evt.feature;
         if (feature) {
-            // 阻止事件继续传播，防止其他点击处理程序触发"要素"窗口
-            evt.stopPropagation();
-            
             const iso = feature.get('iso_a3');
+            console.log('点击国家:', iso);
+            
             const countryData = worldCupData[iso] || {};
+            console.log('国家数据:', countryData);
             
             const popupElement = worldCupOverlay.getElement();
             popupElement.innerHTML = createInfoPopup(countryData, iso);
@@ -494,9 +499,9 @@ async function initWorldCup() {
                 worldCupOverlay.setPosition(undefined);
             };
             
-            worldCupOverlay.setPosition(evt.coordinate);
-        } else {
-            worldCupOverlay.setPosition(undefined);
+            const geometry = feature.getGeometry();
+            const center = geometry.getExtent ? ol.extent.getCenter(geometry.getExtent()) : geometry.getCoordinates();
+            worldCupOverlay.setPosition(center);
         }
     });
     
