@@ -14,78 +14,79 @@ const WORLD_CUP_COUNTRIES = [
     'MAR', 'TUN', 'EGY', 'DZA', 'GHA', 'CPV', 'ZAF', 'CIV', 'SEN', 'COD'  // 非洲
 ];
 
-// 世界杯分组数据（包含英格兰和苏格兰）
+// 2026世界杯分组数据（根据实际抽签结果）
 const WORLD_CUP_GROUPS = [
-    { name: '东道主', countries: [
-        { iso: 'USA', name: '美国', flag: '🇺🇸' },
-        { iso: 'CAN', name: '加拿大', flag: '🇨🇦' },
-        { iso: 'MEX', name: '墨西哥', flag: '🇲🇽' }
-    ]},
     { name: 'A组', countries: [
-        { iso: 'ARG', name: '阿根廷', flag: '🇦🇷' },
-        { iso: 'GBR', name: '英格兰', flag: '🏴', subName: '英格兰' },
-        { iso: 'GBR2', name: '苏格兰', flag: '🏴', subName: '苏格兰' },
-        { iso: 'NZL', name: '新西兰', flag: '🇳🇿' }
+        { iso: 'USA', name: '美国', flag: '🇺🇸' },
+        { iso: 'NET', name: '荷兰', flag: '🇳🇱' },
+        { iso: 'KOR', name: '韩国', flag: '🇰🇷' },
+        { iso: 'BRA', name: '巴西', flag: '🇧🇷' }
     ]},
     { name: 'B组', countries: [
-        { iso: 'DEU', name: '德国', flag: '🇩🇪' },
-        { iso: 'JPN', name: '日本', flag: '🇯🇵' },
-        { iso: 'AUS', name: '澳大利亚', flag: '🇦🇺' },
-        { iso: 'ZAF', name: '南非', flag: '🇿🇦' }
+        { iso: 'MEX', name: '墨西哥', flag: '🇲🇽' },
+        { iso: 'FRA', name: '法国', flag: '🇫🇷' },
+        { iso: 'ECU', name: '厄瓜多尔', flag: '🇪🇨' },
+        { iso: 'BEL', name: '比利时', flag: '🇧🇪' }
     ]},
     { name: 'C组', countries: [
-        { iso: 'BRA', name: '巴西', flag: '🇧🇷' },
-        { iso: 'MAR', name: '摩洛哥', flag: '🇲🇦' },
-        { iso: 'HTI', name: '海地', flag: '🇭🇹' },
-        { iso: 'IRQ', name: '伊拉克', flag: '🇮🇶' }
+        { iso: 'CAN', name: '加拿大', flag: '🇨🇦' },
+        { iso: 'GER', name: '德国', flag: '🇩🇪' },
+        { iso: 'JPN', name: '日本', flag: '🇯🇵' },
+        { iso: 'MAR', name: '摩洛哥', flag: '🇲🇦' }
     ]},
     { name: 'D组', countries: [
-        { iso: 'FRA', name: '法国', flag: '🇫🇷' },
-        { iso: 'PRT', name: '葡萄牙', flag: '🇵🇹' },
-        { iso: 'KOR', name: '韩国', flag: '🇰🇷' },
+        { iso: 'ARG', name: '阿根廷', flag: '🇦🇷' },
+        { iso: 'ESP', name: '西班牙', flag: '🇪🇸' },
+        { iso: 'CZE', name: '捷克', flag: '🇨🇿' },
         { iso: 'SEN', name: '塞内加尔', flag: '🇸🇳' }
     ]},
     { name: 'E组', countries: [
-        { iso: 'ESP', name: '西班牙', flag: '🇪🇸' },
-        { iso: 'NLD', name: '荷兰', flag: '🇳🇱' },
-        { iso: 'COL', name: '哥伦比亚', flag: '🇨🇴' },
+        { iso: 'GBR', name: '英格兰', flag: '🏴', subName: '英格兰' },
+        { iso: 'IRN', name: '伊朗', flag: '🇮🇷' },
+        { iso: 'PRT', name: '葡萄牙', flag: '🇵🇹' },
         { iso: 'EGY', name: '埃及', flag: '🇪🇬' }
     ]},
     { name: 'F组', countries: [
-        { iso: 'BEL', name: '比利时', flag: '🇧🇪' },
-        { iso: 'AUT', name: '奥地利', flag: '🇦🇹' },
-        { iso: 'IRN', name: '伊朗', flag: '🇮🇷' },
-        { iso: 'GHA', name: '加纳', flag: '🇬🇭' }
+        { iso: 'SUI', name: '瑞士', flag: '🇨🇭' },
+        { iso: 'KSA', name: '沙特阿拉伯', flag: '🇸🇦' },
+        { iso: 'AUS', name: '澳大利亚', flag: '🇦🇺' },
+        { iso: 'CHE', name: '智利', flag: '🇨🇱' }
     ]},
     { name: 'G组', countries: [
-        { iso: 'URY', name: '乌拉圭', flag: '🇺🇾' },
-        { iso: 'ECU', name: '厄瓜多尔', flag: '🇪🇨' },
-        { iso: 'CIV', name: '科特迪瓦', flag: '🇨🇮' },
-        { iso: 'JOR', name: '约旦', flag: '🇯🇴' }
+        { iso: 'SCO', name: '苏格兰', flag: '🏴', subName: '苏格兰' },
+        { iso: 'NZL', name: '新西兰', flag: '🇳🇿' },
+        { iso: 'NOR', name: '挪威', flag: '🇳🇴' },
+        { iso: 'ALG', name: '阿尔及利亚', flag: '🇩🇿' }
     ]},
     { name: 'H组', countries: [
-        { iso: 'HRV', name: '克罗地亚', flag: '🇭🇷' },
-        { iso: 'CHE', name: '瑞士', flag: '🇨🇭' },
-        { iso: 'DZA', name: '阿尔及利亚', flag: '🇩🇿' },
-        { iso: 'UZB', name: '乌兹别克斯坦', flag: '🇺🇿' }
+        { iso: 'CRO', name: '克罗地亚', flag: '🇭🇷' },
+        { iso: 'TUR', name: '土耳其', flag: '🇹🇷' },
+        { iso: 'URU', name: '乌拉圭', flag: '🇺🇾' },
+        { iso: 'GHA', name: '加纳', flag: '🇬🇭' }
     ]},
     { name: 'I组', countries: [
-        { iso: 'TUR', name: '土耳其', flag: '🇹🇷' },
-        { iso: 'CZE', name: '捷克', flag: '🇨🇿' },
-        { iso: 'PRY', name: '巴拉圭', flag: '🇵🇾' },
-        { iso: 'TUN', name: '突尼斯', flag: '🇹🇳' }
+        { iso: 'SWE', name: '瑞典', flag: '🇸🇪' },
+        { iso: 'IRQ', name: '伊拉克', flag: '🇮🇶' },
+        { iso: 'COL', name: '哥伦比亚', flag: '🇨🇴' },
+        { iso: 'ZAF', name: '南非', flag: '🇿🇦' }
     ]},
     { name: 'J组', countries: [
-        { iso: 'SWE', name: '瑞典', flag: '🇸🇪' },
-        { iso: 'BIH', name: '波黑', flag: '🇧🇦' },
-        { iso: 'SAU', name: '沙特阿拉伯', flag: '🇸🇦' },
-        { iso: 'COD', name: '刚果(金)', flag: '🇨🇩' }
-    ]},
-    { name: 'K组', countries: [
+        { iso: 'AUT', name: '奥地利', flag: '🇦🇹' },
         { iso: 'QAT', name: '卡塔尔', flag: '🇶🇦' },
         { iso: 'PAN', name: '巴拿马', flag: '🇵🇦' },
-        { iso: 'CUW', name: '库拉索', flag: '🇨🇼' },
         { iso: 'CPV', name: '佛得角', flag: '🇨🇻' }
+    ]},
+    { name: 'K组', countries: [
+        { iso: 'BIH', name: '波黑', flag: '🇧🇦' },
+        { iso: 'UZB', name: '乌兹别克斯坦', flag: '🇺🇿' },
+        { iso: 'JOR', name: '约旦', flag: '🇯🇴' },
+        { iso: 'COD', name: '刚果(金)', flag: '🇨🇩' }
+    ]},
+    { name: 'L组', countries: [
+        { iso: 'PRY', name: '巴拉圭', flag: '🇵🇾' },
+        { iso: 'TUN', name: '突尼斯', flag: '🇹🇳' },
+        { iso: 'CIV', name: '科特迪瓦', flag: '🇨🇮' },
+        { iso: 'CUW', name: '库拉索', flag: '🇨🇼' }
     ]}
 ];
 
@@ -172,29 +173,48 @@ async function extractWorldCupGeoJSON() {
     }
 }
 
+// 记录已处理的国家，确保每个国家只显示一个图标
+const renderedCountries = new Set();
+
 /**
- * 创建足球图标样式
+ * 创建国旗图标样式（每个国家只在主体图斑上显示一个国旗）
  */
 function createFootballStyle(feature) {
-    return new ol.style.Style({
+    const iso = feature.get('iso_a3');
+    
+    // 获取国旗
+    const flag = FLAG_MAP[iso] || '🏳️';
+    
+    // 创建基础样式
+    const style = new ol.style.Style({
         fill: new ol.style.Fill({
             color: 'rgba(255, 215, 0, 0.3)'
         }),
         stroke: new ol.style.Stroke({
             color: '#FF6B35',
             width: 2
-        }),
-        text: new ol.style.Text({
-            text: '⚽',
-            font: '24px Arial',
+        })
+    });
+    
+    // 只在首次渲染时添加文字（防止多图斑显示多个图标）
+    if (!renderedCountries.has(iso)) {
+        renderedCountries.add(iso);
+        
+        // 只显示国旗
+        style.setText(new ol.style.Text({
+            text: flag,
+            font: '28px Arial',
             fill: new ol.style.Fill({
                 color: '#000'
             }),
             placement: 'point',
             textAlign: 'center',
-            textBaseline: 'middle'
-        })
-    });
+            textBaseline: 'middle',
+            offsetY: 0
+        }));
+    }
+    
+    return style;
 }
 
 /**
@@ -317,17 +337,30 @@ function formatNumber(num) {
     return n.toLocaleString('zh-CN');
 }
 
+// ISO代码映射表（处理分组中使用的不同代码）
+const ISO_MAPPING = {
+    'GBR': 'GBR', 'SCO': 'GBR', 'ENG': 'GBR',      // 英国相关
+    'GER': 'DEU',                                   // 德国
+    'NET': 'NLD',                                   // 荷兰
+    'KSA': 'SAU',                                   // 沙特
+    'URU': 'URY',                                   // 乌拉圭
+    'ALG': 'DZA',                                   // 阿尔及利亚
+    'CRO': 'HRV',                                   // 克罗地亚
+    'SUI': 'CHE',                                   // 瑞士
+    'CHE': 'CHL',                                   // 智利
+    'NOR': 'NOR',                                   // 挪威
+    'AUS': 'AUS', 'AUS2': 'AUS'                     // 澳大利亚
+};
+
 /**
  * 飞到指定国家
  */
 function flyToCountry(iso, displayName) {
-    // 英格兰和苏格兰都飞到英国
-    if (iso === 'GBR' || iso === 'GBR2') {
-        iso = 'GBR';
-    }
+    // 使用映射表转换ISO代码
+    const mappedIso = ISO_MAPPING[iso] || iso;
     
     // 查找对应的feature
-    const feature = worldCupFeatures.find(f => f.get('iso_a3') === iso);
+    const feature = worldCupFeatures.find(f => f.get('iso_a3') === mappedIso);
     
     if (feature) {
         const geometry = feature.getGeometry();
@@ -335,7 +368,7 @@ function flyToCountry(iso, displayName) {
             const extent = geometry.getExtent();
             const center = ol.extent.getCenter(extent);
             
-            // 计算合适的缩放级别
+            // 地图飞行动画
             map.getView().animate({
                 center: center,
                 zoom: 4,
@@ -346,7 +379,7 @@ function flyToCountry(iso, displayName) {
             highlightFeature(feature);
         }
     } else {
-        console.warn('未找到国家:', iso);
+        console.warn('未找到国家:', iso, '(映射为:', mappedIso + ')');
     }
 }
 
@@ -419,7 +452,7 @@ async function initWorldCup() {
     });
     map.addOverlay(worldCupOverlay);
     
-    // 点击事件
+    // 点击事件 - 阻止事件冒泡，防止"要素"窗口弹出
     map.on('click', (evt) => {
         if (!worldCupLayer.getVisible()) return;
         
@@ -428,6 +461,9 @@ async function initWorldCup() {
         });
         
         if (feature) {
+            // 阻止事件继续传播，防止其他点击处理程序触发"要素"窗口
+            evt.stopPropagation();
+            
             const iso = feature.get('iso_a3');
             const countryData = worldCupData[iso] || {};
             
@@ -435,7 +471,8 @@ async function initWorldCup() {
             popupElement.innerHTML = createInfoPopup(countryData, iso);
             popupElement.style.cursor = 'pointer';
             
-            popupElement.onclick = () => {
+            popupElement.onclick = (e) => {
+                e.stopPropagation();
                 worldCupOverlay.setPosition(undefined);
             };
             
@@ -608,6 +645,10 @@ function toggleWorldCupLayer() {
     }
     
     if (visible) {
+        // 重置已渲染国家集合，确保图标重新显示
+        renderedCountries.clear();
+        // 强制刷新图层
+        worldCupLayer.getSource().changed();
         worldCupPanel.style.display = 'block';
         map.getView().animate({
             center: ol.proj.fromLonLat([0, 20]),
