@@ -112,70 +112,39 @@ async function loadWorldCupData() {
     try {
         console.log('尝试从后端API加载世界杯数据...');
         const tableName = '2026世界杯参赛国家数据';
-        const response = await fetch(`${API_BASE_URL}/api/thematic/data/${encodeURIComponent(tableName)}`);
+        const url = `${API_BASE_URL}/api/thematic/data/${encodeURIComponent(tableName)}`;
+        console.log('API URL:', url);
+        
+        const response = await fetch(url);
+        console.log('HTTP状态:', response.status);
         
         if (!response.ok) {
             console.error('数据加载失败，HTTP状态:', response.status);
-            // 如果API失败，尝试从CSV文件加载备用数据
-            return await loadWorldCupDataFromCSV();
-        }
-        
-        const result = await response.json();
-        const dataArray = result.data || [];
-        
-        console.log('API数据加载成功，共', dataArray.length, '条记录');
-        
-        // 转换为以iso_a3为键的对象
-        const data = {};
-        dataArray.forEach(row => {
-            const iso = row.iso_a3 || row.iso || '';
-            if (iso) {
-                data[iso.trim()] = row;
-            }
-        });
-        
-        console.log('世界杯数据解析完成，共', Object.keys(data).length, '个国家');
-        return data;
-    } catch (error) {
-        console.error('从API加载世界杯数据失败:', error);
-        // 回退到CSV文件加载
-        return await loadWorldCupDataFromCSV();
-    }
-}
-
-/**
- * 从CSV文件加载数据（备用方案）
- */
-async function loadWorldCupDataFromCSV() {
-    try {
-        console.log('回退到CSV文件加载...');
-        const response = await fetch('../DATA/2026世界杯参赛国家数据.csv');
-        
-        if (!response.ok) {
-            console.error('CSV文件加载失败，HTTP状态:', response.status);
             return {};
         }
         
-        const text = await response.text();
-        const lines = text.split('\n');
-        const headers = lines[0].split(',');
+        const result = await response.json();
+        console.log('API返回结果:', JSON.stringify(result, null, 2));
         
+        const dataArray = result.data || result || [];
+        
+        console.log('API数据加载成功，共', dataArray.length, '条记录');
+        
+        // 转换为以iso_a3为键的对象，支持多种可能的字段名
         const data = {};
-        for (let i = 1; i < lines.length; i++) {
-            if (!lines[i].trim()) continue;
-            const values = lines[i].split(',');
-            const iso = values[1] ? values[1].trim() : '';
-            if (!iso) continue;
-            const countryData = {};
-            headers.forEach((header, index) => {
-                countryData[header.trim()] = values[index] ? values[index].trim() : '';
-            });
-            data[iso] = countryData;
-        }
-        console.log('CSV数据加载完成，共', Object.keys(data).length, '个国家');
+        dataArray.forEach((row, index) => {
+            const iso = row.iso_a3 || row.iso || row.ISO || row['iso_a3'] || '';
+            if (iso) {
+                data[iso.trim()] = row;
+            } else {
+                console.warn('第', index, '条记录缺少ISO代码:', row);
+            }
+        });
+        
+        console.log('世界杯数据解析完成，共', Object.keys(data).length, '个国家:', Object.keys(data));
         return data;
     } catch (error) {
-        console.error('加载CSV文件失败:', error);
+        console.error('从API加载世界杯数据失败:', error);
         return {};
     }
 }
