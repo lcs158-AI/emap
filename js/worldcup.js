@@ -5,6 +5,12 @@
 // API基础URL
 const API_BASE_URL = window.API_BASE_URL || '/readexif';
 
+// 获取认证头
+function getWorldCupAuthHeaders() {
+    const token = localStorage.getItem('access_token');
+    return token ? { 'Authorization': `Bearer ${token}` } : {};
+}
+
 const WORLD_CUP_COUNTRIES = [
     'ARG', 'BRA', 'URY', 'COL', 'ECU', 'PRY',
     'USA', 'CAN', 'MEX', 'PAN', 'CUW', 'HTI',
@@ -115,7 +121,9 @@ async function loadWorldCupData() {
         const url = `${API_BASE_URL}/api/thematic/data/${encodeURIComponent(tableName)}`;
         console.log('API URL:', url);
         
-        const response = await fetch(url);
+        const response = await fetch(url, {
+            headers: getWorldCupAuthHeaders()
+        });
         console.log('HTTP状态:', response.status);
         
         if (!response.ok) {
