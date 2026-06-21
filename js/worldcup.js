@@ -434,7 +434,8 @@ function flyToCountry(iso, displayName) {
                 duration: 1500,
                 maxZoom: 8,
                 callback: () => {
-                    const countryData = worldCupData[mappedIso] || {};
+                    // 直接从feature获取countryData
+                    const countryData = feature.get('countryData') || {};
                     const popupElement = worldCupOverlay.getElement();
                     popupElement.innerHTML = createInfoPopup(countryData, mappedIso, displayName);
                     popupElement.style.cursor = 'pointer';
@@ -496,12 +497,28 @@ function getMainlandExtent(geometry, iso) {
 }
 
 async function initWorldCup() {
+    console.log('初始化世界杯模块...');
     worldCupData = await loadWorldCupData();
+    console.log('已获取专题数据，共', Object.keys(worldCupData).length, '条');
+    
     const geojson = await extractWorldCupGeoJSON();
     if (!geojson) return;
     
     worldCupFeatures = new ol.format.GeoJSON().readFeatures(geojson, {
         featureProjection: 'EPSG:3857'
+    });
+    
+    // 将专题数据合并到每个feature属性中
+    worldCupFeatures.forEach(feature => {
+        const iso = feature.get('iso_a3');
+        if (iso && worldCupData[iso]) {
+            // 将专题数据的所有字段合并到feature属性中
+            Object.keys(worldCupData[iso]).forEach(key => {
+                feature.set(key, worldCupData[iso][key]);
+            });
+            feature.set('countryData', worldCupData[iso]);
+            console.log('合并数据到:', iso, feature.get('国家名称') || feature.get('name'));
+        }
     });
     
     const source = new ol.source.Vector({ features: worldCupFeatures });
@@ -539,10 +556,14 @@ async function initWorldCup() {
             evt.stopPropagation();
             
             const iso = feature.get('iso_a3');
-            const countryData = worldCupData[iso] || {};
+            // 直接从feature获取countryData
+            const countryData = feature.get('countryData') || {};
+            const name = feature.get('国家名称') || feature.get('name') || COUNTRY_NAMES[iso] || iso;
+            
+            console.log('点击图斑:', name, '数据:', countryData);
             
             const popupElement = worldCupOverlay.getElement();
-            popupElement.innerHTML = createInfoPopup(countryData, iso);
+            popupElement.innerHTML = createInfoPopup(countryData, iso, name);
             popupElement.style.cursor = 'pointer';
             popupElement.onclick = (e) => {
                 e.stopPropagation();
