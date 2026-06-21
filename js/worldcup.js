@@ -110,16 +110,24 @@ let worldCupOverlay = null;
 let worldCupPanel = null;
 let worldCupFeatures = null; // 存储GeoJSON features用于定位
 
-// 国旗映射
+// 国旗映射（使用国旗代码）
 const FLAG_MAP = {
-    'ARG': '🇦🇷', 'BRA': '🇧🇷', 'URY': '🇺🇾', 'COL': '🇨🇴', 'ECU': '🇪🇨', 'PRY': '🇵🇾',
-    'USA': '🇺🇸', 'CAN': '🇨🇦', 'MEX': '🇲🇽', 'PAN': '🇵🇦', 'CUW': '🇨🇼', 'HTI': '🇭🇹',
-    'ESP': '🇪🇸', 'FRA': '🇫🇷', 'DEU': '🇩🇪', 'GBR': '🇬🇧', 'PRT': '🇵🇹', 'NLD': '🇳🇱', 'BEL': '🇧🇪',
-    'HRV': '🇭🇷', 'CHE': '🇨🇭', 'TUR': '🇹🇷', 'SWE': '🇸🇪', 'AUT': '🇦🇹', 'CZE': '🇨🇿', 'BIH': '🇧🇦',
-    'JPN': '🇯🇵', 'KOR': '🇰🇷', 'AUS': '🇦🇺', 'IRN': '🇮🇷', 'SAU': '🇸🇦', 'QAT': '🇶🇦',
-    'IRQ': '🇮🇶', 'UZB': '🇺🇿', 'JOR': '🇯🇴', 'NZL': '🇳🇿',
-    'MAR': '🇲🇦', 'TUN': '🇹🇳', 'EGY': '🇪🇬', 'DZA': '🇩🇿', 'GHA': '🇬🇭', 'CPV': '🇨🇻',
-    'ZAF': '🇿🇦', 'CIV': '🇨🇮', 'SEN': '🇸🇳', 'COD': '🇨🇩'
+    'ARG': 'AR', 'BRA': 'BR', 'URY': 'UY', 'COL': 'CO', 'ECU': 'EC', 'PRY': 'PY',
+    'USA': 'US', 'CAN': 'CA', 'MEX': 'MX', 'PAN': 'PA', 'CUW': 'CW', 'HTI': 'HT',
+    'ESP': 'ES', 'FRA': 'FR', 'DEU': 'DE', 'GBR': 'GB', 'PRT': 'PT', 'NLD': 'NL', 'BEL': 'BE',
+    'HRV': 'HR', 'CHE': 'CH', 'TUR': 'TR', 'SWE': 'SE', 'AUT': 'AT', 'CZE': 'CZ', 'BIH': 'BA',
+    'JPN': 'JP', 'KOR': 'KR', 'AUS': 'AU', 'IRN': 'IR', 'SAU': 'SA', 'QAT': 'QA',
+    'IRQ': 'IQ', 'UZB': 'UZ', 'JOR': 'JO', 'NZL': 'NZ',
+    'MAR': 'MA', 'TUN': 'TN', 'EGY': 'EG', 'DZA': 'DZ', 'GHA': 'GH', 'CPV': 'CV',
+    'ZAF': 'ZA', 'CIV': 'CI', 'SEN': 'SN', 'COD': 'CD'
+};
+
+// 地区旗映射（用于英格兰、苏格兰等）
+const REGION_FLAG_MAP = {
+    'ENG': '🏴󠁧󠁢󠁥󠁮󠁧󠁿',  // 英格兰
+    'SCO': '🏴󠁧󠁢󠁳󠁣󠁴󠁿',  // 苏格兰
+    'WAL': '🏴󠁧󠁢󠁷󠁬󠁳󠁿',  // 威尔士
+    'NIR': '🏴󠁧󠁢󠁮󠁩󠁲󠁿'   // 北爱尔兰
 };
 
 /**
@@ -184,9 +192,6 @@ const renderedCountries = new Set();
 function createFootballStyle(feature) {
     const iso = feature.get('iso_a3');
     
-    // 获取国旗
-    const flag = FLAG_MAP[iso] || '🏳️';
-    
     // 创建基础样式
     const style = new ol.style.Style({
         fill: new ol.style.Fill({
@@ -198,25 +203,126 @@ function createFootballStyle(feature) {
         })
     });
     
-    // 只在首次渲染时添加文字（防止多图斑显示多个图标）
+    // 只在首次渲染时添加图标（防止多图斑显示多个图标）
     if (!renderedCountries.has(iso)) {
         renderedCountries.add(iso);
         
-        // 国旗显示
-        style.setText(new ol.style.Text({
-            text: flag,
-            font: '28px Arial',
-            fill: new ol.style.Fill({
-                color: '#000'
-            }),
-            placement: 'point',
-            textAlign: 'center',
-            textBaseline: 'middle',
-            offsetY: 0
-        }));
+        // 创建国旗图标（使用Canvas绘制）
+        const flagImage = createFlagIcon(iso);
+        if (flagImage) {
+            style.setImage(new ol.style.Icon({
+                img: flagImage,
+                imgSize: [24, 24],
+                anchor: [0.5, 0.5]
+            }));
+        }
     }
     
     return style;
+}
+
+/**
+ * 创建国旗图标（使用Canvas绘制）
+ */
+function createFlagIcon(iso) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 24;
+    canvas.height = 24;
+    const ctx = canvas.getContext('2d');
+    
+    // 使用简化的国旗配色方案
+    const flagColors = getFlagColors(iso);
+    drawSimpleFlag(ctx, flagColors);
+    
+    return canvas;
+}
+
+/**
+ * 获取国旗配色
+ */
+function getFlagColors(iso) {
+    const colors = {
+        'ARG': ['#003893', '#FFFFFF', '#CE1126'],
+        'BRA': ['#009B3A', '#FFCC00'],
+        'URY': ['#003893', '#FFFFFF', '#FFCC00'],
+        'COL': ['#FFCC00', '#FFFFFF', '#003893'],
+        'ECU': ['#003893', '#FFFFFF', '#CE1126'],
+        'PRY': ['#CE1126', '#FFFFFF', '#003893'],
+        'USA': ['#B22234', '#3C3B6E', '#FFFFFF'],
+        'CAN': ['#FF0000', '#FFFFFF'],
+        'MEX': ['#006644', '#FFFFFF', '#CE1126'],
+        'PAN': ['#003893', '#FFFFFF', '#CE1126'],
+        'CUW': ['#003893', '#FFFFFF', '#CE1126'],
+        'HTI': ['#003893', '#FFFFFF', '#CE1126'],
+        'ESP': ['#CE1126', '#FFFFFF'],
+        'FRA': ['#003893', '#FFFFFF', '#CE1126'],
+        'DEU': ['#000000', '#DDCC00', '#CE1126'],
+        'GBR': ['#CE1126', '#00247D', '#FFFFFF'],
+        'PRT': ['#006600', '#FFFFFF', '#CE1126'],
+        'NLD': ['#CE1126', '#FFFFFF', '#003893'],
+        'BEL': ['#000000', '#FFCC00', '#CE1126'],
+        'HRV': ['#CE1126', '#FFFFFF'],
+        'CHE': ['#FFCC00', '#CE1126'],
+        'TUR': ['#CE1126', '#FFFFFF'],
+        'SWE': ['#003893', '#FFCC00'],
+        'AUT': ['#CE1126', '#FFFFFF', '#003893'],
+        'CZE': ['#CE1126', '#FFFFFF', '#003893'],
+        'BIH': ['#CE1126', '#FFFFFF', '#003893'],
+        'JPN': ['#FFFFFF', '#CE1126'],
+        'KOR': ['#CE1126', '#FFFFFF', '#000000', '#003893'],
+        'AUS': ['#003893', '#FFCC00'],
+        'IRN': ['#CE1126', '#FFFFFF', '#009B3A'],
+        'SAU': ['#006600', '#FFFFFF'],
+        'QAT': ['#CE1126', '#FFFFFF'],
+        'IRQ': ['#CE1126', '#FFFFFF', '#009B3A'],
+        'UZB': ['#003893', '#FFFFFF', '#CE1126'],
+        'JOR': ['#003893', '#FFFFFF', '#CE1126'],
+        'NZL': ['#003893', '#FFCC00'],
+        'MAR': ['#CE1126', '#FFFFFF', '#006600'],
+        'TUN': ['#CE1126', '#FFFFFF', '#006600'],
+        'EGY': ['#CE1126', '#FFFFFF', '#003893'],
+        'DZA': ['#006600', '#FFFFFF', '#CE1126'],
+        'GHA': ['#CE1126', '#FFCC00', '#006600', '#003893'],
+        'CPV': ['#003893', '#FFCC00', '#CE1126'],
+        'ZAF': ['#003893', '#FFCC00', '#CE1126'],
+        'CIV': ['#FFCC00', '#CE1126'],
+        'SEN': ['#CE1126', '#FFCC00', '#006600'],
+        'COD': ['#CE1126', '#FFFFFF', '#003893']
+    };
+    return colors[iso] || ['#666666', '#CCCCCC'];
+}
+
+/**
+ * 绘制简化国旗
+ */
+function drawSimpleFlag(ctx, colors) {
+    // 根据颜色数量选择绘制模式
+    if (colors.length === 2) {
+        // 垂直分半
+        ctx.fillStyle = colors[0];
+        ctx.fillRect(0, 0, 12, 24);
+        ctx.fillStyle = colors[1];
+        ctx.fillRect(12, 0, 12, 24);
+    } else if (colors.length === 3) {
+        // 水平三色
+        const h = 24 / 3;
+        ctx.fillStyle = colors[0];
+        ctx.fillRect(0, 0, 24, h);
+        ctx.fillStyle = colors[1];
+        ctx.fillRect(0, h, 24, h);
+        ctx.fillStyle = colors[2];
+        ctx.fillRect(0, h * 2, 24, h);
+    } else if (colors.length === 4) {
+        // 四等分
+        ctx.fillStyle = colors[0];
+        ctx.fillRect(0, 0, 12, 12);
+        ctx.fillStyle = colors[1];
+        ctx.fillRect(12, 0, 12, 12);
+        ctx.fillStyle = colors[2];
+        ctx.fillRect(0, 12, 12, 12);
+        ctx.fillStyle = colors[3];
+        ctx.fillRect(12, 12, 12, 12);
+    }
 }
 
 /**
@@ -252,7 +358,10 @@ function createCountryListPanel() {
         <div class="worldcup-panel">
             <div class="worldcup-panel-header">
                 <span class="worldcup-title">⚽ 2026世界杯</span>
-                <span class="worldcup-count">48支球队</span>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span class="worldcup-count">48支球队</span>
+                    <button class="worldcup-close-btn" onclick="toggleWorldCupLayer()">×</button>
+                </div>
             </div>
             <div class="worldcup-panel-content">
                 ${groupsHtml}
@@ -268,7 +377,15 @@ function createCountryListPanel() {
  * @param {string} displayName - 显示名称（可选，用于地区名称如英格兰/苏格兰）
  */
 function createInfoPopup(countryData, iso, displayName) {
-    const flag = FLAG_MAP[iso] || '🏳️';
+    // 根据显示名称判断是否为地区（英格兰/苏格兰）
+    const regionFlag = displayName === '英格兰' ? '🏴󠁧󠁢󠁥󠁮󠁧󠁿' : 
+                       displayName === '苏格兰' ? '🏴󠁧󠁢󠁳󠁣󠁴󠁿' : 
+                       displayName === '威尔士' ? '🏴󠁧󠁢󠁷󠁬󠁳󠁿' : 
+                       displayName === '北爱尔兰' ? '🏴󠁧󠁢󠁮󠁩󠁲󠁿' : null;
+    
+    // 如果是地区，显示地区旗；否则显示国旗
+    const flag = regionFlag || (FLAG_MAP[iso] ? `https://flagcdn.com/w20/${FLAG_MAP[iso].toLowerCase()}.png` : 'https://flagcdn.com/w20/xx.png');
+    
     const name = displayName || COUNTRY_NAMES[iso] || (countryData ? countryData['国家名称'] : '') || iso;
     
     const getValue = (key) => {
@@ -276,6 +393,9 @@ function createInfoPopup(countryData, iso, displayName) {
         const val = countryData[key];
         return val && val !== '' && val !== 'undefined' ? val : '--';
     };
+    
+    // 判断是否使用图片国旗
+    const isImageFlag = !regionFlag && FLAG_MAP[iso];
     
     return `
         <div style="
@@ -288,7 +408,7 @@ function createInfoPopup(countryData, iso, displayName) {
             color: white;
         ">
             <div style="padding: 20px; text-align: center; background: rgba(255,255,255,0.1); border-radius: 12px 12px 0 0;">
-                <div style="font-size: 48px; margin-bottom: 10px;">${flag}</div>
+                <div style="font-size: 48px; margin-bottom: 10px;">${isImageFlag ? `<img src="${flag}" style="width: 60px; height: 40px; border-radius: 4px;" />` : flag}</div>
                 <h2 style="margin: 0; font-size: 24px; font-weight: bold;">${name}</h2>
                 <div style="font-size: 14px; opacity: 0.8; margin-top: 5px;">2026世界杯参赛地区</div>
             </div>
@@ -459,7 +579,8 @@ async function initWorldCup() {
         source: source,
         style: createFootballStyle,
         visible: false,
-        zIndex: 100
+        zIndex: 100,
+        interactive: true
     });
     
     // 添加到地图
@@ -536,6 +657,7 @@ function addWorldCupStyles() {
             box-shadow: 0 4px 15px rgba(0,0,0,0.3);
             z-index: 1000;
             overflow: hidden;
+            transition: all 0.3s ease;
         }
         
         .worldcup-panel-header {
@@ -551,6 +673,25 @@ function addWorldCupStyles() {
             font-size: 18px;
             font-weight: bold;
             color: white;
+        }
+        
+        .worldcup-close-btn {
+            width: 28px;
+            height: 28px;
+            border: none;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border-radius: 50%;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+        
+        .worldcup-close-btn:hover {
+            background: rgba(255,255,255,0.3);
         }
         
         .worldcup-count {
@@ -631,6 +772,69 @@ function addWorldCupStyles() {
         
         .worldcup-panel.hidden {
             display: none;
+        }
+        
+        /* 移动端响应式样式 */
+        @media (max-width: 768px) {
+            .worldcup-panel {
+                left: 5px;
+                right: 5px;
+                top: 60px;
+                width: auto;
+                max-width: none;
+                max-height: 60vh;
+                border-radius: 10px;
+            }
+            
+            .worldcup-panel-header {
+                padding: 10px 12px;
+            }
+            
+            .worldcup-title {
+                font-size: 16px;
+            }
+            
+            .worldcup-panel-content {
+                max-height: calc(60vh - 60px);
+                padding: 8px;
+            }
+            
+            .worldcup-group-countries {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 3px;
+            }
+            
+            .worldcup-country-item {
+                padding: 5px 6px;
+            }
+            
+            .worldcup-country-name {
+                font-size: 10px;
+            }
+            
+            .worldcup-flag {
+                font-size: 14px;
+                margin-right: 4px;
+            }
+        }
+        
+        /* 小屏手机优化 */
+        @media (max-width: 480px) {
+            .worldcup-panel {
+                max-height: 50vh;
+            }
+            
+            .worldcup-panel-content {
+                max-height: calc(50vh - 60px);
+            }
+            
+            .worldcup-group-countries {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .worldcup-title {
+                font-size: 14px;
+            }
         }
     `;
     document.head.appendChild(style);
