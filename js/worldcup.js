@@ -332,7 +332,8 @@ function createInfoPopup(countryData, iso, displayName) {
     
     return `
         <div style="width: 320px; max-height: 450px; overflow-y: auto; font-family: 'Microsoft YaHei', Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; color: white;">
-            <div style="padding: 20px; text-align: center; background: rgba(255,255,255,0.1); border-radius: 12px 12px 0 0;">
+            <div style="padding: 20px; text-align: center; background: rgba(255,255,255,0.1); border-radius: 12px 12px 0 0; position: relative;">
+                <button onclick="worldCupOverlay.setPosition(undefined);" style="position: absolute; top: 10px; right: 10px; width: 28px; height: 28px; border: none; border-radius: 50%; background: rgba(255,255,255,0.2); color: white; font-size: 18px; cursor: pointer; line-height: 1;">×</button>
                 <img src="${flagUrl}" style="width: 60px; height: 40px; border-radius: 4px; margin-bottom: 10px;" />
                 <h2 style="margin: 0; font-size: 24px; font-weight: bold;">${name}</h2>
                 <div style="font-size: 14px; opacity: 0.8; margin-top: 5px;">2026世界杯参赛地区</div>
