@@ -2,6 +2,9 @@
  * 2026世界杯功能模块
  */
 
+// API基础URL
+const API_BASE_URL = window.API_BASE_URL || '/readexif';
+
 const WORLD_CUP_COUNTRIES = [
     'ARG', 'BRA', 'URY', 'COL', 'ECU', 'PRY',
     'USA', 'CAN', 'MEX', 'PAN', 'CUW', 'HTI',
@@ -13,76 +16,76 @@ const WORLD_CUP_COUNTRIES = [
 
 const WORLD_CUP_GROUPS = [
     { name: 'A组', countries: [
-        { iso: 'USA', name: '美国', flag: 'US' },
-        { iso: 'NLD', name: '荷兰', flag: 'NL' },
+        { iso: 'MEX', name: '墨西哥', flag: 'MX' },
+        { iso: 'ZAF', name: '南非', flag: 'ZA' },
         { iso: 'KOR', name: '韩国', flag: 'KR' },
-        { iso: 'BRA', name: '巴西', flag: 'BR' }
+        { iso: 'CZE', name: '捷克', flag: 'CZ' }
     ]},
     { name: 'B组', countries: [
-        { iso: 'MEX', name: '墨西哥', flag: 'MX' },
-        { iso: 'FRA', name: '法国', flag: 'FR' },
-        { iso: 'ECU', name: '厄瓜多尔', flag: 'EC' },
-        { iso: 'BEL', name: '比利时', flag: 'BE' }
+        { iso: 'CAN', name: '加拿大', flag: 'CA' },
+        { iso: 'BIH', name: '波黑', flag: 'BA' },
+        { iso: 'QAT', name: '卡塔尔', flag: 'QA' },
+        { iso: 'CHE', name: '瑞士', flag: 'CH' }
     ]},
     { name: 'C组', countries: [
-        { iso: 'CAN', name: '加拿大', flag: 'CA' },
-        { iso: 'DEU', name: '德国', flag: 'DE' },
-        { iso: 'JPN', name: '日本', flag: 'JP' },
-        { iso: 'MAR', name: '摩洛哥', flag: 'MA' }
+        { iso: 'BRA', name: '巴西', flag: 'BR' },
+        { iso: 'MAR', name: '摩洛哥', flag: 'MA' },
+        { iso: 'HTI', name: '海地', flag: 'HT' },
+        { iso: 'GBR', name: '苏格兰', flag: 'SCO', subName: '苏格兰' }
     ]},
     { name: 'D组', countries: [
-        { iso: 'ARG', name: '阿根廷', flag: 'AR' },
-        { iso: 'ESP', name: '西班牙', flag: 'ES' },
-        { iso: 'CZE', name: '捷克', flag: 'CZ' },
-        { iso: 'SEN', name: '塞内加尔', flag: 'SN' }
+        { iso: 'USA', name: '美国', flag: 'US' },
+        { iso: 'PRY', name: '巴拉圭', flag: 'PY' },
+        { iso: 'AUS', name: '澳大利亚', flag: 'AU' },
+        { iso: 'TUR', name: '土耳其', flag: 'TR' }
     ]},
     { name: 'E组', countries: [
-        { iso: 'GBR', name: '英格兰', flag: 'ENG', subName: '英格兰' },
-        { iso: 'IRN', name: '伊朗', flag: 'IR' },
-        { iso: 'PRT', name: '葡萄牙', flag: 'PT' },
-        { iso: 'EGY', name: '埃及', flag: 'EG' }
+        { iso: 'DEU', name: '德国', flag: 'DE' },
+        { iso: 'CUW', name: '库拉索', flag: 'CW' },
+        { iso: 'CIV', name: '科特迪瓦', flag: 'CI' },
+        { iso: 'ECU', name: '厄瓜多尔', flag: 'EC' }
     ]},
     { name: 'F组', countries: [
-        { iso: 'CHE', name: '瑞士', flag: 'CH' },
-        { iso: 'SAU', name: '沙特阿拉伯', flag: 'SA' },
-        { iso: 'AUS', name: '澳大利亚', flag: 'AU' },
-        { iso: 'PAN', name: '巴拿马', flag: 'PA' }
+        { iso: 'NLD', name: '荷兰', flag: 'NL' },
+        { iso: 'JPN', name: '日本', flag: 'JP' },
+        { iso: 'SWE', name: '瑞典', flag: 'SE' },
+        { iso: 'TUN', name: '突尼斯', flag: 'TN' }
     ]},
     { name: 'G组', countries: [
-        { iso: 'GBR', name: '苏格兰', flag: 'SCO', subName: '苏格兰' },
-        { iso: 'NZL', name: '新西兰', flag: 'NZ' },
-        { iso: 'TUR', name: '土耳其', flag: 'TR' },
-        { iso: 'DZA', name: '阿尔及利亚', flag: 'DZ' }
+        { iso: 'BEL', name: '比利时', flag: 'BE' },
+        { iso: 'EGY', name: '埃及', flag: 'EG' },
+        { iso: 'IRN', name: '伊朗', flag: 'IR' },
+        { iso: 'NZL', name: '新西兰', flag: 'NZ' }
     ]},
     { name: 'H组', countries: [
-        { iso: 'HRV', name: '克罗地亚', flag: 'HR' },
-        { iso: 'MEX', name: '墨西哥', flag: 'MX' },
-        { iso: 'URY', name: '乌拉圭', flag: 'UY' },
-        { iso: 'GHA', name: '加纳', flag: 'GH' }
+        { iso: 'ESP', name: '西班牙', flag: 'ES' },
+        { iso: 'CPV', name: '佛得角', flag: 'CV' },
+        { iso: 'SAU', name: '沙特阿拉伯', flag: 'SA' },
+        { iso: 'URY', name: '乌拉圭', flag: 'UY' }
     ]},
     { name: 'I组', countries: [
-        { iso: 'SWE', name: '瑞典', flag: 'SE' },
+        { iso: 'FRA', name: '法国', flag: 'FR' },
+        { iso: 'SEN', name: '塞内加尔', flag: 'SN' },
         { iso: 'IRQ', name: '伊拉克', flag: 'IQ' },
-        { iso: 'COL', name: '哥伦比亚', flag: 'CO' },
-        { iso: 'ZAF', name: '南非', flag: 'ZA' }
+        { iso: 'NOR', name: '挪威', flag: 'NO' }
     ]},
     { name: 'J组', countries: [
+        { iso: 'ARG', name: '阿根廷', flag: 'AR' },
+        { iso: 'DZA', name: '阿尔及利亚', flag: 'DZ' },
         { iso: 'AUT', name: '奥地利', flag: 'AT' },
-        { iso: 'QAT', name: '卡塔尔', flag: 'QA' },
-        { iso: 'PRY', name: '巴拉圭', flag: 'PY' },
-        { iso: 'CPV', name: '佛得角', flag: 'CV' }
+        { iso: 'JOR', name: '约旦', flag: 'JO' }
     ]},
     { name: 'K组', countries: [
-        { iso: 'BIH', name: '波黑', flag: 'BA' },
+        { iso: 'PRT', name: '葡萄牙', flag: 'PT' },
+        { iso: 'COD', name: '民主刚果', flag: 'CD' },
         { iso: 'UZB', name: '乌兹别克斯坦', flag: 'UZ' },
-        { iso: 'JOR', name: '约旦', flag: 'JO' },
-        { iso: 'COD', name: '刚果(金)', flag: 'CD' }
+        { iso: 'COL', name: '哥伦比亚', flag: 'CO' }
     ]},
     { name: 'L组', countries: [
-        { iso: 'ECU', name: '厄瓜多尔', flag: 'EC' },
-        { iso: 'TUN', name: '突尼斯', flag: 'TN' },
-        { iso: 'CIV', name: '科特迪瓦', flag: 'CI' },
-        { iso: 'CUW', name: '库拉索', flag: 'CW' }
+        { iso: 'GBR', name: '英格兰', flag: 'ENG', subName: '英格兰' },
+        { iso: 'HRV', name: '克罗地亚', flag: 'HR' },
+        { iso: 'GHA', name: '加纳', flag: 'GH' },
+        { iso: 'PAN', name: '巴拿马', flag: 'PA' }
     ]}
 ];
 
@@ -107,10 +110,56 @@ const renderedCountries = new Set();
 
 async function loadWorldCupData() {
     try {
+        console.log('尝试从后端API加载世界杯数据...');
+        const tableName = '2026世界杯参赛国家数据';
+        const response = await fetch(`${API_BASE_URL}/api/thematic/data/${encodeURIComponent(tableName)}`);
+        
+        if (!response.ok) {
+            console.error('数据加载失败，HTTP状态:', response.status);
+            // 如果API失败，尝试从CSV文件加载备用数据
+            return await loadWorldCupDataFromCSV();
+        }
+        
+        const result = await response.json();
+        const dataArray = result.data || [];
+        
+        console.log('API数据加载成功，共', dataArray.length, '条记录');
+        
+        // 转换为以iso_a3为键的对象
+        const data = {};
+        dataArray.forEach(row => {
+            const iso = row.iso_a3 || row.iso || '';
+            if (iso) {
+                data[iso.trim()] = row;
+            }
+        });
+        
+        console.log('世界杯数据解析完成，共', Object.keys(data).length, '个国家');
+        return data;
+    } catch (error) {
+        console.error('从API加载世界杯数据失败:', error);
+        // 回退到CSV文件加载
+        return await loadWorldCupDataFromCSV();
+    }
+}
+
+/**
+ * 从CSV文件加载数据（备用方案）
+ */
+async function loadWorldCupDataFromCSV() {
+    try {
+        console.log('回退到CSV文件加载...');
         const response = await fetch('../DATA/2026世界杯参赛国家数据.csv');
+        
+        if (!response.ok) {
+            console.error('CSV文件加载失败，HTTP状态:', response.status);
+            return {};
+        }
+        
         const text = await response.text();
         const lines = text.split('\n');
         const headers = lines[0].split(',');
+        
         const data = {};
         for (let i = 1; i < lines.length; i++) {
             if (!lines[i].trim()) continue;
@@ -123,9 +172,10 @@ async function loadWorldCupData() {
             });
             data[iso] = countryData;
         }
+        console.log('CSV数据加载完成，共', Object.keys(data).length, '个国家');
         return data;
     } catch (error) {
-        console.error('加载世界杯数据失败:', error);
+        console.error('加载CSV文件失败:', error);
         return {};
     }
 }
@@ -340,8 +390,20 @@ function createInfoPopup(countryData, iso, displayName) {
 function getFlagUrlForPopup(displayName, iso) {
     if (displayName === '英格兰') return 'https://flagcdn.com/w40/gb-eng.png';
     if (displayName === '苏格兰') return 'https://flagcdn.com/w40/gb-sct.png';
-    const codeMap = { 'GBR': 'GB', 'DEU': 'DE', 'NLD': 'NL', 'HRV': 'HR', 'CHE': 'CH' };
-    const code = codeMap[iso] || iso;
+    
+    // 三位ISO代码转两位代码映射
+    const iso3To2 = {
+        'ARG': 'AR', 'BRA': 'BR', 'URY': 'UY', 'COL': 'CO', 'ECU': 'EC', 'PRY': 'PY',
+        'USA': 'US', 'CAN': 'CA', 'MEX': 'MX', 'PAN': 'PA', 'CUW': 'CW', 'HTI': 'HT',
+        'ESP': 'ES', 'FRA': 'FR', 'DEU': 'DE', 'GBR': 'GB', 'PRT': 'PT', 'NLD': 'NL', 'BEL': 'BE',
+        'HRV': 'HR', 'CHE': 'CH', 'TUR': 'TR', 'SWE': 'SE', 'AUT': 'AT', 'CZE': 'CZ', 'BIH': 'BA',
+        'JPN': 'JP', 'KOR': 'KR', 'AUS': 'AU', 'IRN': 'IR', 'SAU': 'SA', 'QAT': 'QA',
+        'IRQ': 'IQ', 'UZB': 'UZ', 'JOR': 'JO', 'NZL': 'NZ',
+        'MAR': 'MA', 'TUN': 'TN', 'EGY': 'EG', 'DZA': 'DZ', 'GHA': 'GH', 'CPV': 'CV',
+        'ZAF': 'ZA', 'CIV': 'CI', 'SEN': 'SN', 'COD': 'CD', 'NOR': 'NO'
+    };
+    
+    const code = iso3To2[iso] || iso.substring(0, 2);
     return `https://flagcdn.com/w40/${code.toLowerCase()}.png`;
 }
 
