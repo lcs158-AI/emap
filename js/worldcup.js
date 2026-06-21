@@ -161,34 +161,53 @@ async function loadWorldCupData() {
  * 实时提取机制：根据ISO代码从后端获取单个国家数据
  */
 async function fetchCountryData(iso) {
-    try {
-        console.log('实时获取数据:', iso);
-        const tableName = '2026世界杯参赛国家数据';
-        const url = `${API_BASE_URL}/api/thematic/data/${encodeURIComponent(tableName)}`;
-        
-        const headers = getWorldCupAuthHeaders();
-        const response = await fetch(url, { headers: headers });
-        
-        if (!response.ok) {
-            console.error('获取数据失败，HTTP状态:', response.status);
-            return null;
+    const maxRetries = 3;
+    let lastError = null;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            console.log(`实时获取数据(${attempt}/${maxRetries}):`, iso);
+            const tableName = '2026世界杯参赛国家数据';
+            // 使用公开数据端点，无需登录认证
+            const url = `${API_BASE_URL}/api/thematic/public/data/${encodeURIComponent(tableName)}`;
+            
+            const headers = {
+                'Content-Type': 'application/json'
+            };
+            
+            const response = await fetch(url, { headers: headers });
+            
+            if (!response.ok) {
+                console.error(`获取数据失败(${attempt}/${maxRetries})，HTTP状态:`, response.status);
+                if (attempt < maxRetries) {
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    continue;
+                }
+                return null;
+            }
+            
+            const result = await response.json();
+            const dataArray = result.data || result || [];
+            
+            // 根据iso_a3查找对应国家数据
+            const countryData = dataArray.find(row => {
+                const rowIso = row.iso_a3 || row.iso || '';
+                return rowIso.trim() === iso;
+            });
+            
+            console.log('找到数据:', iso, countryData ? '是' : '否');
+            return countryData || null;
+        } catch (error) {
+            console.error(`获取国家数据失败(${attempt}/${maxRetries}):`, error);
+            lastError = error;
+            if (attempt < maxRetries) {
+                await new Promise(resolve => setTimeout(resolve, 300));
+            }
         }
-        
-        const result = await response.json();
-        const dataArray = result.data || result || [];
-        
-        // 根据iso_a3查找对应国家数据
-        const countryData = dataArray.find(row => {
-            const rowIso = row.iso_a3 || row.iso || '';
-            return rowIso.trim() === iso;
-        });
-        
-        console.log('找到数据:', iso, countryData ? '是' : '否');
-        return countryData || null;
-    } catch (error) {
-        console.error('获取国家数据失败:', error);
-        return null;
     }
+    
+    console.error('获取数据最终失败:', lastError);
+    return null;
 }
 
 async function extractWorldCupGeoJSON() {
