@@ -157,6 +157,40 @@ async function loadWorldCupData() {
     }
 }
 
+/**
+ * 实时提取机制：根据ISO代码从后端获取单个国家数据
+ */
+async function fetchCountryData(iso) {
+    try {
+        console.log('实时获取数据:', iso);
+        const tableName = '2026世界杯参赛国家数据';
+        const url = `${API_BASE_URL}/api/thematic/data/${encodeURIComponent(tableName)}`;
+        
+        const headers = getWorldCupAuthHeaders();
+        const response = await fetch(url, { headers: headers });
+        
+        if (!response.ok) {
+            console.error('获取数据失败，HTTP状态:', response.status);
+            return null;
+        }
+        
+        const result = await response.json();
+        const dataArray = result.data || result || [];
+        
+        // 根据iso_a3查找对应国家数据
+        const countryData = dataArray.find(row => {
+            const rowIso = row.iso_a3 || row.iso || '';
+            return rowIso.trim() === iso;
+        });
+        
+        console.log('找到数据:', iso, countryData ? '是' : '否');
+        return countryData || null;
+    } catch (error) {
+        console.error('获取国家数据失败:', error);
+        return null;
+    }
+}
+
 async function extractWorldCupGeoJSON() {
     try {
         const response = await fetch('geojson/world.json');
@@ -328,6 +362,36 @@ function getFlagUrl(code) {
     return `https://flagcdn.com/w20/${code.toLowerCase()}.png`;
 }
 
+/**
+ * 实时提取机制：加载中提示
+ */
+function createLoadingPopup(name) {
+    return `
+        <div style="width: 320px; padding: 40px 20px; font-family: 'Microsoft YaHei', Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; color: white; text-align: center;">
+            <div style="margin-bottom: 15px;">
+                <div style="width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto;"></div>
+            </div>
+            <div style="font-size: 16px; margin-bottom: 5px;">正在加载 ${name} 数据...</div>
+            <div style="font-size: 12px; opacity: 0.7;">实时从数据库获取</div>
+            <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
+        </div>
+    `;
+}
+
+/**
+ * 实时提取机制：加载失败提示
+ */
+function createErrorPopup(name) {
+    return `
+        <div style="width: 320px; padding: 40px 20px; font-family: 'Microsoft YaHei', Arial, sans-serif; background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); border-radius: 12px; color: white; text-align: center;">
+            <div style="font-size: 48px; margin-bottom: 15px;">⚠️</div>
+            <div style="font-size: 16px; margin-bottom: 5px;">加载失败</div>
+            <div style="font-size: 14px; opacity: 0.8;">无法获取 ${name} 的数据</div>
+            <div style="font-size: 12px; opacity: 0.6; margin-top: 10px;">请检查网络连接或重新登录</div>
+        </div>
+    `;
+}
+
 function createInfoPopup(countryData, iso, displayName) {
     const flagUrl = getFlagUrlForPopup(displayName, iso);
     const name = displayName || COUNTRY_NAMES[iso] || (countryData ? countryData['国家名称'] : '') || iso;
@@ -426,7 +490,10 @@ const MAINLAND_FILTER = {
     'TUR': { minLon: 25, maxLon: 45, minLat: 35, maxLat: 43 },   // 土耳其本土
 };
 
-function flyToCountry(iso, displayName) {
+/**
+ * 实时提取机制：飞往指定国家并显示数据
+ */
+async function flyToCountry(iso, displayName) {
     const mappedIso = ISO_MAPPING[iso] || iso;
     const feature = worldCupFeatures.find(f => f.get('iso_a3') === mappedIso);
     
@@ -436,23 +503,32 @@ function flyToCountry(iso, displayName) {
             // 获取主体图斑的范围
             const mainExtent = getMainlandExtent(geometry, mappedIso);
             
+            // 显示加载状态
+            const popupElement = worldCupOverlay.getElement();
+            popupElement.innerHTML = createLoadingPopup(displayName);
+            const center = ol.extent.getCenter(mainExtent);
+            worldCupOverlay.setPosition(center);
+            
             // 使用fit自动计算合适的缩放级别
             map.getView().fit(mainExtent, {
                 padding: [50, 50, 50, 50],
                 duration: 1500,
                 maxZoom: 8,
-                callback: () => {
-                    // 直接从feature获取countryData
-                    const countryData = feature.get('countryData') || {};
-                    const popupElement = worldCupOverlay.getElement();
-                    popupElement.innerHTML = createInfoPopup(countryData, mappedIso, displayName);
+                callback: async () => {
+                    // 实时从后端获取数据
+                    const countryData = await fetchCountryData(mappedIso);
+                    
+                    if (countryData) {
+                        popupElement.innerHTML = createInfoPopup(countryData, mappedIso, countryData['国家名称'] || displayName);
+                    } else {
+                        popupElement.innerHTML = createErrorPopup(displayName);
+                    }
+                    
                     popupElement.style.cursor = 'pointer';
                     popupElement.onclick = (e) => {
                         e.stopPropagation();
                         worldCupOverlay.setPosition(undefined);
                     };
-                    const center = ol.extent.getCenter(mainExtent);
-                    worldCupOverlay.setPosition(center);
                 }
             });
         }
@@ -506,8 +582,10 @@ function getMainlandExtent(geometry, iso) {
 
 async function initWorldCup() {
     console.log('初始化世界杯模块...');
-    worldCupData = await loadWorldCupData();
-    console.log('已获取专题数据，共', Object.keys(worldCupData).length, '条');
+    
+    // ========== 预提取机制（已注释，改为实时提取）==========
+    // worldCupData = await loadWorldCupData();
+    // console.log('已获取专题数据，共', Object.keys(worldCupData).length, '条');
     
     const geojson = await extractWorldCupGeoJSON();
     if (!geojson) return;
@@ -516,18 +594,17 @@ async function initWorldCup() {
         featureProjection: 'EPSG:3857'
     });
     
-    // 将专题数据合并到每个feature属性中
-    worldCupFeatures.forEach(feature => {
-        const iso = feature.get('iso_a3');
-        if (iso && worldCupData[iso]) {
-            // 将专题数据的所有字段合并到feature属性中
-            Object.keys(worldCupData[iso]).forEach(key => {
-                feature.set(key, worldCupData[iso][key]);
-            });
-            feature.set('countryData', worldCupData[iso]);
-            console.log('合并数据到:', iso, feature.get('国家名称') || feature.get('name'));
-        }
-    });
+    // ========== 预提取机制：合并数据到feature（已注释）==========
+    // worldCupFeatures.forEach(feature => {
+    //     const iso = feature.get('iso_a3');
+    //     if (iso && worldCupData[iso]) {
+    //         Object.keys(worldCupData[iso]).forEach(key => {
+    //             feature.set(key, worldCupData[iso][key]);
+    //         });
+    //         feature.set('countryData', worldCupData[iso]);
+    //         console.log('合并数据到:', iso, feature.get('国家名称') || feature.get('name'));
+    //     }
+    // });
     
     const source = new ol.source.Vector({ features: worldCupFeatures });
     
@@ -550,8 +627,8 @@ async function initWorldCup() {
     });
     map.addOverlay(worldCupOverlay);
     
-    // 使用map点击事件，过滤世界杯图层
-    map.on('click', (evt) => {
+    // 使用map点击事件，过滤世界杯图层（实时提取机制）
+    map.on('click', async (evt) => {
         if (!worldCupLayer.getVisible()) return;
         
         // 检查点击的是否是世界杯图层的feature
@@ -564,23 +641,31 @@ async function initWorldCup() {
             evt.stopPropagation();
             
             const iso = feature.get('iso_a3');
-            // 直接从feature获取countryData
-            const countryData = feature.get('countryData') || {};
-            const name = feature.get('国家名称') || feature.get('name') || COUNTRY_NAMES[iso] || iso;
+            const name = COUNTRY_NAMES[iso] || feature.get('name') || iso;
             
-            console.log('点击图斑:', name, '数据:', countryData);
+            console.log('点击图斑:', name, '开始实时获取数据...');
             
+            // 显示加载状态
             const popupElement = worldCupOverlay.getElement();
-            popupElement.innerHTML = createInfoPopup(countryData, iso, name);
+            popupElement.innerHTML = createLoadingPopup(name);
+            const geometry = feature.getGeometry();
+            const center = geometry.getExtent ? ol.extent.getCenter(geometry.getExtent()) : geometry.getCoordinates();
+            worldCupOverlay.setPosition(center);
+            
+            // 实时从后端获取数据
+            const countryData = await fetchCountryData(iso);
+            
+            if (countryData) {
+                popupElement.innerHTML = createInfoPopup(countryData, iso, countryData['国家名称'] || name);
+            } else {
+                popupElement.innerHTML = createErrorPopup(name);
+            }
+            
             popupElement.style.cursor = 'pointer';
             popupElement.onclick = (e) => {
                 e.stopPropagation();
                 worldCupOverlay.setPosition(undefined);
             };
-            
-            const geometry = feature.getGeometry();
-            const center = geometry.getExtent ? ol.extent.getCenter(geometry.getExtent()) : geometry.getCoordinates();
-            worldCupOverlay.setPosition(center);
         }
     });
     
