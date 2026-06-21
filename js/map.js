@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
+﻿﻿﻿﻿﻿//================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
@@ -261,6 +261,15 @@ popup.getElement().style.display = 'none';
 
 map.on('click', function (evt) {
     if (measureActive) return;
+    
+    // 检查是否点击了世界杯图层，如果是则跳过（由worldcup.js处理）
+    if (typeof worldCupLayer !== 'undefined' && worldCupLayer && worldCupLayer.getVisible()) {
+        const worldCupFeature = map.forEachFeatureAtPixel(evt.pixel, f => f, {
+            layerFilter: (layer) => layer === worldCupLayer
+        });
+        if (worldCupFeature) return;
+    }
+    
     const feature = map.forEachFeatureAtPixel(evt.pixel, f => f);
     if (feature) {
         

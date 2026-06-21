@@ -374,6 +374,18 @@ const ISO_MAPPING = {
     'ALG': 'DZA', 'CRO': 'HRV', 'SUI': 'CHE', 'NOR': 'NOR'
 };
 
+// 需要过滤海外领土的国家（只显示主体部分）
+const MAINLAND_FILTER = {
+    'FRA': { minLon: -5, maxLon: 10, minLat: 41, maxLat: 52 },  // 法国本土
+    'NLD': { minLon: 3, maxLon: 7.5, minLat: 50, maxLat: 54 },  // 荷兰本土
+    'USA': { minLon: -130, maxLon: -65, minLat: 24, maxLat: 50 }, // 美国本土（不含阿拉斯加、夏威夷）
+    'PRT': { minLon: -10, maxLon: -6, minLat: 36, maxLat: 43 },  // 葡萄牙本土
+    'ESP': { minLon: -10, maxLon: 4, minLat: 35, maxLat: 44 },   // 西班牙本土
+    'MAR': { minLon: -18, maxLon: -1, minLat: 21, maxLat: 36 },  // 摩洛哥本土
+    'CHE': { minLon: 5, maxLon: 11, minLat: 45, maxLat: 48 },    // 瑞士
+    'TUR': { minLon: 25, maxLon: 45, minLat: 35, maxLat: 43 },   // 土耳其本土
+};
+
 function flyToCountry(iso, displayName) {
     const mappedIso = ISO_MAPPING[iso] || iso;
     const feature = worldCupFeatures.find(f => f.get('iso_a3') === mappedIso);
@@ -381,14 +393,15 @@ function flyToCountry(iso, displayName) {
     if (feature) {
         const geometry = feature.getGeometry();
         if (geometry) {
-            const extent = geometry.getExtent();
-            const center = ol.extent.getCenter(extent);
+            // 获取主体图斑的范围
+            const mainExtent = getMainlandExtent(geometry, mappedIso);
             
-            map.getView().animate({
-                center: center,
-                zoom: 4,
+            // 使用fit自动计算合适的缩放级别
+            map.getView().fit(mainExtent, {
+                padding: [50, 50, 50, 50],
                 duration: 1500,
-                complete: () => {
+                maxZoom: 8,
+                callback: () => {
                     const countryData = worldCupData[mappedIso] || {};
                     const popupElement = worldCupOverlay.getElement();
                     popupElement.innerHTML = createInfoPopup(countryData, mappedIso, displayName);
@@ -397,11 +410,57 @@ function flyToCountry(iso, displayName) {
                         e.stopPropagation();
                         worldCupOverlay.setPosition(undefined);
                     };
+                    const center = ol.extent.getCenter(mainExtent);
                     worldCupOverlay.setPosition(center);
                 }
             });
         }
     }
+}
+
+/**
+ * 获取国家主体图斑的范围（过滤海外领土）
+ */
+function getMainlandExtent(geometry, iso) {
+    const filter = MAINLAND_FILTER[iso];
+    
+    if (!filter) {
+        // 没有过滤配置，直接返回完整范围
+        return geometry.getExtent();
+    }
+    
+    // 对于多边形，筛选主体部分
+    const type = geometry.getType();
+    
+    if (type === 'MultiPolygon') {
+        let maxArea = 0;
+        let mainExtent = null;
+        
+        geometry.getCoordinates().forEach(polygon => {
+            // 计算多边形范围
+            const polyExtent = ol.extent.boundingExtent(polygon[0]);
+            // 转换为经纬度进行过滤判断
+            const center = ol.proj.transform(ol.extent.getCenter(polyExtent), 'EPSG:3857', 'EPSG:4326');
+            
+            // 检查是否在过滤范围内
+            if (center[0] >= filter.minLon && center[0] <= filter.maxLon &&
+                center[1] >= filter.minLat && center[1] <= filter.maxLat) {
+                // 计算面积
+                const area = ol.extent.getWidth(polyExtent) * ol.extent.getHeight(polyExtent);
+                if (area > maxArea) {
+                    maxArea = area;
+                    mainExtent = polyExtent;
+                }
+            }
+        });
+        
+        if (mainExtent) {
+            return mainExtent;
+        }
+    }
+    
+    // 默认返回完整范围
+    return geometry.getExtent();
 }
 
 async function initWorldCup() {
@@ -422,6 +481,9 @@ async function initWorldCup() {
         zIndex: 100
     });
     
+    // 更新全局引用
+    window.worldCupLayer = worldCupLayer;
+    
     map.addLayer(worldCupLayer);
     
     worldCupOverlay = new ol.Overlay({
@@ -431,9 +493,19 @@ async function initWorldCup() {
     });
     map.addOverlay(worldCupOverlay);
     
-    worldCupLayer.on('click', (evt) => {
-        const feature = evt.feature;
+    // 使用map点击事件，过滤世界杯图层
+    map.on('click', (evt) => {
+        if (!worldCupLayer.getVisible()) return;
+        
+        // 检查点击的是否是世界杯图层的feature
+        const feature = map.forEachFeatureAtPixel(evt.pixel, (f) => f, {
+            layerFilter: (layer) => layer === worldCupLayer
+        });
+        
         if (feature) {
+            // 阻止事件传播，防止触发map.js中的"要素"窗口
+            evt.stopPropagation();
+            
             const iso = feature.get('iso_a3');
             const countryData = worldCupData[iso] || {};
             
@@ -563,6 +635,8 @@ function toggleWorldCupLayer() {
     }
 }
 
+// 暴露给全局
 window.initWorldCup = initWorldCup;
 window.toggleWorldCupLayer = toggleWorldCupLayer;
 window.flyToCountry = flyToCountry;
+window.worldCupLayer = worldCupLayer;
