@@ -673,7 +673,6 @@ async function initWorldCup() {
             
             // 获取地图视图边界
             const mapSize = map.getSize();
-            const view = map.getView();
             const popupWidth = 320;
             const popupHeight = 450;
             const margin = 50;
@@ -681,12 +680,18 @@ async function initWorldCup() {
             // 将地图坐标转换为像素坐标
             const pixel = map.getPixelFromCoordinate(rawCenter);
             
-            // 计算安全的弹窗位置
-            let safePixelX = Math.max(margin, Math.min(pixel[0], mapSize[0] - popupWidth - margin));
-            let safePixelY = Math.max(margin, Math.min(pixel[1], mapSize[1] - popupHeight - margin));
+            // 计算安全的弹窗位置（考虑弹窗居中定位）
+            // 弹窗中心点的限制范围
+            const minCenterX = margin + popupWidth / 2;
+            const maxCenterX = mapSize[0] - margin - popupWidth / 2;
+            const minCenterY = margin + popupHeight / 2;
+            const maxCenterY = mapSize[1] - margin - popupHeight / 2;
+            
+            let safeCenterX = Math.max(minCenterX, Math.min(pixel[0], maxCenterX));
+            let safeCenterY = Math.max(minCenterY, Math.min(pixel[1], maxCenterY));
             
             // 转换回地图坐标
-            const safeCenter = map.getCoordinateFromPixel([safePixelX + popupWidth / 2, safePixelY + popupHeight / 2]);
+            const safeCenter = map.getCoordinateFromPixel([safeCenterX, safeCenterY]);
             
             worldCupOverlay.setPosition(safeCenter);
             
