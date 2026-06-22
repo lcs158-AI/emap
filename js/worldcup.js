@@ -14,7 +14,7 @@ function getWorldCupAuthHeaders() {
 const WORLD_CUP_COUNTRIES = [
     'ARG', 'BRA', 'URY', 'COL', 'ECU', 'PRY',
     'USA', 'CAN', 'MEX', 'PAN', 'CUW', 'HTI',
-    'ESP', 'FRA', 'DEU', 'GBR', 'PRT', 'NLD', 'BEL', 'HRV', 'CHE', 'TUR', 'SWE', 'AUT', 'CZE', 'BIH',
+    'ESP', 'FRA', 'DEU', 'GBR', 'PRT', 'NLD', 'BEL', 'HRV', 'CHE', 'TUR', 'SWE', 'AUT', 'CZE', 'BIH', 'NOR',
     'JPN', 'KOR', 'AUS', 'IRN', 'SAU', 'QAT', 'IRQ', 'UZB', 'JOR',
     'NZL',
     'MAR', 'TUN', 'EGY', 'DZA', 'GHA', 'CPV', 'ZAF', 'CIV', 'SEN', 'COD'
