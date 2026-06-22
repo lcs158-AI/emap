@@ -667,9 +667,28 @@ async function initWorldCup() {
             // 显示加载状态
             const popupElement = worldCupOverlay.getElement();
             popupElement.innerHTML = createLoadingPopup(name);
+            // 计算弹窗位置，确保在可视区域内
             const geometry = feature.getGeometry();
-            const center = geometry.getExtent ? ol.extent.getCenter(geometry.getExtent()) : geometry.getCoordinates();
-            worldCupOverlay.setPosition(center);
+            const rawCenter = geometry.getExtent ? ol.extent.getCenter(geometry.getExtent()) : geometry.getCoordinates();
+            
+            // 获取地图视图边界
+            const mapSize = map.getSize();
+            const view = map.getView();
+            const popupWidth = 320;
+            const popupHeight = 450;
+            const margin = 50;
+            
+            // 将地图坐标转换为像素坐标
+            const pixel = map.getPixelFromCoordinate(rawCenter);
+            
+            // 计算安全的弹窗位置
+            let safePixelX = Math.max(margin, Math.min(pixel[0], mapSize[0] - popupWidth - margin));
+            let safePixelY = Math.max(margin, Math.min(pixel[1], mapSize[1] - popupHeight - margin));
+            
+            // 转换回地图坐标
+            const safeCenter = map.getCoordinateFromPixel([safePixelX + popupWidth / 2, safePixelY + popupHeight / 2]);
+            
+            worldCupOverlay.setPosition(safeCenter);
             
             // 实时从后端获取数据
             const countryData = await fetchCountryData(iso);
@@ -747,8 +766,57 @@ function addWorldCupStyles() {
             display: flex; align-items: center; padding: 6px 8px;
             background: rgba(255,255,255,0.9); border-radius: 6px; cursor: pointer; transition: all 0.2s;
         }
-        .worldcup-country-item:hover {
-            background: rgba(255,255,255,1); transform: scale(1.02); box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        .worldcup-country-item:hover { background: rgba(255,255,255,1); transform: scale(1.02); }
+        .worldcup-country-flag { width: 16px; height: 12px; margin-right: 6px; border-radius: 2px; }
+        .worldcup-country-name { font-size: 12px; color: #333; flex: 1; }
+        .worldcup-country-code { font-size: 10px; color: #999; }
+        
+        /* 手机端样式 */
+        @media (max-width: 768px) {
+            .worldcup-panel {
+                left: 0;
+                right: 0;
+                bottom: 10px;
+                top: auto;
+                width: calc(100% - 20px);
+                max-height: 180px;
+                height: 180px;
+                margin: 0 10px;
+            }
+            .worldcup-panel-header {
+                padding: 8px 12px;
+            }
+            .worldcup-title { font-size: 14px; }
+            .worldcup-count {
+                font-size: 10px;
+                padding: 3px 6px;
+            }
+            .worldcup-panel-content {
+                max-height: 120px;
+                padding: 6px;
+            }
+            .worldcup-group { margin-bottom: 6px; }
+            .worldcup-group-title {
+                font-size: 10px;
+                padding: 3px 0;
+            }
+            .worldcup-group-countries {
+                grid-template-columns: 1fr 1fr;
+                gap: 2px;
+            }
+            .worldcup-country-item {
+                padding: 4px 5px;
+            }
+            .worldcup-country-flag {
+                width: 12px;
+                height: 9px;
+                margin-right: 4px;
+            }
+            .worldcup-country-name { font-size: 10px; }
+            .worldcup-country-code { font-size: 8px; }
+        }
+        
+        .worldcup-country-item:hover {            background: rgba(255,255,255,1); transform: scale(1.02); box-shadow: 0 2px 8px rgba(0,0,0,0.2);
         }
         .worldcup-flag { width: 16px; height: 12px; border-radius: 2px; margin-right: 5px; }
         .worldcup-country-name {
