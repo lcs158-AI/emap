@@ -412,7 +412,6 @@ function createErrorPopup(name) {
 }
 
 function createInfoPopup(countryData, iso, displayName) {
-    const flagUrl = getFlagUrlForPopup(displayName, iso);
     const name = displayName || COUNTRY_NAMES[iso] || (countryData ? countryData['国家名称'] : '') || iso;
     
     const getValue = (key) => {
@@ -422,14 +421,19 @@ function createInfoPopup(countryData, iso, displayName) {
     };
     
     return `
-        <div style="width: 320px; max-height: 450px; overflow-y: auto; font-family: 'Microsoft YaHei', Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; color: white;">
-            <div style="padding: 20px; text-align: center; background: rgba(255,255,255,0.1); border-radius: 12px 12px 0 0; position: relative;">
-                <button onclick="worldCupOverlay.setPosition(undefined);" style="position: absolute; top: 10px; right: 10px; width: 28px; height: 28px; border: none; border-radius: 50%; background: rgba(255,255,255,0.2); color: white; font-size: 18px; cursor: pointer; line-height: 1;">×</button>
-                <img src="${flagUrl}" style="width: 60px; height: 40px; border-radius: 4px; margin-bottom: 10px;" />
-                <h2 style="margin: 0; font-size: 24px; font-weight: bold;">${name}</h2>
-                <div style="font-size: 14px; opacity: 0.8; margin-top: 5px;">2026世界杯参赛地区</div>
+        <div id="worldcup-popup-container" style="width: 320px; max-height: 450px; overflow-y: auto; font-family: 'Microsoft YaHei', Arial, sans-serif; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+            <!-- 可拖动窄条 -->
+            <div id="worldcup-popup-header" style="height: 30px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px 12px 0 0; position: relative; cursor: move; display: flex; align-items: center; justify-content: flex-end; gap: 5px; padding-right: 5px;">
+                <button id="worldcup-popup-minimize" style="width: 24px; height: 24px; border: none; border-radius: 50%; background: rgba(255,255,255,0.2); color: white; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center;">-</button>
+                <button id="worldcup-popup-close" style="width: 24px; height: 24px; border: none; border-radius: 50%; background: rgba(255,255,255,0.2); color: white; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center;">×</button>
             </div>
+            <!-- 数据内容 -->
             <div style="padding: 15px; background: rgba(255,255,255,0.95); color: #333; border-radius: 0 0 12px 12px;">
+                <!-- 国家名称 -->
+                <div style="text-align: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #eee;">
+                    <h3 style="margin: 0; font-size: 18px; font-weight: bold; color: #333;">${name}</h3>
+                    <div style="font-size: 12px; color: #999;">2026世界杯参赛地区</div>
+                </div>
                 ${createDataSection('📊 基本数据', [
                     ['国土面积', `${getValue('国土面积(km²)')} km²`],
                     ['人口(2024)', formatNumber(getValue('人口(2024)'))],
@@ -704,11 +708,70 @@ async function initWorldCup() {
                 popupElement.innerHTML = createErrorPopup(name);
             }
             
-            popupElement.style.cursor = 'pointer';
-            popupElement.onclick = (e) => {
-                e.stopPropagation();
+            popupElement.style.cursor = 'default';
+            
+            // 添加拖动功能
+            const header = popupElement.querySelector('#worldcup-popup-header');
+            const closeBtn = popupElement.querySelector('#worldcup-popup-close');
+            const minimizeBtn = popupElement.querySelector('#worldcup-popup-minimize');
+            
+            let isDragging = false;
+            let startX, startY, startLeft, startTop;
+            
+            header.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                startX = e.clientX;
+                startY = e.clientY;
+                
+                // 获取当前弹窗位置
+                const rect = popupElement.getBoundingClientRect();
+                startLeft = rect.left;
+                startTop = rect.top;
+                
+                document.addEventListener('mousemove', onDrag);
+                document.addEventListener('mouseup', onDragEnd);
+            });
+            
+            function onDrag(e) {
+                if (!isDragging) return;
+                
+                const deltaX = e.clientX - startX;
+                const deltaY = e.clientY - startY;
+                
+                // 直接设置弹窗位置，不跟随地图
+                popupElement.style.position = 'fixed';
+                popupElement.style.left = `${startLeft + deltaX}px`;
+                popupElement.style.top = `${startTop + deltaY}px`;
+                popupElement.style.transform = 'none';
+                
+                // 通知OpenLayers不再管理位置
                 worldCupOverlay.setPosition(undefined);
-            };
+            }
+            
+            function onDragEnd() {
+                isDragging = false;
+                document.removeEventListener('mousemove', onDrag);
+                document.removeEventListener('mouseup', onDragEnd);
+            }
+            
+            // 关闭按钮
+            if (closeBtn) {
+                closeBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    worldCupOverlay.setPosition(undefined);
+                };
+            }
+            
+            // 最小化按钮
+            if (minimizeBtn) {
+                minimizeBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    const content = popupElement.querySelector('div:last-child');
+                    if (content) {
+                        content.style.display = content.style.display === 'none' ? 'block' : 'none';
+                    }
+                };
+            }
         }
     });
     
