@@ -422,9 +422,8 @@ function createInfoPopup(countryData, iso, displayName) {
     
     return `
         <div id="worldcup-popup-container" style="width: 320px; max-height: 450px; overflow-y: auto; font-family: 'Microsoft YaHei', Arial, sans-serif; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
-            <!-- 可拖动窄条 -->
-            <div id="worldcup-popup-header" style="height: 30px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px 12px 0 0; position: relative; cursor: move; display: flex; align-items: center; justify-content: flex-end; gap: 5px; padding-right: 5px;">
-                <button id="worldcup-popup-minimize" style="width: 24px; height: 24px; border: none; border-radius: 50%; background: rgba(255,255,255,0.2); color: white; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center;">-</button>
+            <!-- 窄条 -->
+            <div id="worldcup-popup-header" style="height: 30px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px 12px 0 0; position: relative; display: flex; align-items: center; justify-content: flex-end; gap: 5px; padding-right: 5px;">
                 <button id="worldcup-popup-close" style="width: 24px; height: 24px; border: none; border-radius: 50%; background: rgba(255,255,255,0.2); color: white; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center;">×</button>
             </div>
             <!-- 数据内容 -->
@@ -710,66 +709,12 @@ async function initWorldCup() {
             
             popupElement.style.cursor = 'default';
             
-            // 添加拖动功能
-            const header = popupElement.querySelector('#worldcup-popup-header');
-            const closeBtn = popupElement.querySelector('#worldcup-popup-close');
-            const minimizeBtn = popupElement.querySelector('#worldcup-popup-minimize');
-            
-            let isDragging = false;
-            let startX, startY, startLeft, startTop;
-            
-            header.addEventListener('mousedown', (e) => {
-                isDragging = true;
-                startX = e.clientX;
-                startY = e.clientY;
-                
-                // 获取当前弹窗位置
-                const rect = popupElement.getBoundingClientRect();
-                startLeft = rect.left;
-                startTop = rect.top;
-                
-                document.addEventListener('mousemove', onDrag);
-                document.addEventListener('mouseup', onDragEnd);
-            });
-            
-            function onDrag(e) {
-                if (!isDragging) return;
-                
-                const deltaX = e.clientX - startX;
-                const deltaY = e.clientY - startY;
-                
-                // 直接设置弹窗位置，不跟随地图
-                popupElement.style.position = 'fixed';
-                popupElement.style.left = `${startLeft + deltaX}px`;
-                popupElement.style.top = `${startTop + deltaY}px`;
-                popupElement.style.transform = 'none';
-                
-                // 通知OpenLayers不再管理位置
-                worldCupOverlay.setPosition(undefined);
-            }
-            
-            function onDragEnd() {
-                isDragging = false;
-                document.removeEventListener('mousemove', onDrag);
-                document.removeEventListener('mouseup', onDragEnd);
-            }
-            
             // 关闭按钮
+            const closeBtn = popupElement.querySelector('#worldcup-popup-close');
             if (closeBtn) {
                 closeBtn.onclick = (e) => {
                     e.stopPropagation();
                     worldCupOverlay.setPosition(undefined);
-                };
-            }
-            
-            // 最小化按钮
-            if (minimizeBtn) {
-                minimizeBtn.onclick = (e) => {
-                    e.stopPropagation();
-                    const content = popupElement.querySelector('div:last-child');
-                    if (content) {
-                        content.style.display = content.style.display === 'none' ? 'block' : 'none';
-                    }
                 };
             }
         }
