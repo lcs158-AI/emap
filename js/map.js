@@ -1523,8 +1523,17 @@ if (geoJsonFileInput) {
                             console.error('KML 解析失败:', parseError);
                             throw new Error('KML 文件解析失败: ' + parseError.message);
                         }
+                    } else if (/\.gml$/.test(fileName)) {
+                        // 加载 GML
+                        try {
+                            console.log('GML 文件读取成功，准备加载到地图');
+                            loadLocalGML(event.target.result, file.name.replace(/\.gml$/i, ''));
+                        } catch (parseError) {
+                            console.error('GML 解析失败:', parseError);
+                            throw new Error('GML 文件解析失败: ' + parseError.message);
+                        }
                     } else {
-                        throw new Error('不支持的文件格式，请选择 .geojson、.json、.kml 或 .kmz 文件');
+                        throw new Error('不支持的文件格式，请选择 .geojson、.json、.kml、.kmz 或 .gml 文件');
                     }
                     
                     // 隐藏加载提示
@@ -1779,6 +1788,108 @@ function loadLocalKML(kmlText, name) {
         
     } catch (error) {
         console.error('加载本地 KML 失败:', error);
+        throw error;
+    }
+}
+
+/**
+ * 加载本地 GML 数据到地图
+ * @param {string} gmlText - GML 文本内容
+ * @param {string} name - 图层名称
+ */
+function loadLocalGML(gmlText, name) {
+    try {
+        // 使用 OpenLayers GML 解析器
+        const gmlFormat = new ol.format.GML({
+            extractAttributes: true,
+            writeStyle: false
+        });
+        
+        // 解析 GML 数据
+        const features = gmlFormat.readFeatures(gmlText, {
+            dataProjection: 'EPSG:4326',
+            featureProjection: 'EPSG:3857'
+        });
+        
+        // 为每个要素设置默认属性
+        features.forEach(function(feature) {
+            // 设置默认名称
+            if (!feature.get('name')) {
+                feature.set('name', name + '-' + features.indexOf(feature));
+            }
+        });
+        
+        // 创建矢量图层
+        const vectorLayer = new ol.layer.Vector({
+            source: new ol.source.Vector({ features }),
+            style: function(feature) {
+                const geometryType = feature.getGeometry().getType();
+                
+                if (geometryType === 'Point') {
+                    return new ol.style.Style({
+                        image: new ol.style.Circle({
+                            radius: 8,
+                            fill: new ol.style.Fill({ color: 'rgba(255, 0, 0, 0.8)' }),
+                            stroke: new ol.style.Stroke({ color: '#fff', width: 2 })
+                        }),
+                        text: new ol.style.Text({
+                            text: feature.get('name') || '',
+                            offsetY: -15,
+                            fill: new ol.style.Fill({ color: '#333' }),
+                            stroke: new ol.style.Stroke({ color: '#fff', width: 2 })
+                        })
+                    });
+                } else if (geometryType === 'LineString' || geometryType === 'MultiLineString') {
+                    return new ol.style.Style({
+                        stroke: new ol.style.Stroke({
+                            color: 'rgba(54, 162, 235, 0.9)',
+                            width: 3
+                        })
+                    });
+                } else if (geometryType === 'Polygon' || geometryType === 'MultiPolygon') {
+                    return new ol.style.Style({
+                        fill: new ol.style.Fill({
+                            color: 'rgba(75, 192, 192, 0.3)'
+                        }),
+                        stroke: new ol.style.Stroke({
+                            color: 'rgba(75, 192, 192, 0.9)',
+                            width: 2
+                        })
+                    });
+                }
+                
+                return new ol.style.Style();
+            },
+            visible: true,
+            properties: {
+                labelField: 'name',
+                linkField: ''
+            },
+            name: name
+        });
+        
+        // 添加到地图
+        map.addLayer(vectorLayer);
+        
+        // 记录到本地图层数组
+        localGeoJsonLayers.push({
+            layer: vectorLayer,
+            name: name,
+            visible: true,
+            style: {},
+            labelField: 'name'
+        });
+        
+        // 更新图层控制面板
+        createLayerControl();
+        
+        // 自动缩放到图层范围
+        zoomToLayerExtent(vectorLayer);
+        
+        console.log('本地 GML 图层已添加:', name);
+        
+    } catch (error) {
+        console.error('加载本地 GML 失败:', error);
         throw error;
     }
 }
