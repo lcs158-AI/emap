@@ -421,18 +421,17 @@ function createInfoPopup(countryData, iso, displayName) {
     };
     
     return `
-        <div id="worldcup-popup-container" style="width: 320px; max-height: 450px; overflow-y: auto; font-family: 'Microsoft YaHei', Arial, sans-serif; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-            <!-- 窄条 -->
-            <div id="worldcup-popup-header" style="padding: 15px; background: rgba(255,255,255,0.15); border-bottom: 1px solid rgba(255,255,255,0.2); display: flex; justify-content: flex-end; align-items: center;">
+        <div id="worldcup-popup-container" style="width: 320px; max-height: 450px; font-family: 'Microsoft YaHei', Arial, sans-serif; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; flex-direction: column;">
+            <!-- 头部区域（固定） -->
+            <div id="worldcup-popup-header" style="padding: 15px; background: rgba(255,255,255,0.15); border-bottom: 1px solid rgba(255,255,255,0.2); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
+                <div>
+                    <h3 style="margin: 0; font-size: 18px; font-weight: bold; color: white;">${name}</h3>
+                    <div style="font-size: 12px; color: rgba(255,255,255,0.8);">2026世界杯参赛地区</div>
+                </div>
                 <button id="worldcup-popup-close" style="width: 28px; height: 28px; border: none; background: rgba(255,255,255,0.2); color: white; border-radius: 50%; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center;">×</button>
             </div>
-            <!-- 数据内容 -->
-            <div style="padding: 15px; background: rgba(255,255,255,0.95); color: #333; border-radius: 0 0 12px 12px;">
-                <!-- 国家名称 -->
-                <div style="text-align: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #eee;">
-                    <h3 style="margin: 0; font-size: 18px; font-weight: bold; color: #333;">${name}</h3>
-                    <div style="font-size: 12px; color: #999;">2026世界杯参赛地区</div>
-                </div>
+            <!-- 内容区域（可滚动） -->
+            <div style="padding: 15px; background: rgba(255,255,255,0.95); color: #333; border-radius: 0 0 12px 12px; overflow-y: auto; flex: 1;">
                 ${createDataSection('📊 基本数据', [
                     ['国土面积', `${getValue('国土面积(km²)')} km²`],
                     ['人口(2024)', formatNumber(getValue('人口(2024)'))],
