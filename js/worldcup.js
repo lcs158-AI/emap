@@ -421,10 +421,10 @@ function createInfoPopup(countryData, iso, displayName) {
     };
     
     return `
-        <div id="worldcup-popup-container" style="width: 320px; max-height: 450px; overflow-y: auto; font-family: 'Microsoft YaHei', Arial, sans-serif; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+        <div id="worldcup-popup-container" style="width: 320px; max-height: 450px; overflow-y: auto; font-family: 'Microsoft YaHei', Arial, sans-serif; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
             <!-- 窄条 -->
-            <div id="worldcup-popup-header" style="height: 30px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px 12px 0 0; position: relative; display: flex; align-items: center; justify-content: flex-end; gap: 5px; padding-right: 5px;">
-                <button id="worldcup-popup-close" style="width: 24px; height: 24px; border: none; border-radius: 50%; background: rgba(255,255,255,0.2); color: white; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center;">×</button>
+            <div id="worldcup-popup-header" style="padding: 15px; background: rgba(255,255,255,0.15); border-bottom: 1px solid rgba(255,255,255,0.2); display: flex; justify-content: flex-end; align-items: center;">
+                <button id="worldcup-popup-close" style="width: 28px; height: 28px; border: none; background: rgba(255,255,255,0.2); color: white; border-radius: 50%; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center;">×</button>
             </div>
             <!-- 数据内容 -->
             <div style="padding: 15px; background: rgba(255,255,255,0.95); color: #333; border-radius: 0 0 12px 12px;">
