@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿//================== 地图初始化 ====================
+﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
@@ -6655,3 +6655,255 @@ async function getTideData(lat, lon) {
 
 // 暴露函数到全局
 window.getTideData = getTideData;
+
+// ==================== 气温热力图功能 ====================
+let temperatureHeatmapLayer = null;
+let temperatureDataVisible = false;
+let temperatureLegendPanel = null;
+
+const temperatureConfig = {
+    gridSize: 2.0,
+    maxIntensity: 50,
+    blur: 15,
+    radius: 20
+};
+
+async function fetchTemperatureData() {
+    const loadingPanel = document.getElementById('loadingPanel');
+    const loadingProgress = document.getElementById('loadingProgress');
+    
+    if (loadingPanel) {
+        loadingPanel.style.display = 'block';
+        loadingProgress.textContent = '正在获取全球气温数据...';
+    }
+    
+    try {
+        const points = [];
+        for (let lat = -85; lat <= 85; lat += temperatureConfig.gridSize) {
+            for (let lon = -180; lon <= 180; lon += temperatureConfig.gridSize) {
+                points.push({
+                    lat: lat.toFixed(2),
+                    lon: lon.toFixed(2)
+                });
+            }
+        }
+        
+        const maxPoints = 1000;
+        if (points.length > maxPoints) {
+            const step = Math.ceil(points.length / maxPoints);
+            const sampledPoints = points.filter((_, i) => i % step === 0);
+            points.length = 0;
+            points.push(...sampledPoints);
+        }
+        
+        const lats = points.map(p => p.lat);
+        const lons = points.map(p => p.lon);
+        
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lats.join(',')}&longitude=${lons.join(',')}&hourly=temperature_2m&timezone=auto&forecast_days=1`;
+        
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: { 'Accept': 'application/json' }
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`API请求失败: ${response.status} - ${errorText.substring(0, 200)}`);
+        }
+        
+        let data = await response.json();
+        
+        const temperatures = [];
+        const validLats = [];
+        const validLons = [];
+        
+        if (Array.isArray(data)) {
+            const now = new Date();
+            const currentHour = now.getHours();
+            
+            for (const point of data) {
+                const tempArray = point.hourly?.temperature_2m;
+                if (tempArray) {
+                    let temp = tempArray[currentHour];
+                    if (temp === null || temp === undefined) {
+                        for (let i = 0; i < 24; i++) {
+                            if (tempArray[i] !== null && tempArray[i] !== undefined) {
+                                temp = tempArray[i];
+                                break;
+                            }
+                        }
+                    }
+                    if (temp !== null && temp !== undefined) {
+                        temperatures.push(temp);
+                        validLats.push(point.latitude);
+                        validLons.push(point.longitude);
+                    }
+                }
+            }
+        } else if (data.hourly && data.hourly.temperature_2m) {
+            temperatures.push(data.hourly.temperature_2m[0]);
+            validLats.push(data.latitude);
+            validLons.push(data.longitude);
+        }
+        
+        if (temperatures.length === 0) {
+            throw new Error('未获取到有效的气温数据');
+        }
+        
+        return {
+            latitudes: validLats,
+            longitudes: validLons,
+            temperatures: temperatures
+        };
+        
+    } catch (error) {
+        console.error('获取气温数据失败:', error);
+        if (loadingPanel) {
+            loadingProgress.textContent = '加载失败: ' + error.message;
+            setTimeout(() => {
+                loadingPanel.style.display = 'none';
+            }, 2000);
+        }
+        return null;
+    }
+}
+
+function createTemperatureHeatmap(temperatureData) {
+    if (!temperatureData || !temperatureData.temperatures) return null;
+    
+    const features = [];
+    const temps = temperatureData.temperatures;
+    const lats = temperatureData.latitudes;
+    const lons = temperatureData.longitudes;
+    
+    for (let i = 0; i < temps.length; i++) {
+        const temp = temps[i];
+        const lat = lats[i];
+        const lon = lons[i];
+        
+        if (temp === null || temp === undefined) continue;
+        
+        const feature = new ol.Feature({
+            geometry: new ol.geom.Point(ol.proj.fromLonLat([lon, lat])),
+            temperature: temp
+        });
+        features.push(feature);
+    }
+    
+    const source = new ol.source.Vector({ features: features });
+    
+    const heatmapLayer = new ol.layer.Heatmap({
+        source: source,
+        blur: temperatureConfig.blur,
+        radius: temperatureConfig.radius,
+        gradient: ['#0000ff', '#00ffff', '#00ff00', '#ffff00', '#ff7f00', '#ff0000']
+    });
+    
+    heatmapLayer.set('name', '气温热力图');
+    
+    return heatmapLayer;
+}
+
+function createTemperatureLegend() {
+    if (document.getElementById('temperatureLegend')) return;
+    
+    temperatureLegendPanel = document.createElement('div');
+    temperatureLegendPanel.id = 'temperatureLegend';
+    temperatureLegendPanel.style.cssText = `
+        position: absolute;
+        bottom: 20px;
+        right: 20px;
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 8px;
+        padding: 15px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        z-index: 1000;
+        min-width: 160px;
+        display: none;
+    `;
+    
+    temperatureLegendPanel.innerHTML = `
+        <div style="font-weight: bold; font-size: 14px; margin-bottom: 10px; color: #333;">🌡️ 气温热力图</div>
+        <div style="height: 20px; width: 100%; border-radius: 10px; background: linear-gradient(to right, #0000ff, #00ffff, #00ff00, #ffff00, #ff7f00, #ff0000); margin-bottom: 8px;"></div>
+        <div style="display: flex; justify-content: space-between; font-size: 12px; color: #666;">
+            <span>-30°C</span>
+            <span>0°C</span>
+            <span>30°C</span>
+            <span>50°C</span>
+        </div>
+        <div style="font-size: 11px; color: #aaa; margin-top: 8px; text-align: right;">数据: Open-Meteo</div>
+    `;
+    
+    document.getElementById('map').appendChild(temperatureLegendPanel);
+}
+
+function showTemperatureLegend() {
+    if (!temperatureLegendPanel) createTemperatureLegend();
+    if (temperatureLegendPanel) {
+        temperatureLegendPanel.style.display = 'block';
+    }
+}
+
+function hideTemperatureLegend() {
+    if (temperatureLegendPanel) {
+        temperatureLegendPanel.style.display = 'none';
+    }
+}
+
+async function toggleTemperatureHeatmap() {
+    if (temperatureDataVisible) {
+        if (temperatureHeatmapLayer) {
+            map.removeLayer(temperatureHeatmapLayer);
+            temperatureHeatmapLayer = null;
+        }
+        hideTemperatureLegend();
+        
+        temperatureDataVisible = false;
+        
+        const tempBtn = document.getElementById('toggleTemperatureBtn');
+        if (tempBtn) tempBtn.classList.remove('active');
+        
+        const weatherDropdown = document.getElementById('weatherDropdown');
+        if (weatherDropdown) weatherDropdown.style.display = 'none';
+    } else {
+        const temperatureData = await fetchTemperatureData();
+        
+        if (temperatureData) {
+            if (temperatureHeatmapLayer) {
+                map.removeLayer(temperatureHeatmapLayer);
+            }
+            
+            temperatureHeatmapLayer = createTemperatureHeatmap(temperatureData);
+            
+            if (temperatureHeatmapLayer) {
+                map.addLayer(temperatureHeatmapLayer);
+                temperatureDataVisible = true;
+                showTemperatureLegend();
+                
+                const tempBtn = document.getElementById('toggleTemperatureBtn');
+                if (tempBtn) tempBtn.classList.add('active');
+                
+                const loadingPanel = document.getElementById('loadingPanel');
+                if (loadingPanel) loadingPanel.style.display = 'none';
+                
+                const weatherDropdown = document.getElementById('weatherDropdown');
+                if (weatherDropdown) weatherDropdown.style.display = 'none';
+                
+                console.log('气温热力图加载成功');
+            }
+        }
+    }
+}
+
+function addTemperatureControlButton() {
+    const tempBtn = document.getElementById('toggleTemperatureBtn');
+    if (tempBtn) {
+        tempBtn.addEventListener('click', toggleTemperatureHeatmap);
+    }
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', addTemperatureControlButton);
+} else {
+    addTemperatureControlButton();
+}
