@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
+﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
@@ -6688,66 +6688,88 @@ async function fetchTemperatureData() {
             }
         }
         
-        const maxPoints = 1000;
-        if (points.length > maxPoints) {
-            const step = Math.ceil(points.length / maxPoints);
-            const sampledPoints = points.filter((_, i) => i % step === 0);
-            points.length = 0;
-            points.push(...sampledPoints);
+        const batchSize = 50;
+        const batches = [];
+        for (let i = 0; i < points.length; i += batchSize) {
+            batches.push(points.slice(i, i + batchSize));
         }
-        
-        const lats = points.map(p => p.lat);
-        const lons = points.map(p => p.lon);
-        
-        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lats.join(',')}&longitude=${lons.join(',')}&hourly=temperature_2m&timezone=auto&forecast_days=1`;
-        
-        const response = await fetch(url, {
-            method: 'GET',
-            headers: { 'Accept': 'application/json' }
-        });
-        
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`API请求失败: ${response.status} - ${errorText.substring(0, 200)}`);
-        }
-        
-        let data = await response.json();
         
         const temperatures = [];
         const validLats = [];
         const validLons = [];
+        const now = new Date();
+        const currentHour = now.getHours();
         
-        if (Array.isArray(data)) {
-            const now = new Date();
-            const currentHour = now.getHours();
+        for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+            const batch = batches[batchIndex];
+            const lats = batch.map(p => p.lat);
+            const lons = batch.map(p => p.lon);
             
-            for (const point of data) {
-                const tempArray = point.hourly?.temperature_2m;
-                if (tempArray) {
-                    let temp = tempArray[currentHour];
-                    if (temp === null || temp === undefined) {
-                        for (let i = 0; i < 24; i++) {
-                            if (tempArray[i] !== null && tempArray[i] !== undefined) {
-                                temp = tempArray[i];
-                                break;
+            const url = `https://api.open-meteo.com/v1/forecast?latitude=${lats.join(',')}&longitude=${lons.join(',')}&hourly=temperature_2m&timezone=auto&forecast_days=1`;
+            
+            if (loadingProgress) {
+                loadingProgress.textContent = `正在获取气温数据 ${batchIndex + 1}/${batches.length}...`;
+            }
+            
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: { 'Accept': 'application/json' }
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`API请求失败: ${response.status} - ${errorText.substring(0, 200)}`);
+            }
+            
+            let data = await response.json();
+            
+            if (Array.isArray(data)) {
+                for (const point of data) {
+                    const tempArray = point.hourly?.temperature_2m;
+                    if (tempArray) {
+                        let temp = tempArray[currentHour];
+                        if (temp === null || temp === undefined) {
+                            for (let i = 0; i < 24; i++) {
+                                if (tempArray[i] !== null && tempArray[i] !== undefined) {
+                                    temp = tempArray[i];
+                                    break;
+                                }
                             }
                         }
-                    }
-                    if (temp !== null && temp !== undefined) {
-                        temperatures.push(temp);
-                        validLats.push(point.latitude);
-                        validLons.push(point.longitude);
+                        if (temp !== null && temp !== undefined) {
+                            temperatures.push(temp);
+                            validLats.push(point.latitude);
+                            validLons.push(point.longitude);
+                        }
                     }
                 }
+            } else if (data.hourly && data.hourly.temperature_2m) {
+                const tempArray = data.hourly.temperature_2m;
+                let temp = tempArray[currentHour];
+                if (temp === null || temp === undefined) {
+                    for (let i = 0; i < 24; i++) {
+                        if (tempArray[i] !== null && tempArray[i] !== undefined) {
+                            temp = tempArray[i];
+                            break;
+                        }
+                    }
+                }
+                if (temp !== null && temp !== undefined) {
+                    temperatures.push(temp);
+                    validLats.push(data.latitude);
+                    validLons.push(data.longitude);
+                }
             }
-        } else if (data.hourly && data.hourly.temperature_2m) {
-            temperatures.push(data.hourly.temperature_2m[0]);
-            validLats.push(data.latitude);
-            validLons.push(data.longitude);
+            
+            await new Promise(resolve => setTimeout(resolve, 100));
         }
         
         if (temperatures.length === 0) {
             throw new Error('未获取到有效的气温数据');
+        }
+        
+        if (loadingProgress) {
+            loadingProgress.textContent = '正在生成热力图...';
         }
         
         return {
