@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
@@ -6662,12 +6662,12 @@ let temperatureDataVisible = false;
 let temperatureLegendPanel = null;
 
 const temperatureConfig = {
-    gridSize: 5.0,
+    gridSize: 10.0,
     maxIntensity: 50,
-    blur: 15,
-    radius: 25,
-    batchSize: 20,
-    requestDelay: 500,
+    blur: 20,
+    radius: 30,
+    batchSize: 10,
+    requestDelay: 1500,
     maxRetries: 3,
     retryDelay: 60000
 };
@@ -6681,14 +6681,13 @@ async function fetchBatchTemperatures(points) {
         const response = await fetch(url, { method: 'GET' });
         
         if (response.status === 429) {
-            console.warn('速率限制，等待60秒后重试...');
-            await new Promise(resolve => setTimeout(resolve, temperatureConfig.retryDelay));
-            return await fetchBatchTemperatures(points);
+            return null;
         }
         
         if (!response.ok) {
             const errorText = await response.text();
-            throw new Error(`API请求失败: ${response.status} - ${errorText}`);
+            console.warn(`API请求失败: ${response.status} - ${errorText}`);
+            return null;
         }
         
         const data = await response.json();
@@ -6712,7 +6711,7 @@ async function fetchBatchTemperatures(points) {
         return [];
     } catch (error) {
         console.warn('批量气温获取失败:', error);
-        return [];
+        return null;
     }
 }
 
@@ -6744,6 +6743,7 @@ async function fetchTemperatureData() {
         
         let successCount = 0;
         const totalPoints = points.length;
+        let rateLimitCount = 0;
         
         for (let i = 0; i < batches.length; i++) {
             if (loadingProgress) {
@@ -6751,6 +6751,22 @@ async function fetchTemperatureData() {
             }
             
             const batchResults = await fetchBatchTemperatures(batches[i]);
+            
+            if (batchResults === null) {
+                rateLimitCount++;
+                if (rateLimitCount >= temperatureConfig.maxRetries) {
+                    throw new Error('API速率限制，无法继续获取数据');
+                }
+                console.warn(`第${rateLimitCount}次遇到速率限制，等待60秒后继续...`);
+                if (loadingProgress) {
+                    loadingProgress.textContent = `速率限制，等待60秒后重试... (${rateLimitCount}/${temperatureConfig.maxRetries})`;
+                }
+                await new Promise(resolve => setTimeout(resolve, temperatureConfig.retryDelay));
+                i--;
+                continue;
+            }
+            
+            rateLimitCount = 0;
             
             batchResults.forEach(r => {
                 temperatureData.latitudes.push(r.lat);
