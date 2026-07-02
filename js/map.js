@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
@@ -6662,20 +6662,17 @@ let temperatureDataVisible = false;
 let temperatureLegendPanel = null;
 
 const temperatureConfig = {
-    gridSize: 2.0,
+    gridSize: 3.0,
     maxIntensity: 50,
     blur: 15,
-    radius: 20
+    radius: 20,
+    maxConcurrentRequests: 5,
+    requestDelay: 50
 };
 
 async function fetchTemperatureData() {
     const loadingPanel = document.getElementById('loadingPanel');
     const loadingProgress = document.getElementById('loadingProgress');
-    
-    if (loadingPanel) {
-        loadingPanel.style.display = 'block';
-        loadingProgress.textContent = '正在获取全球气温数据...';
-    }
     
     try {
         const points = [];
@@ -6688,99 +6685,75 @@ async function fetchTemperatureData() {
             }
         }
         
-        const batchSize = 50;
-        const batches = [];
-        for (let i = 0; i < points.length; i += batchSize) {
-            batches.push(points.slice(i, i + batchSize));
-        }
-        
-        const temperatures = [];
-        const validLats = [];
-        const validLons = [];
+        const temperatureData = {
+            latitudes: [],
+            longitudes: [],
+            temperatures: []
+        };
         const now = new Date();
         const currentHour = now.getHours();
         
-        for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
-            const batch = batches[batchIndex];
-            const lats = batch.map(p => p.lat);
-            const lons = batch.map(p => p.lon);
-            
-            const url = `https://api.open-meteo.com/v1/forecast?latitude=${lats.join(',')}&longitude=${lons.join(',')}&hourly=temperature_2m&timezone=auto&forecast_days=1`;
-            
-            if (loadingProgress) {
-                loadingProgress.textContent = `正在获取气温数据 ${batchIndex + 1}/${batches.length}...`;
-            }
-            
-            const response = await fetch(url, {
-                method: 'GET',
-                headers: { 'Accept': 'application/json' }
-            });
-            
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`API请求失败: ${response.status} - ${errorText.substring(0, 200)}`);
-            }
-            
-            let data = await response.json();
-            
-            if (Array.isArray(data)) {
-                for (const point of data) {
-                    const tempArray = point.hourly?.temperature_2m;
-                    if (tempArray) {
-                        let temp = tempArray[currentHour];
-                        if (temp === null || temp === undefined) {
-                            for (let i = 0; i < 24; i++) {
-                                if (tempArray[i] !== null && tempArray[i] !== undefined) {
-                                    temp = tempArray[i];
-                                    break;
+        const processBatch = async (batch) => {
+            const results = [];
+            for (const point of batch) {
+                const url = `https://api.open-meteo.com/v1/forecast?latitude=${point.lat}&longitude=${point.lon}&hourly=temperature_2m&timezone=auto&forecast_days=1`;
+                try {
+                    const response = await fetch(url, { method: 'GET' });
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.hourly && data.hourly.temperature_2m) {
+                            let temp = data.hourly.temperature_2m[currentHour];
+                            if (temp === null || temp === undefined) {
+                                for (let i = 0; i < 24; i++) {
+                                    if (data.hourly.temperature_2m[i] !== null && data.hourly.temperature_2m[i] !== undefined) {
+                                        temp = data.hourly.temperature_2m[i];
+                                        break;
+                                    }
                                 }
                             }
-                        }
-                        if (temp !== null && temp !== undefined) {
-                            temperatures.push(temp);
-                            validLats.push(point.latitude);
-                            validLons.push(point.longitude);
-                        }
-                    }
-                }
-            } else if (data.hourly && data.hourly.temperature_2m) {
-                const tempArray = data.hourly.temperature_2m;
-                let temp = tempArray[currentHour];
-                if (temp === null || temp === undefined) {
-                    for (let i = 0; i < 24; i++) {
-                        if (tempArray[i] !== null && tempArray[i] !== undefined) {
-                            temp = tempArray[i];
-                            break;
+                            if (temp !== null && temp !== undefined) {
+                                results.push({
+                                    lat: parseFloat(point.lat),
+                                    lon: parseFloat(point.lon),
+                                    temp: temp
+                                });
+                            }
                         }
                     }
+                } catch (error) {
+                    console.warn('单个点气温获取失败:', error);
                 }
-                if (temp !== null && temp !== undefined) {
-                    temperatures.push(temp);
-                    validLats.push(data.latitude);
-                    validLons.push(data.longitude);
-                }
+                await new Promise(resolve => setTimeout(resolve, temperatureConfig.requestDelay));
             }
-            
-            await new Promise(resolve => setTimeout(resolve, 100));
+            return results;
+        };
+        
+        const batches = [];
+        for (let i = 0; i < points.length; i += temperatureConfig.maxConcurrentRequests) {
+            batches.push(points.slice(i, i + temperatureConfig.maxConcurrentRequests));
         }
         
-        if (temperatures.length === 0) {
+        for (let i = 0; i < batches.length; i++) {
+            if (loadingProgress) {
+                loadingProgress.textContent = `正在获取气温数据 ${i + 1}/${batches.length}...`;
+            }
+            const batchResults = await processBatch(batches[i]);
+            batchResults.forEach(r => {
+                temperatureData.latitudes.push(r.lat);
+                temperatureData.longitudes.push(r.lon);
+                temperatureData.temperatures.push(r.temp);
+            });
+        }
+        
+        if (temperatureData.temperatures.length === 0) {
             throw new Error('未获取到有效的气温数据');
         }
         
-        if (loadingProgress) {
-            loadingProgress.textContent = '正在生成热力图...';
-        }
-        
-        return {
-            latitudes: validLats,
-            longitudes: validLons,
-            temperatures: temperatures
-        };
+        return temperatureData;
         
     } catch (error) {
         console.error('获取气温数据失败:', error);
-        if (loadingPanel) {
+        if (loadingPanel && loadingProgress) {
             loadingProgress.textContent = '加载失败: ' + error.message;
             setTimeout(() => {
                 loadingPanel.style.display = 'none';
@@ -6888,6 +6861,14 @@ async function toggleTemperatureHeatmap() {
         const weatherDropdown = document.getElementById('weatherDropdown');
         if (weatherDropdown) weatherDropdown.style.display = 'none';
     } else {
+        const loadingPanel = document.getElementById('loadingPanel');
+        const loadingProgress = document.getElementById('loadingProgress');
+        
+        if (loadingPanel) {
+            loadingPanel.style.display = 'block';
+            loadingProgress.textContent = '正在获取全球气温数据...';
+        }
+        
         const temperatureData = await fetchTemperatureData();
         
         if (temperatureData) {
@@ -6905,7 +6886,6 @@ async function toggleTemperatureHeatmap() {
                 const tempBtn = document.getElementById('toggleTemperatureBtn');
                 if (tempBtn) tempBtn.classList.add('active');
                 
-                const loadingPanel = document.getElementById('loadingPanel');
                 if (loadingPanel) loadingPanel.style.display = 'none';
                 
                 const weatherDropdown = document.getElementById('weatherDropdown');
@@ -6924,8 +6904,267 @@ function addTemperatureControlButton() {
     }
 }
 
+// ==================== 城市搜索与天气功能 ====================
+const OPENWEATHERMAP_API_KEY = '70e14258227314d2ea4e307c7f24daa5';
+let citySearchTimeout = null;
+let cityMarker = null;
+
+function getWeatherIcon(weatherCode) {
+    if (weatherCode >= 200 && weatherCode < 300) return '⛈️';
+    if (weatherCode >= 300 && weatherCode < 400) return '🌧️';
+    if (weatherCode >= 500 && weatherCode < 600) return '🌧️';
+    if (weatherCode >= 600 && weatherCode < 700) return '❄️';
+    if (weatherCode >= 700 && weatherCode < 800) return '🌫️';
+    if (weatherCode === 800) return '☀️';
+    if (weatherCode > 800) return '☁️';
+    return '🌤️';
+}
+
+function getWeatherDescription(weatherCode) {
+    if (weatherCode >= 200 && weatherCode < 300) return '雷暴';
+    if (weatherCode >= 300 && weatherCode < 400) return '小雨';
+    if (weatherCode >= 500 && weatherCode < 600) return '大雨';
+    if (weatherCode >= 600 && weatherCode < 700) return '雪';
+    if (weatherCode >= 700 && weatherCode < 800) return '雾';
+    if (weatherCode === 800) return '晴天';
+    if (weatherCode > 800) return '多云';
+    return '未知';
+}
+
+function getAirQualityLevel(aqi) {
+    if (aqi <= 50) return { text: '优', color: '#00e400' };
+    if (aqi <= 100) return { text: '良', color: '#ffff00' };
+    if (aqi <= 150) return { text: '轻度污染', color: '#ff7e00' };
+    if (aqi <= 200) return { text: '中度污染', color: '#ff0000' };
+    if (aqi <= 300) return { text: '重度污染', color: '#99004c' };
+    return { text: '严重污染', color: '#7e0023' };
+}
+
+async function searchCity(query) {
+    if (!query.trim()) {
+        hideCitySearchResults();
+        return;
+    }
+    
+    try {
+        const url = `https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(query)}&limit=10&appid=${OPENWEATHERMAP_API_KEY}`;
+        const response = await fetch(url);
+        const results = await response.json();
+        
+        if (results && results.length > 0) {
+            showCitySearchResults(results);
+        } else {
+            hideCitySearchResults();
+        }
+    } catch (error) {
+        console.error('城市搜索失败:', error);
+        hideCitySearchResults();
+    }
+}
+
+function showCitySearchResults(results) {
+    const resultsDiv = document.getElementById('citySearchResults');
+    if (!resultsDiv) return;
+    
+    resultsDiv.innerHTML = '';
+    
+    results.forEach(city => {
+        const item = document.createElement('div');
+        item.style.cssText = `
+            padding: 10px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        `;
+        item.innerHTML = `
+            <div>
+                <div style="font-weight: bold; color: #333;">${city.name}</div>
+                <div style="font-size: 12px; color: #999;">${city.state || ''} ${city.country}</div>
+            </div>
+            <div style="font-size: 12px; color: #666;">📍</div>
+        `;
+        
+        item.addEventListener('click', () => {
+            selectCity(city);
+            hideCitySearchResults();
+        });
+        
+        item.addEventListener('mouseenter', () => {
+            item.style.backgroundColor = '#f5f5f5';
+        });
+        
+        item.addEventListener('mouseleave', () => {
+            item.style.backgroundColor = '';
+        });
+        
+        resultsDiv.appendChild(item);
+    });
+    
+    resultsDiv.style.display = 'block';
+}
+
+function hideCitySearchResults() {
+    const resultsDiv = document.getElementById('citySearchResults');
+    if (resultsDiv) {
+        resultsDiv.style.display = 'none';
+    }
+}
+
+function selectCity(city) {
+    const lat = city.lat;
+    const lon = city.lon;
+    const name = city.name;
+    const country = city.country;
+    
+    map.getView().animate({
+        center: ol.proj.fromLonLat([lon, lat]),
+        zoom: 10,
+        duration: 1000
+    });
+    
+    if (cityMarker) {
+        map.removeLayer(cityMarker);
+    }
+    
+    const markerSource = new ol.source.Vector({
+        features: [new ol.Feature({
+            geometry: new ol.geom.Point(ol.proj.fromLonLat([lon, lat]))
+        })]
+    });
+    
+    cityMarker = new ol.layer.Vector({
+        source: markerSource,
+        style: new ol.style.Style({
+            image: new ol.style.Icon({
+                src: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0OCA0OCI+PHBhdGggZmlsbD0iIzE4OTBmZiIgZD0iTTI0IDRjLTExLjYgMC0yMSA5LjQtMjEgMjFzOS40IDIxIDIxIDIxIDIxLTkuNCAyMS0yMS05LjQtMjEtMjEtMjF6bTAgMzJjLTYuMSAwLTExLTQuOS0xMS0xMWMwLTYuMSA0LjktMTEgMTEtMTFzMTEgNC45IDExIDExYzAgNi4xLTQuOSAxMS0xMSAxMXoiLz48cGF0aCBmaWxsPSIjZmZmIiBkPSJNNDIgMTJoLTJWMTRjMC0yLjItMS44LTQtNC00aC00di0yaC00djItNGgtNHYySDhjLTYuNiAwLTEyIDUuNC0xMiAxMnYxNmMwIDYuNiA1LjQgMTIgMTIgMTJoMjhjNi42IDAgMTItNS40IDEyLTEydi0xNmMwLTYuNi01LjQtMTItMTItMTJoLTJoLTEydi0yaC0ydi0yaC00di0yaC00di0yaC00em0tMjIgOHY0aDZ2LTJoLTZ6Ii8+PC9zdmc+',
+                anchor: [0.5, 1],
+                scale: 1.2
+            })
+        })
+    });
+    
+    map.addLayer(cityMarker);
+    
+    fetchCityWeatherAndAir(lat, lon, name, country);
+}
+
+async function fetchCityWeatherAndAir(lat, lon, name, country) {
+    const panel = document.getElementById('cityWeatherPanel');
+    if (panel) panel.style.display = 'block';
+    
+    document.getElementById('cityWeatherTitle').textContent = `${name}, ${country}`;
+    document.getElementById('cityWeatherCoords').textContent = `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+    
+    try {
+        const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,surface_pressure,weather_code&hourly=temperature_2m&timezone=auto`;
+        const weatherResponse = await fetch(weatherUrl);
+        const weatherData = await weatherResponse.json();
+        
+        if (weatherData.current) {
+            const current = weatherData.current;
+            document.getElementById('cityWeatherIcon').textContent = getWeatherIcon(current.weather_code);
+            document.getElementById('cityWeatherTemp').textContent = `${Math.round(current.temperature_2m)}°C`;
+            document.getElementById('cityWeatherDesc').textContent = getWeatherDescription(current.weather_code);
+            document.getElementById('cityWeatherHumidity').textContent = `${current.relative_humidity_2m}%`;
+            document.getElementById('cityWeatherWind').textContent = `${current.wind_speed_10m} m/s`;
+            document.getElementById('cityWeatherPressure').textContent = `${Math.round(current.surface_pressure)} hPa`;
+        }
+    } catch (error) {
+        console.error('获取天气数据失败:', error);
+        document.getElementById('cityWeatherTemp').textContent = '--';
+    }
+    
+    try {
+        const airUrl = `http://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lon}&appid=${OPENWEATHERMAP_API_KEY}`;
+        const airResponse = await fetch(airUrl);
+        const airData = await airResponse.json();
+        
+        if (airData.list && airData.list.length > 0) {
+            const air = airData.list[0].components;
+            const aqi = airData.list[0].main.aqi;
+            const level = getAirQualityLevel(aqi);
+            
+            document.getElementById('cityAirQualitySection').style.display = 'block';
+            document.getElementById('cityAirQualityLevel').textContent = level.text;
+            document.getElementById('cityAirQualityLevel').style.backgroundColor = level.color;
+            document.getElementById('cityAirQualityLevel').style.color = level.color === '#ffff00' ? '#333' : '#fff';
+            
+            document.getElementById('cityAQIPM25').textContent = air.pm2_5 ? `${Math.round(air.pm2_5)}` : '--';
+            document.getElementById('cityAQIPM10').textContent = air.pm10 ? `${Math.round(air.pm10)}` : '--';
+            document.getElementById('cityAQICO').textContent = air.co ? `${(air.co / 1000).toFixed(1)}` : '--';
+            document.getElementById('cityAQISO2').textContent = air.so2 ? `${Math.round(air.so2)}` : '--';
+        }
+    } catch (error) {
+        console.error('获取空气质量数据失败:', error);
+        document.getElementById('cityAirQualitySection').style.display = 'none';
+    }
+}
+
+function closeCityWeatherPanel() {
+    const panel = document.getElementById('cityWeatherPanel');
+    if (panel) panel.style.display = 'none';
+    
+    if (cityMarker) {
+        map.removeLayer(cityMarker);
+        cityMarker = null;
+    }
+}
+
+function initCitySearch() {
+    const searchInput = document.getElementById('citySearchInput');
+    const searchBtn = document.getElementById('citySearchBtn');
+    const closeBtn = document.getElementById('closeCityWeatherBtn');
+    
+    if (searchInput) {
+        searchInput.addEventListener('input', () => {
+            if (citySearchTimeout) clearTimeout(citySearchTimeout);
+            citySearchTimeout = setTimeout(() => {
+                searchCity(searchInput.value);
+            }, 300);
+        });
+        
+        searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                searchCity(searchInput.value);
+            }
+        });
+    }
+    
+    if (searchBtn) {
+        searchBtn.addEventListener('click', () => {
+            if (searchInput) {
+                searchCity(searchInput.value);
+            }
+        });
+    }
+    
+    if (closeBtn) {
+        closeBtn.addEventListener('click', closeCityWeatherPanel);
+    }
+    
+    document.addEventListener('click', (e) => {
+        const searchWrapper = document.getElementById('citySearchResults');
+        if (searchWrapper && !searchWrapper.contains(e.target) && !e.target.closest('.search-box-wrapper')) {
+            hideCitySearchResults();
+        }
+    });
+}
+
+function addTemperatureControlButton() {
+    const tempBtn = document.getElementById('toggleTemperatureBtn');
+    if (tempBtn) {
+        tempBtn.addEventListener('click', toggleTemperatureHeatmap);
+    }
+}
+
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', addTemperatureControlButton);
+    document.addEventListener('DOMContentLoaded', () => {
+        addTemperatureControlButton();
+        initCitySearch();
+    });
 } else {
     addTemperatureControlButton();
+    initCitySearch();
 }

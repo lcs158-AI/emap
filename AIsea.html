@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes">
-    <title>跬步地图2.935</title>
+    <title>跬步地图2.94</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.5.2/ol.css">
     <script src="/js/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
@@ -14,6 +14,11 @@
 <body>
     <div id="map"></div>
     <div class="toolbar">
+        <div class="search-box-wrapper" style="position: relative; display: flex; align-items: center;">
+            <input type="text" id="citySearchInput" placeholder="搜索城市..." style="padding: 8px 32px 8px 12px; border: 1px solid #ddd; border-radius: 20px; font-size: 14px; width: 180px; outline: none;">
+            <button id="citySearchBtn" class="action-btn" style="position: absolute; right: 2px; padding: 6px; border-radius: 50%; background: #1890ff; color: white; border: none; cursor: pointer; font-size: 14px;">🔍</button>
+            <div id="citySearchResults" style="display: none; position: absolute; top: 100%; left: 0; margin-top: 5px; background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); min-width: 200px; max-height: 300px; overflow-y: auto; z-index: 1001;"></div>
+        </div>
         <div class="dropdown">
             <button id="myBtn" class="action-btn" data-title="我的">👤</button>
             <div id="myDropdown" class="dropdown-menu" style="display: none;">
@@ -98,6 +103,69 @@
         <div style="font-size: 16px; color: #333;">数据加载中...</div>
         <div id="loadingProgress" style="font-size: 14px; color: #666; margin-top: 10px;"></div>
     </div>
+    <!-- 城市天气信息面板 -->
+    <div id="cityWeatherPanel"
+        style="position: absolute; bottom: 20px; left: 20px; z-index: 1000; background: white; border-radius: 8px; padding: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); min-width: 280px; max-width: 340px; display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <div>
+                <h4 id="cityWeatherTitle" style="margin: 0; color: #333; font-size: 16px;"></h4>
+                <div id="cityWeatherCoords" style="font-size: 12px; color: #999;"></div>
+            </div>
+            <button id="closeCityWeatherBtn"
+                style="background: none; border: none; font-size: 16px; cursor: pointer; color: #999;">✕</button>
+        </div>
+        
+        <div style="display: flex; align-items: center; margin-bottom: 15px;">
+            <div id="cityWeatherIcon" style="font-size: 48px; margin-right: 15px;"></div>
+            <div>
+                <div id="cityWeatherTemp" style="font-size: 36px; font-weight: bold; color: #333;"></div>
+                <div id="cityWeatherDesc" style="font-size: 14px; color: #666;"></div>
+            </div>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 15px;">
+            <div style="text-align: center; padding: 8px; background: #f5f5f5; border-radius: 6px;">
+                <div style="font-size: 16px; font-weight: bold; color: #333;" id="cityWeatherHumidity"></div>
+                <div style="font-size: 11px; color: #999;">湿度</div>
+            </div>
+            <div style="text-align: center; padding: 8px; background: #f5f5f5; border-radius: 6px;">
+                <div style="font-size: 16px; font-weight: bold; color: #333;" id="cityWeatherWind"></div>
+                <div style="font-size: 11px; color: #999;">风速</div>
+            </div>
+            <div style="text-align: center; padding: 8px; background: #f5f5f5; border-radius: 6px;">
+                <div style="font-size: 16px; font-weight: bold; color: #333;" id="cityWeatherPressure"></div>
+                <div style="font-size: 11px; color: #999;">气压</div>
+            </div>
+        </div>
+        
+        <div id="cityAirQualitySection" style="display: none; border-top: 1px solid #eee; padding-top: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <div style="font-size: 14px; font-weight: bold; color: #333;">🌫️ 空气质量</div>
+                <div id="cityAirQualityLevel" style="font-size: 14px; font-weight: bold; padding: 2px 8px; border-radius: 4px;"></div>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;">
+                <div style="text-align: center;">
+                    <div style="font-size: 13px; font-weight: bold;" id="cityAQIPM25"></div>
+                    <div style="font-size: 10px; color: #999;">PM2.5</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 13px; font-weight: bold;" id="cityAQIPM10"></div>
+                    <div style="font-size: 10px; color: #999;">PM10</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 13px; font-weight: bold;" id="cityAQICO"></div>
+                    <div style="font-size: 10px; color: #999;">CO</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 13px; font-weight: bold;" id="cityAQISO2"></div>
+                    <div style="font-size: 10px; color: #999;">SO₂</div>
+                </div>
+            </div>
+        </div>
+        
+        <div style="margin-top: 10px; font-size: 11px; color: #aaa; text-align: right;">🌡️ 天气: Open-Meteo | 🌫️ 空气质量: OpenWeatherMap</div>
+    </div>
+    
     <!-- 潮汐信息面板 -->
     <div id="tidePanel"
         style="position: absolute; bottom: 20px; left: 20px; z-index: 1000; background: white; border-radius: 8px; padding: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); min-width: 260px; display: none;">
