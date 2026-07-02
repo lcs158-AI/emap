@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
@@ -6656,25 +6656,47 @@ async function getTideData(lat, lon) {
 // 暴露函数到全局
 window.getTideData = getTideData;
 
-// ==================== 气温热力图功能 ====================
+// ==================== 气温热力图功能（基于城市点） ====================
 let temperatureHeatmapLayer = null;
 let temperatureDataVisible = false;
 let temperatureLegendPanel = null;
+let cityWeatherData = [];
 
 const temperatureConfig = {
-    gridSize: 10.0,
-    maxIntensity: 50,
-    blur: 20,
-    radius: 30,
-    batchSize: 10,
-    requestDelay: 1500,
+    blur: 25,
+    radius: 35,
+    batchSize: 20,
+    requestDelay: 500,
     maxRetries: 3,
     retryDelay: 60000
 };
 
-async function fetchBatchTemperatures(points) {
-    const latitudes = points.map(p => p.lat).join(',');
-    const longitudes = points.map(p => p.lon).join(',');
+async function loadCitiesData() {
+    try {
+        const response = await fetch('./js/cities.json');
+        if (!response.ok) {
+            throw new Error('加载城市数据失败');
+        }
+        const geojson = await response.json();
+        if (geojson.type === 'FeatureCollection' && geojson.features) {
+            return geojson.features.map(feature => ({
+                name: feature.properties.name,
+                english: feature.properties.english,
+                country: feature.properties.country,
+                lat: feature.geometry.coordinates[1],
+                lon: feature.geometry.coordinates[0]
+            }));
+        }
+        return [];
+    } catch (error) {
+        console.error('加载城市数据失败:', error);
+        return [];
+    }
+}
+
+async function fetchBatchCityTemperatures(cities) {
+    const latitudes = cities.map(c => c.lat).join(',');
+    const longitudes = cities.map(c => c.lon).join(',');
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitudes}&longitude=${longitudes}&current=temperature_2m&timezone=auto`;
     
     try {
@@ -6696,12 +6718,11 @@ async function fetchBatchTemperatures(points) {
             const results = [];
             const temps = data.current.temperature_2m;
             
-            for (let i = 0; i < points.length && i < temps.length; i++) {
+            for (let i = 0; i < cities.length && i < temps.length; i++) {
                 if (temps[i] !== null && temps[i] !== undefined) {
                     results.push({
-                        lat: parseFloat(points[i].lat),
-                        lon: parseFloat(points[i].lon),
-                        temp: temps[i]
+                        ...cities[i],
+                        temperature: temps[i]
                     });
                 }
             }
@@ -6720,29 +6741,24 @@ async function fetchTemperatureData() {
     const loadingProgress = document.getElementById('loadingProgress');
     
     try {
-        const points = [];
-        for (let lat = -85; lat <= 85; lat += temperatureConfig.gridSize) {
-            for (let lon = -180; lon <= 180; lon += temperatureConfig.gridSize) {
-                points.push({
-                    lat: lat.toFixed(2),
-                    lon: lon.toFixed(2)
-                });
-            }
+        if (loadingProgress) {
+            loadingProgress.textContent = '正在加载城市数据...';
         }
         
-        const temperatureData = {
-            latitudes: [],
-            longitudes: [],
-            temperatures: []
-        };
+        const cities = await loadCitiesData();
+        if (cities.length === 0) {
+            throw new Error('未加载到城市数据');
+        }
+        
+        cityWeatherData = [];
         
         const batches = [];
-        for (let i = 0; i < points.length; i += temperatureConfig.batchSize) {
-            batches.push(points.slice(i, i + temperatureConfig.batchSize));
+        for (let i = 0; i < cities.length; i += temperatureConfig.batchSize) {
+            batches.push(cities.slice(i, i + temperatureConfig.batchSize));
         }
         
         let successCount = 0;
-        const totalPoints = points.length;
+        const totalPoints = cities.length;
         let rateLimitCount = 0;
         
         for (let i = 0; i < batches.length; i++) {
@@ -6750,7 +6766,7 @@ async function fetchTemperatureData() {
                 loadingProgress.textContent = `正在获取气温数据 ${successCount}/${totalPoints}...`;
             }
             
-            const batchResults = await fetchBatchTemperatures(batches[i]);
+            const batchResults = await fetchBatchCityTemperatures(batches[i]);
             
             if (batchResults === null) {
                 rateLimitCount++;
@@ -6769,9 +6785,7 @@ async function fetchTemperatureData() {
             rateLimitCount = 0;
             
             batchResults.forEach(r => {
-                temperatureData.latitudes.push(r.lat);
-                temperatureData.longitudes.push(r.lon);
-                temperatureData.temperatures.push(r.temp);
+                cityWeatherData.push(r);
                 successCount++;
             });
             
@@ -6780,11 +6794,11 @@ async function fetchTemperatureData() {
             }
         }
         
-        if (temperatureData.temperatures.length === 0) {
+        if (cityWeatherData.length === 0) {
             throw new Error('未获取到有效的气温数据');
         }
         
-        return temperatureData;
+        return cityWeatherData;
         
     } catch (error) {
         console.error('获取气温数据失败:', error);
@@ -6799,23 +6813,24 @@ async function fetchTemperatureData() {
 }
 
 function createTemperatureHeatmap(temperatureData) {
-    if (!temperatureData || !temperatureData.temperatures) return null;
+    if (!temperatureData || temperatureData.length === 0) return null;
     
     const features = [];
-    const temps = temperatureData.temperatures;
-    const lats = temperatureData.latitudes;
-    const lons = temperatureData.longitudes;
     
-    for (let i = 0; i < temps.length; i++) {
-        const temp = temps[i];
-        const lat = lats[i];
-        const lon = lons[i];
+    for (let i = 0; i < temperatureData.length; i++) {
+        const city = temperatureData[i];
+        const temp = city.temperature;
+        const lat = city.lat;
+        const lon = city.lon;
         
         if (temp === null || temp === undefined) continue;
         
         const feature = new ol.Feature({
             geometry: new ol.geom.Point(ol.proj.fromLonLat([lon, lat])),
-            temperature: temp
+            temperature: temp,
+            name: city.name,
+            english: city.english,
+            country: city.country
         });
         features.push(feature);
     }
@@ -7150,6 +7165,7 @@ function closeCityWeatherPanel() {
 function initCitySearch() {
     const searchInput = document.getElementById('citySearchInput');
     const searchBtn = document.getElementById('citySearchBtn');
+    const searchWrapper = document.getElementById('citySearchWrapper');
     const closeBtn = document.getElementById('closeCityWeatherBtn');
     
     if (searchInput) {
@@ -7169,8 +7185,11 @@ function initCitySearch() {
     
     if (searchBtn) {
         searchBtn.addEventListener('click', () => {
-            if (searchInput) {
-                searchCity(searchInput.value);
+            if (searchWrapper) {
+                searchWrapper.style.display = searchWrapper.style.display === 'block' ? 'none' : 'block';
+                if (searchWrapper.style.display === 'block' && searchInput) {
+                    searchInput.focus();
+                }
             }
         });
     }
@@ -7180,11 +7199,88 @@ function initCitySearch() {
     }
     
     document.addEventListener('click', (e) => {
-        const searchWrapper = document.getElementById('citySearchResults');
-        if (searchWrapper && !searchWrapper.contains(e.target) && !e.target.closest('.search-box-wrapper')) {
+        const searchResults = document.getElementById('citySearchResults');
+        if (searchResults && !searchResults.contains(e.target) && !e.target.closest('#citySearchWrapper') && !e.target.closest('#citySearchBtn')) {
             hideCitySearchResults();
         }
     });
+    
+    map.on('click', (evt) => {
+        const pixel = evt.pixel;
+        const layers = map.getLayers().getArray();
+        let clickedOnFeature = false;
+        
+        for (let i = layers.length - 1; i >= 0; i--) {
+            const layer = layers[i];
+            if (layer.get('name') === '气温热力图') {
+                continue;
+            }
+            
+            const feature = map.forEachFeatureAtPixel(pixel, (feature) => feature, {
+                layerFilter: (layerCand) => layerCand === layer
+            });
+            
+            if (feature) {
+                clickedOnFeature = true;
+                break;
+            }
+        }
+        
+        if (!clickedOnFeature) {
+            const coordinate = evt.coordinate;
+            const lonlat = ol.proj.toLonLat(coordinate);
+            searchNearbyCity(lonlat[1], lonlat[0]);
+        }
+    });
+}
+
+function getDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371000;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+}
+
+async function searchNearbyCity(lat, lon) {
+    if (cityWeatherData.length === 0) {
+        const loadingPanel = document.getElementById('loadingPanel');
+        const loadingProgress = document.getElementById('loadingProgress');
+        
+        if (loadingPanel) loadingPanel.style.display = 'block';
+        if (loadingProgress) loadingProgress.textContent = '正在加载城市数据...';
+        
+        const cities = await loadCitiesData();
+        if (cities.length > 0) {
+            cityWeatherData = cities;
+        }
+        
+        if (loadingPanel) loadingPanel.style.display = 'none';
+    }
+    
+    let nearestCity = null;
+    let minDistance = Infinity;
+    
+    for (const city of cityWeatherData) {
+        const distance = getDistance(lat, lon, city.lat, city.lon);
+        if (distance < minDistance) {
+            minDistance = distance;
+            nearestCity = city;
+        }
+    }
+    
+    if (nearestCity && minDistance < 200000) {
+        map.getView().animate({
+            center: ol.proj.fromLonLat([nearestCity.lon, nearestCity.lat]),
+            zoom: 10,
+            duration: 1000
+        });
+        
+        fetchCityWeatherAndAir(nearestCity.lat, nearestCity.lon, nearestCity.name, nearestCity.country);
+    }
 }
 
 function addTemperatureControlButton() {
