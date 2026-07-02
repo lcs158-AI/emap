@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
@@ -6662,13 +6662,59 @@ let temperatureDataVisible = false;
 let temperatureLegendPanel = null;
 
 const temperatureConfig = {
-    gridSize: 3.0,
+    gridSize: 5.0,
     maxIntensity: 50,
     blur: 15,
-    radius: 20,
-    maxConcurrentRequests: 5,
-    requestDelay: 50
+    radius: 25,
+    batchSize: 20,
+    requestDelay: 500,
+    maxRetries: 3,
+    retryDelay: 60000
 };
+
+async function fetchBatchTemperatures(points) {
+    const latitudes = points.map(p => p.lat).join(',');
+    const longitudes = points.map(p => p.lon).join(',');
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitudes}&longitude=${longitudes}&current=temperature_2m&timezone=auto`;
+    
+    try {
+        const response = await fetch(url, { method: 'GET' });
+        
+        if (response.status === 429) {
+            console.warn('速率限制，等待60秒后重试...');
+            await new Promise(resolve => setTimeout(resolve, temperatureConfig.retryDelay));
+            return await fetchBatchTemperatures(points);
+        }
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`API请求失败: ${response.status} - ${errorText}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.current && data.current.temperature_2m) {
+            const results = [];
+            const temps = data.current.temperature_2m;
+            
+            for (let i = 0; i < points.length && i < temps.length; i++) {
+                if (temps[i] !== null && temps[i] !== undefined) {
+                    results.push({
+                        lat: parseFloat(points[i].lat),
+                        lon: parseFloat(points[i].lon),
+                        temp: temps[i]
+                    });
+                }
+            }
+            return results;
+        }
+        
+        return [];
+    } catch (error) {
+        console.warn('批量气温获取失败:', error);
+        return [];
+    }
+}
 
 async function fetchTemperatureData() {
     const loadingPanel = document.getElementById('loadingPanel');
@@ -6690,59 +6736,32 @@ async function fetchTemperatureData() {
             longitudes: [],
             temperatures: []
         };
-        const now = new Date();
-        const currentHour = now.getHours();
-        
-        const processBatch = async (batch) => {
-            const results = [];
-            for (const point of batch) {
-                const url = `https://api.open-meteo.com/v1/forecast?latitude=${point.lat}&longitude=${point.lon}&hourly=temperature_2m&timezone=auto&forecast_days=1`;
-                try {
-                    const response = await fetch(url, { method: 'GET' });
-                    if (response.ok) {
-                        const data = await response.json();
-                        if (data.hourly && data.hourly.temperature_2m) {
-                            let temp = data.hourly.temperature_2m[currentHour];
-                            if (temp === null || temp === undefined) {
-                                for (let i = 0; i < 24; i++) {
-                                    if (data.hourly.temperature_2m[i] !== null && data.hourly.temperature_2m[i] !== undefined) {
-                                        temp = data.hourly.temperature_2m[i];
-                                        break;
-                                    }
-                                }
-                            }
-                            if (temp !== null && temp !== undefined) {
-                                results.push({
-                                    lat: parseFloat(point.lat),
-                                    lon: parseFloat(point.lon),
-                                    temp: temp
-                                });
-                            }
-                        }
-                    }
-                } catch (error) {
-                    console.warn('单个点气温获取失败:', error);
-                }
-                await new Promise(resolve => setTimeout(resolve, temperatureConfig.requestDelay));
-            }
-            return results;
-        };
         
         const batches = [];
-        for (let i = 0; i < points.length; i += temperatureConfig.maxConcurrentRequests) {
-            batches.push(points.slice(i, i + temperatureConfig.maxConcurrentRequests));
+        for (let i = 0; i < points.length; i += temperatureConfig.batchSize) {
+            batches.push(points.slice(i, i + temperatureConfig.batchSize));
         }
+        
+        let successCount = 0;
+        const totalPoints = points.length;
         
         for (let i = 0; i < batches.length; i++) {
             if (loadingProgress) {
-                loadingProgress.textContent = `正在获取气温数据 ${i + 1}/${batches.length}...`;
+                loadingProgress.textContent = `正在获取气温数据 ${successCount}/${totalPoints}...`;
             }
-            const batchResults = await processBatch(batches[i]);
+            
+            const batchResults = await fetchBatchTemperatures(batches[i]);
+            
             batchResults.forEach(r => {
                 temperatureData.latitudes.push(r.lat);
                 temperatureData.longitudes.push(r.lon);
                 temperatureData.temperatures.push(r.temp);
+                successCount++;
             });
+            
+            if (i < batches.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, temperatureConfig.requestDelay));
+            }
         }
         
         if (temperatureData.temperatures.length === 0) {
@@ -7077,7 +7096,7 @@ async function fetchCityWeatherAndAir(lat, lon, name, country) {
     }
     
     try {
-        const airUrl = `http://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lon}&appid=${OPENWEATHERMAP_API_KEY}`;
+        const airUrl = `https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lon}&appid=${OPENWEATHERMAP_API_KEY}`;
         const airResponse = await fetch(airUrl);
         const airData = await airResponse.json();
         
