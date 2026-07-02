@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
@@ -6665,8 +6665,8 @@ let cityWeatherData = [];
 const temperatureConfig = {
     blur: 25,
     radius: 35,
-    batchSize: 20,
-    requestDelay: 500,
+    batchSize: 50,
+    requestDelay: 1000,
     maxRetries: 3,
     retryDelay: 60000
 };
@@ -6698,38 +6698,37 @@ async function fetchBatchCityTemperatures(cities) {
     const latitudes = cities.map(c => c.lat).join(',');
     const longitudes = cities.map(c => c.lon).join(',');
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitudes}&longitude=${longitudes}&current=temperature_2m&timezone=auto`;
-    
+
     try {
         const response = await fetch(url, { method: 'GET' });
-        
+
         if (response.status === 429) {
             return null;
         }
-        
+
         if (!response.ok) {
             const errorText = await response.text();
             console.warn(`API请求失败: ${response.status} - ${errorText}`);
             return null;
         }
-        
+
         const data = await response.json();
-        
-        if (data.current && data.current.temperature_2m) {
-            const results = [];
-            const temps = data.current.temperature_2m;
-            
-            for (let i = 0; i < cities.length && i < temps.length; i++) {
-                if (temps[i] !== null && temps[i] !== undefined) {
-                    results.push({
-                        ...cities[i],
-                        temperature: temps[i]
-                    });
-                }
+        const results = [];
+
+        // Open-Meteo 批量请求返回数组，单个请求返回对象
+        const dataArray = Array.isArray(data) ? data : [data];
+
+        for (let i = 0; i < cities.length && i < dataArray.length; i++) {
+            const item = dataArray[i];
+            if (item && item.current && item.current.temperature_2m !== null && item.current.temperature_2m !== undefined) {
+                results.push({
+                    ...cities[i],
+                    temperature: item.current.temperature_2m
+                });
             }
-            return results;
         }
-        
-        return [];
+
+        return results;
     } catch (error) {
         console.warn('批量气温获取失败:', error);
         return null;
