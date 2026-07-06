@@ -920,16 +920,6 @@
             const statusColor = status >= 200 && status < 300 ? 'success' : (status >= 400 ? 'error' : 'warning');
             addDebugInfo(statusColor, `收到响应: ${method} ${url}`, { status, ok: response.ok });
             
-            // 克隆响应以便读取
-            const clone = response.clone();
-            clone.json().then(data => {
-                if (status >= 200 && status < 300) {
-                    addDebugInfo('success', `响应数据:`, data);
-                } else {
-                    addDebugInfo('error', `响应数据:`, data);
-                }
-            }).catch(() => {});
-            
             return response;
         }).catch(error => {
             addDebugInfo('error', `请求失败: ${method} ${url}`, { error: error.message });
