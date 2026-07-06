@@ -352,6 +352,7 @@
             <div class="nav-tab active" onclick="switchTab('users-tab', event)">用户管理</div>
             <div class="nav-tab" onclick="switchTab('photos-tab', event)">上传照片管理</div>
             <div class="nav-tab" onclick="switchTab('thematic-tab', event)">专题数据管理</div>
+            <div class="nav-tab" onclick="switchTab('weather-tab', event)">天气数据管理</div>
         </div>
         
         <div class="tab-content active" id="users-tab">
@@ -432,6 +433,58 @@
                 <button onclick="prevPage()" id="prevBtn" disabled style="padding:8px 16px; margin-right:5px; cursor:pointer;">上一页</button>
                 <span id="pageInfo">第 1 页 / 共 1 页</span>
                 <button onclick="nextPage()" id="nextBtn" disabled style="padding:8px 16px; margin-left:5px; cursor:pointer;">下一页</button>
+            </div>
+        </div>
+        
+        <div class="tab-content" id="weather-tab">
+            <h2>天气数据管理</h2>
+            <div style="margin-bottom:20px; padding:20px; background:#f9f9f9; border-radius:8px;">
+                <h3>数据采集控制</h3>
+                <div style="margin-top:15px; display:flex; flex-wrap:wrap; gap:15px; align-items:center;">
+                    <button id="fetchWeatherBtn" onclick="fetchWeatherData()" style="padding:12px 24px; background:#667eea; color:white; border:none; border-radius:4px; cursor:pointer; font-size:16px;">
+                        🌡️ 触发天气数据采集
+                    </button>
+                    <button onclick="loadWeatherStatus()" style="padding:10px 20px; background:#52c41a; color:white; border:none; border-radius:4px; cursor:pointer;">
+                        📊 刷新状态
+                    </button>
+                    <button onclick="exportWeatherData()" style="padding:10px 20px; background:#1890ff; color:white; border:none; border-radius:4px; cursor:pointer;">
+                        📥 导出CSV
+                    </button>
+                    <button onclick="cleanupOldWeatherData()" style="padding:10px 20px; background:#ff4d4f; color:white; border:none; border-radius:4px; cursor:pointer;">
+                        🗑️ 清理旧数据
+                    </button>
+                </div>
+                <div id="weatherStatus" style="margin-top:20px; padding:15px; background:white; border-radius:5px; border:1px solid #ddd;">
+                    <p>点击"触发天气数据采集"按钮开始获取全球城市天气数据...</p>
+                </div>
+                <div id="weatherProgress" style="margin-top:15px; display:none;">
+                    <div style="width:100%; background:#ddd; border-radius:5px; height:20px; overflow:hidden;">
+                        <div id="progressBar" style="height:100%; background:#667eea; width:0%; transition:width 0.5s;"></div>
+                    </div>
+                    <div id="progressText" style="margin-top:5px; font-size:14px; color:#666;">采集进度: 0%</div>
+                </div>
+            </div>
+            
+            <div style="padding:20px; background:#f9f9f9; border-radius:8px;">
+                <h3>数据统计</h3>
+                <div id="weatherStats" style="margin-top:15px; display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:15px;">
+                    <div style="padding:15px; background:white; border-radius:5px; border:1px solid #ddd;">
+                        <div style="font-size:24px; font-weight:bold; color:#667eea;" id="statTotal">--</div>
+                        <div style="font-size:12px; color:#666;">城市总数</div>
+                    </div>
+                    <div style="padding:15px; background:white; border-radius:5px; border:1px solid #ddd;">
+                        <div style="font-size:24px; font-weight:bold; color:#52c41a;" id="statAvailable">--</div>
+                        <div style="font-size:12px; color:#666;">已采集数据</div>
+                    </div>
+                    <div style="padding:15px; background:white; border-radius:5px; border:1px solid #ddd;">
+                        <div style="font-size:24px; font-weight:bold; color:#1890ff;" id="statDate">--</div>
+                        <div style="font-size:12px; color:#666;">数据日期</div>
+                    </div>
+                    <div style="padding:15px; background:white; border-radius:5px; border:1px solid #ddd;">
+                        <div style="font-size:24px; font-weight:bold; color:#faad14;" id="statMessage">--</div>
+                        <div style="font-size:12px; color:#666;">状态信息</div>
+                    </div>
+                </div>
             </div>
         </div>
         
@@ -891,5 +944,159 @@
     <script src="js/admin/users.js"></script>
     <script src="js/admin/photos.js"></script>
     <script src="js/admin/thematic.js"></script>
+    
+    <script>
+    async function fetchWeatherData() {
+        const btn = document.getElementById('fetchWeatherBtn');
+        const statusDiv = document.getElementById('weatherStatus');
+        const progressDiv = document.getElementById('weatherProgress');
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+        
+        btn.disabled = true;
+        btn.innerHTML = '⏳ 采集中...';
+        statusDiv.innerHTML = '<p style="color:#667eea;">正在采集全球城市天气数据，请稍候...</p>';
+        progressDiv.style.display = 'block';
+        progressBar.style.width = '0%';
+        progressText.textContent = '采集进度: 0%';
+        
+        try {
+            const response = await fetch(`${window.API_BASE_URL}/api/weather/fetch`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                statusDiv.innerHTML = `<p style="color:#52c41a;">✅ 采集完成！共采集 ${data.success_count} 个城市数据，失败 ${data.failed_count} 个</p>`;
+                
+                let progress = 0;
+                const interval = setInterval(() => {
+                    progress += 5;
+                    if (progress >= 100) {
+                        progress = 100;
+                        clearInterval(interval);
+                    }
+                    progressBar.style.width = `${progress}%`;
+                    progressText.textContent = `采集进度: ${progress}%`;
+                }, 100);
+                
+                setTimeout(() => {
+                    loadWeatherStatus();
+                }, 1000);
+            } else {
+                statusDiv.innerHTML = `<p style="color:#ff4d4f;">❌ 采集失败: ${data.detail || '未知错误'}</p>`;
+            }
+        } catch (error) {
+            statusDiv.innerHTML = `<p style="color:#ff4d4f;">❌ 请求失败: ${error.message}</p>`;
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '🌡️ 触发天气数据采集';
+        }
+    }
+    
+    async function loadWeatherStatus() {
+        const statusDiv = document.getElementById('weatherStatus');
+        
+        try {
+            const response = await fetch(`${window.API_BASE_URL}/api/weather/data`);
+            const data = await response.json();
+            
+            if (response.ok) {
+                document.getElementById('statTotal').textContent = data.total_cities;
+                document.getElementById('statAvailable').textContent = data.data_available;
+                document.getElementById('statDate').textContent = data.data_date;
+                document.getElementById('statMessage').textContent = data.message;
+                
+                statusDiv.innerHTML = `
+                    <p>数据日期: ${data.data_date}</p>
+                    <p>城市总数: ${data.total_cities} | 已采集: ${data.data_available}</p>
+                    <p>状态: ${data.message}</p>
+                    ${data.is_today ? '<p style="color:#52c41a;">✅ 数据为今日最新</p>' : '<p style="color:#faad14;">⚠️ 数据非今日</p>'}
+                `;
+            } else {
+                statusDiv.innerHTML = `<p style="color:#ff4d4f;">❌ 获取状态失败: ${data.detail}</p>`;
+            }
+        } catch (error) {
+            statusDiv.innerHTML = `<p style="color:#ff4d4f;">❌ 请求失败: ${error.message}</p>`;
+        }
+    }
+    
+    async function exportWeatherData() {
+        try {
+            const response = await fetch(`${window.API_BASE_URL}/api/weather/export`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            });
+            
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `weather_${new Date().toISOString().split('T')[0]}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+                
+                showMessage('CSV导出成功', 'success');
+            } else {
+                const data = await response.json();
+                showMessage(`导出失败: ${data.detail}`, 'error');
+            }
+        } catch (error) {
+            showMessage(`导出失败: ${error.message}`, 'error');
+        }
+    }
+    
+    async function cleanupOldWeatherData() {
+        if (!confirm('确定要清理30天前的旧天气数据吗？')) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`${window.API_BASE_URL}/api/weather/cleanup`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                showMessage(`清理成功，删除了 ${data.deleted_count} 条旧数据`, 'success');
+                loadWeatherStatus();
+            } else {
+                showMessage(`清理失败: ${data.detail}`, 'error');
+            }
+        } catch (error) {
+            showMessage(`清理失败: ${error.message}`, 'error');
+        }
+    }
+    
+    function showMessage(message, type) {
+        const msgDiv = document.getElementById('message');
+        msgDiv.textContent = message;
+        msgDiv.className = `message ${type}`;
+        msgDiv.style.display = 'block';
+        setTimeout(() => {
+            msgDiv.style.display = 'none';
+        }, 3000);
+    }
+    
+    window.addEventListener('load', function() {
+        const tab = document.location.hash.replace('#', '');
+        if (tab === 'weather-tab') {
+            loadWeatherStatus();
+        }
+    });
+    </script>
 </body>
 </html>
