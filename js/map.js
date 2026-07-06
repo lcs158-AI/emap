@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
@@ -6696,7 +6696,7 @@ async function loadCitiesData() {
 
 async function fetchBatchCityTemperatures(cities) {
     const latitudes = cities.map(c => c.lat).join(',');
-    const longitudes = cities.map(c => c.lon).join(',');
+    const longitudes = cities.map(c => c.lon === 180.0 ? 179.9999 : c.lon).join(',');
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitudes}&longitude=${longitudes}&current=temperature_2m&timezone=auto`;
 
     try {
@@ -6741,7 +6741,48 @@ async function fetchTemperatureData() {
     
     try {
         if (loadingProgress) {
-            loadingProgress.textContent = '正在加载城市数据...';
+            loadingProgress.textContent = '正在加载气温数据...';
+        }
+        
+        const response = await fetch(`${API_BASE_URL}/api/weather/data`);
+        const result = await response.json();
+        
+        if (result.status !== 'success') {
+            throw new Error(result.message || '获取数据失败');
+        }
+        
+        if (result.message) {
+            showTemperatureDataNotice(result.message, result.data_date);
+        }
+        
+        cityWeatherData = result.cities.map(city => ({
+            name: city.city_name_cn,
+            english: city.city_name_en,
+            country: city.country,
+            lat: city.lat,
+            lon: city.lon,
+            temperature: city.temperature
+        }));
+        
+        if (cityWeatherData.length === 0) {
+            throw new Error('未获取到有效的气温数据');
+        }
+        
+        return cityWeatherData;
+        
+    } catch (error) {
+        console.error('获取气温数据失败:', error);
+        return await fetchTemperatureDataFallback();
+    }
+}
+
+async function fetchTemperatureDataFallback() {
+    const loadingPanel = document.getElementById('loadingPanel');
+    const loadingProgress = document.getElementById('loadingProgress');
+    
+    try {
+        if (loadingProgress) {
+            loadingProgress.textContent = '使用备用方式获取数据...';
         }
         
         const cities = await loadCitiesData();
@@ -6892,6 +6933,51 @@ function hideTemperatureLegend() {
     if (temperatureLegendPanel) {
         temperatureLegendPanel.style.display = 'none';
     }
+}
+
+let temperatureNoticePanel = null;
+
+function showTemperatureDataNotice(message, dataDate) {
+    if (temperatureNoticePanel) {
+        temperatureNoticePanel.remove();
+    }
+    
+    temperatureNoticePanel = document.createElement('div');
+    temperatureNoticePanel.style.cssText = `
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 8px;
+        padding: 10px 15px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        z-index: 1000;
+        font-size: 12px;
+        color: #666;
+        border-left: 3px solid #4CAF50;
+        max-width: 250px;
+    `;
+    
+    temperatureNoticePanel.innerHTML = `
+        <div style="font-weight: bold; color: #333; margin-bottom: 4px;">📊 数据信息</div>
+        <div>日期: ${dataDate}</div>
+        <div>${message}</div>
+    `;
+    
+    document.getElementById('map').appendChild(temperatureNoticePanel);
+    
+    setTimeout(() => {
+        if (temperatureNoticePanel) {
+            temperatureNoticePanel.style.opacity = '0';
+            temperatureNoticePanel.style.transition = 'opacity 0.5s';
+            setTimeout(() => {
+                if (temperatureNoticePanel && temperatureNoticePanel.parentNode) {
+                    temperatureNoticePanel.parentNode.removeChild(temperatureNoticePanel);
+                    temperatureNoticePanel = null;
+                }
+            }, 500);
+        }
+    }, 5000);
 }
 
 async function toggleTemperatureHeatmap() {
@@ -7245,6 +7331,29 @@ function getDistance(lat1, lon1, lat2, lon2) {
 }
 
 async function searchNearbyCity(lat, lon) {
+    try {
+        const proxyUrl = `${window.API_BASE_URL}/api/proxy/reverse-geocode?lon=${lon}&lat=${lat}`;
+        const response = await fetch(proxyUrl);
+        const data = await response.json();
+        
+        if (data.code === '200' && data.location && data.location.length > 0) {
+            const loc = data.location[0];
+            const cityName = loc.name || loc.district || loc.city || loc.adm1 || loc.adm2 || '未知地点';
+            const country = loc.country || '未知国家';
+            
+            map.getView().animate({
+                center: ol.proj.fromLonLat([lon, lat]),
+                zoom: 10,
+                duration: 1000
+            });
+            
+            fetchCityWeatherAndAir(lat, lon, cityName, country);
+            return;
+        }
+    } catch (error) {
+        console.warn('逆地理编码失败，使用本地城市匹配:', error);
+    }
+    
     if (cityWeatherData.length === 0) {
         const loadingPanel = document.getElementById('loadingPanel');
         const loadingProgress = document.getElementById('loadingProgress');
