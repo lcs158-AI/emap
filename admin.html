@@ -898,35 +898,6 @@
         return false;
     };
     
-    // 拦截fetch请求
-    const originalFetch = window.fetch;
-    window.fetch = function() {
-        const url = arguments[0];
-        const method = arguments[1]?.method || 'GET';
-        const body = arguments[1]?.body;
-        
-        addDebugInfo('info', `发起请求: ${method} ${url}`);
-        if (body) {
-            try {
-                const bodyObj = JSON.parse(body);
-                addDebugInfo('info', `请求数据:`, bodyObj);
-            } catch(e) {
-                // body不是JSON
-            }
-        }
-        
-        return originalFetch.apply(this, arguments).then(response => {
-            const status = response.status;
-            const statusColor = status >= 200 && status < 300 ? 'success' : (status >= 400 ? 'error' : 'warning');
-            addDebugInfo(statusColor, `收到响应: ${method} ${url}`, { status, ok: response.ok });
-            
-            return response;
-        }).catch(error => {
-            addDebugInfo('error', `请求失败: ${method} ${url}`, { error: error.message });
-            throw error;
-        });
-    };
-    
     console.log('🐛 调试模式已启用 - 点击右下角"🐛 调试"按钮查看详细信息');
     </script>
     
