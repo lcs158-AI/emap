@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
@@ -6744,7 +6744,7 @@ async function fetchTemperatureData() {
             loadingProgress.textContent = '正在加载气温数据...';
         }
         
-        const response = await fetch(`${API_BASE_URL}/api/weather/data`);
+        const response = await fetch(`${window.API_BASE_URL}/api/weather/data`);
         const result = await response.json();
         
         if (result.status !== 'success') {
