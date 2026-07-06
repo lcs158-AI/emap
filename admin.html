@@ -961,10 +961,10 @@
         progressText.textContent = '采集进度: 0%';
         
         try {
-            const response = await fetch(`${window.API_BASE_URL}/api/weather/fetch`, {
+            const response = await fetch(`${API_BASE_URL}/api/weather/fetch`, {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
                 }
             });
             
@@ -1002,7 +1002,7 @@
         const statusDiv = document.getElementById('weatherStatus');
         
         try {
-            const response = await fetch(`${window.API_BASE_URL}/api/weather/data`);
+            const response = await fetch(`${API_BASE_URL}/api/weather/data`);
             const data = await response.json();
             
             if (response.ok) {
@@ -1027,10 +1027,10 @@
     
     async function exportWeatherData() {
         try {
-            const response = await fetch(`${window.API_BASE_URL}/api/weather/export`, {
+            const response = await fetch(`${API_BASE_URL}/api/weather/export`, {
                 method: 'GET',
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
                 }
             });
             
@@ -1061,10 +1061,10 @@
         }
         
         try {
-            const response = await fetch(`${window.API_BASE_URL}/api/weather/cleanup`, {
+            const response = await fetch(`${API_BASE_URL}/api/weather/cleanup`, {
                 method: 'DELETE',
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
                 }
             });
             
