@@ -1,493 +1,5246 @@
 {
-    "type": "FeatureCollection",
-    "crs": {
-        "type": "name",
-        "properties": {
-            "name": "urn:ogc:def:crs:OGC:1.3:CRS84"
-        }
+  "type": "FeatureCollection",
+  "crs": {
+    "type": "name",
+    "properties": {
+      "name": "urn:ogc:def:crs:OGC:1.3:CRS84"
+    }
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "北京",
+        "english": "Beijing",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.4074,
+          39.9042
+        ]
+      }
     },
-    "features": [
-        {"type": "Feature", "properties": {"name": "北京", "english": "Beijing", "country": "China"}, "geometry": {"type": "Point", "coordinates": [116.4074, 39.9042]}},
-        {"type": "Feature", "properties": {"name": "上海", "english": "Shanghai", "country": "China"}, "geometry": {"type": "Point", "coordinates": [121.4737, 31.2304]}},
-        {"type": "Feature", "properties": {"name": "广州", "english": "Guangzhou", "country": "China"}, "geometry": {"type": "Point", "coordinates": [113.2644, 23.1291]}},
-        {"type": "Feature", "properties": {"name": "深圳", "english": "Shenzhen", "country": "China"}, "geometry": {"type": "Point", "coordinates": [114.0579, 22.5431]}},
-        {"type": "Feature", "properties": {"name": "成都", "english": "Chengdu", "country": "China"}, "geometry": {"type": "Point", "coordinates": [104.0668, 30.5728]}},
-        {"type": "Feature", "properties": {"name": "杭州", "english": "Hangzhou", "country": "China"}, "geometry": {"type": "Point", "coordinates": [120.1551, 30.2741]}},
-        {"type": "Feature", "properties": {"name": "武汉", "english": "Wuhan", "country": "China"}, "geometry": {"type": "Point", "coordinates": [114.3055, 30.5928]}},
-        {"type": "Feature", "properties": {"name": "南京", "english": "Nanjing", "country": "China"}, "geometry": {"type": "Point", "coordinates": [118.7969, 32.0603]}},
-        {"type": "Feature", "properties": {"name": "西安", "english": "Xi'an", "country": "China"}, "geometry": {"type": "Point", "coordinates": [108.9398, 34.3416]}},
-        {"type": "Feature", "properties": {"name": "天津", "english": "Tianjin", "country": "China"}, "geometry": {"type": "Point", "coordinates": [117.2008, 39.0842]}},
-        {"type": "Feature", "properties": {"name": "长春", "english": "Changchun", "country": "China"}, "geometry": {"type": "Point", "coordinates": [125.3235, 43.8170]}},
-        {"type": "Feature", "properties": {"name": "哈尔滨", "english": "Harbin", "country": "China"}, "geometry": {"type": "Point", "coordinates": [126.5349, 45.8038]}},
-        {"type": "Feature", "properties": {"name": "沈阳", "english": "Shenyang", "country": "China"}, "geometry": {"type": "Point", "coordinates": [123.4315, 41.8056]}},
-        {"type": "Feature", "properties": {"name": "大连", "english": "Dalian", "country": "China"}, "geometry": {"type": "Point", "coordinates": [121.6147, 38.9140]}},
-        {"type": "Feature", "properties": {"name": "青岛", "english": "Qingdao", "country": "China"}, "geometry": {"type": "Point", "coordinates": [120.3826, 36.0671]}},
-        {"type": "Feature", "properties": {"name": "厦门", "english": "Xiamen", "country": "China"}, "geometry": {"type": "Point", "coordinates": [118.0894, 24.4798]}},
-        {"type": "Feature", "properties": {"name": "福州", "english": "Fuzhou", "country": "China"}, "geometry": {"type": "Point", "coordinates": [119.2965, 26.0745]}},
-        {"type": "Feature", "properties": {"name": "长沙", "english": "Changsha", "country": "China"}, "geometry": {"type": "Point", "coordinates": [112.9388, 28.2280]}},
-        {"type": "Feature", "properties": {"name": "重庆", "english": "Chongqing", "country": "China"}, "geometry": {"type": "Point", "coordinates": [106.9123, 29.4316]}},
-        {"type": "Feature", "properties": {"name": "昆明", "english": "Kunming", "country": "China"}, "geometry": {"type": "Point", "coordinates": [102.8329, 24.8805]}},
-        {"type": "Feature", "properties": {"name": "贵阳", "english": "Guiyang", "country": "China"}, "geometry": {"type": "Point", "coordinates": [106.6302, 26.6473]}},
-        {"type": "Feature", "properties": {"name": "南宁", "english": "Nanning", "country": "China"}, "geometry": {"type": "Point", "coordinates": [108.3665, 22.8170]}},
-        {"type": "Feature", "properties": {"name": "合肥", "english": "Hefei", "country": "China"}, "geometry": {"type": "Point", "coordinates": [117.2272, 31.8206]}},
-        {"type": "Feature", "properties": {"name": "济南", "english": "Jinan", "country": "China"}, "geometry": {"type": "Point", "coordinates": [117.1201, 36.6512]}},
-        {"type": "Feature", "properties": {"name": "郑州", "english": "Zhengzhou", "country": "China"}, "geometry": {"type": "Point", "coordinates": [113.6253, 34.7466]}},
-        {"type": "Feature", "properties": {"name": "太原", "english": "Taiyuan", "country": "China"}, "geometry": {"type": "Point", "coordinates": [112.5489, 37.8706]}},
-        {"type": "Feature", "properties": {"name": "兰州", "english": "Lanzhou", "country": "China"}, "geometry": {"type": "Point", "coordinates": [103.8343, 36.0611]}},
-        {"type": "Feature", "properties": {"name": "西宁", "english": "Xining", "country": "China"}, "geometry": {"type": "Point", "coordinates": [101.7782, 36.6171]}},
-        {"type": "Feature", "properties": {"name": "银川", "english": "Yinchuan", "country": "China"}, "geometry": {"type": "Point", "coordinates": [106.2333, 38.4862]}},
-        {"type": "Feature", "properties": {"name": "乌鲁木齐", "english": "Urumqi", "country": "China"}, "geometry": {"type": "Point", "coordinates": [87.6168, 43.8256]}},
-        {"type": "Feature", "properties": {"name": "拉萨", "english": "Lhasa", "country": "China"}, "geometry": {"type": "Point", "coordinates": [91.1792, 29.6540]}},
-        {"type": "Feature", "properties": {"name": "香港", "english": "Hong Kong", "country": "China"}, "geometry": {"type": "Point", "coordinates": [114.1694, 22.3193]}},
-        {"type": "Feature", "properties": {"name": "澳门", "english": "Macau", "country": "China"}, "geometry": {"type": "Point", "coordinates": [113.5439, 22.1987]}},
-        {"type": "Feature", "properties": {"name": "汕头", "english": "Shantou", "country": "China"}, "geometry": {"type": "Point", "coordinates": [116.6934, 23.3546]}},
-        {"type": "Feature", "properties": {"name": "珠海", "english": "Zhuhai", "country": "China"}, "geometry": {"type": "Point", "coordinates": [113.5766, 22.2707]}},
-        {"type": "Feature", "properties": {"name": "中山", "english": "Zhongshan", "country": "China"}, "geometry": {"type": "Point", "coordinates": [113.3836, 22.5214]}},
-        {"type": "Feature", "properties": {"name": "东莞", "english": "Dongguan", "country": "China"}, "geometry": {"type": "Point", "coordinates": [113.7518, 23.0206]}},
-        {"type": "Feature", "properties": {"name": "惠州", "english": "Huizhou", "country": "China"}, "geometry": {"type": "Point", "coordinates": [114.4212, 23.1035]}},
-        {"type": "Feature", "properties": {"name": "佛山", "english": "Foshan", "country": "China"}, "geometry": {"type": "Point", "coordinates": [113.1224, 23.0291]}},
-        {"type": "Feature", "properties": {"name": "湛江", "english": "Zhanjiang", "country": "China"}, "geometry": {"type": "Point", "coordinates": [110.3699, 21.2716]}},
-        {"type": "Feature", "properties": {"name": "海口", "english": "Haikou", "country": "China"}, "geometry": {"type": "Point", "coordinates": [110.3593, 20.0442]}},
-        {"type": "Feature", "properties": {"name": "三亚", "english": "Sanya", "country": "China"}, "geometry": {"type": "Point", "coordinates": [109.5119, 18.2545]}},
-        {"type": "Feature", "properties": {"name": "温州", "english": "Wenzhou", "country": "China"}, "geometry": {"type": "Point", "coordinates": [120.6994, 28.0117]}},
-        {"type": "Feature", "properties": {"name": "宁波", "english": "Ningbo", "country": "China"}, "geometry": {"type": "Point", "coordinates": [121.5497, 29.8683]}},
-        {"type": "Feature", "properties": {"name": "苏州", "english": "Suzhou", "country": "China"}, "geometry": {"type": "Point", "coordinates": [120.6296, 31.3260]}},
-        {"type": "Feature", "properties": {"name": "无锡", "english": "Wuxi", "country": "China"}, "geometry": {"type": "Point", "coordinates": [120.3119, 31.4912]}},
-        {"type": "Feature", "properties": {"name": "常州", "english": "Changzhou", "country": "China"}, "geometry": {"type": "Point", "coordinates": [119.9723, 31.8116]}},
-        {"type": "Feature", "properties": {"name": "南通", "english": "Nantong", "country": "China"}, "geometry": {"type": "Point", "coordinates": [120.8655, 31.9989]}},
-        {"type": "Feature", "properties": {"name": "徐州", "english": "Xuzhou", "country": "China"}, "geometry": {"type": "Point", "coordinates": [117.2008, 34.2117]}},
-        {"type": "Feature", "properties": {"name": "扬州", "english": "Yangzhou", "country": "China"}, "geometry": {"type": "Point", "coordinates": [119.4212, 32.3933]}},
-        {"type": "Feature", "properties": {"name": "镇江", "english": "Zhenjiang", "country": "China"}, "geometry": {"type": "Point", "coordinates": [119.4366, 32.2078]}},
-        {"type": "Feature", "properties": {"name": "连云港", "english": "Lianyungang", "country": "China"}, "geometry": {"type": "Point", "coordinates": [119.1759, 34.5957]}},
-        {"type": "Feature", "properties": {"name": "烟台", "english": "Yantai", "country": "China"}, "geometry": {"type": "Point", "coordinates": [121.4349, 37.4602]}},
-        {"type": "Feature", "properties": {"name": "威海", "english": "Weihai", "country": "China"}, "geometry": {"type": "Point", "coordinates": [122.1363, 37.5119]}},
-        {"type": "Feature", "properties": {"name": "潍坊", "english": "Weifang", "country": "China"}, "geometry": {"type": "Point", "coordinates": [119.1642, 36.7063]}},
-        {"type": "Feature", "properties": {"name": "东营", "english": "Dongying", "country": "China"}, "geometry": {"type": "Point", "coordinates": [118.5432, 37.4674]}},
-        {"type": "Feature", "properties": {"name": "日照", "english": "Rizhao", "country": "China"}, "geometry": {"type": "Point", "coordinates": [119.4612, 35.4285]}},
-        {"type": "Feature", "properties": {"name": "临沂", "english": "Linyi", "country": "China"}, "geometry": {"type": "Point", "coordinates": [118.3118, 35.0536]}},
-        {"type": "Feature", "properties": {"name": "徐州", "english": "Xuzhou", "country": "China"}, "geometry": {"type": "Point", "coordinates": [117.2008, 34.2117]}},
-        {"type": "Feature", "properties": {"name": "洛阳", "english": "Luoyang", "country": "China"}, "geometry": {"type": "Point", "coordinates": [112.4478, 34.6234]}},
-        {"type": "Feature", "properties": {"name": "开封", "english": "Kaifeng", "country": "China"}, "geometry": {"type": "Point", "coordinates": [114.3544, 34.7629]}},
-        {"type": "Feature", "properties": {"name": "襄阳", "english": "Xiangyang", "country": "China"}, "geometry": {"type": "Point", "coordinates": [112.1875, 32.0603]}},
-        {"type": "Feature", "properties": {"name": "宜昌", "english": "Yichang", "country": "China"}, "geometry": {"type": "Point", "coordinates": [111.2879, 30.7026]}},
-        {"type": "Feature", "properties": {"name": "荆州", "english": "Jingzhou", "country": "China"}, "geometry": {"type": "Point", "coordinates": [112.2319, 30.3349]}},
-        {"type": "Feature", "properties": {"name": "长沙", "english": "Changsha", "country": "China"}, "geometry": {"type": "Point", "coordinates": [112.9388, 28.2280]}},
-        {"type": "Feature", "properties": {"name": "湘潭", "english": "Xiangtan", "country": "China"}, "geometry": {"type": "Point", "coordinates": [112.9186, 27.8269]}},
-        {"type": "Feature", "properties": {"name": "株洲", "english": "Zhuzhou", "country": "China"}, "geometry": {"type": "Point", "coordinates": [113.1329, 27.8229]}},
-        {"type": "Feature", "properties": {"name": "衡阳", "english": "Hengyang", "country": "China"}, "geometry": {"type": "Point", "coordinates": [112.6074, 26.9083]}},
-        {"type": "Feature", "properties": {"name": "常德", "english": "Changde", "country": "China"}, "geometry": {"type": "Point", "coordinates": [111.6909, 29.0458]}},
-        {"type": "Feature", "properties": {"name": "岳阳", "english": "Yueyang", "country": "China"}, "geometry": {"type": "Point", "coordinates": [113.1147, 29.3361]}},
-        {"type": "Feature", "properties": {"name": "江门", "english": "Jiangmen", "country": "China"}, "geometry": {"type": "Point", "coordinates": [113.0662, 22.5936]}},
-        {"type": "Feature", "properties": {"name": "肇庆", "english": "Zhaoqing", "country": "China"}, "geometry": {"type": "Point", "coordinates": [112.4737, 23.0506]}},
-        {"type": "Feature", "properties": {"name": "清远", "english": "Qingyuan", "country": "China"}, "geometry": {"type": "Point", "coordinates": [113.0129, 23.6938]}},
-        {"type": "Feature", "properties": {"name": "揭阳", "english": "Jieyang", "country": "China"}, "geometry": {"type": "Point", "coordinates": [116.3719, 23.5428]}},
-        {"type": "Feature", "properties": {"name": "潮州", "english": "Chaozhou", "country": "China"}, "geometry": {"type": "Point", "coordinates": [116.6221, 23.6841]}},
-        {"type": "Feature", "properties": {"name": "汕尾", "english": "Shanwei", "country": "China"}, "geometry": {"type": "Point", "coordinates": [115.3726, 22.7869]}},
-        {"type": "Feature", "properties": {"name": "梅州", "english": "Meizhou", "country": "China"}, "geometry": {"type": "Point", "coordinates": [116.1242, 24.2833]}},
-        {"type": "Feature", "properties": {"name": "河源", "english": "Heyuan", "country": "China"}, "geometry": {"type": "Point", "coordinates": [114.6200, 23.7333]}},
-        {"type": "Feature", "properties": {"name": "韶关", "english": "Shaoguan", "country": "China"}, "geometry": {"type": "Point", "coordinates": [113.6143, 24.8028]}},
-        {"type": "Feature", "properties": {"name": "茂名", "english": "Maoming", "country": "China"}, "geometry": {"type": "Point", "coordinates": [110.9146, 21.6812]}},
-        {"type": "Feature", "properties": {"name": "阳江", "english": "Yangjiang", "country": "China"}, "geometry": {"type": "Point", "coordinates": [111.9772, 21.8529]}},
-        {"type": "Feature", "properties": {"name": "云浮", "english": "Yunfu", "country": "China"}, "geometry": {"type": "Point", "coordinates": [112.0246, 22.9399]}},
-        {"type": "Feature", "properties": {"name": "东京", "english": "Tokyo", "country": "Japan"}, "geometry": {"type": "Point", "coordinates": [139.6503, 35.6762]}},
-        {"type": "Feature", "properties": {"name": "大阪", "english": "Osaka", "country": "Japan"}, "geometry": {"type": "Point", "coordinates": [135.5023, 34.6937]}},
-        {"type": "Feature", "properties": {"name": "京都", "english": "Kyoto", "country": "Japan"}, "geometry": {"type": "Point", "coordinates": [135.7619, 34.9896]}},
-        {"type": "Feature", "properties": {"name": "首尔", "english": "Seoul", "country": "South Korea"}, "geometry": {"type": "Point", "coordinates": [126.9780, 37.5665]}},
-        {"type": "Feature", "properties": {"name": "釜山", "english": "Busan", "country": "South Korea"}, "geometry": {"type": "Point", "coordinates": [129.0756, 35.1796]}},
-        {"type": "Feature", "properties": {"name": "平壤", "english": "Pyongyang", "country": "North Korea"}, "geometry": {"type": "Point", "coordinates": [125.7625, 39.0392]}},
-        {"type": "Feature", "properties": {"name": "新加坡", "english": "Singapore", "country": "Singapore"}, "geometry": {"type": "Point", "coordinates": [103.8198, 1.3521]}},
-        {"type": "Feature", "properties": {"name": "吉隆坡", "english": "Kuala Lumpur", "country": "Malaysia"}, "geometry": {"type": "Point", "coordinates": [101.6869, 3.1390]}},
-        {"type": "Feature", "properties": {"name": "曼谷", "english": "Bangkok", "country": "Thailand"}, "geometry": {"type": "Point", "coordinates": [100.5018, 13.7563]}},
-        {"type": "Feature", "properties": {"name": "雅加达", "english": "Jakarta", "country": "Indonesia"}, "geometry": {"type": "Point", "coordinates": [106.8456, -6.2088]}},
-        {"type": "Feature", "properties": {"name": "马尼拉", "english": "Manila", "country": "Philippines"}, "geometry": {"type": "Point", "coordinates": [120.9842, 14.5995]}},
-        {"type": "Feature", "properties": {"name": "河内", "english": "Hanoi", "country": "Vietnam"}, "geometry": {"type": "Point", "coordinates": [105.8342, 21.0278]}},
-        {"type": "Feature", "properties": {"name": "胡志明市", "english": "Ho Chi Minh City", "country": "Vietnam"}, "geometry": {"type": "Point", "coordinates": [106.6297, 10.8231]}},
-        {"type": "Feature", "properties": {"name": "万象", "english": "Vientiane", "country": "Laos"}, "geometry": {"type": "Point", "coordinates": [102.6317, 17.9673]}},
-        {"type": "Feature", "properties": {"name": "金边", "english": "Phnom Penh", "country": "Cambodia"}, "geometry": {"type": "Point", "coordinates": [104.9163, 11.5624]}},
-        {"type": "Feature", "properties": {"name": "仰光", "english": "Yangon", "country": "Myanmar"}, "geometry": {"type": "Point", "coordinates": [96.1667, 16.8667]}},
-        {"type": "Feature", "properties": {"name": "孟买", "english": "Mumbai", "country": "India"}, "geometry": {"type": "Point", "coordinates": [72.8777, 19.0760]}},
-        {"type": "Feature", "properties": {"name": "德里", "english": "Delhi", "country": "India"}, "geometry": {"type": "Point", "coordinates": [77.2090, 28.6139]}},
-        {"type": "Feature", "properties": {"name": "加尔各答", "english": "Kolkata", "country": "India"}, "geometry": {"type": "Point", "coordinates": [88.3639, 22.5726]}},
-        {"type": "Feature", "properties": {"name": "新德里", "english": "New Delhi", "country": "India"}, "geometry": {"type": "Point", "coordinates": [77.2167, 28.6448]}},
-        {"type": "Feature", "properties": {"name": "班加罗尔", "english": "Bengaluru", "country": "India"}, "geometry": {"type": "Point", "coordinates": [77.5946, 12.9716]}},
-        {"type": "Feature", "properties": {"name": "伊斯兰堡", "english": "Islamabad", "country": "Pakistan"}, "geometry": {"type": "Point", "coordinates": [73.0479, 33.6844]}},
-        {"type": "Feature", "properties": {"name": "卡拉奇", "english": "Karachi", "country": "Pakistan"}, "geometry": {"type": "Point", "coordinates": [67.0011, 24.8607]}},
-        {"type": "Feature", "properties": {"name": "达卡", "english": "Dhaka", "country": "Bangladesh"}, "geometry": {"type": "Point", "coordinates": [90.4125, 23.8103]}},
-        {"type": "Feature", "properties": {"name": "加德满都", "english": "Kathmandu", "country": "Nepal"}, "geometry": {"type": "Point", "coordinates": [85.3240, 27.7172]}},
-        {"type": "Feature", "properties": {"name": "科伦坡", "english": "Colombo", "country": "Sri Lanka"}, "geometry": {"type": "Point", "coordinates": [79.8612, 6.9271]}},
-        {"type": "Feature", "properties": {"name": "迪拜", "english": "Dubai", "country": "UAE"}, "geometry": {"type": "Point", "coordinates": [55.2708, 25.2048]}},
-        {"type": "Feature", "properties": {"name": "阿布扎比", "english": "Abu Dhabi", "country": "UAE"}, "geometry": {"type": "Point", "coordinates": [54.3773, 24.4539]}},
-        {"type": "Feature", "properties": {"name": "多哈", "english": "Doha", "country": "Qatar"}, "geometry": {"type": "Point", "coordinates": [51.5310, 25.2854]}},
-        {"type": "Feature", "properties": {"name": "利雅得", "english": "Riyadh", "country": "Saudi Arabia"}, "geometry": {"type": "Point", "coordinates": [46.6753, 24.7136]}},
-        {"type": "Feature", "properties": {"name": "麦加", "english": "Mecca", "country": "Saudi Arabia"}, "geometry": {"type": "Point", "coordinates": [39.8262, 21.4225]}},
-        {"type": "Feature", "properties": {"name": "开罗", "english": "Cairo", "country": "Egypt"}, "geometry": {"type": "Point", "coordinates": [31.2357, 30.0444]}},
-        {"type": "Feature", "properties": {"name": "亚历山大", "english": "Alexandria", "country": "Egypt"}, "geometry": {"type": "Point", "coordinates": [29.9187, 31.2001]}},
-        {"type": "Feature", "properties": {"name": "内罗毕", "english": "Nairobi", "country": "Kenya"}, "geometry": {"type": "Point", "coordinates": [36.8219, -1.2921]}},
-        {"type": "Feature", "properties": {"name": "约翰内斯堡", "english": "Johannesburg", "country": "South Africa"}, "geometry": {"type": "Point", "coordinates": [28.0473, -26.2041]}},
-        {"type": "Feature", "properties": {"name": "开普敦", "english": "Cape Town", "country": "South Africa"}, "geometry": {"type": "Point", "coordinates": [18.4241, -33.9249]}},
-        {"type": "Feature", "properties": {"name": "拉各斯", "english": "Lagos", "country": "Nigeria"}, "geometry": {"type": "Point", "coordinates": [3.3942, 6.4541]}},
-        {"type": "Feature", "properties": {"name": "阿布贾", "english": "Abuja", "country": "Nigeria"}, "geometry": {"type": "Point", "coordinates": [7.4951, 9.0579]}},
-        {"type": "Feature", "properties": {"name": "卡萨布兰卡", "english": "Casablanca", "country": "Morocco"}, "geometry": {"type": "Point", "coordinates": [-7.5898, 33.5731]}},
-        {"type": "Feature", "properties": {"name": "拉巴特", "english": "Rabat", "country": "Morocco"}, "geometry": {"type": "Point", "coordinates": [-6.8498, 34.0209]}},
-        {"type": "Feature", "properties": {"name": "突尼斯", "english": "Tunis", "country": "Tunisia"}, "geometry": {"type": "Point", "coordinates": [10.1815, 36.8065]}},
-        {"type": "Feature", "properties": {"name": "阿尔及尔", "english": "Algiers", "country": "Algeria"}, "geometry": {"type": "Point", "coordinates": [3.0420, 36.7525]}},
-        {"type": "Feature", "properties": {"name": "德黑兰", "english": "Tehran", "country": "Iran"}, "geometry": {"type": "Point", "coordinates": [51.3890, 35.6892]}},
-        {"type": "Feature", "properties": {"name": "安卡拉", "english": "Ankara", "country": "Turkey"}, "geometry": {"type": "Point", "coordinates": [32.8597, 39.9334]}},
-        {"type": "Feature", "properties": {"name": "伊斯坦布尔", "english": "Istanbul", "country": "Turkey"}, "geometry": {"type": "Point", "coordinates": [28.9784, 41.0082]}},
-        {"type": "Feature", "properties": {"name": "特拉维夫", "english": "Tel Aviv", "country": "Israel"}, "geometry": {"type": "Point", "coordinates": [34.7818, 32.0853]}},
-        {"type": "Feature", "properties": {"name": "耶路撒冷", "english": "Jerusalem", "country": "Israel"}, "geometry": {"type": "Point", "coordinates": [35.2137, 31.7683]}},
-        {"type": "Feature", "properties": {"name": "贝鲁特", "english": "Beirut", "country": "Lebanon"}, "geometry": {"type": "Point", "coordinates": [35.5018, 33.8938]}},
-        {"type": "Feature", "properties": {"name": "大马士革", "english": "Damascus", "country": "Syria"}, "geometry": {"type": "Point", "coordinates": [36.3119, 33.5138]}},
-        {"type": "Feature", "properties": {"name": "巴格达", "english": "Baghdad", "country": "Iraq"}, "geometry": {"type": "Point", "coordinates": [44.4009, 33.3406]}},
-        {"type": "Feature", "properties": {"name": "利马", "english": "Lima", "country": "Peru"}, "geometry": {"type": "Point", "coordinates": [-77.0428, -12.0464]}},
-        {"type": "Feature", "properties": {"name": "圣保罗", "english": "São Paulo", "country": "Brazil"}, "geometry": {"type": "Point", "coordinates": [-46.6333, -23.5505]}},
-        {"type": "Feature", "properties": {"name": "里约热内卢", "english": "Rio de Janeiro", "country": "Brazil"}, "geometry": {"type": "Point", "coordinates": [-43.1729, -22.9068]}},
-        {"type": "Feature", "properties": {"name": "巴西利亚", "english": "Brasilia", "country": "Brazil"}, "geometry": {"type": "Point", "coordinates": [-47.8828, -15.7939]}},
-        {"type": "Feature", "properties": {"name": "墨西哥城", "english": "Mexico City", "country": "Mexico"}, "geometry": {"type": "Point", "coordinates": [-99.1332, 19.4326]}},
-        {"type": "Feature", "properties": {"name": "瓜达拉哈拉", "english": "Guadalajara", "country": "Mexico"}, "geometry": {"type": "Point", "coordinates": [-103.3496, 20.6775]}},
-        {"type": "Feature", "properties": {"name": "布宜诺斯艾利斯", "english": "Buenos Aires", "country": "Argentina"}, "geometry": {"type": "Point", "coordinates": [-58.3816, -34.6037]}},
-        {"type": "Feature", "properties": {"name": "圣地亚哥", "english": "Santiago", "country": "Chile"}, "geometry": {"type": "Point", "coordinates": [-70.6693, -33.4489]}},
-        {"type": "Feature", "properties": {"name": "波哥大", "english": "Bogotá", "country": "Colombia"}, "geometry": {"type": "Point", "coordinates": [-74.0721, 4.7110]}},
-        {"type": "Feature", "properties": {"name": "加拉加斯", "english": "Caracas", "country": "Venezuela"}, "geometry": {"type": "Point", "coordinates": [-66.9036, 10.4806]}},
-        {"type": "Feature", "properties": {"name": "哈瓦那", "english": "Havana", "country": "Cuba"}, "geometry": {"type": "Point", "coordinates": [-82.3666, 23.1136]}},
-        {"type": "Feature", "properties": {"name": "纽约", "english": "New York", "country": "United States"}, "geometry": {"type": "Point", "coordinates": [-74.0060, 40.7128]}},
-        {"type": "Feature", "properties": {"name": "洛杉矶", "english": "Los Angeles", "country": "United States"}, "geometry": {"type": "Point", "coordinates": [-118.2437, 34.0522]}},
-        {"type": "Feature", "properties": {"name": "芝加哥", "english": "Chicago", "country": "United States"}, "geometry": {"type": "Point", "coordinates": [-87.6298, 41.8781]}},
-        {"type": "Feature", "properties": {"name": "休斯顿", "english": "Houston", "country": "United States"}, "geometry": {"type": "Point", "coordinates": [-95.3698, 29.7604]}},
-        {"type": "Feature", "properties": {"name": "费城", "english": "Philadelphia", "country": "United States"}, "geometry": {"type": "Point", "coordinates": [-75.1652, 39.9526]}},
-        {"type": "Feature", "properties": {"name": "凤凰城", "english": "Phoenix", "country": "United States"}, "geometry": {"type": "Point", "coordinates": [-112.0740, 33.4484]}},
-        {"type": "Feature", "properties": {"name": "达拉斯", "english": "Dallas", "country": "United States"}, "geometry": {"type": "Point", "coordinates": [-96.7970, 32.7767]}},
-        {"type": "Feature", "properties": {"name": "迈阿密", "english": "Miami", "country": "United States"}, "geometry": {"type": "Point", "coordinates": [-80.1918, 25.7617]}},
-        {"type": "Feature", "properties": {"name": "波士顿", "english": "Boston", "country": "United States"}, "geometry": {"type": "Point", "coordinates": [-71.0589, 42.3601]}},
-        {"type": "Feature", "properties": {"name": "华盛顿", "english": "Washington, D.C.", "country": "United States"}, "geometry": {"type": "Point", "coordinates": [-77.0369, 38.9072]}},
-        {"type": "Feature", "properties": {"name": "多伦多", "english": "Toronto", "country": "Canada"}, "geometry": {"type": "Point", "coordinates": [-79.3832, 43.6532]}},
-        {"type": "Feature", "properties": {"name": "温哥华", "english": "Vancouver", "country": "Canada"}, "geometry": {"type": "Point", "coordinates": [-123.1207, 49.2827]}},
-        {"type": "Feature", "properties": {"name": "蒙特利尔", "english": "Montreal", "country": "Canada"}, "geometry": {"type": "Point", "coordinates": [-73.5673, 45.5017]}},
-        {"type": "Feature", "properties": {"name": "渥太华", "english": "Ottawa", "country": "Canada"}, "geometry": {"type": "Point", "coordinates": [-75.6972, 45.4215]}},
-        {"type": "Feature", "properties": {"name": "伦敦", "english": "London", "country": "United Kingdom"}, "geometry": {"type": "Point", "coordinates": [-0.1278, 51.5074]}},
-        {"type": "Feature", "properties": {"name": "伯明翰", "english": "Birmingham", "country": "United Kingdom"}, "geometry": {"type": "Point", "coordinates": [-1.8904, 52.4862]}},
-        {"type": "Feature", "properties": {"name": "曼彻斯特", "english": "Manchester", "country": "United Kingdom"}, "geometry": {"type": "Point", "coordinates": [-2.2426, 53.4808]}},
-        {"type": "Feature", "properties": {"name": "爱丁堡", "english": "Edinburgh", "country": "United Kingdom"}, "geometry": {"type": "Point", "coordinates": [-3.1883, 55.9533]}},
-        {"type": "Feature", "properties": {"name": "都柏林", "english": "Dublin", "country": "Ireland"}, "geometry": {"type": "Point", "coordinates": [-6.2603, 53.3498]}},
-        {"type": "Feature", "properties": {"name": "巴黎", "english": "Paris", "country": "France"}, "geometry": {"type": "Point", "coordinates": [2.3522, 48.8566]}},
-        {"type": "Feature", "properties": {"name": "马赛", "english": "Marseille", "country": "France"}, "geometry": {"type": "Point", "coordinates": [5.3698, 43.2965]}},
-        {"type": "Feature", "properties": {"name": "里昂", "english": "Lyon", "country": "France"}, "geometry": {"type": "Point", "coordinates": [4.8357, 45.7640]}},
-        {"type": "Feature", "properties": {"name": "柏林", "english": "Berlin", "country": "Germany"}, "geometry": {"type": "Point", "coordinates": [13.4050, 52.5200]}},
-        {"type": "Feature", "properties": {"name": "慕尼黑", "english": "Munich", "country": "Germany"}, "geometry": {"type": "Point", "coordinates": [11.5820, 48.1351]}},
-        {"type": "Feature", "properties": {"name": "汉堡", "english": "Hamburg", "country": "Germany"}, "geometry": {"type": "Point", "coordinates": [9.9937, 53.5511]}},
-        {"type": "Feature", "properties": {"name": "法兰克福", "english": "Frankfurt", "country": "Germany"}, "geometry": {"type": "Point", "coordinates": [8.6821, 50.1109]}},
-        {"type": "Feature", "properties": {"name": "罗马", "english": "Rome", "country": "Italy"}, "geometry": {"type": "Point", "coordinates": [12.4964, 41.9028]}},
-        {"type": "Feature", "properties": {"name": "米兰", "english": "Milan", "country": "Italy"}, "geometry": {"type": "Point", "coordinates": [9.1895, 45.4642]}},
-        {"type": "Feature", "properties": {"name": "那不勒斯", "english": "Naples", "country": "Italy"}, "geometry": {"type": "Point", "coordinates": [14.2681, 40.8518]}},
-        {"type": "Feature", "properties": {"name": "马德里", "english": "Madrid", "country": "Spain"}, "geometry": {"type": "Point", "coordinates": [-3.7038, 40.4168]}},
-        {"type": "Feature", "properties": {"name": "巴塞罗那", "english": "Barcelona", "country": "Spain"}, "geometry": {"type": "Point", "coordinates": [2.1686, 41.3874]}},
-        {"type": "Feature", "properties": {"name": "瓦伦西亚", "english": "Valencia", "country": "Spain"}, "geometry": {"type": "Point", "coordinates": [-0.3763, 39.4699]}},
-        {"type": "Feature", "properties": {"name": "阿姆斯特丹", "english": "Amsterdam", "country": "Netherlands"}, "geometry": {"type": "Point", "coordinates": [4.9041, 52.3676]}},
-        {"type": "Feature", "properties": {"name": "鹿特丹", "english": "Rotterdam", "country": "Netherlands"}, "geometry": {"type": "Point", "coordinates": [4.4777, 51.9244]}},
-        {"type": "Feature", "properties": {"name": "布鲁塞尔", "english": "Brussels", "country": "Belgium"}, "geometry": {"type": "Point", "coordinates": [4.3517, 50.8503]}},
-        {"type": "Feature", "properties": {"name": "卢森堡", "english": "Luxembourg", "country": "Luxembourg"}, "geometry": {"type": "Point", "coordinates": [6.1319, 49.6116]}},
-        {"type": "Feature", "properties": {"name": "维也纳", "english": "Vienna", "country": "Austria"}, "geometry": {"type": "Point", "coordinates": [16.3738, 48.2082]}},
-        {"type": "Feature", "properties": {"name": "布拉格", "english": "Prague", "country": "Czech Republic"}, "geometry": {"type": "Point", "coordinates": [14.4378, 50.0755]}},
-        {"type": "Feature", "properties": {"name": "华沙", "english": "Warsaw", "country": "Poland"}, "geometry": {"type": "Point", "coordinates": [21.0122, 52.2297]}},
-        {"type": "Feature", "properties": {"name": "布达佩斯", "english": "Budapest", "country": "Hungary"}, "geometry": {"type": "Point", "coordinates": [19.0402, 47.4979]}},
-        {"type": "Feature", "properties": {"name": "苏黎世", "english": "Zurich", "country": "Switzerland"}, "geometry": {"type": "Point", "coordinates": [8.5417, 47.3769]}},
-        {"type": "Feature", "properties": {"name": "日内瓦", "english": "Geneva", "country": "Switzerland"}, "geometry": {"type": "Point", "coordinates": [6.1432, 46.2044]}},
-        {"type": "Feature", "properties": {"name": "斯德哥尔摩", "english": "Stockholm", "country": "Sweden"}, "geometry": {"type": "Point", "coordinates": [18.0686, 59.3293]}},
-        {"type": "Feature", "properties": {"name": "哥本哈根", "english": "Copenhagen", "country": "Denmark"}, "geometry": {"type": "Point", "coordinates": [12.5683, 55.6761]}},
-        {"type": "Feature", "properties": {"name": "奥斯陆", "english": "Oslo", "country": "Norway"}, "geometry": {"type": "Point", "coordinates": [10.7522, 59.9139]}},
-        {"type": "Feature", "properties": {"name": "赫尔辛基", "english": "Helsinki", "country": "Finland"}, "geometry": {"type": "Point", "coordinates": [24.9384, 60.1699]}},
-        {"type": "Feature", "properties": {"name": "雷克雅未克", "english": "Reykjavik", "country": "Iceland"}, "geometry": {"type": "Point", "coordinates": [-21.8174, 64.1265]}},
-        {"type": "Feature", "properties": {"name": "里斯本", "english": "Lisbon", "country": "Portugal"}, "geometry": {"type": "Point", "coordinates": [-9.1393, 38.7223]}},
-        {"type": "Feature", "properties": {"name": "波尔图", "english": "Porto", "country": "Portugal"}, "geometry": {"type": "Point", "coordinates": [-8.6291, 41.1579]}},
-        {"type": "Feature", "properties": {"name": "雅典", "english": "Athens", "country": "Greece"}, "geometry": {"type": "Point", "coordinates": [23.7275, 37.9838]}},
-        {"type": "Feature", "properties": {"name": "索菲亚", "english": "Sofia", "country": "Bulgaria"}, "geometry": {"type": "Point", "coordinates": [23.3219, 42.6977]}},
-        {"type": "Feature", "properties": {"name": "布加勒斯特", "english": "Bucharest", "country": "Romania"}, "geometry": {"type": "Point", "coordinates": [26.1025, 44.4268]}},
-        {"type": "Feature", "properties": {"name": "贝尔格莱德", "english": "Belgrade", "country": "Serbia"}, "geometry": {"type": "Point", "coordinates": [20.4489, 44.7866]}},
-        {"type": "Feature", "properties": {"name": "萨格勒布", "english": "Zagreb", "country": "Croatia"}, "geometry": {"type": "Point", "coordinates": [15.9819, 45.8150]}},
-        {"type": "Feature", "properties": {"name": "卢布尔雅那", "english": "Ljubljana", "country": "Slovenia"}, "geometry": {"type": "Point", "coordinates": [14.5058, 46.0569]}},
-        {"type": "Feature", "properties": {"name": "萨拉热窝", "english": "Sarajevo", "country": "Bosnia and Herzegovina"}, "geometry": {"type": "Point", "coordinates": [18.4131, 43.8563]}},
-        {"type": "Feature", "properties": {"name": "基辅", "english": "Kyiv", "country": "Ukraine"}, "geometry": {"type": "Point", "coordinates": [30.5234, 50.4501]}},
-        {"type": "Feature", "properties": {"name": "明斯克", "english": "Minsk", "country": "Belarus"}, "geometry": {"type": "Point", "coordinates": [27.5615, 53.9045]}},
-        {"type": "Feature", "properties": {"name": "维尔纽斯", "english": "Vilnius", "country": "Lithuania"}, "geometry": {"type": "Point", "coordinates": [25.2038, 54.6872]}},
-        {"type": "Feature", "properties": {"name": "里加", "english": "Riga", "country": "Latvia"}, "geometry": {"type": "Point", "coordinates": [24.1052, 56.9496]}},
-        {"type": "Feature", "properties": {"name": "塔林", "english": "Tallinn", "country": "Estonia"}, "geometry": {"type": "Point", "coordinates": [24.7536, 59.4370]}},
-        {"type": "Feature", "properties": {"name": "基希讷乌", "english": "Chisinau", "country": "Moldova"}, "geometry": {"type": "Point", "coordinates": [28.8638, 47.0105]}},
-        {"type": "Feature", "properties": {"name": "布拉迪斯拉发", "english": "Bratislava", "country": "Slovakia"}, "geometry": {"type": "Point", "coordinates": [17.1077, 48.1491]}},
-        {"type": "Feature", "properties": {"name": "卢布尔雅那", "english": "Ljubljana", "country": "Slovenia"}, "geometry": {"type": "Point", "coordinates": [14.5058, 46.0569]}},
-        {"type": "Feature", "properties": {"name": "地拉那", "english": "Tirana", "country": "Albania"}, "geometry": {"type": "Point", "coordinates": [19.8172, 41.3275]}},
-        {"type": "Feature", "properties": {"name": "斯科普里", "english": "Skopje", "country": "North Macedonia"}, "geometry": {"type": "Point", "coordinates": [21.4363, 41.9973]}},
-        {"type": "Feature", "properties": {"name": "波德戈里察", "english": "Podgorica", "country": "Montenegro"}, "geometry": {"type": "Point", "coordinates": [19.2664, 42.4304]}},
-        {"type": "Feature", "properties": {"name": "瓦莱塔", "english": "Valletta", "country": "Malta"}, "geometry": {"type": "Point", "coordinates": [14.5142, 35.8997]}},
-        {"type": "Feature", "properties": {"name": "安道尔城", "english": "Andorra la Vella", "country": "Andorra"}, "geometry": {"type": "Point", "coordinates": [1.5218, 42.5075]}},
-        {"type": "Feature", "properties": {"name": "摩纳哥", "english": "Monaco", "country": "Monaco"}, "geometry": {"type": "Point", "coordinates": [7.4246, 43.7384]}},
-        {"type": "Feature", "properties": {"name": "圣马力诺", "english": "San Marino", "country": "San Marino"}, "geometry": {"type": "Point", "coordinates": [12.4464, 43.9424]}},
-        {"type": "Feature", "properties": {"name": "梵蒂冈", "english": "Vatican City", "country": "Vatican City"}, "geometry": {"type": "Point", "coordinates": [12.4534, 41.9029]}},
-        {"type": "Feature", "properties": {"name": "莫斯科", "english": "Moscow", "country": "Russia"}, "geometry": {"type": "Point", "coordinates": [37.6173, 55.7558]}},
-        {"type": "Feature", "properties": {"name": "圣彼得堡", "english": "Saint Petersburg", "country": "Russia"}, "geometry": {"type": "Point", "coordinates": [30.3351, 59.9343]}},
-        {"type": "Feature", "properties": {"name": "喀山", "english": "Kazan", "country": "Russia"}, "geometry": {"type": "Point", "coordinates": [49.1068, 55.7963]}},
-        {"type": "Feature", "properties": {"name": "叶卡捷琳堡", "english": "Yekaterinburg", "country": "Russia"}, "geometry": {"type": "Point", "coordinates": [60.6122, 56.8519]}},
-        {"type": "Feature", "properties": {"name": "新西伯利亚", "english": "Novosibirsk", "country": "Russia"}, "geometry": {"type": "Point", "coordinates": [82.9204, 55.0302]}},
-        {"type": "Feature", "properties": {"name": "符拉迪沃斯托克", "english": "Vladivostok", "country": "Russia"}, "geometry": {"type": "Point", "coordinates": [131.8853, 43.1158]}},
-        {"type": "Feature", "properties": {"name": "塔什干", "english": "Tashkent", "country": "Uzbekistan"}, "geometry": {"type": "Point", "coordinates": [69.2401, 41.2995]}},
-        {"type": "Feature", "properties": {"name": "阿拉木图", "english": "Almaty", "country": "Kazakhstan"}, "geometry": {"type": "Point", "coordinates": [76.9286, 43.2567]}},
-        {"type": "Feature", "properties": {"name": "努尔苏丹", "english": "Nur-Sultan", "country": "Kazakhstan"}, "geometry": {"type": "Point", "coordinates": [71.4461, 51.1801]}},
-        {"type": "Feature", "properties": {"name": "比什凯克", "english": "Bishkek", "country": "Kyrgyzstan"}, "geometry": {"type": "Point", "coordinates": [74.5698, 42.8746]}},
-        {"type": "Feature", "properties": {"name": "杜尚别", "english": "Dushanbe", "country": "Tajikistan"}, "geometry": {"type": "Point", "coordinates": [68.7863, 38.5567]}},
-        {"type": "Feature", "properties": {"name": "阿什哈巴德", "english": "Ashgabat", "country": "Turkmenistan"}, "geometry": {"type": "Point", "coordinates": [58.3667, 37.9667]}},
-        {"type": "Feature", "properties": {"name": "乌兰巴托", "english": "Ulaanbaatar", "country": "Mongolia"}, "geometry": {"type": "Point", "coordinates": [106.9057, 47.8864]}},
-        {"type": "Feature", "properties": {"name": "悉尼", "english": "Sydney", "country": "Australia"}, "geometry": {"type": "Point", "coordinates": [151.2093, -33.8688]}},
-        {"type": "Feature", "properties": {"name": "墨尔本", "english": "Melbourne", "country": "Australia"}, "geometry": {"type": "Point", "coordinates": [144.9631, -37.8136]}},
-        {"type": "Feature", "properties": {"name": "布里斯班", "english": "Brisbane", "country": "Australia"}, "geometry": {"type": "Point", "coordinates": [153.0251, -27.4698]}},
-        {"type": "Feature", "properties": {"name": "珀斯", "english": "Perth", "country": "Australia"}, "geometry": {"type": "Point", "coordinates": [115.8605, -31.9505]}},
-        {"type": "Feature", "properties": {"name": "阿德莱德", "english": "Adelaide", "country": "Australia"}, "geometry": {"type": "Point", "coordinates": [138.6007, -34.9285]}},
-        {"type": "Feature", "properties": {"name": "达尔文", "english": "Darwin", "country": "Australia"}, "geometry": {"type": "Point", "coordinates": [130.8456, -12.4634]}},
-        {"type": "Feature", "properties": {"name": "凯恩斯", "english": "Cairns", "country": "Australia"}, "geometry": {"type": "Point", "coordinates": [145.7781, -16.9186]}},
-        {"type": "Feature", "properties": {"name": "黄金海岸", "english": "Gold Coast", "country": "Australia"}, "geometry": {"type": "Point", "coordinates": [153.0000, -28.0167]}},
-        {"type": "Feature", "properties": {"name": "霍巴特", "english": "Hobart", "country": "Australia"}, "geometry": {"type": "Point", "coordinates": [147.3294, -42.8794]}},
-        {"type": "Feature", "properties": {"name": "奥克兰", "english": "Auckland", "country": "New Zealand"}, "geometry": {"type": "Point", "coordinates": [174.7633, -36.8485]}},
-        {"type": "Feature", "properties": {"name": "惠灵顿", "english": "Wellington", "country": "New Zealand"}, "geometry": {"type": "Point", "coordinates": [174.7762, -41.2865]}},
-        {"type": "Feature", "properties": {"name": "基督城", "english": "Christchurch", "country": "New Zealand"}, "geometry": {"type": "Point", "coordinates": [172.6362, -43.5321]}},
-        {"type": "Feature", "properties": {"name": "皇后镇", "english": "Queenstown", "country": "New Zealand"}, "geometry": {"type": "Point", "coordinates": [168.6626, -45.0312]}},
-        {"type": "Feature", "properties": {"name": "但尼丁", "english": "Dunedin", "country": "New Zealand"}, "geometry": {"type": "Point", "coordinates": [170.5033, -45.8742]}},
-        {"type": "Feature", "properties": {"name": "雅库茨克", "english": "Yakutsk", "country": "Russia"}, "geometry": {"type": "Point", "coordinates": [129.7453, 62.0359]}},
-        {"type": "Feature", "properties": {"name": "安克雷奇", "english": "Anchorage", "country": "United States"}, "geometry": {"type": "Point", "coordinates": [-149.9003, 61.2181]}},
-        {"type": "Feature", "properties": {"name": "努克", "english": "Nuuk", "country": "Greenland"}, "geometry": {"type": "Point", "coordinates": [-49.6603, 61.9241]}},
-        {"type": "Feature", "properties": {"name": "托木斯克", "english": "Tomsk", "country": "Russia"}, "geometry": {"type": "Point", "coordinates": [84.9744, 56.4977]}},
-        {"type": "Feature", "properties": {"name": "伊尔库茨克", "english": "Irkutsk", "country": "Russia"}, "geometry": {"type": "Point", "coordinates": [104.2939, 52.2989]}},
-        {"type": "Feature", "properties": {"name": "台北", "english": "Taipei", "country": "Taiwan"}, "geometry": {"type": "Point", "coordinates": [121.5654, 25.0330]}},
-        {"type": "Feature", "properties": {"name": "高雄", "english": "Kaohsiung", "country": "Taiwan"}, "geometry": {"type": "Point", "coordinates": [120.3014, 22.6273]}},
-        {"type": "Feature", "properties": {"name": "亚的斯亚贝巴", "english": "Addis Ababa", "country": "Ethiopia"}, "geometry": {"type": "Point", "coordinates": [38.7469, 9.0249]}},
-        {"type": "Feature", "properties": {"name": "坎帕拉", "english": "Kampala", "country": "Uganda"}, "geometry": {"type": "Point", "coordinates": [32.5825, 0.3476]}},
-        {"type": "Feature", "properties": {"name": "达累斯萨拉姆", "english": "Dar es Salaam", "country": "Tanzania"}, "geometry": {"type": "Point", "coordinates": [39.2042, -6.7924]}},
-        {"type": "Feature", "properties": {"name": "基加利", "english": "Kigali", "country": "Rwanda"}, "geometry": {"type": "Point", "coordinates": [30.0595, -1.9441]}},
-        {"type": "Feature", "properties": {"name": "金沙萨", "english": "Kinshasa", "country": "Democratic Republic of the Congo"}, "geometry": {"type": "Point", "coordinates": [15.2663, -4.3253]}},
-        {"type": "Feature", "properties": {"name": "布拉柴维尔", "english": "Brazzaville", "country": "Republic of the Congo"}, "geometry": {"type": "Point", "coordinates": [15.2832, -4.2634]}},
-        {"type": "Feature", "properties": {"name": "利伯维尔", "english": "Libreville", "country": "Gabon"}, "geometry": {"type": "Point", "coordinates": [9.4537, 0.3981]}},
-        {"type": "Feature", "properties": {"name": "雅温得", "english": "Yaoundé", "country": "Cameroon"}, "geometry": {"type": "Point", "coordinates": [11.5000, 3.8667]}},
-        {"type": "Feature", "properties": {"name": "班吉", "english": "Bangui", "country": "Central African Republic"}, "geometry": {"type": "Point", "coordinates": [18.5500, 4.3667]}},
-        {"type": "Feature", "properties": {"name": "恩贾梅纳", "english": "N'Djamena", "country": "Chad"}, "geometry": {"type": "Point", "coordinates": [15.0333, 12.1167]}},
-        {"type": "Feature", "properties": {"name": "喀土穆", "english": "Khartoum", "country": "Sudan"}, "geometry": {"type": "Point", "coordinates": [32.5333, 15.5833]}},
-        {"type": "Feature", "properties": {"name": "朱巴", "english": "Juba", "country": "South Sudan"}, "geometry": {"type": "Point", "coordinates": [31.5825, 4.8516]}},
-        {"type": "Feature", "properties": {"name": "的黎波里", "english": "Tripoli", "country": "Libya"}, "geometry": {"type": "Point", "coordinates": [13.1899, 32.8872]}},
-        {"type": "Feature", "properties": {"name": "努瓦克肖特", "english": "Nouakchott", "country": "Mauritania"}, "geometry": {"type": "Point", "coordinates": [-15.9363, 18.0859]}},
-        {"type": "Feature", "properties": {"name": "达喀尔", "english": "Dakar", "country": "Senegal"}, "geometry": {"type": "Point", "coordinates": [-17.4441, 14.6937]}},
-        {"type": "Feature", "properties": {"name": "班珠尔", "english": "Banjul", "country": "The Gambia"}, "geometry": {"type": "Point", "coordinates": [-16.5765, 13.4520]}},
-        {"type": "Feature", "properties": {"name": "科纳克里", "english": "Conakry", "country": "Guinea"}, "geometry": {"type": "Point", "coordinates": [-13.6772, 9.5371]}},
-        {"type": "Feature", "properties": {"name": "弗里敦", "english": "Freetown", "country": "Sierra Leone"}, "geometry": {"type": "Point", "coordinates": [-13.2353, 8.4664]}},
-        {"type": "Feature", "properties": {"name": "蒙罗维亚", "english": "Monrovia", "country": "Liberia"}, "geometry": {"type": "Point", "coordinates": [-10.7969, 6.3004]}},
-        {"type": "Feature", "properties": {"name": "亚穆苏克罗", "english": "Yamoussoukro", "country": "Ivory Coast"}, "geometry": {"type": "Point", "coordinates": [-5.2769, 6.8242]}},
-        {"type": "Feature", "properties": {"name": "阿克拉", "english": "Accra", "country": "Ghana"}, "geometry": {"type": "Point", "coordinates": [-0.1969, 5.5500]}},
-        {"type": "Feature", "properties": {"name": "洛美", "english": "Lomé", "country": "Togo"}, "geometry": {"type": "Point", "coordinates": [1.2214, 6.1289]}},
-        {"type": "Feature", "properties": {"name": "波多诺伏", "english": "Porto-Novo", "country": "Benin"}, "geometry": {"type": "Point", "coordinates": [2.6224, 6.4969]}},
-        {"type": "Feature", "properties": {"name": "尼亚美", "english": "Niamey", "country": "Niger"}, "geometry": {"type": "Point", "coordinates": [2.1098, 13.5173]}},
-        {"type": "Feature", "properties": {"name": "巴马科", "english": "Bamako", "country": "Mali"}, "geometry": {"type": "Point", "coordinates": [-7.9914, 12.6396]}},
-        {"type": "Feature", "properties": {"name": "瓦加杜古", "english": "Ouagadougou", "country": "Burkina Faso"}, "geometry": {"type": "Point", "coordinates": [-1.5333, 12.3667]}},
-        {"type": "Feature", "properties": {"name": "马普托", "english": "Maputo", "country": "Mozambique"}, "geometry": {"type": "Point", "coordinates": [32.5862, -25.9653]}},
-        {"type": "Feature", "properties": {"name": "卢萨卡", "english": "Lusaka", "country": "Zambia"}, "geometry": {"type": "Point", "coordinates": [28.2871, -15.3875]}},
-        {"type": "Feature", "properties": {"name": "哈拉雷", "english": "Harare", "country": "Zimbabwe"}, "geometry": {"type": "Point", "coordinates": [31.0546, -17.8248]}},
-        {"type": "Feature", "properties": {"name": "温得和克", "english": "Windhoek", "country": "Namibia"}, "geometry": {"type": "Point", "coordinates": [17.0833, -22.5500]}},
-        {"type": "Feature", "properties": {"name": "哈博罗内", "english": "Gaborone", "country": "Botswana"}, "geometry": {"type": "Point", "coordinates": [25.9170, -24.6272]}},
-        {"type": "Feature", "properties": {"name": "马塞卢", "english": "Maseru", "country": "Lesotho"}, "geometry": {"type": "Point", "coordinates": [27.4833, -29.3167]}},
-        {"type": "Feature", "properties": {"name": "姆巴巴内", "english": "Mbabane", "country": "Eswatini"}, "geometry": {"type": "Point", "coordinates": [31.1333, -26.3167]}},
-        {"type": "Feature", "properties": {"name": "利隆圭", "english": "Lilongwe", "country": "Malawi"}, "geometry": {"type": "Point", "coordinates": [33.7833, -13.9667]}},
-        {"type": "Feature", "properties": {"name": "塔那那利佛", "english": "Antananarivo", "country": "Madagascar"}, "geometry": {"type": "Point", "coordinates": [47.5162, -18.9137]}},
-        {"type": "Feature", "properties": {"name": "莫罗尼", "english": "Moroni", "country": "Comoros"}, "geometry": {"type": "Point", "coordinates": [43.2500, -11.7000]}},
-        {"type": "Feature", "properties": {"name": "路易港", "english": "Port Louis", "country": "Mauritius"}, "geometry": {"type": "Point", "coordinates": [57.4979, -20.1614]}},
-        {"type": "Feature", "properties": {"name": "维多利亚", "english": "Victoria", "country": "Seychelles"}, "geometry": {"type": "Point", "coordinates": [55.4510, -4.6199]}},
-        {"type": "Feature", "properties": {"name": "圣多美", "english": "São Tomé", "country": "São Tomé and Príncipe"}, "geometry": {"type": "Point", "coordinates": [6.7367, 0.3386]}},
-        {"type": "Feature", "properties": {"name": "马拉博", "english": "Malabo", "country": "Equatorial Guinea"}, "geometry": {"type": "Point", "coordinates": [8.7816, 3.7597]}},
-        {"type": "Feature", "properties": {"name": "阿斯马拉", "english": "Asmara", "country": "Eritrea"}, "geometry": {"type": "Point", "coordinates": [38.9203, 15.3397]}},
-        {"type": "Feature", "properties": {"name": "摩加迪沙", "english": "Mogadishu", "country": "Somalia"}, "geometry": {"type": "Point", "coordinates": [45.3396, 2.0371]}},
-        {"type": "Feature", "properties": {"name": "吉布提", "english": "Djibouti", "country": "Djibouti"}, "geometry": {"type": "Point", "coordinates": [43.1594, 11.5820]}},
-        {"type": "Feature", "properties": {"name": "巴拿马城", "english": "Panama City", "country": "Panama"}, "geometry": {"type": "Point", "coordinates": [-79.5341, 8.9399]}},
-        {"type": "Feature", "properties": {"name": "圣何塞", "english": "San José", "country": "Costa Rica"}, "geometry": {"type": "Point", "coordinates": [-84.0833, 9.9333]}},
-        {"type": "Feature", "properties": {"name": "危地马拉城", "english": "Guatemala City", "country": "Guatemala"}, "geometry": {"type": "Point", "coordinates": [-90.5133, 14.6211]}},
-        {"type": "Feature", "properties": {"name": "特古西加尔巴", "english": "Tegucigalpa", "country": "Honduras"}, "geometry": {"type": "Point", "coordinates": [-87.2062, 14.0818]}},
-        {"type": "Feature", "properties": {"name": "圣萨尔瓦多", "english": "San Salvador", "country": "El Salvador"}, "geometry": {"type": "Point", "coordinates": [-89.2182, 13.6929]}},
-        {"type": "Feature", "properties": {"name": "马那瓜", "english": "Managua", "country": "Nicaragua"}, "geometry": {"type": "Point", "coordinates": [-86.2346, 12.1420]}},
-        {"type": "Feature", "properties": {"name": "圣多明各", "english": "Santo Domingo", "country": "Dominican Republic"}, "geometry": {"type": "Point", "coordinates": [-69.9013, 18.4663]}},
-        {"type": "Feature", "properties": {"name": "太子港", "english": "Port-au-Prince", "country": "Haiti"}, "geometry": {"type": "Point", "coordinates": [-72.3370, 18.5449]}},
-        {"type": "Feature", "properties": {"name": "圣胡安", "english": "San Juan", "country": "Puerto Rico"}, "geometry": {"type": "Point", "coordinates": [-66.0667, 18.4500]}},
-        {"type": "Feature", "properties": {"name": "乔治敦", "english": "Georgetown", "country": "Guyana"}, "geometry": {"type": "Point", "coordinates": [-58.1551, 6.8013]}},
-        {"type": "Feature", "properties": {"name": "帕拉马里博", "english": "Paramaribo", "country": "Suriname"}, "geometry": {"type": "Point", "coordinates": [-55.1668, 5.8663]}},
-        {"type": "Feature", "properties": {"name": "利马", "english": "Lima", "country": "Peru"}, "geometry": {"type": "Point", "coordinates": [-77.0428, -12.0464]}},
-        {"type": "Feature", "properties": {"name": "波哥大", "english": "Bogotá", "country": "Colombia"}, "geometry": {"type": "Point", "coordinates": [-74.0721, 4.7110]}},
-        {"type": "Feature", "properties": {"name": "加拉加斯", "english": "Caracas", "country": "Venezuela"}, "geometry": {"type": "Point", "coordinates": [-66.9036, 10.4806]}},
-        {"type": "Feature", "properties": {"name": "基多", "english": "Quito", "country": "Ecuador"}, "geometry": {"type": "Point", "coordinates": [-78.5249, -0.2299]}},
-        {"type": "Feature", "properties": {"name": "苏克雷", "english": "Sucre", "country": "Bolivia"}, "geometry": {"type": "Point", "coordinates": [-65.2603, -19.0333]}},
-        {"type": "Feature", "properties": {"name": "拉巴斯", "english": "La Paz", "country": "Bolivia"}, "geometry": {"type": "Point", "coordinates": [-68.1500, -16.4897]}},
-        {"type": "Feature", "properties": {"name": "亚松森", "english": "Asunción", "country": "Paraguay"}, "geometry": {"type": "Point", "coordinates": [-57.6304, -25.2637]}},
-        {"type": "Feature", "properties": {"name": "蒙得维的亚", "english": "Montevideo", "country": "Uruguay"}, "geometry": {"type": "Point", "coordinates": [-56.1644, -34.9011]}},
-        {"type": "Feature", "properties": {"name": "基里巴斯", "english": "South Tarawa", "country": "Kiribati"}, "geometry": {"type": "Point", "coordinates": [172.9769, 1.3232]}},
-        {"type": "Feature", "properties": {"name": "瑙鲁", "english": "Yaren", "country": "Nauru"}, "geometry": {"type": "Point", "coordinates": [166.9315, -0.5371]}},
-        {"type": "Feature", "properties": {"name": "帕劳", "english": "Ngerulmud", "country": "Palau"}, "geometry": {"type": "Point", "coordinates": [134.6939, 7.5013]}},
-        {"type": "Feature", "properties": {"name": "马绍尔群岛", "english": "Majuro", "country": "Marshall Islands"}, "geometry": {"type": "Point", "coordinates": [167.4336, 7.1315]}},
-        {"type": "Feature", "properties": {"name": "密克罗尼西亚", "english": "Palikir", "country": "Micronesia"}, "geometry": {"type": "Point", "coordinates": [158.1499, 6.9165]}},
-        {"type": "Feature", "properties": {"name": "图瓦卢", "english": "Funafuti", "country": "Tuvalu"}, "geometry": {"type": "Point", "coordinates": [179.1945, -8.5244]}},
-        {"type": "Feature", "properties": {"name": "萨摩亚", "english": "Apia", "country": "Samoa"}, "geometry": {"type": "Point", "coordinates": [-171.7662, -13.8333]}},
-        {"type": "Feature", "properties": {"name": "汤加", "english": "Nukuʻalofa", "country": "Tonga"}, "geometry": {"type": "Point", "coordinates": [-175.2000, -21.1333]}},
-        {"type": "Feature", "properties": {"name": "斐济", "english": "Suva", "country": "Fiji"}, "geometry": {"type": "Point", "coordinates": [180.1415, -18.1416]}},
-        {"type": "Feature", "properties": {"name": "巴布亚新几内亚", "english": "Port Moresby", "country": "Papua New Guinea"}, "geometry": {"type": "Point", "coordinates": [147.1792, -9.4432]}},
-        {"type": "Feature", "properties": {"name": "东帝汶", "english": "Dili", "country": "Timor-Leste"}, "geometry": {"type": "Point", "coordinates": [125.6151, -8.5563]}},
-        {"type": "Feature", "properties": {"name": "印度尼西亚", "english": "Jakarta", "country": "Indonesia"}, "geometry": {"type": "Point", "coordinates": [106.8456, -6.2088]}},
-        {"type": "Feature", "properties": {"name": "菲律宾", "english": "Manila", "country": "Philippines"}, "geometry": {"type": "Point", "coordinates": [120.9842, 14.5995]}},
-        {"type": "Feature", "properties": {"name": "马来西亚", "english": "Kuala Lumpur", "country": "Malaysia"}, "geometry": {"type": "Point", "coordinates": [101.6869, 3.1390]}},
-        {"type": "Feature", "properties": {"name": "泰国", "english": "Bangkok", "country": "Thailand"}, "geometry": {"type": "Point", "coordinates": [100.5018, 13.7563]}},
-        {"type": "Feature", "properties": {"name": "越南", "english": "Hanoi", "country": "Vietnam"}, "geometry": {"type": "Point", "coordinates": [105.8342, 21.0278]}},
-        {"type": "Feature", "properties": {"name": "老挝", "english": "Vientiane", "country": "Laos"}, "geometry": {"type": "Point", "coordinates": [102.6317, 17.9673]}},
-        {"type": "Feature", "properties": {"name": "柬埔寨", "english": "Phnom Penh", "country": "Cambodia"}, "geometry": {"type": "Point", "coordinates": [104.9163, 11.5624]}},
-        {"type": "Feature", "properties": {"name": "缅甸", "english": "Naypyidaw", "country": "Myanmar"}, "geometry": {"type": "Point", "coordinates": [96.1938, 19.7633]}},
-        {"type": "Feature", "properties": {"name": "尼泊尔", "english": "Kathmandu", "country": "Nepal"}, "geometry": {"type": "Point", "coordinates": [85.3240, 27.7172]}},
-        {"type": "Feature", "properties": {"name": "不丹", "english": "Thimphu", "country": "Bhutan"}, "geometry": {"type": "Point", "coordinates": [89.6419, 27.4692]}},
-        {"type": "Feature", "properties": {"name": "马尔代夫", "english": "Malé", "country": "Maldives"}, "geometry": {"type": "Point", "coordinates": [73.2207, 4.1751]}},
-        {"type": "Feature", "properties": {"name": "斯里兰卡", "english": "Colombo", "country": "Sri Lanka"}, "geometry": {"type": "Point", "coordinates": [79.8612, 6.9271]}},
-        {"type": "Feature", "properties": {"name": "孟加拉国", "english": "Dhaka", "country": "Bangladesh"}, "geometry": {"type": "Point", "coordinates": [90.4125, 23.8103]}},
-        {"type": "Feature", "properties": {"name": "巴基斯坦", "english": "Islamabad", "country": "Pakistan"}, "geometry": {"type": "Point", "coordinates": [73.0479, 33.6844]}},
-        {"type": "Feature", "properties": {"name": "印度", "english": "New Delhi", "country": "India"}, "geometry": {"type": "Point", "coordinates": [77.2167, 28.6448]}},
-        {"type": "Feature", "properties": {"name": "阿富汗", "english": "Kabul", "country": "Afghanistan"}, "geometry": {"type": "Point", "coordinates": [69.1723, 34.5233]}},
-        {"type": "Feature", "properties": {"name": "伊朗", "english": "Tehran", "country": "Iran"}, "geometry": {"type": "Point", "coordinates": [51.3890, 35.6892]}},
-        {"type": "Feature", "properties": {"name": "伊拉克", "english": "Baghdad", "country": "Iraq"}, "geometry": {"type": "Point", "coordinates": [44.4009, 33.3406]}},
-        {"type": "Feature", "properties": {"name": "叙利亚", "english": "Damascus", "country": "Syria"}, "geometry": {"type": "Point", "coordinates": [36.3119, 33.5138]}},
-        {"type": "Feature", "properties": {"name": "黎巴嫩", "english": "Beirut", "country": "Lebanon"}, "geometry": {"type": "Point", "coordinates": [35.5018, 33.8938]}},
-        {"type": "Feature", "properties": {"name": "以色列", "english": "Jerusalem", "country": "Israel"}, "geometry": {"type": "Point", "coordinates": [35.2137, 31.7683]}},
-        {"type": "Feature", "properties": {"name": "约旦", "english": "Amman", "country": "Jordan"}, "geometry": {"type": "Point", "coordinates": [35.9375, 31.9516]}},
-        {"type": "Feature", "properties": {"name": "沙特阿拉伯", "english": "Riyadh", "country": "Saudi Arabia"}, "geometry": {"type": "Point", "coordinates": [46.6753, 24.7136]}},
-        {"type": "Feature", "properties": {"name": "科威特", "english": "Kuwait City", "country": "Kuwait"}, "geometry": {"type": "Point", "coordinates": [47.9734, 29.3117]}},
-        {"type": "Feature", "properties": {"name": "巴林", "english": "Manama", "country": "Bahrain"}, "geometry": {"type": "Point", "coordinates": [50.5853, 26.2389]}},
-        {"type": "Feature", "properties": {"name": "卡塔尔", "english": "Doha", "country": "Qatar"}, "geometry": {"type": "Point", "coordinates": [51.5310, 25.2854]}},
-        {"type": "Feature", "properties": {"name": "阿联酋", "english": "Abu Dhabi", "country": "UAE"}, "geometry": {"type": "Point", "coordinates": [54.3773, 24.4539]}},
-        {"type": "Feature", "properties": {"name": "阿曼", "english": "Muscat", "country": "Oman"}, "geometry": {"type": "Point", "coordinates": [58.4035, 23.5841]}},
-        {"type": "Feature", "properties": {"name": "也门", "english": "Sanaa", "country": "Yemen"}, "geometry": {"type": "Point", "coordinates": [44.2074, 15.3694]}},
-        {"type": "Feature", "properties": {"name": "格鲁吉亚", "english": "Tbilisi", "country": "Georgia"}, "geometry": {"type": "Point", "coordinates": [44.8333, 41.6997]}},
-        {"type": "Feature", "properties": {"name": "亚美尼亚", "english": "Yerevan", "country": "Armenia"}, "geometry": {"type": "Point", "coordinates": [44.5146, 40.1811]}},
-        {"type": "Feature", "properties": {"name": "阿塞拜疆", "english": "Baku", "country": "Azerbaijan"}, "geometry": {"type": "Point", "coordinates": [49.8922, 40.3766]}},
-        {"type": "Feature", "properties": {"name": "土耳其", "english": "Ankara", "country": "Turkey"}, "geometry": {"type": "Point", "coordinates": [32.8597, 39.9334]}},
-        {"type": "Feature", "properties": {"name": "塞浦路斯", "english": "Nicosia", "country": "Cyprus"}, "geometry": {"type": "Point", "coordinates": [33.3643, 35.1796]}},
-        {"type": "Feature", "properties": {"name": "埃及", "english": "Cairo", "country": "Egypt"}, "geometry": {"type": "Point", "coordinates": [31.2357, 30.0444]}},
-        {"type": "Feature", "properties": {"name": "利比亚", "english": "Tripoli", "country": "Libya"}, "geometry": {"type": "Point", "coordinates": [13.1899, 32.8872]}},
-        {"type": "Feature", "properties": {"name": "突尼斯", "english": "Tunis", "country": "Tunisia"}, "geometry": {"type": "Point", "coordinates": [10.1815, 36.8065]}},
-        {"type": "Feature", "properties": {"name": "阿尔及利亚", "english": "Algiers", "country": "Algeria"}, "geometry": {"type": "Point", "coordinates": [3.0420, 36.7525]}},
-        {"type": "Feature", "properties": {"name": "摩洛哥", "english": "Rabat", "country": "Morocco"}, "geometry": {"type": "Point", "coordinates": [-6.8498, 34.0209]}},
-        {"type": "Feature", "properties": {"name": "西撒哈拉", "english": "El Aaiún", "country": "Western Sahara"}, "geometry": {"type": "Point", "coordinates": [-13.2017, 27.1639]}},
-        {"type": "Feature", "properties": {"name": "毛里塔尼亚", "english": "Nouakchott", "country": "Mauritania"}, "geometry": {"type": "Point", "coordinates": [-15.9363, 18.0859]}},
-        {"type": "Feature", "properties": {"name": "塞内加尔", "english": "Dakar", "country": "Senegal"}, "geometry": {"type": "Point", "coordinates": [-17.4441, 14.6937]}},
-        {"type": "Feature", "properties": {"name": "冈比亚", "english": "Banjul", "country": "The Gambia"}, "geometry": {"type": "Point", "coordinates": [-16.5765, 13.4520]}},
-        {"type": "Feature", "properties": {"name": "几内亚比绍", "english": "Bissau", "country": "Guinea-Bissau"}, "geometry": {"type": "Point", "coordinates": [-15.5951, 11.8537]}},
-        {"type": "Feature", "properties": {"name": "几内亚", "english": "Conakry", "country": "Guinea"}, "geometry": {"type": "Point", "coordinates": [-13.6772, 9.5371]}},
-        {"type": "Feature", "properties": {"name": "塞拉利昂", "english": "Freetown", "country": "Sierra Leone"}, "geometry": {"type": "Point", "coordinates": [-13.2353, 8.4664]}},
-        {"type": "Feature", "properties": {"name": "利比里亚", "english": "Monrovia", "country": "Liberia"}, "geometry": {"type": "Point", "coordinates": [-10.7969, 6.3004]}},
-        {"type": "Feature", "properties": {"name": "科特迪瓦", "english": "Yamoussoukro", "country": "Ivory Coast"}, "geometry": {"type": "Point", "coordinates": [-5.2769, 6.8242]}},
-        {"type": "Feature", "properties": {"name": "加纳", "english": "Accra", "country": "Ghana"}, "geometry": {"type": "Point", "coordinates": [-0.1969, 5.5500]}},
-        {"type": "Feature", "properties": {"name": "多哥", "english": "Lomé", "country": "Togo"}, "geometry": {"type": "Point", "coordinates": [1.2214, 6.1289]}},
-        {"type": "Feature", "properties": {"name": "贝宁", "english": "Porto-Novo", "country": "Benin"}, "geometry": {"type": "Point", "coordinates": [2.6224, 6.4969]}},
-        {"type": "Feature", "properties": {"name": "尼日利亚", "english": "Abuja", "country": "Nigeria"}, "geometry": {"type": "Point", "coordinates": [7.4951, 9.0579]}},
-        {"type": "Feature", "properties": {"name": "尼日尔", "english": "Niamey", "country": "Niger"}, "geometry": {"type": "Point", "coordinates": [2.1098, 13.5173]}},
-        {"type": "Feature", "properties": {"name": "布基纳法索", "english": "Ouagadougou", "country": "Burkina Faso"}, "geometry": {"type": "Point", "coordinates": [-1.5333, 12.3667]}},
-        {"type": "Feature", "properties": {"name": "马里", "english": "Bamako", "country": "Mali"}, "geometry": {"type": "Point", "coordinates": [-7.9914, 12.6396]}},
-        {"type": "Feature", "properties": {"name": "塞内加尔", "english": "Dakar", "country": "Senegal"}, "geometry": {"type": "Point", "coordinates": [-17.4441, 14.6937]}},
-        {"type": "Feature", "properties": {"name": "厄立特里亚", "english": "Asmara", "country": "Eritrea"}, "geometry": {"type": "Point", "coordinates": [38.9203, 15.3397]}},
-        {"type": "Feature", "properties": {"name": "埃塞俄比亚", "english": "Addis Ababa", "country": "Ethiopia"}, "geometry": {"type": "Point", "coordinates": [38.7469, 9.0249]}},
-        {"type": "Feature", "properties": {"name": "吉布提", "english": "Djibouti", "country": "Djibouti"}, "geometry": {"type": "Point", "coordinates": [43.1594, 11.5820]}},
-        {"type": "Feature", "properties": {"name": "索马里", "english": "Mogadishu", "country": "Somalia"}, "geometry": {"type": "Point", "coordinates": [45.3396, 2.0371]}},
-        {"type": "Feature", "properties": {"name": "肯尼亚", "english": "Nairobi", "country": "Kenya"}, "geometry": {"type": "Point", "coordinates": [36.8219, -1.2921]}},
-        {"type": "Feature", "properties": {"name": "乌干达", "english": "Kampala", "country": "Uganda"}, "geometry": {"type": "Point", "coordinates": [32.5825, 0.3476]}},
-        {"type": "Feature", "properties": {"name": "坦桑尼亚", "english": "Dodoma", "country": "Tanzania"}, "geometry": {"type": "Point", "coordinates": [35.7462, -6.1751]}},
-        {"type": "Feature", "properties": {"name": "卢旺达", "english": "Kigali", "country": "Rwanda"}, "geometry": {"type": "Point", "coordinates": [30.0595, -1.9441]}},
-        {"type": "Feature", "properties": {"name": "布隆迪", "english": "Gitega", "country": "Burundi"}, "geometry": {"type": "Point", "coordinates": [29.9489, -3.4531]}},
-        {"type": "Feature", "properties": {"name": "刚果(金)", "english": "Kinshasa", "country": "Democratic Republic of the Congo"}, "geometry": {"type": "Point", "coordinates": [15.2663, -4.3253]}},
-        {"type": "Feature", "properties": {"name": "刚果(布)", "english": "Brazzaville", "country": "Republic of the Congo"}, "geometry": {"type": "Point", "coordinates": [15.2832, -4.2634]}},
-        {"type": "Feature", "properties": {"name": "加蓬", "english": "Libreville", "country": "Gabon"}, "geometry": {"type": "Point", "coordinates": [9.4537, 0.3981]}},
-        {"type": "Feature", "properties": {"name": "赤道几内亚", "english": "Malabo", "country": "Equatorial Guinea"}, "geometry": {"type": "Point", "coordinates": [8.7816, 3.7597]}},
-        {"type": "Feature", "properties": {"name": "圣多美和普林西比", "english": "São Tomé", "country": "São Tomé and Príncipe"}, "geometry": {"type": "Point", "coordinates": [6.7367, 0.3386]}},
-        {"type": "Feature", "properties": {"name": "喀麦隆", "english": "Yaoundé", "country": "Cameroon"}, "geometry": {"type": "Point", "coordinates": [11.5000, 3.8667]}},
-        {"type": "Feature", "properties": {"name": "中非", "english": "Bangui", "country": "Central African Republic"}, "geometry": {"type": "Point", "coordinates": [18.5500, 4.3667]}},
-        {"type": "Feature", "properties": {"name": "乍得", "english": "N'Djamena", "country": "Chad"}, "geometry": {"type": "Point", "coordinates": [15.0333, 12.1167]}},
-        {"type": "Feature", "properties": {"name": "苏丹", "english": "Khartoum", "country": "Sudan"}, "geometry": {"type": "Point", "coordinates": [32.5333, 15.5833]}},
-        {"type": "Feature", "properties": {"name": "南苏丹", "english": "Juba", "country": "South Sudan"}, "geometry": {"type": "Point", "coordinates": [31.5825, 4.8516]}},
-        {"type": "Feature", "properties": {"name": "安哥拉", "english": "Luanda", "country": "Angola"}, "geometry": {"type": "Point", "coordinates": [13.2343, -8.8116]}},
-        {"type": "Feature", "properties": {"name": "赞比亚", "english": "Lusaka", "country": "Zambia"}, "geometry": {"type": "Point", "coordinates": [28.2871, -15.3875]}},
-        {"type": "Feature", "properties": {"name": "马拉维", "english": "Lilongwe", "country": "Malawi"}, "geometry": {"type": "Point", "coordinates": [33.7833, -13.9667]}},
-        {"type": "Feature", "properties": {"name": "莫桑比克", "english": "Maputo", "country": "Mozambique"}, "geometry": {"type": "Point", "coordinates": [32.5862, -25.9653]}},
-        {"type": "Feature", "properties": {"name": "博茨瓦纳", "english": "Gaborone", "country": "Botswana"}, "geometry": {"type": "Point", "coordinates": [25.9170, -24.6272]}},
-        {"type": "Feature", "properties": {"name": "纳米比亚", "english": "Windhoek", "country": "Namibia"}, "geometry": {"type": "Point", "coordinates": [17.0833, -22.5500]}},
-        {"type": "Feature", "properties": {"name": "南非", "english": "Pretoria", "country": "South Africa"}, "geometry": {"type": "Point", "coordinates": [28.2293, -25.7464]}},
-        {"type": "Feature", "properties": {"name": "莱索托", "english": "Maseru", "country": "Lesotho"}, "geometry": {"type": "Point", "coordinates": [27.4833, -29.3167]}},
-        {"type": "Feature", "properties": {"name": "斯威士兰", "english": "Mbabane", "country": "Eswatini"}, "geometry": {"type": "Point", "coordinates": [31.1333, -26.3167]}},
-        {"type": "Feature", "properties": {"name": "津巴布韦", "english": "Harare", "country": "Zimbabwe"}, "geometry": {"type": "Point", "coordinates": [31.0546, -17.8248]}},
-        {"type": "Feature", "properties": {"name": "马达加斯加", "english": "Antananarivo", "country": "Madagascar"}, "geometry": {"type": "Point", "coordinates": [47.5162, -18.9137]}},
-        {"type": "Feature", "properties": {"name": "科摩罗", "english": "Moroni", "country": "Comoros"}, "geometry": {"type": "Point", "coordinates": [43.2500, -11.7000]}},
-        {"type": "Feature", "properties": {"name": "毛里求斯", "english": "Port Louis", "country": "Mauritius"}, "geometry": {"type": "Point", "coordinates": [57.4979, -20.1614]}},
-        {"type": "Feature", "properties": {"name": "塞舌尔", "english": "Victoria", "country": "Seychelles"}, "geometry": {"type": "Point", "coordinates": [55.4510, -4.6199]}},
-        {"type": "Feature", "properties": {"name": "挪威", "english": "Oslo", "country": "Norway"}, "geometry": {"type": "Point", "coordinates": [10.7522, 59.9139]}},
-        {"type": "Feature", "properties": {"name": "瑞典", "english": "Stockholm", "country": "Sweden"}, "geometry": {"type": "Point", "coordinates": [18.0686, 59.3293]}},
-        {"type": "Feature", "properties": {"name": "芬兰", "english": "Helsinki", "country": "Finland"}, "geometry": {"type": "Point", "coordinates": [24.9384, 60.1699]}},
-        {"type": "Feature", "properties": {"name": "丹麦", "english": "Copenhagen", "country": "Denmark"}, "geometry": {"type": "Point", "coordinates": [12.5683, 55.6761]}},
-        {"type": "Feature", "properties": {"name": "冰岛", "english": "Reykjavik", "country": "Iceland"}, "geometry": {"type": "Point", "coordinates": [-21.8174, 64.1265]}},
-        {"type": "Feature", "properties": {"name": "爱尔兰", "english": "Dublin", "country": "Ireland"}, "geometry": {"type": "Point", "coordinates": [-6.2603, 53.3498]}},
-        {"type": "Feature", "properties": {"name": "英国", "english": "London", "country": "United Kingdom"}, "geometry": {"type": "Point", "coordinates": [-0.1278, 51.5074]}},
-        {"type": "Feature", "properties": {"name": "法国", "english": "Paris", "country": "France"}, "geometry": {"type": "Point", "coordinates": [2.3522, 48.8566]}},
-        {"type": "Feature", "properties": {"name": "德国", "english": "Berlin", "country": "Germany"}, "geometry": {"type": "Point", "coordinates": [13.4050, 52.5200]}},
-        {"type": "Feature", "properties": {"name": "意大利", "english": "Rome", "country": "Italy"}, "geometry": {"type": "Point", "coordinates": [12.4964, 41.9028]}},
-        {"type": "Feature", "properties": {"name": "西班牙", "english": "Madrid", "country": "Spain"}, "geometry": {"type": "Point", "coordinates": [-3.7038, 40.4168]}},
-        {"type": "Feature", "properties": {"name": "葡萄牙", "english": "Lisbon", "country": "Portugal"}, "geometry": {"type": "Point", "coordinates": [-9.1393, 38.7223]}},
-        {"type": "Feature", "properties": {"name": "希腊", "english": "Athens", "country": "Greece"}, "geometry": {"type": "Point", "coordinates": [23.7275, 37.9838]}},
-        {"type": "Feature", "properties": {"name": "荷兰", "english": "Amsterdam", "country": "Netherlands"}, "geometry": {"type": "Point", "coordinates": [4.9041, 52.3676]}},
-        {"type": "Feature", "properties": {"name": "比利时", "english": "Brussels", "country": "Belgium"}, "geometry": {"type": "Point", "coordinates": [4.3517, 50.8503]}},
-        {"type": "Feature", "properties": {"name": "卢森堡", "english": "Luxembourg", "country": "Luxembourg"}, "geometry": {"type": "Point", "coordinates": [6.1319, 49.6116]}},
-        {"type": "Feature", "properties": {"name": "瑞士", "english": "Bern", "country": "Switzerland"}, "geometry": {"type": "Point", "coordinates": [7.4518, 46.9481]}},
-        {"type": "Feature", "properties": {"name": "奥地利", "english": "Vienna", "country": "Austria"}, "geometry": {"type": "Point", "coordinates": [16.3738, 48.2082]}},
-        {"type": "Feature", "properties": {"name": "捷克", "english": "Prague", "country": "Czech Republic"}, "geometry": {"type": "Point", "coordinates": [14.4378, 50.0755]}},
-        {"type": "Feature", "properties": {"name": "斯洛伐克", "english": "Bratislava", "country": "Slovakia"}, "geometry": {"type": "Point", "coordinates": [17.1077, 48.1491]}},
-        {"type": "Feature", "properties": {"name": "匈牙利", "english": "Budapest", "country": "Hungary"}, "geometry": {"type": "Point", "coordinates": [19.0402, 47.4979]}},
-        {"type": "Feature", "properties": {"name": "波兰", "english": "Warsaw", "country": "Poland"}, "geometry": {"type": "Point", "coordinates": [21.0122, 52.2297]}},
-        {"type": "Feature", "properties": {"name": "斯洛文尼亚", "english": "Ljubljana", "country": "Slovenia"}, "geometry": {"type": "Point", "coordinates": [14.5058, 46.0569]}},
-        {"type": "Feature", "properties": {"name": "克罗地亚", "english": "Zagreb", "country": "Croatia"}, "geometry": {"type": "Point", "coordinates": [15.9819, 45.8150]}},
-        {"type": "Feature", "properties": {"name": "波黑", "english": "Sarajevo", "country": "Bosnia and Herzegovina"}, "geometry": {"type": "Point", "coordinates": [18.4131, 43.8563]}},
-        {"type": "Feature", "properties": {"name": "塞尔维亚", "english": "Belgrade", "country": "Serbia"}, "geometry": {"type": "Point", "coordinates": [20.4489, 44.7866]}},
-        {"type": "Feature", "properties": {"name": "黑山", "english": "Podgorica", "country": "Montenegro"}, "geometry": {"type": "Point", "coordinates": [19.2664, 42.4304]}},
-        {"type": "Feature", "properties": {"name": "北马其顿", "english": "Skopje", "country": "North Macedonia"}, "geometry": {"type": "Point", "coordinates": [21.4363, 41.9973]}},
-        {"type": "Feature", "properties": {"name": "阿尔巴尼亚", "english": "Tirana", "country": "Albania"}, "geometry": {"type": "Point", "coordinates": [19.8172, 41.3275]}},
-        {"type": "Feature", "properties": {"name": "罗马尼亚", "english": "Bucharest", "country": "Romania"}, "geometry": {"type": "Point", "coordinates": [26.1025, 44.4268]}},
-        {"type": "Feature", "properties": {"name": "保加利亚", "english": "Sofia", "country": "Bulgaria"}, "geometry": {"type": "Point", "coordinates": [23.3219, 42.6977]}},
-        {"type": "Feature", "properties": {"name": "乌克兰", "english": "Kyiv", "country": "Ukraine"}, "geometry": {"type": "Point", "coordinates": [30.5234, 50.4501]}},
-        {"type": "Feature", "properties": {"name": "白俄罗斯", "english": "Minsk", "country": "Belarus"}, "geometry": {"type": "Point", "coordinates": [27.5615, 53.9045]}},
-        {"type": "Feature", "properties": {"name": "摩尔多瓦", "english": "Chisinau", "country": "Moldova"}, "geometry": {"type": "Point", "coordinates": [28.8638, 47.0105]}},
-        {"type": "Feature", "properties": {"name": "立陶宛", "english": "Vilnius", "country": "Lithuania"}, "geometry": {"type": "Point", "coordinates": [25.2038, 54.6872]}},
-        {"type": "Feature", "properties": {"name": "拉脱维亚", "english": "Riga", "country": "Latvia"}, "geometry": {"type": "Point", "coordinates": [24.1052, 56.9496]}},
-        {"type": "Feature", "properties": {"name": "爱沙尼亚", "english": "Tallinn", "country": "Estonia"}, "geometry": {"type": "Point", "coordinates": [24.7536, 59.4370]}},
-        {"type": "Feature", "properties": {"name": "俄罗斯", "english": "Moscow", "country": "Russia"}, "geometry": {"type": "Point", "coordinates": [37.6173, 55.7558]}},
-        {"type": "Feature", "properties": {"name": "美国", "english": "Washington, D.C.", "country": "United States"}, "geometry": {"type": "Point", "coordinates": [-77.0369, 38.9072]}},
-        {"type": "Feature", "properties": {"name": "加拿大", "english": "Ottawa", "country": "Canada"}, "geometry": {"type": "Point", "coordinates": [-75.6972, 45.4215]}},
-        {"type": "Feature", "properties": {"name": "墨西哥", "english": "Mexico City", "country": "Mexico"}, "geometry": {"type": "Point", "coordinates": [-99.1332, 19.4326]}},
-        {"type": "Feature", "properties": {"name": "古巴", "english": "Havana", "country": "Cuba"}, "geometry": {"type": "Point", "coordinates": [-82.3666, 23.1136]}},
-        {"type": "Feature", "properties": {"name": "牙买加", "english": "Kingston", "country": "Jamaica"}, "geometry": {"type": "Point", "coordinates": [-76.8021, 17.9710]}},
-        {"type": "Feature", "properties": {"name": "巴哈马", "english": "Nassau", "country": "Bahamas"}, "geometry": {"type": "Point", "coordinates": [-77.3375, 25.0506]}},
-        {"type": "Feature", "properties": {"name": "多米尼加", "english": "Santo Domingo", "country": "Dominican Republic"}, "geometry": {"type": "Point", "coordinates": [-69.9013, 18.4663]}},
-        {"type": "Feature", "properties": {"name": "海地", "english": "Port-au-Prince", "country": "Haiti"}, "geometry": {"type": "Point", "coordinates": [-72.3370, 18.5449]}},
-        {"type": "Feature", "properties": {"name": "巴拿马", "english": "Panama City", "country": "Panama"}, "geometry": {"type": "Point", "coordinates": [-79.5341, 8.9399]}},
-        {"type": "Feature", "properties": {"name": "哥斯达黎加", "english": "San José", "country": "Costa Rica"}, "geometry": {"type": "Point", "coordinates": [-84.0833, 9.9333]}},
-        {"type": "Feature", "properties": {"name": "洪都拉斯", "english": "Tegucigalpa", "country": "Honduras"}, "geometry": {"type": "Point", "coordinates": [-87.2062, 14.0818]}},
-        {"type": "Feature", "properties": {"name": "危地马拉", "english": "Guatemala City", "country": "Guatemala"}, "geometry": {"type": "Point", "coordinates": [-90.5133, 14.6211]}},
-        {"type": "Feature", "properties": {"name": "萨尔瓦多", "english": "San Salvador", "country": "El Salvador"}, "geometry": {"type": "Point", "coordinates": [-89.2182, 13.6929]}},
-        {"type": "Feature", "properties": {"name": "尼加拉瓜", "english": "Managua", "country": "Nicaragua"}, "geometry": {"type": "Point", "coordinates": [-86.2346, 12.1420]}},
-        {"type": "Feature", "properties": {"name": "哥伦比亚", "english": "Bogotá", "country": "Colombia"}, "geometry": {"type": "Point", "coordinates": [-74.0721, 4.7110]}},
-        {"type": "Feature", "properties": {"name": "委内瑞拉", "english": "Caracas", "country": "Venezuela"}, "geometry": {"type": "Point", "coordinates": [-66.9036, 10.4806]}},
-        {"type": "Feature", "properties": {"name": "厄瓜多尔", "english": "Quito", "country": "Ecuador"}, "geometry": {"type": "Point", "coordinates": [-78.5249, -0.2299]}},
-        {"type": "Feature", "properties": {"name": "秘鲁", "english": "Lima", "country": "Peru"}, "geometry": {"type": "Point", "coordinates": [-77.0428, -12.0464]}},
-        {"type": "Feature", "properties": {"name": "智利", "english": "Santiago", "country": "Chile"}, "geometry": {"type": "Point", "coordinates": [-70.6693, -33.4489]}},
-        {"type": "Feature", "properties": {"name": "玻利维亚", "english": "Sucre", "country": "Bolivia"}, "geometry": {"type": "Point", "coordinates": [-65.2603, -19.0333]}},
-        {"type": "Feature", "properties": {"name": "巴拉圭", "english": "Asunción", "country": "Paraguay"}, "geometry": {"type": "Point", "coordinates": [-57.6304, -25.2637]}},
-        {"type": "Feature", "properties": {"name": "阿根廷", "english": "Buenos Aires", "country": "Argentina"}, "geometry": {"type": "Point", "coordinates": [-58.3816, -34.6037]}},
-        {"type": "Feature", "properties": {"name": "乌拉圭", "english": "Montevideo", "country": "Uruguay"}, "geometry": {"type": "Point", "coordinates": [-56.1644, -34.9011]}},
-        {"type": "Feature", "properties": {"name": "巴西", "english": "Brasilia", "country": "Brazil"}, "geometry": {"type": "Point", "coordinates": [-47.8828, -15.7939]}},
-        {"type": "Feature", "properties": {"name": "澳大利亚", "english": "Canberra", "country": "Australia"}, "geometry": {"type": "Point", "coordinates": [149.1300, -35.2809]}},
-        {"type": "Feature", "properties": {"name": "新西兰", "english": "Wellington", "country": "New Zealand"}, "geometry": {"type": "Point", "coordinates": [174.7762, -41.2865]}},
-        {"type": "Feature", "properties": {"name": "巴布亚新几内亚", "english": "Port Moresby", "country": "Papua New Guinea"}, "geometry": {"type": "Point", "coordinates": [147.1792, -9.4432]}},
-        {"type": "Feature", "properties": {"name": "所罗门群岛", "english": "Honiara", "country": "Solomon Islands"}, "geometry": {"type": "Point", "coordinates": [159.9500, -9.4318]}},
-        {"type": "Feature", "properties": {"name": "瓦努阿图", "english": "Port Vila", "country": "Vanuatu"}, "geometry": {"type": "Point", "coordinates": [168.3272, -17.7316]}},
-        {"type": "Feature", "properties": {"name": "斐济", "english": "Suva", "country": "Fiji"}, "geometry": {"type": "Point", "coordinates": [180.1415, -18.1416]}},
-        {"type": "Feature", "properties": {"name": "萨摩亚", "english": "Apia", "country": "Samoa"}, "geometry": {"type": "Point", "coordinates": [-171.7662, -13.8333]}},
-        {"type": "Feature", "properties": {"name": "汤加", "english": "Nukuʻalofa", "country": "Tonga"}, "geometry": {"type": "Point", "coordinates": [-175.2000, -21.1333]}},
-        {"type": "Feature", "properties": {"name": "新西兰", "english": "Wellington", "country": "New Zealand"}, "geometry": {"type": "Point", "coordinates": [174.7762, -41.2865]}}
-    ]
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "上海",
+        "english": "Shanghai",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4737,
+          31.2304
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "广州",
+        "english": "Guangzhou",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.2644,
+          23.1291
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "深圳",
+        "english": "Shenzhen",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          114.0579,
+          22.5431
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "成都",
+        "english": "Chengdu",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.0668,
+          30.5728
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "杭州",
+        "english": "Hangzhou",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.1551,
+          30.2741
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "武汉",
+        "english": "Wuhan",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          114.3055,
+          30.5928
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "南京",
+        "english": "Nanjing",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          118.7969,
+          32.0603
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "西安",
+        "english": "Xi'an",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.9398,
+          34.3416
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "天津",
+        "english": "Tianjin",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          117.2008,
+          39.0842
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "长春",
+        "english": "Changchun",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          125.3235,
+          43.817
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "哈尔滨",
+        "english": "Harbin",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          126.5349,
+          45.8038
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "沈阳",
+        "english": "Shenyang",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          123.4315,
+          41.8056
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "大连",
+        "english": "Dalian",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.6147,
+          38.914
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "青岛",
+        "english": "Qingdao",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.3826,
+          36.0671
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "厦门",
+        "english": "Xiamen",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          118.0894,
+          24.4798
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "福州",
+        "english": "Fuzhou",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          119.2965,
+          26.0745
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "长沙",
+        "english": "Changsha",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.9388,
+          28.228
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "重庆",
+        "english": "Chongqing",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.9123,
+          29.4316
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "昆明",
+        "english": "Kunming",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          102.8329,
+          24.8805
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "贵阳",
+        "english": "Guiyang",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.6302,
+          26.6473
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "南宁",
+        "english": "Nanning",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.3665,
+          22.817
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "合肥",
+        "english": "Hefei",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          117.2272,
+          31.8206
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "济南",
+        "english": "Jinan",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          117.1201,
+          36.6512
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "郑州",
+        "english": "Zhengzhou",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.6253,
+          34.7466
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "太原",
+        "english": "Taiyuan",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.5489,
+          37.8706
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "兰州",
+        "english": "Lanzhou",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8343,
+          36.0611
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "西宁",
+        "english": "Xining",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          101.7782,
+          36.6171
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "银川",
+        "english": "Yinchuan",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.2333,
+          38.4862
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "乌鲁木齐",
+        "english": "Urumqi",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          87.6168,
+          43.8256
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "拉萨",
+        "english": "Lhasa",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          91.1792,
+          29.654
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "香港",
+        "english": "Hong Kong",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          114.1694,
+          22.3193
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "澳门",
+        "english": "Macau",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.5439,
+          22.1987
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "汕头",
+        "english": "Shantou",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.6934,
+          23.3546
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "珠海",
+        "english": "Zhuhai",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.5766,
+          22.2707
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "中山",
+        "english": "Zhongshan",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.3836,
+          22.5214
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "东莞",
+        "english": "Dongguan",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.7518,
+          23.0206
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "惠州",
+        "english": "Huizhou",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          114.4212,
+          23.1035
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "佛山",
+        "english": "Foshan",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.1224,
+          23.0291
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "湛江",
+        "english": "Zhanjiang",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          110.3699,
+          21.2716
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "海口",
+        "english": "Haikou",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          110.3593,
+          20.0442
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "三亚",
+        "english": "Sanya",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          109.5119,
+          18.2545
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "温州",
+        "english": "Wenzhou",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.6994,
+          28.0117
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "宁波",
+        "english": "Ningbo",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5497,
+          29.8683
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "苏州",
+        "english": "Suzhou",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.6296,
+          31.326
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "无锡",
+        "english": "Wuxi",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.3119,
+          31.4912
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "常州",
+        "english": "Changzhou",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          119.9723,
+          31.8116
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "南通",
+        "english": "Nantong",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.8655,
+          31.9989
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "徐州",
+        "english": "Xuzhou",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          117.2008,
+          34.2117
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "扬州",
+        "english": "Yangzhou",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          119.4212,
+          32.3933
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "镇江",
+        "english": "Zhenjiang",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          119.4366,
+          32.2078
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "连云港",
+        "english": "Lianyungang",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          119.1759,
+          34.5957
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "烟台",
+        "english": "Yantai",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4349,
+          37.4602
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "威海",
+        "english": "Weihai",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          122.1363,
+          37.5119
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "潍坊",
+        "english": "Weifang",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          119.1642,
+          36.7063
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "东营",
+        "english": "Dongying",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          118.5432,
+          37.4674
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "日照",
+        "english": "Rizhao",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          119.4612,
+          35.4285
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "临沂",
+        "english": "Linyi",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          118.3118,
+          35.0536
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "洛阳",
+        "english": "Luoyang",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.4478,
+          34.6234
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "开封",
+        "english": "Kaifeng",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          114.3544,
+          34.7629
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "襄阳",
+        "english": "Xiangyang",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.1875,
+          32.0603
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "宜昌",
+        "english": "Yichang",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          111.2879,
+          30.7026
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "荆州",
+        "english": "Jingzhou",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.2319,
+          30.3349
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "湘潭",
+        "english": "Xiangtan",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.9186,
+          27.8269
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "株洲",
+        "english": "Zhuzhou",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.1329,
+          27.8229
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "衡阳",
+        "english": "Hengyang",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.6074,
+          26.9083
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "常德",
+        "english": "Changde",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          111.6909,
+          29.0458
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "岳阳",
+        "english": "Yueyang",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.1147,
+          29.3361
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "江门",
+        "english": "Jiangmen",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.0662,
+          22.5936
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "肇庆",
+        "english": "Zhaoqing",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.4737,
+          23.0506
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "清远",
+        "english": "Qingyuan",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.0129,
+          23.6938
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "揭阳",
+        "english": "Jieyang",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.3719,
+          23.5428
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "潮州",
+        "english": "Chaozhou",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.6221,
+          23.6841
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "汕尾",
+        "english": "Shanwei",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          115.3726,
+          22.7869
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "梅州",
+        "english": "Meizhou",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.1242,
+          24.2833
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "河源",
+        "english": "Heyuan",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          114.62,
+          23.7333
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "韶关",
+        "english": "Shaoguan",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.6143,
+          24.8028
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "茂名",
+        "english": "Maoming",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          110.9146,
+          21.6812
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "阳江",
+        "english": "Yangjiang",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          111.9772,
+          21.8529
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "云浮",
+        "english": "Yunfu",
+        "country": "China"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.0246,
+          22.9399
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "东京",
+        "english": "Tokyo",
+        "country": "Japan"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          139.6503,
+          35.6762
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "大阪",
+        "english": "Osaka",
+        "country": "Japan"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          135.5023,
+          34.6937
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "京都",
+        "english": "Kyoto",
+        "country": "Japan"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          135.7619,
+          34.9896
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "首尔",
+        "english": "Seoul",
+        "country": "South Korea"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          126.978,
+          37.5665
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "釜山",
+        "english": "Busan",
+        "country": "South Korea"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          129.0756,
+          35.1796
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "平壤",
+        "english": "Pyongyang",
+        "country": "North Korea"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          125.7625,
+          39.0392
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "新加坡市",
+        "english": "Singapore",
+        "country": "Singapore"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.8198,
+          1.3521
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "吉隆坡",
+        "english": "Kuala Lumpur",
+        "country": "Malaysia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          101.6869,
+          3.139
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "曼谷",
+        "english": "Bangkok",
+        "country": "Thailand"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          100.5018,
+          13.7563
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "雅加达",
+        "english": "Jakarta",
+        "country": "Indonesia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.8456,
+          -6.2088
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "马尼拉",
+        "english": "Manila",
+        "country": "Philippines"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.9842,
+          14.5995
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "河内",
+        "english": "Hanoi",
+        "country": "Vietnam"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          105.8342,
+          21.0278
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "胡志明市",
+        "english": "Ho Chi Minh City",
+        "country": "Vietnam"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.6297,
+          10.8231
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "万象",
+        "english": "Vientiane",
+        "country": "Laos"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          102.6317,
+          17.9673
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "金边",
+        "english": "Phnom Penh",
+        "country": "Cambodia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.9163,
+          11.5624
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "仰光",
+        "english": "Yangon",
+        "country": "Myanmar"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          96.1667,
+          16.8667
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "孟买",
+        "english": "Mumbai",
+        "country": "India"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          72.8777,
+          19.076
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "德里",
+        "english": "Delhi",
+        "country": "India"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          77.209,
+          28.6139
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "加尔各答",
+        "english": "Kolkata",
+        "country": "India"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          88.3639,
+          22.5726
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "新德里",
+        "english": "New Delhi",
+        "country": "India"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          77.2167,
+          28.6448
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "班加罗尔",
+        "english": "Bengaluru",
+        "country": "India"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          77.5946,
+          12.9716
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "伊斯兰堡",
+        "english": "Islamabad",
+        "country": "Pakistan"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          73.0479,
+          33.6844
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "卡拉奇",
+        "english": "Karachi",
+        "country": "Pakistan"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          67.0011,
+          24.8607
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "达卡",
+        "english": "Dhaka",
+        "country": "Bangladesh"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          90.4125,
+          23.8103
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "加德满都",
+        "english": "Kathmandu",
+        "country": "Nepal"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          85.324,
+          27.7172
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "科伦坡",
+        "english": "Colombo",
+        "country": "Sri Lanka"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          79.8612,
+          6.9271
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "迪拜",
+        "english": "Dubai",
+        "country": "UAE"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          55.2708,
+          25.2048
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "阿布扎比",
+        "english": "Abu Dhabi",
+        "country": "UAE"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          54.3773,
+          24.4539
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "多哈",
+        "english": "Doha",
+        "country": "Qatar"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          51.531,
+          25.2854
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "利雅得",
+        "english": "Riyadh",
+        "country": "Saudi Arabia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          46.6753,
+          24.7136
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "麦加",
+        "english": "Mecca",
+        "country": "Saudi Arabia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          39.8262,
+          21.4225
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "开罗",
+        "english": "Cairo",
+        "country": "Egypt"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          31.2357,
+          30.0444
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "亚历山大",
+        "english": "Alexandria",
+        "country": "Egypt"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          29.9187,
+          31.2001
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "内罗毕",
+        "english": "Nairobi",
+        "country": "Kenya"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          36.8219,
+          -1.2921
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "约翰内斯堡",
+        "english": "Johannesburg",
+        "country": "South Africa"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          28.0473,
+          -26.2041
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "开普敦",
+        "english": "Cape Town",
+        "country": "South Africa"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          18.4241,
+          -33.9249
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "拉各斯",
+        "english": "Lagos",
+        "country": "Nigeria"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          3.3942,
+          6.4541
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "阿布贾",
+        "english": "Abuja",
+        "country": "Nigeria"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          7.4951,
+          9.0579
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "卡萨布兰卡",
+        "english": "Casablanca",
+        "country": "Morocco"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -7.5898,
+          33.5731
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "拉巴特",
+        "english": "Rabat",
+        "country": "Morocco"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -6.8498,
+          34.0209
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "突尼斯市",
+        "english": "Tunis",
+        "country": "Tunisia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          10.1815,
+          36.8065
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "阿尔及尔",
+        "english": "Algiers",
+        "country": "Algeria"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          3.042,
+          36.7525
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "德黑兰",
+        "english": "Tehran",
+        "country": "Iran"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          51.389,
+          35.6892
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "安卡拉",
+        "english": "Ankara",
+        "country": "Turkey"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          32.8597,
+          39.9334
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "伊斯坦布尔",
+        "english": "Istanbul",
+        "country": "Turkey"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          28.9784,
+          41.0082
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "特拉维夫",
+        "english": "Tel Aviv",
+        "country": "Israel"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          34.7818,
+          32.0853
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "耶路撒冷",
+        "english": "Jerusalem",
+        "country": "Israel"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          35.2137,
+          31.7683
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "贝鲁特",
+        "english": "Beirut",
+        "country": "Lebanon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          35.5018,
+          33.8938
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "大马士革",
+        "english": "Damascus",
+        "country": "Syria"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          36.3119,
+          33.5138
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "巴格达",
+        "english": "Baghdad",
+        "country": "Iraq"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          44.4009,
+          33.3406
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "利马",
+        "english": "Lima",
+        "country": "Peru"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -77.0428,
+          -12.0464
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "圣保罗",
+        "english": "São Paulo",
+        "country": "Brazil"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -46.6333,
+          -23.5505
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "里约热内卢",
+        "english": "Rio de Janeiro",
+        "country": "Brazil"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -43.1729,
+          -22.9068
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "巴西利亚",
+        "english": "Brasilia",
+        "country": "Brazil"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -47.8828,
+          -15.7939
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "墨西哥城",
+        "english": "Mexico City",
+        "country": "Mexico"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -99.1332,
+          19.4326
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "瓜达拉哈拉",
+        "english": "Guadalajara",
+        "country": "Mexico"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -103.3496,
+          20.6775
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "布宜诺斯艾利斯",
+        "english": "Buenos Aires",
+        "country": "Argentina"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -58.3816,
+          -34.6037
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "圣地亚哥",
+        "english": "Santiago",
+        "country": "Chile"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -70.6693,
+          -33.4489
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "波哥大",
+        "english": "Bogotá",
+        "country": "Colombia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -74.0721,
+          4.711
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "加拉加斯",
+        "english": "Caracas",
+        "country": "Venezuela"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -66.9036,
+          10.4806
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "哈瓦那",
+        "english": "Havana",
+        "country": "Cuba"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -82.3666,
+          23.1136
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "纽约",
+        "english": "New York",
+        "country": "United States"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -74.006,
+          40.7128
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "洛杉矶",
+        "english": "Los Angeles",
+        "country": "United States"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -118.2437,
+          34.0522
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "芝加哥",
+        "english": "Chicago",
+        "country": "United States"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -87.6298,
+          41.8781
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "休斯顿",
+        "english": "Houston",
+        "country": "United States"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -95.3698,
+          29.7604
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "费城",
+        "english": "Philadelphia",
+        "country": "United States"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -75.1652,
+          39.9526
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "凤凰城",
+        "english": "Phoenix",
+        "country": "United States"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -112.074,
+          33.4484
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "达拉斯",
+        "english": "Dallas",
+        "country": "United States"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -96.797,
+          32.7767
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "迈阿密",
+        "english": "Miami",
+        "country": "United States"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -80.1918,
+          25.7617
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "波士顿",
+        "english": "Boston",
+        "country": "United States"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -71.0589,
+          42.3601
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "华盛顿",
+        "english": "Washington, D.C.",
+        "country": "United States"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -77.0369,
+          38.9072
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "多伦多",
+        "english": "Toronto",
+        "country": "Canada"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -79.3832,
+          43.6532
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "温哥华",
+        "english": "Vancouver",
+        "country": "Canada"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -123.1207,
+          49.2827
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "蒙特利尔",
+        "english": "Montreal",
+        "country": "Canada"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.5673,
+          45.5017
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "渥太华",
+        "english": "Ottawa",
+        "country": "Canada"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -75.6972,
+          45.4215
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "伦敦",
+        "english": "London",
+        "country": "United Kingdom"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -0.1278,
+          51.5074
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "伯明翰",
+        "english": "Birmingham",
+        "country": "United Kingdom"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -1.8904,
+          52.4862
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "曼彻斯特",
+        "english": "Manchester",
+        "country": "United Kingdom"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -2.2426,
+          53.4808
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "爱丁堡",
+        "english": "Edinburgh",
+        "country": "United Kingdom"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.1883,
+          55.9533
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "都柏林",
+        "english": "Dublin",
+        "country": "Ireland"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -6.2603,
+          53.3498
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "巴黎",
+        "english": "Paris",
+        "country": "France"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.3522,
+          48.8566
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "马赛",
+        "english": "Marseille",
+        "country": "France"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          5.3698,
+          43.2965
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "里昂",
+        "english": "Lyon",
+        "country": "France"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.8357,
+          45.764
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "柏林",
+        "english": "Berlin",
+        "country": "Germany"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          13.405,
+          52.52
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "慕尼黑",
+        "english": "Munich",
+        "country": "Germany"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          11.582,
+          48.1351
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "汉堡",
+        "english": "Hamburg",
+        "country": "Germany"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.9937,
+          53.5511
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "法兰克福",
+        "english": "Frankfurt",
+        "country": "Germany"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          8.6821,
+          50.1109
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "罗马",
+        "english": "Rome",
+        "country": "Italy"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          12.4964,
+          41.9028
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "米兰",
+        "english": "Milan",
+        "country": "Italy"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.1895,
+          45.4642
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "那不勒斯",
+        "english": "Naples",
+        "country": "Italy"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.2681,
+          40.8518
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "马德里",
+        "english": "Madrid",
+        "country": "Spain"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7038,
+          40.4168
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "巴塞罗那",
+        "english": "Barcelona",
+        "country": "Spain"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.1686,
+          41.3874
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "瓦伦西亚",
+        "english": "Valencia",
+        "country": "Spain"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -0.3763,
+          39.4699
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "阿姆斯特丹",
+        "english": "Amsterdam",
+        "country": "Netherlands"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.9041,
+          52.3676
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "鹿特丹",
+        "english": "Rotterdam",
+        "country": "Netherlands"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.4777,
+          51.9244
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "布鲁塞尔",
+        "english": "Brussels",
+        "country": "Belgium"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.3517,
+          50.8503
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "卢森堡市",
+        "english": "Luxembourg City",
+        "country": "Luxembourg"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          6.1319,
+          49.6116
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "维也纳",
+        "english": "Vienna",
+        "country": "Austria"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          16.3738,
+          48.2082
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "布拉格",
+        "english": "Prague",
+        "country": "Czech Republic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.4378,
+          50.0755
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "华沙",
+        "english": "Warsaw",
+        "country": "Poland"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          21.0122,
+          52.2297
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "布达佩斯",
+        "english": "Budapest",
+        "country": "Hungary"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          19.0402,
+          47.4979
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "苏黎世",
+        "english": "Zurich",
+        "country": "Switzerland"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          8.5417,
+          47.3769
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "日内瓦",
+        "english": "Geneva",
+        "country": "Switzerland"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          6.1432,
+          46.2044
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "斯德哥尔摩",
+        "english": "Stockholm",
+        "country": "Sweden"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          18.0686,
+          59.3293
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "哥本哈根",
+        "english": "Copenhagen",
+        "country": "Denmark"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          12.5683,
+          55.6761
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "奥斯陆",
+        "english": "Oslo",
+        "country": "Norway"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          10.7522,
+          59.9139
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "赫尔辛基",
+        "english": "Helsinki",
+        "country": "Finland"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          24.9384,
+          60.1699
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "雷克雅未克",
+        "english": "Reykjavik",
+        "country": "Iceland"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -21.8174,
+          64.1265
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "里斯本",
+        "english": "Lisbon",
+        "country": "Portugal"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -9.1393,
+          38.7223
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "波尔图",
+        "english": "Porto",
+        "country": "Portugal"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -8.6291,
+          41.1579
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "雅典",
+        "english": "Athens",
+        "country": "Greece"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          23.7275,
+          37.9838
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "索菲亚",
+        "english": "Sofia",
+        "country": "Bulgaria"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          23.3219,
+          42.6977
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "布加勒斯特",
+        "english": "Bucharest",
+        "country": "Romania"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          26.1025,
+          44.4268
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "贝尔格莱德",
+        "english": "Belgrade",
+        "country": "Serbia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          20.4489,
+          44.7866
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "萨格勒布",
+        "english": "Zagreb",
+        "country": "Croatia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          15.9819,
+          45.815
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "卢布尔雅那",
+        "english": "Ljubljana",
+        "country": "Slovenia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.5058,
+          46.0569
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "萨拉热窝",
+        "english": "Sarajevo",
+        "country": "Bosnia and Herzegovina"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          18.4131,
+          43.8563
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "基辅",
+        "english": "Kyiv",
+        "country": "Ukraine"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          30.5234,
+          50.4501
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "明斯克",
+        "english": "Minsk",
+        "country": "Belarus"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          27.5615,
+          53.9045
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "维尔纽斯",
+        "english": "Vilnius",
+        "country": "Lithuania"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          25.2038,
+          54.6872
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "里加",
+        "english": "Riga",
+        "country": "Latvia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          24.1052,
+          56.9496
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "塔林",
+        "english": "Tallinn",
+        "country": "Estonia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          24.7536,
+          59.437
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "基希讷乌",
+        "english": "Chisinau",
+        "country": "Moldova"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          28.8638,
+          47.0105
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "布拉迪斯拉发",
+        "english": "Bratislava",
+        "country": "Slovakia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          17.1077,
+          48.1491
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "地拉那",
+        "english": "Tirana",
+        "country": "Albania"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          19.8172,
+          41.3275
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "斯科普里",
+        "english": "Skopje",
+        "country": "North Macedonia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          21.4363,
+          41.9973
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "波德戈里察",
+        "english": "Podgorica",
+        "country": "Montenegro"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          19.2664,
+          42.4304
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "瓦莱塔",
+        "english": "Valletta",
+        "country": "Malta"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.5142,
+          35.8997
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "安道尔城",
+        "english": "Andorra la Vella",
+        "country": "Andorra"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          1.5218,
+          42.5075
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "摩纳哥城",
+        "english": "Monaco-Ville",
+        "country": "Monaco"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          7.4246,
+          43.7384
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "圣马力诺市",
+        "english": "San Marino",
+        "country": "San Marino"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          12.4464,
+          43.9424
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "梵蒂冈城",
+        "english": "Vatican City",
+        "country": "Vatican City"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          12.4534,
+          41.9029
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "莫斯科",
+        "english": "Moscow",
+        "country": "Russia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.6173,
+          55.7558
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "圣彼得堡",
+        "english": "Saint Petersburg",
+        "country": "Russia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          30.3351,
+          59.9343
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "喀山",
+        "english": "Kazan",
+        "country": "Russia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          49.1068,
+          55.7963
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "叶卡捷琳堡",
+        "english": "Yekaterinburg",
+        "country": "Russia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          60.6122,
+          56.8519
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "新西伯利亚",
+        "english": "Novosibirsk",
+        "country": "Russia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          82.9204,
+          55.0302
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "符拉迪沃斯托克",
+        "english": "Vladivostok",
+        "country": "Russia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          131.8853,
+          43.1158
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "塔什干",
+        "english": "Tashkent",
+        "country": "Uzbekistan"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          69.2401,
+          41.2995
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "阿拉木图",
+        "english": "Almaty",
+        "country": "Kazakhstan"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          76.9286,
+          43.2567
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "努尔苏丹",
+        "english": "Nur-Sultan",
+        "country": "Kazakhstan"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          71.4461,
+          51.1801
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "比什凯克",
+        "english": "Bishkek",
+        "country": "Kyrgyzstan"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          74.5698,
+          42.8746
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "杜尚别",
+        "english": "Dushanbe",
+        "country": "Tajikistan"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          68.7863,
+          38.5567
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "阿什哈巴德",
+        "english": "Ashgabat",
+        "country": "Turkmenistan"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          58.3667,
+          37.9667
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "乌兰巴托",
+        "english": "Ulaanbaatar",
+        "country": "Mongolia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.9057,
+          47.8864
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "悉尼",
+        "english": "Sydney",
+        "country": "Australia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          151.2093,
+          -33.8688
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "墨尔本",
+        "english": "Melbourne",
+        "country": "Australia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          144.9631,
+          -37.8136
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "布里斯班",
+        "english": "Brisbane",
+        "country": "Australia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          153.0251,
+          -27.4698
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "珀斯",
+        "english": "Perth",
+        "country": "Australia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          115.8605,
+          -31.9505
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "阿德莱德",
+        "english": "Adelaide",
+        "country": "Australia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          138.6007,
+          -34.9285
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "达尔文",
+        "english": "Darwin",
+        "country": "Australia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          130.8456,
+          -12.4634
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "凯恩斯",
+        "english": "Cairns",
+        "country": "Australia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          145.7781,
+          -16.9186
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "黄金海岸",
+        "english": "Gold Coast",
+        "country": "Australia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          153.0,
+          -28.0167
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "霍巴特",
+        "english": "Hobart",
+        "country": "Australia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          147.3294,
+          -42.8794
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "奥克兰",
+        "english": "Auckland",
+        "country": "New Zealand"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          174.7633,
+          -36.8485
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "惠灵顿",
+        "english": "Wellington",
+        "country": "New Zealand"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          174.7762,
+          -41.2865
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "基督城",
+        "english": "Christchurch",
+        "country": "New Zealand"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          172.6362,
+          -43.5321
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "皇后镇",
+        "english": "Queenstown",
+        "country": "New Zealand"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          168.6626,
+          -45.0312
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "但尼丁",
+        "english": "Dunedin",
+        "country": "New Zealand"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          170.5033,
+          -45.8742
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "雅库茨克",
+        "english": "Yakutsk",
+        "country": "Russia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          129.7453,
+          62.0359
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "安克雷奇",
+        "english": "Anchorage",
+        "country": "United States"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -149.9003,
+          61.2181
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "努克",
+        "english": "Nuuk",
+        "country": "Greenland"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -49.6603,
+          61.9241
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "托木斯克",
+        "english": "Tomsk",
+        "country": "Russia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          84.9744,
+          56.4977
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "伊尔库茨克",
+        "english": "Irkutsk",
+        "country": "Russia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.2939,
+          52.2989
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "台北",
+        "english": "Taipei",
+        "country": "Taiwan"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5654,
+          25.033
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "高雄",
+        "english": "Kaohsiung",
+        "country": "Taiwan"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.3014,
+          22.6273
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "亚的斯亚贝巴",
+        "english": "Addis Ababa",
+        "country": "Ethiopia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          38.7469,
+          9.0249
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "坎帕拉",
+        "english": "Kampala",
+        "country": "Uganda"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          32.5825,
+          0.3476
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "达累斯萨拉姆",
+        "english": "Dar es Salaam",
+        "country": "Tanzania"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          39.2042,
+          -6.7924
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "基加利",
+        "english": "Kigali",
+        "country": "Rwanda"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          30.0595,
+          -1.9441
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "金沙萨",
+        "english": "Kinshasa",
+        "country": "Democratic Republic of the Congo"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          15.2663,
+          -4.3253
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "布拉柴维尔",
+        "english": "Brazzaville",
+        "country": "Republic of the Congo"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          15.2832,
+          -4.2634
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "利伯维尔",
+        "english": "Libreville",
+        "country": "Gabon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.4537,
+          0.3981
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "雅温得",
+        "english": "Yaoundé",
+        "country": "Cameroon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          11.5,
+          3.8667
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "班吉",
+        "english": "Bangui",
+        "country": "Central African Republic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          18.55,
+          4.3667
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "恩贾梅纳",
+        "english": "N'Djamena",
+        "country": "Chad"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          15.0333,
+          12.1167
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "喀土穆",
+        "english": "Khartoum",
+        "country": "Sudan"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          32.5333,
+          15.5833
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "朱巴",
+        "english": "Juba",
+        "country": "South Sudan"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          31.5825,
+          4.8516
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "的黎波里",
+        "english": "Tripoli",
+        "country": "Libya"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          13.1899,
+          32.8872
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "努瓦克肖特",
+        "english": "Nouakchott",
+        "country": "Mauritania"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -15.9363,
+          18.0859
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "达喀尔",
+        "english": "Dakar",
+        "country": "Senegal"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -17.4441,
+          14.6937
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "班珠尔",
+        "english": "Banjul",
+        "country": "The Gambia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -16.5765,
+          13.452
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "科纳克里",
+        "english": "Conakry",
+        "country": "Guinea"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -13.6772,
+          9.5371
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "弗里敦",
+        "english": "Freetown",
+        "country": "Sierra Leone"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -13.2353,
+          8.4664
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "蒙罗维亚",
+        "english": "Monrovia",
+        "country": "Liberia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -10.7969,
+          6.3004
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "亚穆苏克罗",
+        "english": "Yamoussoukro",
+        "country": "Ivory Coast"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -5.2769,
+          6.8242
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "阿克拉",
+        "english": "Accra",
+        "country": "Ghana"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -0.1969,
+          5.55
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "洛美",
+        "english": "Lomé",
+        "country": "Togo"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          1.2214,
+          6.1289
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "波多诺伏",
+        "english": "Porto-Novo",
+        "country": "Benin"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.6224,
+          6.4969
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "尼亚美",
+        "english": "Niamey",
+        "country": "Niger"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.1098,
+          13.5173
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "巴马科",
+        "english": "Bamako",
+        "country": "Mali"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -7.9914,
+          12.6396
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "瓦加杜古",
+        "english": "Ouagadougou",
+        "country": "Burkina Faso"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -1.5333,
+          12.3667
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "马普托",
+        "english": "Maputo",
+        "country": "Mozambique"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          32.5862,
+          -25.9653
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "卢萨卡",
+        "english": "Lusaka",
+        "country": "Zambia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          28.2871,
+          -15.3875
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "哈拉雷",
+        "english": "Harare",
+        "country": "Zimbabwe"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          31.0546,
+          -17.8248
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "温得和克",
+        "english": "Windhoek",
+        "country": "Namibia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          17.0833,
+          -22.55
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "哈博罗内",
+        "english": "Gaborone",
+        "country": "Botswana"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          25.917,
+          -24.6272
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "马塞卢",
+        "english": "Maseru",
+        "country": "Lesotho"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          27.4833,
+          -29.3167
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "姆巴巴内",
+        "english": "Mbabane",
+        "country": "Eswatini"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          31.1333,
+          -26.3167
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "利隆圭",
+        "english": "Lilongwe",
+        "country": "Malawi"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          33.7833,
+          -13.9667
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "塔那那利佛",
+        "english": "Antananarivo",
+        "country": "Madagascar"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          47.5162,
+          -18.9137
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "莫罗尼",
+        "english": "Moroni",
+        "country": "Comoros"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          43.25,
+          -11.7
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "路易港",
+        "english": "Port Louis",
+        "country": "Mauritius"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          57.4979,
+          -20.1614
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "维多利亚",
+        "english": "Victoria",
+        "country": "Seychelles"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          55.451,
+          -4.6199
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "圣多美",
+        "english": "São Tomé",
+        "country": "São Tomé and Príncipe"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          6.7367,
+          0.3386
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "马拉博",
+        "english": "Malabo",
+        "country": "Equatorial Guinea"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          8.7816,
+          3.7597
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "阿斯马拉",
+        "english": "Asmara",
+        "country": "Eritrea"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          38.9203,
+          15.3397
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "摩加迪沙",
+        "english": "Mogadishu",
+        "country": "Somalia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          45.3396,
+          2.0371
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "吉布提市",
+        "english": "Djibouti",
+        "country": "Djibouti"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          43.1594,
+          11.582
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "巴拿马城",
+        "english": "Panama City",
+        "country": "Panama"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -79.5341,
+          8.9399
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "圣何塞",
+        "english": "San José",
+        "country": "Costa Rica"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -84.0833,
+          9.9333
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "危地马拉城",
+        "english": "Guatemala City",
+        "country": "Guatemala"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -90.5133,
+          14.6211
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "特古西加尔巴",
+        "english": "Tegucigalpa",
+        "country": "Honduras"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -87.2062,
+          14.0818
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "圣萨尔瓦多",
+        "english": "San Salvador",
+        "country": "El Salvador"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -89.2182,
+          13.6929
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "马那瓜",
+        "english": "Managua",
+        "country": "Nicaragua"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -86.2346,
+          12.142
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "圣多明各",
+        "english": "Santo Domingo",
+        "country": "Dominican Republic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -69.9013,
+          18.4663
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "太子港",
+        "english": "Port-au-Prince",
+        "country": "Haiti"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -72.337,
+          18.5449
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "圣胡安",
+        "english": "San Juan",
+        "country": "Puerto Rico"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -66.0667,
+          18.45
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "乔治敦",
+        "english": "Georgetown",
+        "country": "Guyana"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -58.1551,
+          6.8013
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "帕拉马里博",
+        "english": "Paramaribo",
+        "country": "Suriname"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -55.1668,
+          5.8663
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "基多",
+        "english": "Quito",
+        "country": "Ecuador"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -78.5249,
+          -0.2299
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "苏克雷",
+        "english": "Sucre",
+        "country": "Bolivia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -65.2603,
+          -19.0333
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "拉巴斯",
+        "english": "La Paz",
+        "country": "Bolivia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.15,
+          -16.4897
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "亚松森",
+        "english": "Asunción",
+        "country": "Paraguay"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -57.6304,
+          -25.2637
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "蒙得维的亚",
+        "english": "Montevideo",
+        "country": "Uruguay"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -56.1644,
+          -34.9011
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "基里巴斯",
+        "english": "South Tarawa",
+        "country": "Kiribati"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          172.9769,
+          1.3232
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "瑙鲁",
+        "english": "Yaren",
+        "country": "Nauru"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          166.9315,
+          -0.5371
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "帕劳",
+        "english": "Ngerulmud",
+        "country": "Palau"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          134.6939,
+          7.5013
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "马绍尔群岛",
+        "english": "Majuro",
+        "country": "Marshall Islands"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          167.4336,
+          7.1315
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "密克罗尼西亚",
+        "english": "Palikir",
+        "country": "Micronesia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          158.1499,
+          6.9165
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "图瓦卢",
+        "english": "Funafuti",
+        "country": "Tuvalu"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          179.1945,
+          -8.5244
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "阿皮亚",
+        "english": "Apia",
+        "country": "Samoa"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -171.7662,
+          -13.8333
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "努库阿洛法",
+        "english": "Nukuʻalofa",
+        "country": "Tonga"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -175.2,
+          -21.1333
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "苏瓦",
+        "english": "Suva",
+        "country": "Fiji"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          180.1415,
+          -18.1416
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "莫尔兹比港",
+        "english": "Port Moresby",
+        "country": "Papua New Guinea"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          147.1792,
+          -9.4432
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "东帝汶",
+        "english": "Dili",
+        "country": "Timor-Leste"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          125.6151,
+          -8.5563
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "内比都",
+        "english": "Naypyidaw",
+        "country": "Myanmar"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          96.1938,
+          19.7633
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "廷布",
+        "english": "Thimphu",
+        "country": "Bhutan"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          89.6419,
+          27.4692
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "马累",
+        "english": "Malé",
+        "country": "Maldives"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          73.2207,
+          4.1751
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "喀布尔",
+        "english": "Kabul",
+        "country": "Afghanistan"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          69.1723,
+          34.5233
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "安曼",
+        "english": "Amman",
+        "country": "Jordan"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          35.9375,
+          31.9516
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "科威特城",
+        "english": "Kuwait City",
+        "country": "Kuwait"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          47.9734,
+          29.3117
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "麦纳麦",
+        "english": "Manama",
+        "country": "Bahrain"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          50.5853,
+          26.2389
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "马斯喀特",
+        "english": "Muscat",
+        "country": "Oman"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          58.4035,
+          23.5841
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "萨那",
+        "english": "Sanaa",
+        "country": "Yemen"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          44.2074,
+          15.3694
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "格鲁吉亚",
+        "english": "Tbilisi",
+        "country": "Georgia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          44.8333,
+          41.6997
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "亚美尼亚",
+        "english": "Yerevan",
+        "country": "Armenia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          44.5146,
+          40.1811
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "阿塞拜疆",
+        "english": "Baku",
+        "country": "Azerbaijan"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          49.8922,
+          40.3766
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "尼科西亚",
+        "english": "Nicosia",
+        "country": "Cyprus"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          33.3643,
+          35.1796
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "阿尤恩",
+        "english": "Laayoune",
+        "country": "Western Sahara"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -13.2017,
+          27.1639
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "比绍",
+        "english": "Bissau",
+        "country": "Guinea-Bissau"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -15.5951,
+          11.8537
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "多多马",
+        "english": "Dodoma",
+        "country": "Tanzania"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          35.7462,
+          -6.1751
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "布琼布拉",
+        "english": "Bujumbura",
+        "country": "Burundi"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          29.9489,
+          -3.4531
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "刚果(金)",
+        "english": "Kinshasa",
+        "country": "Democratic Republic of the Congo"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          15.2663,
+          -4.3253
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "刚果(布)",
+        "english": "Brazzaville",
+        "country": "Republic of the Congo"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          15.2832,
+          -4.2634
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "喀麦隆",
+        "english": "Yaoundé",
+        "country": "Cameroon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          11.5,
+          3.8667
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "罗安达",
+        "english": "Luanda",
+        "country": "Angola"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          13.2343,
+          -8.8116
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "比勒陀利亚",
+        "english": "Pretoria",
+        "country": "South Africa"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          28.2293,
+          -25.7464
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "伯尔尼",
+        "english": "Bern",
+        "country": "Switzerland"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          7.4518,
+          46.9481
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "波黑",
+        "english": "Sarajevo",
+        "country": "Bosnia and Herzegovina"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          18.4131,
+          43.8563
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "黑山",
+        "english": "Podgorica",
+        "country": "Montenegro"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          19.2664,
+          42.4304
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "北马其顿",
+        "english": "Skopje",
+        "country": "North Macedonia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          21.4363,
+          41.9973
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "索非亚",
+        "english": "Sofia",
+        "country": "Bulgaria"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          23.3219,
+          42.6977
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "金斯顿",
+        "english": "Kingston",
+        "country": "Jamaica"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -76.8021,
+          17.971
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "巴哈马",
+        "english": "Nassau",
+        "country": "Bahamas"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -77.3375,
+          25.0506
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "海地",
+        "english": "Port-au-Prince",
+        "country": "Haiti"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -72.337,
+          18.5449
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "堪培拉",
+        "english": "Canberra",
+        "country": "Australia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          149.13,
+          -35.2809
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "所罗门群岛",
+        "english": "Honiara",
+        "country": "Solomon Islands"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          159.95,
+          -9.4318
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "瓦努阿图",
+        "english": "Port Vila",
+        "country": "Vanuatu"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          168.3272,
+          -17.7316
+        ]
+      }
+    }
+  ]
 }
