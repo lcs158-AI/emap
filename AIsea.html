@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes">
-    <title>跬步地图2.944</title>
+    <title>跬步地图2.95</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.5.2/ol.css">
     <script src="/js/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
@@ -14,11 +14,11 @@
 <body>
     <div id="map"></div>
     <div class="toolbar">
-        <button id="citySearchBtn" class="action-btn" data-title="搜索城市">🔍</button>
-        <div id="citySearchWrapper" style="display: none; position: relative;">
+        <div id="citySearchWrapper" style="display: none;">
             <input type="text" id="citySearchInput" placeholder="搜索城市..." style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 20px; font-size: 14px; width: 180px; outline: none;">
             <div id="citySearchResults" style="display: none; position: absolute; top: 100%; left: 0; margin-top: 5px; background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); min-width: 200px; max-height: 300px; overflow-y: auto; z-index: 1001;"></div>
         </div>
+        <button id="citySearchBtn" class="action-btn" data-title="搜索城市">🔍</button>
         <div class="dropdown">
             <button id="myBtn" class="action-btn" data-title="我的">👤</button>
             <div id="myDropdown" class="dropdown-menu" style="display: none;">

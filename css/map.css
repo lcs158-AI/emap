@@ -154,6 +154,7 @@ img, video, canvas {
     display: flex;
     flex-direction: column;
     gap: 8px;
+    align-items: flex-end;
 }
 
 /* 圆形按钮基础样式 */
@@ -186,6 +187,43 @@ img, video, canvas {
     color: white;
     box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.3);
     transform: scale(0.98);
+}
+
+/* 城市搜索框样式 */
+#citySearchWrapper {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+#citySearchInput {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 20px;
+    font-size: 14px;
+    width: 180px;
+    outline: none;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+    transition: all 0.2s ease;
+}
+
+#citySearchInput:focus {
+    border-color: #1890ff;
+    box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+}
+
+#citySearchResults {
+    position: absolute;
+    top: calc(100% + 5px);
+    right: 0;
+    margin-top: 5px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    min-width: 200px;
+    max-height: 300px;
+    overflow-y: auto;
+    z-index: 1001;
 }
 
 /* 图层管理面板 */

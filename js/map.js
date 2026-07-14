@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
@@ -504,6 +504,11 @@ const measureLengthBtn = document.getElementById('measureLengthBtn');
 const measureAreaBtn = document.getElementById('measureAreaBtn');
 const measureResult = document.getElementById('measureResult');
 
+let searchActive = false;
+const citySearchBtn = document.getElementById('citySearchBtn');
+const citySearchWrapper = document.getElementById('citySearchWrapper');
+const citySearchInput = document.getElementById('citySearchInput');
+
 // 获取双击缩放交互
 let dblClickZoomInteraction = null;
 map.getInteractions().forEach(function (interaction) {
@@ -511,6 +516,28 @@ map.getInteractions().forEach(function (interaction) {
         dblClickZoomInteraction = interaction;
     }
 });
+
+function deactivateAllTools() {
+    if (measureActive) {
+        deactivateMeasurement();
+    }
+    if (searchActive) {
+        deactivateSearch();
+    }
+    if (drawMode) {
+        stopDraw();
+    }
+}
+
+function deactivateSearch() {
+    searchActive = false;
+    if (citySearchBtn) {
+        citySearchBtn.classList.remove('active');
+    }
+    if (citySearchWrapper) {
+        citySearchWrapper.style.display = 'none';
+    }
+}
 
 function deactivateMeasurement() {
     if (measureDraw) {
@@ -562,7 +589,7 @@ function activateMeasurement(type) {
             return;
         }
     } else {
-        // 首次激活测量功能
+        deactivateAllTools();
         measureActive = true;
         currentMeasureType = type;
         
@@ -6036,6 +6063,8 @@ function initDrawLayer() {
 function startDraw(mode) {
     initDrawLayer();
     
+    deactivateAllTools();
+    
     // 移除之前的绘制交互
     if (drawInteraction) {
         map.removeInteraction(drawInteraction);
@@ -7270,10 +7299,17 @@ function initCitySearch() {
     
     if (searchBtn) {
         searchBtn.addEventListener('click', () => {
-            if (searchWrapper) {
-                searchWrapper.style.display = searchWrapper.style.display === 'block' ? 'none' : 'block';
-                if (searchWrapper.style.display === 'block' && searchInput) {
-                    searchInput.focus();
+            if (searchActive) {
+                deactivateSearch();
+            } else {
+                deactivateAllTools();
+                searchActive = true;
+                searchBtn.classList.add('active');
+                if (searchWrapper) {
+                    searchWrapper.style.display = 'block';
+                    if (searchInput) {
+                        searchInput.focus();
+                    }
                 }
             }
         });
@@ -7291,6 +7327,15 @@ function initCitySearch() {
     });
     
     map.on('click', (evt) => {
+        if (measureActive || drawMode) {
+            return;
+        }
+        
+        if (searchActive) {
+            deactivateSearch();
+            return;
+        }
+        
         const pixel = evt.pixel;
         const layers = map.getLayers().getArray();
         let clickedOnFeature = false;
