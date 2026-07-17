@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
@@ -505,9 +505,11 @@ const measureAreaBtn = document.getElementById('measureAreaBtn');
 const measureResult = document.getElementById('measureResult');
 
 let searchActive = false;
+let clickWeatherActive = false;
 const citySearchBtn = document.getElementById('cityWeatherBtn') || document.getElementById('citySearchBtn');
 const citySearchWrapper = document.getElementById('citySearchWrapper');
 const citySearchInput = document.getElementById('citySearchInput');
+const clickWeatherBtn = document.getElementById('clickWeatherBtn');
 
 // 获取双击缩放交互
 let dblClickZoomInteraction = null;
@@ -524,6 +526,12 @@ function deactivateAllTools() {
     if (searchActive) {
         deactivateSearch();
     }
+    if (clickWeatherActive) {
+        clickWeatherActive = false;
+        if (clickWeatherBtn) {
+            clickWeatherBtn.classList.remove('active');
+        }
+    }
     if (drawMode) {
         stopDraw();
     }
@@ -536,6 +544,21 @@ function deactivateSearch() {
     }
     if (citySearchWrapper) {
         citySearchWrapper.style.display = 'none';
+    }
+}
+
+function toggleClickWeather() {
+    if (clickWeatherActive) {
+        clickWeatherActive = false;
+        if (clickWeatherBtn) {
+            clickWeatherBtn.classList.remove('active');
+        }
+    } else {
+        deactivateAllTools();
+        clickWeatherActive = true;
+        if (clickWeatherBtn) {
+            clickWeatherBtn.classList.add('active');
+        }
     }
 }
 
@@ -7373,6 +7396,14 @@ function initCitySearch() {
     const searchBtn = document.getElementById('cityWeatherBtn') || document.getElementById('citySearchBtn');
     const searchWrapper = document.getElementById('citySearchWrapper');
     const closeBtn = document.getElementById('closeCityWeatherBtn');
+    const clickWeatherBtn = document.getElementById('clickWeatherBtn');
+    
+    if (clickWeatherBtn) {
+        clickWeatherBtn.addEventListener('click', () => {
+            toggleClickWeather();
+            document.getElementById('weatherDropdown').style.display = 'none';
+        });
+    }
     
     if (searchInput) {
         searchInput.addEventListener('input', () => {
@@ -7426,6 +7457,13 @@ function initCitySearch() {
         
         if (searchActive) {
             deactivateSearch();
+            return;
+        }
+        
+        if (clickWeatherActive) {
+            const coordinate = evt.coordinate;
+            const lonlat = ol.proj.toLonLat(coordinate);
+            searchNearbyCity(lonlat[1], lonlat[0]);
             return;
         }
         
