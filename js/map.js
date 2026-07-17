@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
@@ -505,7 +505,7 @@ const measureAreaBtn = document.getElementById('measureAreaBtn');
 const measureResult = document.getElementById('measureResult');
 
 let searchActive = false;
-const citySearchBtn = document.getElementById('citySearchBtn');
+const citySearchBtn = document.getElementById('cityWeatherBtn') || document.getElementById('citySearchBtn');
 const citySearchWrapper = document.getElementById('citySearchWrapper');
 const citySearchInput = document.getElementById('citySearchInput');
 
@@ -6420,6 +6420,27 @@ function initDropdowns() {
         };
     }
     
+    // 图层工具下拉菜单
+    const layerMainBtn = document.getElementById('layerMainBtn');
+    const layerDropdown = document.getElementById('layerDropdown');
+    
+    if (layerMainBtn && layerDropdown) {
+        layerMainBtn.onclick = () => {
+            layerDropdown.style.display = layerDropdown.style.display === 'block' ? 'none' : 'block';
+        };
+    }
+    
+    // 专题地图下拉菜单
+    const thematicMapBtn = document.getElementById('thematicMapBtn');
+    const thematicDropdown = document.getElementById('thematicDropdown');
+    
+    if (thematicMapBtn && thematicDropdown) {
+        thematicMapBtn.onclick = (e) => {
+            e.preventDefault();
+            thematicDropdown.style.display = thematicDropdown.style.display === 'block' ? 'none' : 'block';
+        };
+    }
+    
     // 图形编辑下拉菜单
     const drawMainBtn = document.getElementById('drawMainBtn');
     const drawDropdownMenu = document.getElementById('drawDropdownMenu');
@@ -7095,13 +7116,44 @@ function getWeatherDescription(weatherCode) {
     return '未知';
 }
 
-function getAirQualityLevel(aqi) {
+function getAirQualityLevel(aqi, standard = 'china') {
+    if (standard === 'eu') {
+        if (aqi <= 25) return { text: '优', color: '#00e400' };
+        if (aqi <= 50) return { text: '良', color: '#ffff00' };
+        if (aqi <= 75) return { text: '轻度污染', color: '#ff7e00' };
+        if (aqi <= 100) return { text: '中度污染', color: '#ff0000' };
+        return { text: '重度污染', color: '#99004c' };
+    }
+    if (standard === 'us') {
+        if (aqi <= 50) return { text: '优', color: '#00e400' };
+        if (aqi <= 100) return { text: '良', color: '#ffff00' };
+        if (aqi <= 150) return { text: '轻度污染', color: '#ff7e00' };
+        if (aqi <= 200) return { text: '中度污染', color: '#ff0000' };
+        if (aqi <= 300) return { text: '重度污染', color: '#99004c' };
+        return { text: '严重污染', color: '#7e0023' };
+    }
     if (aqi <= 50) return { text: '优', color: '#00e400' };
     if (aqi <= 100) return { text: '良', color: '#ffff00' };
     if (aqi <= 150) return { text: '轻度污染', color: '#ff7e00' };
     if (aqi <= 200) return { text: '中度污染', color: '#ff0000' };
     if (aqi <= 300) return { text: '重度污染', color: '#99004c' };
     return { text: '严重污染', color: '#7e0023' };
+}
+
+function convertUSToEU(aqiUS) {
+    if (aqiUS <= 50) return aqiUS;
+    if (aqiUS <= 100) return Math.round(aqiUS * 0.5);
+    if (aqiUS <= 150) return Math.round(aqiUS * 0.4 + 10);
+    if (aqiUS <= 200) return Math.round(aqiUS * 0.35 + 20);
+    if (aqiUS <= 300) return Math.round(aqiUS * 0.25 + 50);
+    return Math.round(aqiUS * 0.2);
+}
+
+function averageValues(...values) {
+    const validValues = values.filter(v => v !== undefined && v !== null && !isNaN(v));
+    if (validValues.length === 0) return null;
+    const sum = validValues.reduce((a, b) => a + b, 0);
+    return Math.round(sum / validValues.length * 10) / 10;
 }
 
 async function searchCity(query) {
@@ -7222,43 +7274,83 @@ async function fetchCityWeatherAndAir(lat, lon, name, country) {
     document.getElementById('cityWeatherCoords').textContent = `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
     
     try {
-        const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,surface_pressure,weather_code&hourly=temperature_2m&timezone=auto`;
-        const weatherResponse = await fetch(weatherUrl);
-        const weatherData = await weatherResponse.json();
+        const [omWeather, owmWeather] = await Promise.all([
+            fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,surface_pressure,weather_code&daily=temperature_2m_max,temperature_2m_min&timezone=auto`)
+                .then(r => r.json()).catch(e => ({})),
+            fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${OPENWEATHERMAP_API_KEY}&units=metric`)
+                .then(r => r.json()).catch(e => ({})),
+        ]);
         
-        if (weatherData.current) {
-            const current = weatherData.current;
-            document.getElementById('cityWeatherIcon').textContent = getWeatherIcon(current.weather_code);
-            document.getElementById('cityWeatherTemp').textContent = `${Math.round(current.temperature_2m)}°C`;
-            document.getElementById('cityWeatherDesc').textContent = getWeatherDescription(current.weather_code);
-            document.getElementById('cityWeatherHumidity').textContent = `${current.relative_humidity_2m}%`;
-            document.getElementById('cityWeatherWind').textContent = `${current.wind_speed_10m} m/s`;
-            document.getElementById('cityWeatherPressure').textContent = `${Math.round(current.surface_pressure)} hPa`;
+        const omCurrent = omWeather.current || {};
+        const omDaily = omWeather.daily || {};
+        const owmMain = owmWeather.main || {};
+        const owmWeatherDesc = owmWeather.weather ? owmWeather.weather[0] : {};
+        
+        const tempCurrent = averageValues(omCurrent.temperature_2m, owmMain.temp);
+        const tempMax = averageValues(omDaily.temperature_2m_max ? omDaily.temperature_2m_max[0] : null, owmMain.temp_max);
+        const tempMin = averageValues(omDaily.temperature_2m_min ? omDaily.temperature_2m_min[0] : null, owmMain.temp_min);
+        const humidity = averageValues(omCurrent.relative_humidity_2m, owmMain.humidity);
+        const windSpeed = averageValues(omCurrent.wind_speed_10m, owmWeather.wind ? owmWeather.wind.speed : null);
+        const pressure = averageValues(omCurrent.surface_pressure, owmMain.pressure);
+        
+        const weatherCode = omCurrent.weather_code || (owmWeatherDesc.id ? Math.round(owmWeatherDesc.id / 10) * 10 : null);
+        const weatherIcon = getWeatherIcon(weatherCode);
+        const weatherDesc = getWeatherDescription(weatherCode);
+        
+        document.getElementById('cityWeatherIcon').textContent = weatherIcon;
+        document.getElementById('cityWeatherTemp').textContent = tempCurrent !== null ? `${Math.round(tempCurrent)}°C` : '--';
+        document.getElementById('cityWeatherDesc').textContent = weatherDesc;
+        document.getElementById('cityWeatherHumidity').textContent = humidity !== null ? `${Math.round(humidity)}%` : '--';
+        document.getElementById('cityWeatherWind').textContent = windSpeed !== null ? `${windSpeed} m/s` : '--';
+        document.getElementById('cityWeatherPressure').textContent = pressure !== null ? `${Math.round(pressure)} hPa` : '--';
+        
+        const tempRangeEl = document.getElementById('cityWeatherTempRange');
+        if (tempRangeEl) {
+            tempRangeEl.textContent = tempMax !== null && tempMin !== null ? `${Math.round(tempMin)}°C ~ ${Math.round(tempMax)}°C` : '--';
         }
+        
     } catch (error) {
         console.error('获取天气数据失败:', error);
         document.getElementById('cityWeatherTemp').textContent = '--';
     }
     
     try {
-        const airUrl = `https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lon}&appid=${OPENWEATHERMAP_API_KEY}`;
-        const airResponse = await fetch(airUrl);
-        const airData = await airResponse.json();
+        const [omAir, owmAir] = await Promise.all([
+            fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=european_aqi,pm2_5,pm10,carbon_monoxide,nitrogen_dioxide,sulphur_dioxide&timezone=auto`)
+                .then(r => r.json()).catch(e => ({})),
+            fetch(`https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lon}&appid=${OPENWEATHERMAP_API_KEY}`)
+                .then(r => r.json()).catch(e => ({})),
+        ]);
         
-        if (airData.list && airData.list.length > 0) {
-            const air = airData.list[0].components;
-            const aqi = airData.list[0].main.aqi;
-            const level = getAirQualityLevel(aqi);
+        const omCurrentAir = omAir.current || {};
+        const owmListAir = owmAir.list && owmAir.list.length > 0 ? owmAir.list[0] : {};
+        const owmComponents = owmListAir.components || {};
+        const owmAqi = owmListAir.main ? owmListAir.main.aqi : null;
+        
+        const euAqiFromOm = omCurrentAir.european_aqi;
+        const euAqiFromOwm = owmAqi ? convertUSToEU(owmAqi * 100) : null;
+        
+        const finalAqi = averageValues(euAqiFromOm, euAqiFromOwm);
+        
+        const pm25 = averageValues(omCurrentAir.pm2_5, owmComponents.pm2_5);
+        const pm10 = averageValues(omCurrentAir.pm10, owmComponents.pm10);
+        const co = averageValues(omCurrentAir.carbon_monoxide, owmComponents.co ? owmComponents.co / 1000 : null);
+        const so2 = averageValues(omCurrentAir.sulphur_dioxide, owmComponents.so2);
+        
+        if (finalAqi !== null) {
+            const level = getAirQualityLevel(finalAqi, 'eu');
             
             document.getElementById('cityAirQualitySection').style.display = 'block';
             document.getElementById('cityAirQualityLevel').textContent = level.text;
             document.getElementById('cityAirQualityLevel').style.backgroundColor = level.color;
             document.getElementById('cityAirQualityLevel').style.color = level.color === '#ffff00' ? '#333' : '#fff';
             
-            document.getElementById('cityAQIPM25').textContent = air.pm2_5 ? `${Math.round(air.pm2_5)}` : '--';
-            document.getElementById('cityAQIPM10').textContent = air.pm10 ? `${Math.round(air.pm10)}` : '--';
-            document.getElementById('cityAQICO').textContent = air.co ? `${(air.co / 1000).toFixed(1)}` : '--';
-            document.getElementById('cityAQISO2').textContent = air.so2 ? `${Math.round(air.so2)}` : '--';
+            document.getElementById('cityAQIPM25').textContent = pm25 !== null ? `${Math.round(pm25)}` : '--';
+            document.getElementById('cityAQIPM10').textContent = pm10 !== null ? `${Math.round(pm10)}` : '--';
+            document.getElementById('cityAQICO').textContent = co !== null ? `${co.toFixed(1)}` : '--';
+            document.getElementById('cityAQISO2').textContent = so2 !== null ? `${Math.round(so2)}` : '--';
+        } else {
+            document.getElementById('cityAirQualitySection').style.display = 'none';
         }
     } catch (error) {
         console.error('获取空气质量数据失败:', error);
@@ -7278,7 +7370,7 @@ function closeCityWeatherPanel() {
 
 function initCitySearch() {
     const searchInput = document.getElementById('citySearchInput');
-    const searchBtn = document.getElementById('citySearchBtn');
+    const searchBtn = document.getElementById('cityWeatherBtn') || document.getElementById('citySearchBtn');
     const searchWrapper = document.getElementById('citySearchWrapper');
     const closeBtn = document.getElementById('closeCityWeatherBtn');
     
@@ -7321,7 +7413,8 @@ function initCitySearch() {
     
     document.addEventListener('click', (e) => {
         const searchResults = document.getElementById('citySearchResults');
-        if (searchResults && !searchResults.contains(e.target) && !e.target.closest('#citySearchWrapper') && !e.target.closest('#citySearchBtn')) {
+        const btnSelector = '#cityWeatherBtn, #citySearchBtn';
+        if (searchResults && !searchResults.contains(e.target) && !e.target.closest('#citySearchWrapper') && !e.target.closest(btnSelector)) {
             hideCitySearchResults();
         }
     });
