@@ -394,7 +394,8 @@
                 <input type="text" id="dateRangeEnd" placeholder="结束日期" style="padding:8px; border:1px solid #ddd; border-radius:4px;">
                 <button onclick="searchPhotos()" style="padding:8px 16px; background:#667eea; color:white; border:none; border-radius:4px; cursor:pointer;">筛选</button>
                 <button onclick="resetFilters()" style="padding:8px 16px; background:#999; color:white; border:none; border-radius:4px; cursor:pointer;">重置</button>
-                <button onclick="toggleSelectAll()" style="padding:8px 16px; background:#1890ff; color:white; border:none; border-radius:4px; cursor:pointer;">全选/取消</button>
+                <button onclick="toggleSelectAllPhotos()" style="padding:8px 16px; background:#1890ff; color:white; border:none; border-radius:4px; cursor:pointer;">全选/取消</button>
+                <button onclick="deleteSelectedPhotos()" style="padding:8px 16px; background:#ff4d4f; color:white; border:none; border-radius:4px; cursor:pointer;">批量删除</button>
                 <button onclick="batchUpdateModal()" style="padding:8px 16px; background:#faad14; color:white; border:none; border-radius:4px; cursor:pointer;">批量更新</button>
             </div>
             <div style="margin-bottom:15px; display:flex; gap:10px;">
@@ -407,7 +408,7 @@
                 <table id="photos-table">
                     <thead>
                         <tr>
-                            <th><input type="checkbox" onclick="toggleSelectAll()" id="selectAllCheckbox"></th>
+                            <th><input type="checkbox" onclick="toggleSelectAllPhotos()" id="selectAllCheckbox"></th>
                             <th>照片预览</th>
                             <th>上传人</th>
                             <th>上传时间</th>
@@ -430,9 +431,15 @@
                 </table>
             </div>
             <div id="pagination" style="margin-top:15px; text-align:center;">
-                <button onclick="prevPage()" id="prevBtn" disabled style="padding:8px 16px; margin-right:5px; cursor:pointer;">上一页</button>
+                <button onclick="firstPage()" id="firstBtn" disabled style="padding:8px 12px; margin-right:5px; cursor:pointer;">首页</button>
+                <button onclick="prevPage()" id="prevBtn" disabled style="padding:8px 12px; margin-right:5px; cursor:pointer;">上一页</button>
                 <span id="pageInfo">第 1 页 / 共 1 页</span>
-                <button onclick="nextPage()" id="nextBtn" disabled style="padding:8px 16px; margin-left:5px; cursor:pointer;">下一页</button>
+                <span style="margin:0 10px;">
+                    <input type="number" id="pageInput" min="1" value="1" style="width:50px; padding:6px; text-align:center; border:1px solid #ddd; border-radius:4px;">
+                    <button onclick="goToPage()" style="padding:6px 12px; cursor:pointer;">跳转</button>
+                </span>
+                <button onclick="nextPage()" id="nextBtn" disabled style="padding:8px 12px; margin-left:5px; cursor:pointer;">下一页</button>
+                <button onclick="lastPage()" id="lastBtn" disabled style="padding:8px 12px; margin-left:5px; cursor:pointer;">尾页</button>
             </div>
         </div>
         

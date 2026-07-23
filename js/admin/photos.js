@@ -68,7 +68,7 @@ function renderPhotos(photos) {
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.className = 'photo-checkbox';
-        checkbox.value = photo.id;
+        checkbox.value = photo.filename;
         checkboxCell.appendChild(checkbox);
         row.appendChild(checkboxCell);
         
@@ -160,7 +160,7 @@ function renderPhotos(photos) {
         const deleteButton = document.createElement('button');
         deleteButton.className = 'btn btn-danger';
         deleteButton.textContent = '删除';
-        deleteButton.onclick = () => deletePhoto(photo.id);
+        deleteButton.onclick = () => deletePhoto(photo.filename);
         actionButtons.appendChild(deleteButton);
         
         actionCell.appendChild(actionButtons);
@@ -172,8 +172,24 @@ function renderPhotos(photos) {
 
 function updatePagination() {
     document.getElementById('pageInfo').textContent = `第 ${currentPage} 页 / 共 ${totalPages} 页`;
-    document.getElementById('prevBtn').disabled = currentPage <= 1;
-    document.getElementById('nextBtn').disabled = currentPage >= totalPages;
+    document.getElementById('pageInput').value = currentPage;
+    document.getElementById('pageInput').max = totalPages;
+    
+    const firstBtn = document.getElementById('firstBtn');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const lastBtn = document.getElementById('lastBtn');
+    
+    if (firstBtn) firstBtn.disabled = currentPage <= 1;
+    if (prevBtn) prevBtn.disabled = currentPage <= 1;
+    if (nextBtn) nextBtn.disabled = currentPage >= totalPages;
+    if (lastBtn) lastBtn.disabled = currentPage >= totalPages;
+}
+
+function firstPage() {
+    if (currentPage > 1) {
+        loadPhotos(1);
+    }
 }
 
 function prevPage() {
@@ -185,6 +201,24 @@ function prevPage() {
 function nextPage() {
     if (currentPage < totalPages) {
         loadPhotos(currentPage + 1);
+    }
+}
+
+function lastPage() {
+    if (currentPage < totalPages) {
+        loadPhotos(totalPages);
+    }
+}
+
+function goToPage() {
+    const pageInput = document.getElementById('pageInput');
+    const targetPage = parseInt(pageInput.value);
+    
+    if (!isNaN(targetPage) && targetPage >= 1 && targetPage <= totalPages) {
+        loadPhotos(targetPage);
+    } else {
+        showMessage(`请输入有效的页码（1-${totalPages}）`, 'error');
+        pageInput.value = currentPage;
     }
 }
 
@@ -323,7 +357,7 @@ function deleteSelectedPhotos() {
 }
 
 function toggleSelectAllPhotos() {
-    const selectAll = document.getElementById('selectAllPhotos');
+    const selectAll = document.getElementById('selectAllCheckbox');
     document.querySelectorAll('.photo-checkbox').forEach(checkbox => {
         checkbox.checked = selectAll.checked;
     });
