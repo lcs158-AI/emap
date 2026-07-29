@@ -259,106 +259,79 @@ popup.getElement().className = 'ol-popup';
 map.addOverlay(popup);
 popup.getElement().style.display = 'none';
 
-map.on('click', function (evt) {
-    if (measureActive) return;
-    
-    // 检查是否点击了世界杯图层，如果是则跳过（由worldcup.js处理）
-    if (typeof worldCupLayer !== 'undefined' && worldCupLayer && worldCupLayer.getVisible()) {
-        const worldCupFeature = map.forEachFeatureAtPixel(evt.pixel, f => f, {
-            layerFilter: (layer) => layer === worldCupLayer
-        });
-        if (worldCupFeature) return;
-    }
-    
-    const feature = map.forEachFeatureAtPixel(evt.pixel, f => f);
-    if (feature) {
-        
-        if (positionLayer && positionLayer.getSource().getFeatures().includes(feature)) return;
+/**
+ * 显示要素弹出框
+ */
+function showFeaturePopup(feature, coordinate) {
+    const layer = feature.get('layer');
+    let content = '';
 
-        // 获取点击位置的实际地图坐标（用于弹出框定位）
-        const coordinate = map.getCoordinateFromPixel(evt.pixel);
-
-        const layer = feature.get('layer');
-        let content = '';
-
-        if (layer && layer.linkField) {
-            const imgFile = feature.get(layer.linkField);
-            if (imgFile) {
-                const labelText = layer.labelField ? feature.get(layer.labelField) : '';
-                // 使用路径前缀拼接完整路径，如果没有设置则默认使用 /pics/
-                const pathPrefix = layer.linkPathPrefix || '/pics/';
-                // 确保路径前缀以 / 结尾
-                const normalizedPrefix = pathPrefix.endsWith('/') ? pathPrefix : pathPrefix + '/';
-                
-                // 检查imgFile是否已经包含路径前缀，如果包含则直接使用
-                let fullPath;
-                if (imgFile.startsWith('/') || imgFile.includes('/')) {
-                    // 如果imgFile已经是完整路径或包含路径，则直接使用
-                    fullPath = imgFile;
-                } else {
-                    // 否则添加路径前缀
-                    fullPath = normalizedPrefix + imgFile;
-                }
-                
-                // 检测是否为本地文件路径
-                const isLocalPath = fullPath.startsWith('file:///') || /^[a-zA-Z]:[\\/]/.test(fullPath);
-                
-                if (isLocalPath) {
-                    // 本地文件路径，显示警告信息
-                    content = `
-                        <div class="popup-content" style="position: relative;">
-                            <button onclick="closePopup()" style="position: absolute; top: -10px; right: -10px; width: 24px; height: 24px; border: none; background: #ff4d4f; color: white; border-radius: 50%; cursor: pointer; font-size: 14px; line-height: 24px; text-align: center; padding: 0; z-index: 10;">×</button>
-                            <b>${labelText}</b><br>
-                            <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; padding: 10px; margin-top: 8px; font-size: 12px; color: #856404;">
-                                <b>⚠️ 无法加载本地图片</b><br>
-                                浏览器安全策略阻止访问本地文件。<br><br>
-                                <b>解决方案：</b><br>
-                                1. 使用本地 Web 服务器访问<br>
-                                2. 将图片复制到网站 /pics/ 目录<br>
-                                3. 使用相对路径（如 ../pics/）<br><br>
-                                <b>当前路径：</b><br>
-                                ${fullPath}
-                            </div>
-                        </div>
-                    `;
-                } else {
-                    // 网络路径，正常显示图片，添加点击查看大图功能
-                    content = `
-                        <div class="popup-content" style="text-align: center; position: relative;">
-                            <button onclick="closePopup()" style="position: absolute; top: -10px; right: -10px; width: 24px; height: 24px; border: none; background: #ff4d4f; color: white; border-radius: 50%; cursor: pointer; font-size: 14px; line-height: 24px; text-align: center; padding: 0; z-index: 10;">×</button>
-                            <b>${labelText}</b><br>
-                            <div class="popup-image-container" style="position: relative; margin-top: 8px; cursor: zoom-in; display: inline-block;" onclick="openImageViewer('${fullPath}', '${labelText}')">
-                                <img src="${fullPath}" alt="照片" style="max-width: 100%; max-height: 400px; border-radius: 4px; display: block; margin: 0 auto;" onerror="this.onerror=null; this.parentElement.parentElement.innerHTML='<button onclick=\\'closePopup()\\' style=\\'position:absolute;top:-10px;right:-10px;width:24px;height:24px;border:none;background:#ff4d4f;color:white;border-radius:50%;cursor:pointer;font-size:14px;line-height:24px;text-align:center;padding:0;z-index:10;\\'>×</button><b>${labelText}</b><br><div style=\\'background:#f8d7da;border:1px solid #f5c6cb;border-radius:4px;padding:10px;margin-top:8px;font-size:12px;color:#721c24;\\'>❌ 图片加载失败<br>路径：${fullPath}</div>';">
-                                <div style="position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.6); color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; pointer-events: none;">
-                                    🔍 点击查看大图
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                }
+    if (layer && layer.linkField) {
+        const imgFile = feature.get(layer.linkField);
+        if (imgFile) {
+            const labelText = layer.labelField ? feature.get(layer.labelField) : '';
+            const pathPrefix = layer.linkPathPrefix || '/pics/';
+            const normalizedPrefix = pathPrefix.endsWith('/') ? pathPrefix : pathPrefix + '/';
+            
+            let fullPath;
+            if (imgFile.startsWith('/') || imgFile.includes('/')) {
+                fullPath = imgFile;
             } else {
-                const labelText = layer.labelField ? feature.get(layer.labelField) : '';
-                content = `<div style="position: relative; padding-top: 5px;"><button onclick="closePopup()" style="position: absolute; top: -15px; right: -15px; width: 24px; height: 24px; border: none; background: #ff4d4f; color: white; border-radius: 50%; cursor: pointer; font-size: 14px; line-height: 24px; text-align: center; padding: 0; z-index: 10;">×</button><b>${labelText}</b></div>`;
+                fullPath = normalizedPrefix + imgFile;
             }
-        }
-        else if (layer && layer.labelField) {
-            const labelText = feature.get(layer.labelField);
-            content = `<div style="position: relative; padding-top: 5px;"><button onclick="closePopup()" style="position: absolute; top: -15px; right: -15px; width: 24px; height: 24px; border: none; background: #ff4d4f; color: white; border-radius: 50%; cursor: pointer; font-size: 14px; line-height: 24px; text-align: center; padding: 0; z-index: 10;">×</button><b>${labelText}</b></div>`;
-        } else if (feature.get('DD')) {
-            const labelText = feature.get('DD');
-            content = `<div style="position: relative; padding-top: 5px;"><button onclick="closePopup()" style="position: absolute; top: -15px; right: -15px; width: 24px; height: 24px; border: none; background: #ff4d4f; color: white; border-radius: 50%; cursor: pointer; font-size: 14px; line-height: 24px; text-align: center; padding: 0; z-index: 10;">×</button><b>${labelText}</b></div>`;
+            
+            const isLocalPath = fullPath.startsWith('file:///') || /^[a-zA-Z]:[\\/]/.test(fullPath);
+            
+            if (isLocalPath) {
+                content = `
+                    <div class="popup-content" style="position: relative;">
+                        <button onclick="closePopup()" style="position: absolute; top: -10px; right: -10px; width: 24px; height: 24px; border: none; background: #ff4d4f; color: white; border-radius: 50%; cursor: pointer; font-size: 14px; line-height: 24px; text-align: center; padding: 0; z-index: 10;">×</button>
+                        <b>${labelText}</b><br>
+                        <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; padding: 10px; margin-top: 8px; font-size: 12px; color: #856404;">
+                            <b>⚠️ 无法加载本地图片</b><br>
+                            浏览器安全策略阻止访问本地文件。<br><br>
+                            <b>解决方案：</b><br>
+                            1. 使用本地 Web 服务器访问<br>
+                            2. 将图片复制到网站 /pics/ 目录<br>
+                            3. 使用相对路径（如 ../pics/）<br><br>
+                            <b>当前路径：</b><br>
+                            ${fullPath}
+                        </div>
+                    </div>
+                `;
+            } else {
+                content = `
+                    <div class="popup-content" style="text-align: center; position: relative;">
+                        <button onclick="closePopup()" style="position: absolute; top: -10px; right: -10px; width: 24px; height: 24px; border: none; background: #ff4d4f; color: white; border-radius: 50%; cursor: pointer; font-size: 14px; line-height: 24px; text-align: center; padding: 0; z-index: 10;">×</button>
+                        <b>${labelText}</b><br>
+                        <div class="popup-image-container" style="position: relative; margin-top: 8px; cursor: zoom-in; display: inline-block;" onclick="openImageViewer('${fullPath}', '${labelText}')">
+                            <img src="${fullPath}" alt="照片" style="max-width: 100%; max-height: 400px; border-radius: 4px; display: block; margin: 0 auto;" onerror="this.onerror=null; this.parentElement.parentElement.innerHTML='<button onclick=\\'closePopup()\\' style=\\'position:absolute;top:-10px;right:-10px;width:24px;height:24px;border:none;background:#ff4d4f;color:white;border-radius:50%;cursor:pointer;font-size:14px;line-height:24px;text-align:center;padding:0;z-index:10;\\'>×</button><b>${labelText}</b><br><div style=\\'background:#f8d7da;border:1px solid #f5c6cb;border-radius:4px;padding:10px;margin-top:8px;font-size:12px;color:#721c24;\\'>❌ 图片加载失败<br>路径：${fullPath}</div>';">
+                            <div style="position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.6); color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; pointer-events: none;">
+                                🔍 点击查看大图
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
         } else {
-            content = `<div style="position: relative; padding-top: 5px;"><button onclick="closePopup()" style="position: absolute; top: -15px; right: -15px; width: 24px; height: 24px; border: none; background: #ff4d4f; color: white; border-radius: 50%; cursor: pointer; font-size: 14px; line-height: 24px; text-align: center; padding: 0; z-index: 10;">×</button><b>要素</b></div>`;
+            const labelText = layer.labelField ? feature.get(layer.labelField) : '';
+            content = `<div style="position: relative; padding-top: 5px;"><button onclick="closePopup()" style="position: absolute; top: -15px; right: -15px; width: 24px; height: 24px; border: none; background: #ff4d4f; color: white; border-radius: 50%; cursor: pointer; font-size: 14px; line-height: 24px; text-align: center; padding: 0; z-index: 10;">×</button><b>${labelText}</b></div>`;
         }
-
-        popup.getElement().innerHTML = content;
-        popup.setPosition(coordinate);
-        popup.getElement().style.display = 'block';
-    } else {
-        popup.setPosition(undefined);
-        popup.getElement().style.display = 'none';
     }
-});
+    else if (layer && layer.labelField) {
+        const labelText = feature.get(layer.labelField);
+        content = `<div style="position: relative; padding-top: 5px;"><button onclick="closePopup()" style="position: absolute; top: -15px; right: -15px; width: 24px; height: 24px; border: none; background: #ff4d4f; color: white; border-radius: 50%; cursor: pointer; font-size: 14px; line-height: 24px; text-align: center; padding: 0; z-index: 10;">×</button><b>${labelText}</b></div>`;
+    } else if (feature.get('DD')) {
+        const labelText = feature.get('DD');
+        content = `<div style="position: relative; padding-top: 5px;"><button onclick="closePopup()" style="position: absolute; top: -15px; right: -15px; width: 24px; height: 24px; border: none; background: #ff4d4f; color: white; border-radius: 50%; cursor: pointer; font-size: 14px; line-height: 24px; text-align: center; padding: 0; z-index: 10;">×</button><b>${labelText}</b></div>`;
+    } else {
+        content = `<div style="position: relative; padding-top: 5px;"><button onclick="closePopup()" style="position: absolute; top: -15px; right: -15px; width: 24px; height: 24px; border: none; background: #ff4d4f; color: white; border-radius: 50%; cursor: pointer; font-size: 14px; line-height: 24px; text-align: center; padding: 0; z-index: 10;">×</button><b>要素</b></div>`;
+    }
+
+    popup.getElement().innerHTML = content;
+    popup.setPosition(coordinate);
+    popup.getElement().style.display = 'block';
+}
 
 map.on('dblclick', function () {
     if (measureActive) return;
@@ -7460,37 +7433,40 @@ function initCitySearch() {
             return;
         }
         
-        if (clickWeatherActive) {
-            const coordinate = evt.coordinate;
-            const lonlat = ol.proj.toLonLat(coordinate);
-            searchNearbyCity(lonlat[1], lonlat[0]);
-            return;
-        }
-        
-        const pixel = evt.pixel;
-        const layers = map.getLayers().getArray();
-        let clickedOnFeature = false;
-        
-        for (let i = layers.length - 1; i >= 0; i--) {
-            const layer = layers[i];
-            if (layer.get('name') === '气温热力图') {
-                continue;
-            }
-            
-            const feature = map.forEachFeatureAtPixel(pixel, (feature) => feature, {
-                layerFilter: (layerCand) => layerCand === layer
+        // 检查是否点击了世界杯图层
+        if (typeof worldCupLayer !== 'undefined' && worldCupLayer && worldCupLayer.getVisible()) {
+            const worldCupFeature = map.forEachFeatureAtPixel(evt.pixel, f => f, {
+                layerFilter: (layer) => layer === worldCupLayer
             });
-            
-            if (feature) {
-                clickedOnFeature = true;
-                break;
-            }
+            if (worldCupFeature) return;
         }
         
-        if (!clickedOnFeature) {
-            const coordinate = evt.coordinate;
-            const lonlat = ol.proj.toLonLat(coordinate);
-            searchNearbyCity(lonlat[1], lonlat[0]);
+        const feature = map.forEachFeatureAtPixel(evt.pixel, f => f);
+        
+        if (feature) {
+            // 点击了要素
+            if (positionLayer && positionLayer.getSource().getFeatures().includes(feature)) {
+                return;
+            }
+            
+            // 显示要素信息
+            showFeaturePopup(feature, evt.coordinate);
+            
+            // 如果是天气模式，同时查询该点天气
+            if (clickWeatherActive) {
+                const lonlat = ol.proj.toLonLat(evt.coordinate);
+                searchNearbyCity(lonlat[1], lonlat[0]);
+            }
+        } else {
+            // 点击了空白处
+            popup.setPosition(undefined);
+            popup.getElement().style.display = 'none';
+            
+            // 只有在天气模式下才查询天气
+            if (clickWeatherActive) {
+                const lonlat = ol.proj.toLonLat(evt.coordinate);
+                searchNearbyCity(lonlat[1], lonlat[0]);
+            }
         }
     });
 }
