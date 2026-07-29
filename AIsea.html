@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes">
-    <title>跬步地图2.95</title>
+    <title>跬步地图2.96</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.5.2/ol.css">
     <script src="/js/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
@@ -22,7 +22,8 @@
             <button id="myBtn" class="action-btn" data-title="我的">👤</button>
             <div id="myDropdown" class="dropdown-menu" style="display: none;">
                 <button id="locateBtn" class="dropdown-btn" data-title="显示我的位置">📍 定位</button>
-                <button id="uploadBtn" class="dropdown-btn" data-title="上传图片">📤 上传</button>
+                <button id="loginUploadBtn" class="dropdown-btn" data-title="登录后上传图片">🔐 登录</button>
+                <button id="logoutBtn" class="dropdown-btn" data-title="退出登录" style="display:none;">🚪 退出</button>
             </div>
         </div>
         <button id="switchBaseMapBtn" class="action-btn" data-title="切换底图">🗺️</button>
@@ -95,6 +96,13 @@
         }
         .dropdown-btn:hover {
             background-color: #f0f0f0;
+        }
+        .dropdown-btn.active {
+            background-color: #096dd9;
+            color: white;
+        }
+        .dropdown-btn.active:hover {
+            background-color: #0050b3;
         }
     </style>
     <!-- 隐藏的 GeoJSON、KML、KMZ 和 GML 文件上传输入框 -->

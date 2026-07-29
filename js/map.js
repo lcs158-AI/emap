@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
@@ -492,6 +492,29 @@ map.getInteractions().forEach(function (interaction) {
     }
 });
 
+function updateMainButtonStates() {
+    const measureMainBtn = document.getElementById('measureMainBtn');
+    const weatherMainBtn = document.getElementById('weatherMainBtn');
+    
+    if (measureMainBtn) {
+        if (measureActive) {
+            measureMainBtn.classList.add('active');
+        } else {
+            measureMainBtn.classList.remove('active');
+        }
+    }
+    
+    if (weatherMainBtn) {
+        if (searchActive || clickWeatherActive || 
+            (typeof windDataVisible !== 'undefined' && windDataVisible) || 
+            (typeof temperatureDataVisible !== 'undefined' && temperatureDataVisible)) {
+            weatherMainBtn.classList.add('active');
+        } else {
+            weatherMainBtn.classList.remove('active');
+        }
+    }
+}
+
 function deactivateAllTools() {
     if (measureActive) {
         deactivateMeasurement();
@@ -508,6 +531,7 @@ function deactivateAllTools() {
     if (drawMode) {
         stopDraw();
     }
+    updateMainButtonStates();
 }
 
 function deactivateSearch() {
@@ -518,6 +542,7 @@ function deactivateSearch() {
     if (citySearchWrapper) {
         citySearchWrapper.style.display = 'none';
     }
+    updateMainButtonStates();
 }
 
 function toggleClickWeather() {
@@ -533,6 +558,7 @@ function toggleClickWeather() {
             clickWeatherBtn.classList.add('active');
         }
     }
+    updateMainButtonStates();
 }
 
 function deactivateMeasurement() {
@@ -548,6 +574,7 @@ function deactivateMeasurement() {
     measureLengthBtn.classList.remove('active');
     measureAreaBtn.classList.remove('active');
     if (dblClickZoomInteraction) dblClickZoomInteraction.setActive(true);
+    updateMainButtonStates();
 }
 
 function activateMeasurement(type) {
@@ -638,6 +665,7 @@ function activateMeasurement(type) {
     });
 
     map.addInteraction(measureDraw);
+    updateMainButtonStates();
 }
 
 measureLengthBtn.addEventListener('click', function () {
@@ -5719,6 +5747,7 @@ async function loadWindData() {
                     windDataVisible = true;
                     const windBtn = document.getElementById('toggleWindBtn');
                     if (windBtn) windBtn.classList.add('active');
+                    updateMainButtonStates();
                     console.log('粒子风场加载成功');
                     if (loadingPanel) loadingPanel.style.display = 'none';
                 } else {
@@ -5736,6 +5765,7 @@ async function loadWindData() {
                     // 更新按钮状态
                     const windBtn = document.getElementById('toggleWindBtn');
                     if (windBtn) windBtn.classList.add('active');
+                    updateMainButtonStates();
                     
                     console.log('风场数据加载成功');
                     if (loadingPanel) loadingPanel.style.display = 'none';
@@ -5777,6 +5807,7 @@ function hideWindLayer() {
     
     const windBtn = document.getElementById('toggleWindBtn');
     if (windBtn) windBtn.classList.remove('active');
+    updateMainButtonStates();
 }
 
 // 切换风场显示
@@ -6570,28 +6601,80 @@ function showLayerConfigExportDialog(content) {
 }
 // ==================== 集成侧边栏上传功能 ====================
 (function() {
-    const uploadBtn = document.getElementById('uploadBtn');
+    const loginUploadBtn = document.getElementById('loginUploadBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
     
-    if (uploadBtn) {
-        uploadBtn.addEventListener('click', function(e) {
-            e.stopPropagation(); // 防止冒泡关闭下拉菜单
+    function updateLoginButton() {
+        const token = localStorage.getItem('access_token');
+        const username = localStorage.getItem('username');
+        if (token && username) {
+            if (loginUploadBtn) {
+                loginUploadBtn.textContent = '📤 上传';
+                loginUploadBtn.setAttribute('data-title', '上传图片');
+            }
+            if (logoutBtn) {
+                logoutBtn.style.display = 'block';
+                logoutBtn.textContent = `🚪 退出 (${username})`;
+            }
+        } else {
+            if (loginUploadBtn) {
+                loginUploadBtn.textContent = '🔐 登录';
+                loginUploadBtn.setAttribute('data-title', '登录后上传图片');
+            }
+            if (logoutBtn) {
+                logoutBtn.style.display = 'none';
+            }
+        }
+    }
+    updateLoginButton();
+    
+    if (loginUploadBtn) {
+        loginUploadBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
             
-            // 检查 AIsea.html 中是否已定义打开侧边栏的函数
-            if (typeof window.openUploadSidebar === 'function') {
-                window.openUploadSidebar();
+            const token = localStorage.getItem('access_token');
+            const username = localStorage.getItem('username');
+            
+            if (token && username) {
+                if (typeof window.openUploadSidebar === 'function') {
+                    window.openUploadSidebar();
+                }
             } else {
-                console.warn('未找到 openUploadSidebar 函数，请检查 AIsea.html 是否正确加载了侧边栏脚本。');
-                // 备选方案：如果侧边栏没好，可以暂时 alert 提示
-                // alert('侧边栏功能暂未就绪');
+                if (confirm('需要登录后才能上传照片，是否前往登录？')) {
+                    window.location.href = 'admin.html';
+                }
             }
             
-            // 手动关闭“我的”下拉菜单（因为 stopPropagation 阻止了全局点击关闭）
             const myDropdown = document.getElementById('myDropdown');
             if (myDropdown) {
                 myDropdown.style.display = 'none';
             }
         });
     }
+    
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            
+            if (confirm('确定要退出登录吗？')) {
+                localStorage.removeItem('access_token');
+                localStorage.removeItem('username');
+                updateLoginButton();
+                alert('已退出登录');
+            }
+            
+            const myDropdown = document.getElementById('myDropdown');
+            if (myDropdown) {
+                myDropdown.style.display = 'none';
+            }
+        });
+    }
+    
+    window.addEventListener('storage', function(e) {
+        if (e.key === 'access_token' || e.key === 'username') {
+            updateLoginButton();
+        }
+    });
 })();
 
 // ==================== 潮汐数据获取 ====================
@@ -7038,6 +7121,7 @@ async function toggleTemperatureHeatmap() {
         
         const tempBtn = document.getElementById('toggleTemperatureBtn');
         if (tempBtn) tempBtn.classList.remove('active');
+        updateMainButtonStates();
         
         const weatherDropdown = document.getElementById('weatherDropdown');
         if (weatherDropdown) weatherDropdown.style.display = 'none';
@@ -7066,6 +7150,7 @@ async function toggleTemperatureHeatmap() {
                 
                 const tempBtn = document.getElementById('toggleTemperatureBtn');
                 if (tempBtn) tempBtn.classList.add('active');
+                updateMainButtonStates();
                 
                 if (loadingPanel) loadingPanel.style.display = 'none';
                 
@@ -7407,6 +7492,7 @@ function initCitySearch() {
                         searchInput.focus();
                     }
                 }
+                updateMainButtonStates();
             }
         });
     }
@@ -7430,7 +7516,6 @@ function initCitySearch() {
         
         if (searchActive) {
             deactivateSearch();
-            return;
         }
         
         // 检查是否点击了世界杯图层
