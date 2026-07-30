@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
@@ -6917,6 +6917,104 @@ function selectCity(city) {
     });
     
     map.addLayer(cityMarker);
+    
+    fetchCityWeatherAndAir(lat, lon, name, country);
+}
+
+async function fetchCityWeatherAndAir(lat, lon, name, country) {
+    const panel = document.getElementById('cityWeatherPanel');
+    if (!panel) return;
+    
+    panel.style.display = 'block';
+    document.getElementById('cityWeatherTitle').textContent = `${name}, ${country || ''}`;
+    document.getElementById('cityWeatherCoords').textContent = `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+    
+    try {
+        const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code,relative_humidity_2m,wind_speed_10m,pressure_msl&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=1`;
+        const weatherResponse = await fetch(weatherUrl);
+        const weatherData = await weatherResponse.json();
+        
+        if (weatherData.current) {
+            const current = weatherData.current;
+            document.getElementById('cityWeatherIcon').textContent = getWeatherIcon(current.weather_code);
+            document.getElementById('cityWeatherTemp').textContent = `${Math.round(current.temperature_2m)}°C`;
+            document.getElementById('cityWeatherDesc').textContent = getWeatherDescription(current.weather_code);
+            document.getElementById('cityWeatherHumidity').textContent = `${current.relative_humidity_2m}%`;
+            document.getElementById('cityWeatherWind').textContent = `${current.wind_speed_10m} m/s`;
+            document.getElementById('cityWeatherPressure').textContent = `${Math.round(current.pressure_msl)} hPa`;
+        }
+        
+        if (weatherData.daily && weatherData.daily.temperature_2m_max) {
+            const max = Math.round(weatherData.daily.temperature_2m_max[0]);
+            const min = Math.round(weatherData.daily.temperature_2m_min[0]);
+            document.getElementById('cityWeatherTempRange').textContent = `${min}°C ~ ${max}°C`;
+        }
+    } catch (error) {
+        console.error('天气数据获取失败:', error);
+    }
+    
+    try {
+        const airUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=pm10,pm2_5,carbon_monoxide,sulphur_dioxide&timezone=auto`;
+        const airResponse = await fetch(airUrl);
+        const airData = await airResponse.json();
+        
+        if (airData.current) {
+            const current = airData.current;
+            const aqiSection = document.getElementById('cityAirQualitySection');
+            if (aqiSection) {
+                aqiSection.style.display = 'block';
+                
+                const pm25 = current.pm2_5 != null ? current.pm2_5.toFixed(1) : '--';
+                const pm10 = current.pm10 != null ? current.pm10.toFixed(1) : '--';
+                const co = current.carbon_monoxide != null ? current.carbon_monoxide.toFixed(1) : '--';
+                const so2 = current.sulphur_dioxide != null ? current.sulphur_dioxide.toFixed(1) : '--';
+                
+                document.getElementById('cityAQIPM25').textContent = pm25;
+                document.getElementById('cityAQIPM10').textContent = pm10;
+                document.getElementById('cityAQICO').textContent = co;
+                document.getElementById('cityAQISO2').textContent = so2;
+                
+                const aqi = calculateAQI(pm25, pm10);
+                const levelDiv = document.getElementById('cityAirQualityLevel');
+                if (aqi <= 50) {
+                    levelDiv.textContent = '优';
+                    levelDiv.style.backgroundColor = '#52c41a';
+                    levelDiv.style.color = 'white';
+                } else if (aqi <= 100) {
+                    levelDiv.textContent = '良';
+                    levelDiv.style.backgroundColor = '#faad14';
+                    levelDiv.style.color = 'white';
+                } else if (aqi <= 150) {
+                    levelDiv.textContent = '轻度污染';
+                    levelDiv.style.backgroundColor = '#fa8c16';
+                    levelDiv.style.color = 'white';
+                } else if (aqi <= 200) {
+                    levelDiv.textContent = '中度污染';
+                    levelDiv.style.backgroundColor = '#f5222d';
+                    levelDiv.style.color = 'white';
+                } else {
+                    levelDiv.textContent = '重度污染';
+                    levelDiv.style.backgroundColor = '#722ed1';
+                    levelDiv.style.color = 'white';
+                }
+            }
+        }
+    } catch (error) {
+        console.error('空气质量数据获取失败:', error);
+        const aqiSection = document.getElementById('cityAirQualitySection');
+        if (aqiSection) {
+            aqiSection.style.display = 'none';
+        }
+    }
+}
+
+function calculateAQI(pm25Str, pm10Str) {
+    const pm25 = parseFloat(pm25Str);
+    const pm10 = parseFloat(pm10Str);
+    if (isNaN(pm25) && isNaN(pm10)) return 0;
+    if (isNaN(pm25)) return Math.min(Math.round(pm10), 500);
+    if (isNaN(pm10)) return Math.min(Math.round(pm25 * 1.5), 500);
+    return Math.min(Math.round(Math.max(pm25 * 1.5, pm10)), 500);
 }
 
 function closeCityWeatherPanel() {
@@ -7037,21 +7135,53 @@ function initCitySearch() {
 }
 
 async function searchNearbyCity(lat, lon) {
+    let cityName = '未知位置';
+    let countryName = '';
+    
     try {
         const proxyUrl = `${window.API_BASE_URL}/api/proxy/reverse-geocode?lon=${lon}&lat=${lat}`;
         const response = await fetch(proxyUrl);
         const data = await response.json();
         
         if (data.code === '200' && data.location && data.location.length > 0) {
+            const loc = data.location[0];
+            cityName = loc.name || loc.formatted_address || '未知位置';
+            countryName = loc.country || '';
+            
             map.getView().animate({
                 center: ol.proj.fromLonLat([lon, lat]),
                 zoom: 10,
                 duration: 1000
             });
+            
+            if (cityMarker) {
+                map.removeLayer(cityMarker);
+            }
+            
+            const markerSource = new ol.source.Vector({
+                features: [new ol.Feature({
+                    geometry: new ol.geom.Point(ol.proj.fromLonLat([lon, lat]))
+                })]
+            });
+            
+            cityMarker = new ol.layer.Vector({
+                source: markerSource,
+                style: new ol.style.Style({
+                    image: new ol.style.Icon({
+                        src: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0OCA0OCI+PHBhdGggZmlsbD0iIzE4OTBmZiIgZD0iTTI0IDRjLTExLjYgMC0yMSA5LjQtMjEgMjFzOS40IDIxIDIxIDIxIDIxLTkuNCAyMS0yMS05LjQtMjEtMjEtMjF6bTAgMzJjLTYuMSAwLTExLTQuOS0xMS0xMWMwLTYuMSA0LjktMTEgMTEtMTFzMTEgNC45IDExIDExYzAgNi4xLTQuOSAxMS0xMSAxMXoiLz48cGF0aCBmaWxsPSIjZmZmIiBkPSJNNDIgMTJoLTJWMTRjMC0yLjItMS44LTQtNC00aC00di0yaC00djItNGgtNHYySDhjLTYuNiAwLTEyIDUuNC0xMiAxMnYxNmMwIDYuNiA1LjQgMTIgMTIgMTJoMjhjNi42IDAgMTItNS40IDEyLTEydi0xNmMwLTYuNi01LjQtMTItMTItMTJoLTJoLTEydi0yaC0ydi0yaC00di0yaC00di0yaC00em0tMjIgOHY0aDZ2LTJoLTZ6Ii8+PC9zdmc+',
+                        anchor: [0.5, 1],
+                        scale: 1.2
+                    })
+                })
+            });
+            
+            map.addLayer(cityMarker);
         }
     } catch (error) {
         console.warn('逆地理编码失败:', error);
     }
+    
+    fetchCityWeatherAndAir(lat, lon, cityName, countryName);
 }
 
 if (document.readyState === 'loading') {
