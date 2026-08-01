@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
@@ -7134,52 +7134,134 @@ function initCitySearch() {
     });
 }
 
+// 全球城市数据库（从cities.json加载）
+let globalCitiesCache = null;
+
+async function loadGlobalCities() {
+    if (globalCitiesCache) return globalCitiesCache;
+    try {
+        const response = await fetch('js/cities.json');
+        const geojson = await response.json();
+        globalCitiesCache = geojson.features.map(f => ({
+            name: f.properties.name,
+            english: f.properties.english,
+            country: f.properties.country,
+            lat: f.geometry.coordinates[1],
+            lon: f.geometry.coordinates[0]
+        }));
+        return globalCitiesCache;
+    } catch (e) {
+        console.warn('加载城市数据库失败:', e);
+        return [];
+    }
+}
+
+// 通过坐标查找最近城市（Haversine距离）
+function findNearestCity(lat, lon, cities) {
+    if (!cities || cities.length === 0) return null;
+    
+    let nearest = null;
+    let minDist = Infinity;
+    
+    for (const city of cities) {
+        const dLat = (city.lat - lat) * Math.PI / 180;
+        const dLon = (city.lon - lon) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) ** 2 +
+                  Math.cos(lat * Math.PI / 180) * Math.cos(city.lat * Math.PI / 180) *
+                  Math.sin(dLon / 2) ** 2;
+        const dist = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        
+        if (dist < minDist) {
+            minDist = dist;
+            nearest = { ...city, distance: dist };
+        }
+    }
+    
+    return nearest;
+}
+
 async function searchNearbyCity(lat, lon) {
     let cityName = '未知位置';
     let countryName = '';
     
-    try {
-        const proxyUrl = `${window.API_BASE_URL}/api/proxy/reverse-geocode?lon=${lon}&lat=${lat}`;
-        const response = await fetch(proxyUrl);
-        const data = await response.json();
-        
-        if (data.code === '200' && data.location && data.location.length > 0) {
-            const loc = data.location[0];
-            cityName = loc.name || loc.formatted_address || '未知位置';
-            countryName = loc.country || '';
-            
-            map.getView().animate({
-                center: ol.proj.fromLonLat([lon, lat]),
-                zoom: 10,
-                duration: 1000
-            });
-            
-            if (cityMarker) {
-                map.removeLayer(cityMarker);
-            }
-            
-            const markerSource = new ol.source.Vector({
-                features: [new ol.Feature({
-                    geometry: new ol.geom.Point(ol.proj.fromLonLat([lon, lat]))
-                })]
-            });
-            
-            cityMarker = new ol.layer.Vector({
-                source: markerSource,
-                style: new ol.style.Style({
-                    image: new ol.style.Icon({
-                        src: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0OCA0OCI+PHBhdGggZmlsbD0iIzE4OTBmZiIgZD0iTTI0IDRjLTExLjYgMC0yMSA5LjQtMjEgMjFzOS40IDIxIDIxIDIxIDIxLTkuNCAyMS0yMS05LjQtMjEtMjEtMjF6bTAgMzJjLTYuMSAwLTExLTQuOS0xMS0xMWMwLTYuMSA0LjktMTEgMTEtMTFzMTEgNC45IDExIDExYzAgNi4xLTQuOSAxMS0xMSAxMXoiLz48cGF0aCBmaWxsPSIjZmZmIiBkPSJNNDIgMTJoLTJWMTRjMC0yLjItMS44LTQtNC00aC00di0yaC00djItNGgtNHYySDhjLTYuNiAwLTEyIDUuNC0xMiAxMnYxNmMwIDYuNiA1LjQgMTIgMTIgMTJoMjhjNi42IDAgMTItNS40IDEyLTEydi0xNmMwLTYuNi01LjQtMTItMTItMTJoLTJoLTEydi0yaC0ydi0yaC00di0yaC00di0yaC00em0tMjIgOHY0aDZ2LTJoLTZ6Ii8+PC9zdmc+',
-                        anchor: [0.5, 1],
-                        scale: 1.2
-                    })
-                })
-            });
-            
-            map.addLayer(cityMarker);
-        }
-    } catch (error) {
-        console.warn('逆地理编码失败:', error);
+    // 1. 优先使用本地城市数据库查找最近城市
+    const cities = await loadGlobalCities();
+    const nearest = findNearestCity(lat, lon, cities);
+    if (nearest && nearest.distance < 200) {
+        cityName = nearest.name;
+        countryName = nearest.country;
     }
+    
+    // 2. 本地数据库未匹配，尝试和风天气逆地理编码（中国境内效果好）
+    if (cityName === '未知位置') {
+        try {
+            const proxyUrl = `${window.API_BASE_URL}/api/proxy/reverse-geocode?lon=${lon}&lat=${lat}`;
+            const response = await fetch(proxyUrl);
+            const data = await response.json();
+            
+            if (data.code === '200' && data.location && data.location.length > 0) {
+                const loc = data.location[0];
+                const name = loc.name || '';
+                if (name && name !== '未知地点') {
+                    cityName = name;
+                    countryName = loc.country || '';
+                }
+            }
+        } catch (error) {
+            console.warn('和风天气逆地理编码失败:', error);
+        }
+    }
+    
+    // 3. 仍未匹配，回退 OpenStreetMap Nominatim（全球支持）
+    if (cityName === '未知位置') {
+        try {
+            const nomUrl = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&zoom=10&accept-language=zh-CN`;
+            const nomResponse = await fetch(nomUrl, {
+                headers: { 'Accept': 'application/json' }
+            });
+            const nomData = await nomResponse.json();
+            
+            if (nomData && nomData.address) {
+                const addr = nomData.address;
+                cityName = addr.city || addr.town || addr.village || 
+                           addr.municipality || addr.county || addr.state || 
+                           nomData.name || '未知位置';
+                countryName = addr.country || '';
+            }
+        } catch (error) {
+            console.warn('Nominatim逆地理编码失败:', error);
+        }
+    }
+    
+    // 4. 移动地图并添加标记
+    map.getView().animate({
+        center: ol.proj.fromLonLat([lon, lat]),
+        zoom: 10,
+        duration: 1000
+    });
+    
+    if (cityMarker) {
+        map.removeLayer(cityMarker);
+    }
+    
+    const markerSource = new ol.source.Vector({
+        features: [new ol.Feature({
+            geometry: new ol.geom.Point(ol.proj.fromLonLat([lon, lat]))
+        })]
+    });
+    
+    cityMarker = new ol.layer.Vector({
+        source: markerSource,
+        style: new ol.style.Style({
+            image: new ol.style.Icon({
+                src: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0OCA0OCI+PHBhdGggZmlsbD0iIzE4OTBmZiIgZD0iTTI0IDRjLTExLjYgMC0yMSA5LjQtMjEgMjFzOS40IDIxIDIxIDIxIDIxLTkuNCAyMS0yMS05LjQtMjEtMjEtMjF6bTAgMzJjLTYuMSAwLTExLTQuOS0xMS0xMWMwLTYuMSA0LjktMTEgMTEtMTFzMTEgNC45IDExIDExYzAgNi4xLTQuOSAxMS0xMSAxMXoiLz48cGF0aCBmaWxsPSIjZmZmIiBkPSJNNDIgMTJoLTJWMTRjMC0yLjItMS44LTQtNC00aC00di0yaC00djItNGgtNHYySDhjLTYuNiAwLTEyIDUuNC0xMiAxMnYxNmMwIDYuNiA1LjQgMTIgMTIgMTJoMjhjNi42IDAgMTItNS40IDEyLTEydi0xNmMwLTYuNi01LjQtMTItMTItMTJoLTJoLTEydi0yaC0ydi0yaC04di0yaC04di0yaC04em0tMjIgOHY0aDZ2LTJoLTZ6Ii8+PC9zdmc+',
+                anchor: [0.5, 1],
+                scale: 1.2
+            })
+        })
+    });
+    
+    map.addLayer(cityMarker);
     
     fetchCityWeatherAndAir(lat, lon, cityName, countryName);
 }
