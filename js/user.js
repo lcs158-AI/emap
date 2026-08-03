@@ -533,14 +533,6 @@ function initLogin() {
                 
                 // 可选：登录成功后刷新地图图层
                 if (typeof window.loadRemoteLayers === 'function') window.loadRemoteLayers();
-                
-                // 检查是否从admin.html跳转过来，如果是则返回admin.html
-                const referrer = document.referrer;
-                if (referrer.includes('admin.html')) {
-                    setTimeout(() => {
-                        window.location.href = 'admin.html';
-                    }, 1000);
-                }
             } else {
                 msgEl.style.color = 'red';
                 msgEl.innerText = data.detail || '登录失败';
