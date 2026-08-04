@@ -375,3 +375,50 @@ function searchPhotos() {
     currentPage = 1;
     updatePagination();
 }
+
+async function recalculateFootprints() {
+    if (!confirm('确定要批量重算所有视域数据吗？\n\n这将：\n• 重新计算所有手机视域和无人机照片的视域多边形\n• 覆盖已有的视域数据\n• 对无定位或朝天拍摄的照片自动跳过\n\n建议在算法升级后使用此功能。')) {
+        return;
+    }
+
+    const btn = event?.target;
+    const originalText = btn?.textContent;
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = '⏳ 重算中...';
+    }
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/photos/recalculate-footprints`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({
+                device_types: ['phone-footprint', 'drone'],
+                force: true
+            })
+        });
+
+        if (!response.ok) {
+            const err = await response.json().catch(() => null);
+            throw new Error(err?.detail || `请求失败 (${response.status})`);
+        }
+
+        const data = await response.json();
+        const msg = `重算完成！共 ${data.total} 张：\n` +
+                    `✅ 成功: ${data.success}\n` +
+                    `⚠️ 跳过: ${data.skipped}\n` +
+                    `❌ 失败: ${data.failed}`;
+
+        alert(msg);
+        showMessage(msg, data.failed > 0 ? 'warning' : 'success');
+        loadPhotos(currentPage);
+
+    } catch (error) {
+        showMessage('重算失败: ' + error.message, 'error');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = originalText;
+        }
+    }
+}

@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
@@ -220,7 +220,7 @@ if (!isTouchDevice) {
     map.addOverlay(tooltip);
     tooltip.getElement().style.display = 'none';
     map.on('pointermove', function (evt) {
-        if (measureActive) return;
+        if (measureActive || footprintGenActive) return;
         const pixel = map.getEventPixel(evt.originalEvent);
         const feature = map.forEachFeatureAtPixel(pixel, f => f);
         if (feature) {
@@ -328,8 +328,16 @@ function showFeaturePopup(feature, coordinate) {
         content = `<div style="position: relative; padding-top: 5px;"><button onclick="closePopup()" style="position: absolute; top: -15px; right: -15px; width: 24px; height: 24px; border: none; background: #ff4d4f; color: white; border-radius: 50%; cursor: pointer; font-size: 14px; line-height: 24px; text-align: center; padding: 0; z-index: 10;">×</button><b>要素</b></div>`;
     }
 
+    // 视域生成模式下弹窗显示在点上方，避开视域多边形
     popup.getElement().innerHTML = content;
     popup.setPosition(coordinate);
+    if (arguments.length >= 3 && arguments[2]) {
+        popup.setPositioning('top-center');
+        popup.setOffset([0, 10]);
+    } else {
+        popup.setPositioning('bottom-center');
+        popup.setOffset([0, -10]);
+    }
     popup.getElement().style.display = 'block';
 }
 
@@ -527,6 +535,9 @@ function deactivateAllTools() {
             clickWeatherBtn.classList.remove('active');
         }
     }
+    if (footprintGenActive) {
+        deactivateFootprintGen();
+    }
     if (drawMode) {
         stopDraw();
     }
@@ -682,6 +693,333 @@ measureAreaBtn.addEventListener('click', function () {
         activateMeasurement('area');
     }
 });
+
+// ==================== 视域生成功能 ====================
+const footprintGenLayer = new ol.layer.Vector({
+    source: new ol.source.Vector(),
+    style: new ol.style.Style({
+        stroke: new ol.style.Stroke({ color: '#ff6b35', width: 2 }),
+        fill: new ol.style.Fill({ color: 'rgba(255,107,53,0.25)' })
+    })
+});
+map.addLayer(footprintGenLayer);
+
+let footprintGenActive = false;
+const footprintGenBtn = document.getElementById('footprintGenBtn');
+
+/**
+ * 前端视域计算 - 从 Python compute_footprint_corners 移植
+ */
+function computeFootprintCorners(lat0, lon0, altitude, yawDeg, pitchDeg, hfovDeg, vfovDeg, isPhone, rollDeg = 0) {
+    if (altitude == null || altitude <= 0) altitude = 1.5;
+
+    // 全朝天判断
+    const lowerBoundDeg = pitchDeg - vfovDeg / 2.0;
+    if (lowerBoundDeg > -15.0) return null;
+
+    // 俯仰角裁剪
+    const upperBoundDeg = pitchDeg + vfovDeg / 2.0;
+    let effectivePitchDeg;
+    if (upperBoundDeg > -10.0) {
+        effectivePitchDeg = -10.0 - vfovDeg / 2.0;
+    } else {
+        effectivePitchDeg = pitchDeg;
+    }
+
+    // 最大距离
+    let maxDistance;
+    if (isPhone) {
+        maxDistance = Math.max(altitude * 30.0, 50.0);
+    } else {
+        maxDistance = Math.max(altitude * 30.0, 500.0);
+    }
+
+    const yaw = yawDeg * Math.PI / 180;
+    const pitch = effectivePitchDeg * Math.PI / 180;
+    const roll = rollDeg * Math.PI / 180;
+    const hfov = hfovDeg * Math.PI / 180;
+    const vfov = vfovDeg * Math.PI / 180;
+
+    // 相机坐标系
+    const vx = Math.cos(pitch) * Math.sin(yaw);
+    const vy = Math.cos(pitch) * Math.cos(yaw);
+    const vz = Math.sin(pitch);
+
+    // 右向量 r = v × (0,0,1)
+    let rx = vy;
+    let ry = -vx;
+    let rz = 0.0;
+    const normR = Math.hypot(rx, ry);
+    if (normR > 0) { rx /= normR; ry /= normR; }
+
+    // 上向量 u = r × v
+    let ux = ry * vz - rz * vy;
+    let uy = rz * vx - rx * vz;
+    let uz = rx * vy - ry * vx;
+    const normU = Math.hypot(ux, uy, uz);
+    if (normU > 0) { ux /= normU; uy /= normU; uz /= normU; }
+
+    // Roll 补偿
+    const cosR = Math.cos(roll);
+    const sinR = Math.sin(roll);
+    const rxRot = rx * cosR + ux * sinR;
+    const ryRot = ry * cosR + uy * sinR;
+    const rzRot = rz * cosR + uz * sinR;
+    const uxRot = -rx * sinR + ux * cosR;
+    const uyRot = -ry * sinR + uy * cosR;
+    const uzRot = -rz * sinR + uz * cosR;
+
+    const latPerM = 1.0 / 111320.0;
+    const cosLat = Math.cos(lat0 * Math.PI / 180);
+    const safeCosLat = Math.max(Math.abs(cosLat), 0.01);
+    const lonPerM = 1.0 / (111320.0 * safeCosLat);
+
+    // 球面投影
+    const corners = [
+        [-hfov / 2, -vfov / 2, 'bottom_left'],
+        [ hfov / 2, -vfov / 2, 'bottom_right'],
+        [ hfov / 2,  vfov / 2, 'top_right'],
+        [-hfov / 2,  vfov / 2, 'top_left'],
+    ];
+
+    const result = {};
+    for (const [alpha, beta, name] of corners) {
+        const cosA = Math.cos(alpha);
+        const sinA = Math.sin(alpha);
+        const cosB = Math.cos(beta);
+        const sinB = Math.sin(beta);
+
+        let dirX = cosB * cosA * vx + cosB * sinA * rxRot + sinB * uxRot;
+        let dirY = cosB * cosA * vy + cosB * sinA * ryRot + sinB * uyRot;
+        let dirZ = cosB * cosA * vz + cosB * sinA * rzRot + sinB * uzRot;
+
+        const norm = Math.hypot(dirX, dirY, dirZ);
+        if (norm > 0) { dirX /= norm; dirY /= norm; dirZ /= norm; }
+
+        let t;
+        if (dirZ >= 0) {
+            t = maxDistance;
+        } else {
+            t = -altitude / dirZ;
+            if (t > maxDistance) t = maxDistance;
+        }
+
+        const east = t * dirX;
+        const north = t * dirY;
+        const dLat = north * latPerM;
+        const dLon = east * lonPerM;
+        result[name] = [lon0 + dLon, lat0 + dLat];
+    }
+
+    return result;
+}
+
+/**
+ * 生成圆形降级视域（全朝天或无效时）
+ */
+function makeCircularFootprint(lat, lon) {
+    const radiusDeg = 0.0005;
+    const coords = [];
+    const numPoints = 36;
+    for (let i = 0; i < numPoints; i++) {
+        const angle = 2 * Math.PI * i / numPoints;
+        coords.push([lon + radiusDeg * Math.cos(angle), lat + radiusDeg * Math.sin(angle)]);
+    }
+    coords.push(coords[0]);
+    return coords;
+}
+
+/**
+ * 激活/停用视域生成模式
+ */
+function toggleFootprintGen() {
+    if (footprintGenActive) {
+        deactivateFootprintGen();
+    } else {
+        activateFootprintGen();
+    }
+}
+
+function activateFootprintGen() {
+    deactivateAllTools();
+    footprintGenActive = true;
+    footprintGenBtn.classList.add('active');
+    measureMainBtn.classList.add('active');
+    footprintGenLayer.getSource().clear();
+    map.getTargetElement().style.cursor = 'crosshair';
+    showMessage('视域生成模式：点击照片点生成视域范围', 'info');
+}
+
+function deactivateFootprintGen() {
+    footprintGenActive = false;
+    footprintGenBtn.classList.remove('active');
+    footprintGenLayer.getSource().clear();
+    if (!measureActive) {
+        measureMainBtn.classList.remove('active');
+    }
+    map.getTargetElement().style.cursor = '';
+}
+
+if (footprintGenBtn) {
+    footprintGenBtn.addEventListener('click', toggleFootprintGen);
+}
+
+/**
+ * 简单消息提示
+ */
+function showMessage(msg, type = 'info') {
+    const toast = document.createElement('div');
+    const colors = {
+        info: '#1890ff',
+        success: '#52c41a',
+        warning: '#faad14',
+        error: '#ff4d4f'
+    };
+    toast.style.cssText = `
+        position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+        background: ${colors[type] || '#1890ff'}; color: white; padding: 10px 20px;
+        border-radius: 4px; z-index: 9999; font-size: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        transition: opacity 0.3s;
+    `;
+    toast.textContent = msg;
+    document.body.appendChild(toast);
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+    }, 2500);
+}
+
+/**
+ * 处理视域生成模式下的点击
+ */
+function handleFootprintGenClick(feature, coordinate) {
+    const props = feature.getProperties();
+    const layer = feature.get('layer');
+    const filename = props.filename || '';
+    
+    // 检查必要参数
+    const lat = props.lat;
+    const lon = props.lon;
+    const deviceType = props.device_type || '';
+    const yaw = props.yaw;
+    const pitch = props.pitch;
+    const roll = props.roll;
+    const relHeight = props.relative_height;
+    const hFov = props.h_fov;
+    const vFov = props.v_fov;
+    
+    // 显示照片信息弹窗（避让视域方向）
+    showFeaturePopup(feature, coordinate, true);
+    
+    // 检查能否生成视域
+    const missingParams = [];
+    if (lat == null || lon == null) missingParams.push('定位坐标');
+    if (yaw == null) missingParams.push('偏航角(yaw)');
+    if (pitch == null) missingParams.push('俯仰角(pitch)');
+    if (relHeight == null || relHeight <= 0) missingParams.push('相对高度');
+    if (hFov == null) missingParams.push('水平视场角(h_fov)');
+    if (vFov == null) missingParams.push('垂直视场角(v_fov)');
+    
+    if (missingParams.length > 0) {
+        // 不能生成视域，在弹窗中提示
+        showMissingParamsPopup(feature, coordinate, missingParams);
+        return;
+    }
+    
+    // 尝试生成视域
+    const isPhone = (deviceType === 'phone-footprint');
+    const rollVal = roll != null ? roll : 0;
+    
+    let corners;
+    try {
+        corners = computeFootprintCorners(lat, lon, relHeight, yaw, pitch, hFov, vFov, isPhone, rollVal);
+    } catch (e) {
+        console.error('视域计算错误:', e);
+        showMissingParamsPopup(feature, coordinate, ['计算错误: ' + e.message]);
+        return;
+    }
+    
+    // 清除之前的视域
+    footprintGenLayer.getSource().clear();
+    
+    let footprintCoords;
+    if (corners === null) {
+        // 全朝天或无效，降级为圆形
+        footprintCoords = makeCircularFootprint(lat, lon);
+    } else {
+        footprintCoords = [
+            corners['bottom_left'],
+            corners['bottom_right'],
+            corners['top_right'],
+            corners['top_left'],
+            corners['bottom_left']
+        ];
+    }
+    
+    // 将经纬度坐标转为地图投影坐标
+    const projectedCoords = footprintCoords.map(([lonVal, latVal]) =>
+        ol.proj.fromLonLat([lonVal, latVal])
+    );
+    
+    const polygon = new ol.geom.Polygon([projectedCoords]);
+    const footprintFeature = new ol.Feature({
+        geometry: polygon,
+        filename: filename,
+        hasCorners: corners !== null
+    });
+    
+    footprintGenLayer.getSource().addFeature(footprintFeature);
+    
+    // 更新弹窗内容，添加视域信息
+    updatePopupWithFootprintInfo(feature, coordinate, corners !== null);
+    
+    console.log(`[视域生成] ${filename}: ${corners !== null ? '4角点' : '圆形降级'}`);
+}
+
+/**
+ * 显示缺少参数的提示弹窗
+ */
+function showMissingParamsPopup(feature, coordinate, missingParams) {
+    const layer = feature.get('layer');
+    let content = '<div style="position: relative; padding-top: 5px;">';
+    content += '<button onclick="closePopup()" style="position: absolute; top: -15px; right: -15px; width: 24px; height: 24px; border: none; background: #ff4d4f; color: white; border-radius: 50%; cursor: pointer; font-size: 14px; line-height: 24px; text-align: center; padding: 0; z-index: 10;">×</button>';
+    
+    const labelText = (layer && layer.labelField) ? feature.get(layer.labelField) : (feature.get('DD') || '照片');
+    content += `<b>${labelText}</b><br>`;
+    content += '<div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; padding: 8px; margin-top: 8px; font-size: 12px; color: #856404;">';
+    content += '⚠️ <b>无法生成视域</b><br>缺少参数: ' + missingParams.join('、');
+    content += '</div>';
+    content += '</div>';
+    
+    popup.getElement().innerHTML = content;
+    popup.setPosition(coordinate);
+    popup.setPositioning('top-center');
+    popup.setOffset([0, 10]);
+    popup.getElement().style.display = 'block';
+}
+
+/**
+ * 更新弹窗显示视域信息
+ */
+function updatePopupWithFootprintInfo(feature, coordinate, hasCorners) {
+    const layer = feature.get('layer');
+    let content = '<div style="position: relative; padding-top: 5px;">';
+    content += '<button onclick="closePopup()" style="position: absolute; top: -15px; right: -15px; width: 24px; height: 24px; border: none; background: #ff4d4f; color: white; border-radius: 50%; cursor: pointer; font-size: 14px; line-height: 24px; text-align: center; padding: 0; z-index: 10;">×</button>';
+    
+    const labelText = (layer && layer.labelField) ? feature.get(layer.labelField) : (feature.get('DD') || '照片');
+    content += `<b>${labelText}</b><br>`;
+    content += `<div style="background: ${hasCorners ? '#d4edda; border: 1px solid #28a745;' : '#fff3cd; border: 1px solid #ffc107;'} border-radius: 4px; padding: 8px; margin-top: 8px; font-size: 12px; color: ${hasCorners ? '#155724' : '#856404'};">`;
+    content += hasCorners ? '✅ <b>视域生成成功</b> (4角点)' : '⚠️ <b>降级为圆形视域</b> (全朝天或无效)';
+    content += '</div>';
+    
+    content += '</div>';
+    
+    popup.getElement().innerHTML = content;
+    popup.setPosition(coordinate);
+    popup.setPositioning('top-center');
+    popup.setOffset([0, 10]);
+    popup.getElement().style.display = 'block';
+}
 
 // ==================== 潮汐功能 ====================
 let tideBtn, tidePanel, closeTideBtn, tideChartInstance;
@@ -7104,11 +7442,19 @@ function initCitySearch() {
             if (worldCupFeature) return;
         }
         
-        const feature = map.forEachFeatureAtPixel(evt.pixel, f => f);
+        const feature = map.forEachFeatureAtPixel(evt.pixel, f => f, {
+            layerFilter: (layer) => layer !== footprintGenLayer
+        });
         
         if (feature) {
             // 点击了要素
             if (positionLayer && positionLayer.getSource().getFeatures().includes(feature)) {
+                return;
+            }
+            
+            // 视域生成模式：尝试生成视域
+            if (footprintGenActive) {
+                handleFootprintGenClick(feature, evt.coordinate);
                 return;
             }
             
@@ -7124,6 +7470,7 @@ function initCitySearch() {
             // 点击了空白处
             popup.setPosition(undefined);
             popup.getElement().style.display = 'none';
+            footprintGenLayer.getSource().clear();
             
             // 只有在天气模式下才查询天气
             if (clickWeatherActive) {

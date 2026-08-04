@@ -189,6 +189,12 @@ img, video, canvas {
     transform: scale(0.98);
 }
 
+.dropdown-btn.active {
+    background-color: #096dd9;
+    border-color: #0050b3;
+    color: white;
+}
+
 /* 城市搜索框样式 */
 #citySearchWrapper {
     display: flex;
