@@ -528,6 +528,7 @@ function initLogin() {
                 msgEl.style.color = 'green';
                 msgEl.innerText = '登录成功';
                 updateSidebarUI();
+                if (typeof window.updateLoginButton === 'function') window.updateLoginButton();
                 // 登录成功后加载用户数据
                 loadUserUploadedData();
                 
@@ -607,6 +608,9 @@ function clearAllUserData() {
     
     // 4. 更新侧边栏UI
     updateSidebarUI();
+    
+    // 5. 更新顶部下拉菜单按钮
+    if (typeof window.updateLoginButton === 'function') window.updateLoginButton();
 }
 
 // 退出登录

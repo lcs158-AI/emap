@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
@@ -6973,22 +6973,14 @@ function showLayerConfigExportDialog(content) {
         }
     }
     updateLoginButton();
+    window.updateLoginButton = updateLoginButton;
     
     if (loginUploadBtn) {
         loginUploadBtn.addEventListener('click', function(e) {
             e.stopPropagation();
             
-            const token = localStorage.getItem('access_token');
-            const username = localStorage.getItem('username');
-            
-            if (token && username) {
-                if (typeof window.openUploadSidebar === 'function') {
-                    window.openUploadSidebar();
-                }
-            } else {
-                if (typeof window.openUploadSidebar === 'function') {
-                    window.openUploadSidebar();
-                }
+            if (typeof window.openUploadSidebar === 'function') {
+                window.openUploadSidebar();
             }
             
             const myDropdown = document.getElementById('myDropdown');
