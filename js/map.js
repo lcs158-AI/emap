@@ -897,6 +897,90 @@ function handleFootprintGenClick(feature, coordinate) {
     const layer = feature.get('layer');
     const filename = props.filename || '';
 
+    // ====== 调试步骤1：弹出所有字段信息 ======
+    // 同时打印到控制台
+    console.log('[视域生成调试] feature properties:', props);
+    console.log('[视域生成调试] feature geometry type:',
+        feature.getGeometry ? feature.getGeometry().getType() : '无getGeometry方法');
+    console.log('[视域生成调试] click coordinate (EPSG:3857):', coordinate);
+    if (feature.getGeometry) {
+        console.log('[视域生成调试] geometry coordinates:', feature.getGeometry().getCoordinates());
+    }
+
+    // 组织 properties 为 HTML 表格
+    const keys = Object.keys(props).sort();
+    let rowsHtml = '';
+    for (const k of keys) {
+        let val = props[k];
+        let displayVal;
+        if (val === null || val === undefined) {
+            displayVal = '<span style="color:#999;">null</span>';
+        } else if (typeof val === 'object') {
+            try {
+                displayVal = '<code style="font-size:11px;color:#888;">' +
+                    JSON.stringify(val).substring(0, 200) + '</code>';
+            } catch (e) {
+                displayVal = String(val).substring(0, 200);
+            }
+        } else {
+            displayVal = String(val).substring(0, 200);
+        }
+        // 高亮关键视域参数
+        const highlightKeys = ['lat','lon','yaw','pitch','roll','relative_height','h_fov','v_fov','device_type','filename'];
+        const rowBg = highlightKeys.includes(k) ? 'background:#fff7e6;' : '';
+        rowsHtml += `<tr style="${rowBg}"><td style="padding:3px 8px;border:1px solid #eee;font-weight:bold;">${k}</td><td style="padding:3px 8px;border:1px solid #eee;">${displayVal}</td></tr>`;
+    }
+
+    // geometry 坐标额外信息
+    let geomInfo = '';
+    if (feature.getGeometry) {
+        const geom = feature.getGeometry();
+        const geomCoord = geom ? geom.getCoordinates() : null;
+        let coord4326Str = '';
+        if (geomCoord && geomCoord.length >= 2 &&
+            typeof geomCoord[0] === 'number' && typeof geomCoord[1] === 'number') {
+            try {
+                const c = ol.proj.toLonLat(geomCoord);
+                coord4326Str = ` (WGS84: lat=${c[1].toFixed(7)}, lon=${c[0].toFixed(7)})`;
+            } catch (e) {}
+        }
+        let clickCoordStr = '';
+        if (coordinate && coordinate.length >= 2) {
+            try {
+                const c = ol.proj.toLonLat(coordinate);
+                clickCoordStr = ` (WGS84: lat=${c[1].toFixed(7)}, lon=${c[0].toFixed(7)})`;
+            } catch (e) {}
+        }
+        geomInfo = `
+            <div style="margin-top:8px; background:#e6f7ff; border:1px solid #91d5ff; border-radius:4px; padding:8px; font-size:12px;">
+                <div><b>Geometry类型:</b> ${geom ? geom.getType() : 'null'}</div>
+                <div><b>Geometry坐标(EPSG:3857):</b> ${JSON.stringify(geomCoord)}${coord4326Str}</div>
+                <div><b>点击坐标(EPSG:3857):</b> ${JSON.stringify(coordinate)}${clickCoordStr}</div>
+            </div>
+        `;
+    }
+
+    const content = `
+        <div style="position:relative; padding-top:5px; min-width:320px; max-width:480px;">
+            <button onclick="closePopup()" style="position:absolute;top:-15px;right:-15px;width:24px;height:24px;border:none;background:#ff4d4f;color:white;border-radius:50%;cursor:pointer;font-size:14px;line-height:24px;text-align:center;padding:0;z-index:10;">×</button>
+            <h4 style="margin:0 0 8px 0; font-size:14px;">🔍 照片点字段调试</h4>
+            <div style="overflow:auto; max-height:300px;">
+                <table style="width:100%; border-collapse:collapse; font-size:12px;">
+                    ${rowsHtml}
+                </table>
+            </div>
+            ${geomInfo}
+        </div>
+    `;
+    popup.getElement().innerHTML = content;
+    popup.setPosition(coordinate);
+    popup.setPositioning('top-center');
+    popup.setOffset([0, 10]);
+    popup.getElement().style.display = 'block';
+
+    // ====== 以下逻辑暂时禁用，待字段确认后再启用 ======
+    return;
+    /*
     // 经纬度获取：优先从 properties 取，否则用点击坐标（EPSG:3857→EPSG:4326）
     let lat = props.lat;
     let lon = props.lon;
@@ -1000,6 +1084,7 @@ function handleFootprintGenClick(feature, coordinate) {
     updatePopupWithFootprintInfo(feature, coordinate, corners !== null);
     
     console.log(`[视域生成] ${filename}: ${corners !== null ? '4角点' : '圆形降级'}`);
+    */
 }
 
 /**
