@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
@@ -897,18 +897,35 @@ function handleFootprintGenClick(feature, coordinate) {
     const layer = feature.get('layer');
     const filename = props.filename || '';
 
-    // 参数获取：优先从 properties 取，lat/lon 兼容 geometry（EPSG:3857→EPSG:4326）
+    // 经纬度获取：优先从 properties 取，否则用点击坐标（EPSG:3857→EPSG:4326）
     let lat = props.lat;
     let lon = props.lon;
-    if ((lat == null || lon == null) && feature.getGeometry) {
-        const geom = feature.getGeometry();
-        if (geom && geom.getType() === 'Point') {
-            const coord3857 = geom.getCoordinates();
-            const coord4326 = ol.proj.toLonLat(coord3857);
+    if (lat == null || lon == null) {
+        // 回退方案1：从 feature geometry 提取
+        if (typeof feature.getGeometry === 'function') {
+            const geom = feature.getGeometry();
+            if (geom) {
+                try {
+                    const geomCoord = geom.getCoordinates();
+                    if (geomCoord && geomCoord.length >= 2 &&
+                        typeof geomCoord[0] === 'number' && typeof geomCoord[1] === 'number') {
+                        const coord4326 = ol.proj.toLonLat(geomCoord);
+                        lon = coord4326[0];
+                        lat = coord4326[1];
+                    }
+                } catch (e) {
+                    console.warn('从geometry提取坐标失败:', e);
+                }
+            }
+        }
+        // 回退方案2：直接用点击坐标
+        if ((lat == null || lon == null) && coordinate && coordinate.length >= 2) {
+            const coord4326 = ol.proj.toLonLat(coordinate);
             lon = coord4326[0];
             lat = coord4326[1];
         }
     }
+    console.log('[视域生成] 提取坐标 lat=', lat, 'lon=', lon);
     const deviceType = props.device_type || '';
     const yaw = props.yaw;
     const pitch = props.pitch;
