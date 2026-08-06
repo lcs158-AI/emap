@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
@@ -896,10 +896,19 @@ function handleFootprintGenClick(feature, coordinate) {
     const props = feature.getProperties();
     const layer = feature.get('layer');
     const filename = props.filename || '';
-    
-    // 检查必要参数
-    const lat = props.lat;
-    const lon = props.lon;
+
+    // 参数获取：优先从 properties 取，lat/lon 兼容 geometry（EPSG:3857→EPSG:4326）
+    let lat = props.lat;
+    let lon = props.lon;
+    if ((lat == null || lon == null) && feature.getGeometry) {
+        const geom = feature.getGeometry();
+        if (geom && geom.getType() === 'Point') {
+            const coord3857 = geom.getCoordinates();
+            const coord4326 = ol.proj.toLonLat(coord3857);
+            lon = coord4326[0];
+            lat = coord4326[1];
+        }
+    }
     const deviceType = props.device_type || '';
     const yaw = props.yaw;
     const pitch = props.pitch;
