@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
@@ -6647,38 +6647,67 @@ let cloudPlayTimer = null;
 let cloudIsPlaying = false;
 
 /**
- * 生成 NASA GIBS 时间格式的日期字符串
- * GIBS 使用 ISO 8601 格式的前缀：YYYY-MM-DDTHH:MM:SSZ
- * MODIS Terra 每日可用，时间粒度为 5 分钟（但免费 WMTS 只支持按日）
- * 这里使用按日获取，24小时范围展示过去24天的同世代
- * 实际 GIBS 支持 time 参数格式：YYYY-MM-DD
+ * 生成 NASA GIBS 可用的 24 个时间点
+ * 
+ * 注意：
+ * 1. NASA GIBS MODIS TrueColor 是【全球按日产品】，时间参数格式 YYYY-MM-DD（仅按日）
+ *    如果要【按小时】的全球云图，应改用气象卫星系列（Himawari/GOES/MSG，分区域）
+ * 2. NASA 数据通常有 1~3 天延迟，最新日期取【当前 UTC 日期 - 2 天】
+ * 3. 这里用过去 24 天生成 24 帧，展示近一个月的变化；
+ *    如果需要 24 小时变化，将 USE_DAILY 改为 false 会使用 Himawari 亚太区（每小时）
  */
+const GIBS_USE_HOURLY_HIMAWARI = false; // 改为 true 启用 Himawari 亚太区逐小时
+
 function getGibsDateList() {
     const dates = [];
     const now = new Date();
-    // NASA GIBS 数据通常有 2-3 小时延迟，使用前一天作为最新
-    for (let i = 23; i >= 0; i--) {
-        const d = new Date(now.getTime() - i * 60 * 60 * 1000);
-        // 对齐到整点，GIBS time 参数支持 YYYY-MM-DDTHH:00:00Z 格式
-        const dateStr = d.toISOString().substring(0, 13) + ':00:00Z';
-        dates.push({
-            dateStr: dateStr,
-            display: d.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }),
-            full: d
-        });
+
+    if (GIBS_USE_HOURLY_HIMAWARI) {
+        // ---------- 方案 A：Himawari 亚太区逐小时（日本葵花卫星） ----------
+        // 覆盖东亚/西太平洋，时间格式 YYYY-MM-DDTHH:MM:SSZ（每 10 分钟更新）
+        // Himawari 有 2 小时左右延迟，所以取最近整点-2h
+        const base = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours() - 2));
+        for (let i = 23; i >= 0; i--) {
+            const d = new Date(base.getTime() - i * 60 * 60 * 1000);
+            const dateStr = d.toISOString().replace(/\.\d+Z$/, 'Z'); // 去掉毫秒
+            const localD = new Date(d.getTime() + 8 * 3600 * 1000); // 转 UTC+8
+            dates.push({
+                dateStr: dateStr,
+                display: localD.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) + ' (亚太区)',
+                full: d,
+                layer: 'Himawari_AHI_Full_Disk_Normalized_Reflectance_Band_3_2_1'
+            });
+        }
+    } else {
+        // ---------- 方案 B：MODIS 全球按日（默认） ----------
+        // 真正的全球覆盖，时间格式 YYYY-MM-DD，取过去 24 天每天一张
+        // 延迟 2 天：UTC 日期减去 2 天
+        const baseUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 2));
+        for (let i = 23; i >= 0; i--) {
+            const d = new Date(baseUTC.getTime() - i * 24 * 60 * 60 * 1000);
+            const dateStr = d.toISOString().substring(0, 10); // YYYY-MM-DD
+            const localD = new Date(d.getTime() + 8 * 3600 * 1000); // 转 UTC+8
+            dates.push({
+                dateStr: dateStr,
+                display: localD.toLocaleDateString('zh-CN', { year: '2-digit', month: '2-digit', day: '2-digit' }),
+                full: d,
+                layer: 'MODIS_Terra_CorrectedReflectance_TrueColor'
+            });
+        }
     }
     return dates;
 }
 
 /**
  * 创建 NASA GIBS WMTS 图层
- * 使用 MODIS_Terra_CorrectedReflectance_TrueColor 图层
- * GIBS WMTS 支持 time 参数
+ *  - MODIS 全球按日：/epsg3857/best/{layer}/default/{YYYY-MM-DD}/250m/{z}/{y}/{x}.jpg
+ *  - Himawari 亚太区逐小时：同路径，time 用完整 ISO
  */
-function createSatelliteCloudLayer(dateStr) {
+function createSatelliteCloudLayer(dateStr, layerName) {
+    const layer = layerName || 'MODIS_Terra_CorrectedReflectance_TrueColor';
     return new ol.layer.Tile({
         source: new ol.source.XYZ({
-            url: `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_CorrectedReflectance_TrueColor/default/${dateStr}/250m/{z}/{y}/{x}.jpg`,
+            url: `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/${layer}/default/${dateStr}/250m/{z}/{y}/{x}.jpg`,
             crossOrigin: 'anonymous',
             tileSize: 256,
             maxZoom: 9,
@@ -6701,10 +6730,10 @@ function toggleSatelliteCloud() {
 function showSatelliteCloud() {
     const dates = getGibsDateList();
     const latestIdx = dates.length - 1;
-    const dateStr = dates[latestIdx].dateStr;
+    const item = dates[latestIdx];
 
     // 创建并添加图层
-    satelliteCloudLayer = createSatelliteCloudLayer(dateStr);
+    satelliteCloudLayer = createSatelliteCloudLayer(item.dateStr, item.layer);
     map.addLayer(satelliteCloudLayer);
 
     satelliteCloudVisible = true;
@@ -6714,10 +6743,12 @@ function showSatelliteCloud() {
     const btn = document.getElementById('satelliteCloudBtn');
     if (btn) btn.classList.add('active');
 
-    // 更新时间标签
+    // 更新时间标签和时间刻度
     updateCloudTimeLabel(latestIdx);
+    updateCloudTimeMarks();
 
-    console.log('[卫星云图] 加载: ' + dateStr);
+    console.log('[卫星云图] 加载: layer=' + item.layer + ' time=' + item.dateStr);
+    console.log('[卫星云图] 瓦片 URL 示例:', satelliteCloudLayer.getSource().getUrls()[0]);
 }
 
 function hideSatelliteCloud() {
@@ -6741,6 +6772,17 @@ function hideSatelliteCloud() {
     if (btn) btn.classList.remove('active');
 }
 
+function updateCloudTimeMarks() {
+    const dates = getGibsDateList();
+    const marks = document.getElementById('cloudTimeMarks');
+    if (!marks) return;
+    if (GIBS_USE_HOURLY_HIMAWARI) {
+        marks.innerHTML = '<span>-24h</span><span>-18h</span><span>-12h</span><span>-6h</span><span>最新</span>';
+    } else {
+        marks.innerHTML = '<span>-24天</span><span>-18天</span><span>-12天</span><span>-6天</span><span>最新</span>';
+    }
+}
+
 function updateCloudTimeLabel(sliderIdx) {
     const dates = getGibsDateList();
     const d = dates[sliderIdx];
@@ -6749,16 +6791,16 @@ function updateCloudTimeLabel(sliderIdx) {
 
 function updateCloudLayer(sliderIdx) {
     const dates = getGibsDateList();
-    const dateStr = dates[sliderIdx].dateStr;
+    const item = dates[sliderIdx];
 
     if (satelliteCloudLayer) {
         map.removeLayer(satelliteCloudLayer);
     }
-    satelliteCloudLayer = createSatelliteCloudLayer(dateStr);
+    satelliteCloudLayer = createSatelliteCloudLayer(item.dateStr, item.layer);
     map.addLayer(satelliteCloudLayer);
 
     updateCloudTimeLabel(sliderIdx);
-    console.log('[卫星云图] 切换: ' + dateStr);
+    console.log('[卫星云图] 切换: layer=' + item.layer + ' time=' + item.dateStr);
 }
 
 /** 初始化卫星云图按钮事件 */
