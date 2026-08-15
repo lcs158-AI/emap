@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
@@ -6633,12 +6633,215 @@ function setupAutoRefreshWind() {
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         addWindControlButton();
-        // 如果需要自动刷新，取消下面注释
-        // setupAutoRefreshWind();
+        initSatelliteCloud();
     });
 } else {
     addWindControlButton();
-    // setupAutoRefreshWind();
+    initSatelliteCloud();
+}
+
+// ==================== 卫星云图 NASA GIBS ====================
+let satelliteCloudLayer = null;
+let satelliteCloudVisible = false;
+let cloudPlayTimer = null;
+let cloudIsPlaying = false;
+
+/**
+ * 生成 NASA GIBS 时间格式的日期字符串
+ * GIBS 使用 ISO 8601 格式的前缀：YYYY-MM-DDTHH:MM:SSZ
+ * MODIS Terra 每日可用，时间粒度为 5 分钟（但免费 WMTS 只支持按日）
+ * 这里使用按日获取，24小时范围展示过去24天的同世代
+ * 实际 GIBS 支持 time 参数格式：YYYY-MM-DD
+ */
+function getGibsDateList() {
+    const dates = [];
+    const now = new Date();
+    // NASA GIBS 数据通常有 2-3 小时延迟，使用前一天作为最新
+    for (let i = 23; i >= 0; i--) {
+        const d = new Date(now.getTime() - i * 60 * 60 * 1000);
+        // 对齐到整点，GIBS time 参数支持 YYYY-MM-DDTHH:00:00Z 格式
+        const dateStr = d.toISOString().substring(0, 13) + ':00:00Z';
+        dates.push({
+            dateStr: dateStr,
+            display: d.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }),
+            full: d
+        });
+    }
+    return dates;
+}
+
+/**
+ * 创建 NASA GIBS WMTS 图层
+ * 使用 MODIS_Terra_CorrectedReflectance_TrueColor 图层
+ * GIBS WMTS 支持 time 参数
+ */
+function createSatelliteCloudLayer(dateStr) {
+    return new ol.layer.Tile({
+        source: new ol.source.XYZ({
+            url: `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_CorrectedReflectance_TrueColor/default/${dateStr}/250m/{z}/{y}/{x}.jpg`,
+            crossOrigin: 'anonymous',
+            tileSize: 256,
+            maxZoom: 9,
+            attributions: 'NASA GIBS'
+        }),
+        opacity: 0.5,
+        visible: true
+    });
+}
+
+/** 切换卫星云图显示 */
+function toggleSatelliteCloud() {
+    if (satelliteCloudVisible) {
+        hideSatelliteCloud();
+    } else {
+        showSatelliteCloud();
+    }
+}
+
+function showSatelliteCloud() {
+    const dates = getGibsDateList();
+    const latestIdx = dates.length - 1;
+    const dateStr = dates[latestIdx].dateStr;
+
+    // 创建并添加图层
+    satelliteCloudLayer = createSatelliteCloudLayer(dateStr);
+    map.addLayer(satelliteCloudLayer);
+
+    satelliteCloudVisible = true;
+    document.getElementById('satellitePanel').style.display = 'block';
+
+    // 更新按钮状态
+    const btn = document.getElementById('satelliteCloudBtn');
+    if (btn) btn.classList.add('active');
+
+    // 更新时间标签
+    updateCloudTimeLabel(latestIdx);
+
+    console.log('[卫星云图] 加载: ' + dateStr);
+}
+
+function hideSatelliteCloud() {
+    if (satelliteCloudLayer) {
+        map.removeLayer(satelliteCloudLayer);
+        satelliteCloudLayer = null;
+    }
+    satelliteCloudVisible = false;
+    document.getElementById('satellitePanel').style.display = 'none';
+
+    // 停止播放
+    if (cloudPlayTimer) {
+        clearInterval(cloudPlayTimer);
+        cloudPlayTimer = null;
+        cloudIsPlaying = false;
+        document.getElementById('cloudPlayBtn').innerText = '▶';
+    }
+
+    // 更新按钮状态
+    const btn = document.getElementById('satelliteCloudBtn');
+    if (btn) btn.classList.remove('active');
+}
+
+function updateCloudTimeLabel(sliderIdx) {
+    const dates = getGibsDateList();
+    const d = dates[sliderIdx];
+    document.getElementById('cloudTimeLabel').textContent = d.display;
+}
+
+function updateCloudLayer(sliderIdx) {
+    const dates = getGibsDateList();
+    const dateStr = dates[sliderIdx].dateStr;
+
+    if (satelliteCloudLayer) {
+        map.removeLayer(satelliteCloudLayer);
+    }
+    satelliteCloudLayer = createSatelliteCloudLayer(dateStr);
+    map.addLayer(satelliteCloudLayer);
+
+    updateCloudTimeLabel(sliderIdx);
+    console.log('[卫星云图] 切换: ' + dateStr);
+}
+
+/** 初始化卫星云图按钮事件 */
+function initSatelliteCloud() {
+    const btn = document.getElementById('satelliteCloudBtn');
+    if (!btn) return;
+
+    btn.addEventListener('click', () => {
+        toggleSatelliteCloud();
+        document.getElementById('weatherDropdown').style.display = 'none';
+    });
+
+    // 关闭按钮
+    const closeBtn = document.getElementById('closeSatelliteBtn');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', hideSatelliteCloud);
+    }
+
+    // 时间轴滑块
+    const slider = document.getElementById('cloudTimeSlider');
+    if (slider) {
+        slider.addEventListener('input', (e) => {
+            const idx = parseInt(e.target.value);
+            updateCloudLayer(idx);
+        });
+    }
+
+    // 上一个按钮
+    const prevBtn = document.getElementById('cloudPrevBtn');
+    if (prevBtn) {
+        prevBtn.addEventListener('click', () => {
+            const slider = document.getElementById('cloudTimeSlider');
+            let idx = parseInt(slider.value);
+            if (idx > 0) {
+                idx--;
+                slider.value = idx;
+                updateCloudLayer(idx);
+            }
+        });
+    }
+
+    // 下一个按钮
+    const nextBtn = document.getElementById('cloudNextBtn');
+    if (nextBtn) {
+        nextBtn.addEventListener('click', () => {
+            const slider = document.getElementById('cloudTimeSlider');
+            let idx = parseInt(slider.value);
+            if (idx < 23) {
+                idx++;
+                slider.value = idx;
+                updateCloudLayer(idx);
+            }
+        });
+    }
+
+    // 播放/暂停按钮
+    const playBtn = document.getElementById('cloudPlayBtn');
+    if (playBtn) {
+        playBtn.addEventListener('click', () => {
+            if (cloudIsPlaying) {
+                // 暂停
+                clearInterval(cloudPlayTimer);
+                cloudPlayTimer = null;
+                cloudIsPlaying = false;
+                playBtn.innerText = '▶';
+            } else {
+                // 播放：从当前位置开始，每秒前进一格
+                cloudIsPlaying = true;
+                playBtn.innerText = '⏸';
+                cloudPlayTimer = setInterval(() => {
+                    const slider = document.getElementById('cloudTimeSlider');
+                    let idx = parseInt(slider.value);
+                    if (idx >= 23) {
+                        idx = 0; // 循环到开头
+                    } else {
+                        idx++;
+                    }
+                    slider.value = idx;
+                    updateCloudLayer(idx);
+                }, 800);
+            }
+        });
+    }
 }
 
 // ==================== 点击查询风速 ====================
