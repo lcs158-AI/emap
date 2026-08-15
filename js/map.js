@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
@@ -930,322 +930,153 @@ function toNumber(val) {
 }
 
 /**
- * 处理视域生成模式下的点击
+ * 处理视域生成模式下的点击（异步：可能需要从后端补全参数）
  */
-function handleFootprintGenClick(feature, coordinate) {
+async function handleFootprintGenClick(feature, coordinate) {
+    console.log('%c[视域生成 v3] 点击处理开始', 'background:#1890ff;color:white;padding:3px 8px;border-radius:3px;');
+
     const props = feature.getProperties();
-    const layer = feature.get('layer');
     const filename = props.filename || '';
 
-    // ====== 步骤1：提取所有视域参数（兼容多套字段名） ======
-    // 经纬度（候选键顺序：properties → geometry → 点击坐标）
-    let lat = toNumber(pickFirst(props, ['lat', 'latitude', 'Lat', 'Latitude', 'LatitudeDD']));
-    let lon = toNumber(pickFirst(props, ['lon', 'lng', 'longitude', 'Lon', 'Longitude', 'LongitudeDD']));
-    let latLonSource = 'properties';
+    // ====== 步骤1：从前端 properties 提取参数 ======
+    let params = extractFootprintParams(props);
 
-    if (lat == null || lon == null) {
-        // 回退方案1：从 feature geometry 提取
+    // 坐标回退：properties → geometry → 点击坐标
+    if (params.lat == null || params.lon == null) {
         if (typeof feature.getGeometry === 'function') {
             const geom = feature.getGeometry();
-            if (geom) {
+            if (geom && geom.getType() === 'Point') {
                 try {
-                    const geomCoord = geom.getCoordinates();
-                    if (geomCoord && geomCoord.length >= 2 &&
-                        typeof geomCoord[0] === 'number' && typeof geomCoord[1] === 'number') {
-                        const coord4326 = ol.proj.toLonLat(geomCoord);
-                        lon = coord4326[0];
-                        lat = coord4326[1];
-                        latLonSource = 'geometry';
-                    }
-                } catch (e) {
-                    console.warn('从geometry提取坐标失败:', e);
-                }
+                    const c = ol.proj.toLonLat(geom.getCoordinates());
+                    params.lon = c[0]; params.lat = c[1];
+                    params.latLonSource = 'geometry';
+                } catch (e) {}
             }
         }
-        // 回退方案2：直接用点击坐标
-        if ((lat == null || lon == null) && coordinate && coordinate.length >= 2) {
-            const coord4326 = ol.proj.toLonLat(coordinate);
-            lon = coord4326[0];
-            lat = coord4326[1];
-            latLonSource = '点击坐标(回退)';
+        if ((params.lat == null || params.lon == null) && coordinate) {
+            const c = ol.proj.toLonLat(coordinate);
+            params.lon = c[0]; params.lat = c[1];
+            params.latLonSource = '点击坐标(回退)';
         }
     }
 
-    // 姿态与视场参数
-    const yaw = toNumber(pickFirst(props, ['yaw', 'azimuth', 'Yaw', 'Azimuth', '偏航角']));
-    const pitch = toNumber(pickFirst(props, ['pitch', 'Pitch', '俯仰角']));
-    const roll = toNumber(pickFirst(props, ['roll', 'Roll', '翻滚角']));
-    const relHeight = toNumber(pickFirst(props, ['relative_height', 'relativeHeight', 'rel_alt', 'altitude', '高度', '相对高度']));
-    const hFov = toNumber(pickFirst(props, ['h_fov', 'hfov', 'H_FOV', 'horizontal_fov', '水平视场角']));
-    const vFov = toNumber(pickFirst(props, ['v_fov', 'vfov', 'V_FOV', 'vertical_fov', '垂直视场角']));
-    const deviceType = pickFirst(props, ['device_type', 'deviceType', '设备类型']) || '';
+    console.log('[视域生成 v3] 前端提取:', params);
 
-    console.log('[视域生成] 提取参数:', { lat, lon, latLonSource, yaw, pitch, roll, relHeight, hFov, vFov, deviceType });
+    // ====== 步骤2：如果参数不完整，尝试从后端补全 ======
+    const missingFromFrontend = checkMissingParams(params);
+    if (missingFromFrontend.length > 0 && filename) {
+        console.log('[视域生成 v3] 前端缺少参数，尝试从后端获取:', missingFromFrontend);
+        showPopupLoading(filename, coordinate);
 
-    // ====== 步骤2：组织 properties 全字段展示表格 ======
-    const keys = Object.keys(props).sort();
-    let rowsHtml = '';
-    // 关键视域参数（优先置顶显示）
-    const topKeys = ['lat','lon','latitude','longitude','yaw','azimuth','pitch','roll',
-                     'relative_height','rel_alt','altitude','h_fov','v_fov','device_type','filename','datetime'];
-    const highlightKeysSet = new Set(['lat','lon','yaw','pitch','roll','relative_height','h_fov','v_fov','device_type','filename',
-                                       'latitude','longitude','azimuth','rel_alt','altitude']);
-
-    // 先排关键参数，再排剩余
-    const sortedKeys = [...keys].sort((a, b) => {
-        const aTop = topKeys.indexOf(a);
-        const bTop = topKeys.indexOf(b);
-        if (aTop >= 0 && bTop >= 0) return aTop - bTop;
-        if (aTop >= 0) return -1;
-        if (bTop >= 0) return 1;
-        return a.localeCompare(b);
-    });
-
-    for (const k of sortedKeys) {
-        let val = props[k];
-        let displayVal;
-        if (val === null || val === undefined) {
-            displayVal = '<span style="color:#999;">null</span>';
-        } else if (typeof val === 'object') {
-            try {
-                const str = JSON.stringify(val);
-                displayVal = '<code style="font-size:11px;color:#888;">' +
-                    str.substring(0, 200) + (str.length > 200 ? '...' : '') + '</code>';
-            } catch (e) {
-                displayVal = String(val).substring(0, 200);
-            }
-        } else {
-            displayVal = String(val).substring(0, 200);
-        }
-        const isHighlight = highlightKeysSet.has(k);
-        const rowBg = isHighlight ? 'background:#fff7e6;' : '';
-        const flag = isHighlight ? ' <span style="color:#d46b08;">★</span>' : '';
-        rowsHtml += `<tr style="${rowBg}"><td style="padding:3px 8px;border:1px solid #eee;font-weight:bold;">${k}${flag}</td><td style="padding:3px 8px;border:1px solid #eee;">${displayVal}</td></tr>`;
-    }
-
-    // geometry 坐标额外信息
-    let geomInfo = '';
-    if (feature.getGeometry) {
-        const geom = feature.getGeometry();
-        const geomCoord = geom ? geom.getCoordinates() : null;
-        let coord4326Str = '';
-        if (geomCoord && geomCoord.length >= 2 &&
-            typeof geomCoord[0] === 'number' && typeof geomCoord[1] === 'number') {
-            try {
-                const c = ol.proj.toLonLat(geomCoord);
-                coord4326Str = ` (WGS84: lat=${c[1].toFixed(7)}, lon=${c[0].toFixed(7)})`;
-            } catch (e) {}
-        }
-        let clickCoordStr = '';
-        if (coordinate && coordinate.length >= 2) {
-            try {
-                const c = ol.proj.toLonLat(coordinate);
-                clickCoordStr = ` (WGS84: lat=${c[1].toFixed(7)}, lon=${c[0].toFixed(7)})`;
-            } catch (e) {}
-        }
-        geomInfo = `
-            <div style="margin-top:8px; background:#e6f7ff; border:1px solid #91d5ff; border-radius:4px; padding:8px; font-size:12px;">
-                <div style="font-weight:bold; margin-bottom:4px;">📌 坐标信息</div>
-                <div><b>坐标来源:</b> <code>${latLonSource}</code> → lat=${lat != null ? lat.toFixed(7) : 'null'}, lon=${lon != null ? lon.toFixed(7) : 'null'}</div>
-                <div><b>Geometry类型:</b> ${geom ? geom.getType() : 'null'}</div>
-                <div><b>Geometry坐标(EPSG:3857):</b> ${JSON.stringify(geomCoord)}${coord4326Str}</div>
-                <div><b>点击坐标(EPSG:3857):</b> ${JSON.stringify(coordinate)}${clickCoordStr}</div>
-            </div>
-        `;
-    }
-
-    // ====== 步骤3：视域参数检查 + 生成视域 ======
-    const missingParams = [];
-    if (lat == null || lon == null) missingParams.push('定位坐标(lat/lon)');
-    if (yaw == null) missingParams.push('偏航角(yaw)');
-    if (pitch == null) missingParams.push('俯仰角(pitch)');
-    if (relHeight == null || relHeight <= 0) missingParams.push('相对高度(>0m)');
-    if (hFov == null) missingParams.push('水平视场角(h_fov)');
-    if (vFov == null) missingParams.push('垂直视场角(v_fov)');
-
-    let footprintResult = null; // { success, hasCorners, message, corners }
-    if (missingParams.length === 0) {
-        // 参数完整 → 尝试生成视域
         try {
-            const isPhone = String(deviceType).includes('phone') || String(deviceType).includes('footprint') || String(deviceType).includes('手机');
-            const rollVal = roll != null ? roll : 0;
-            const corners = computeFootprintCorners(lat, lon, relHeight, yaw, pitch, hFov, vFov, isPhone, rollVal);
+            const token = localStorage.getItem('access_token');
+            const headers = { 'Accept': 'application/json' };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
 
-            // 清除之前的视域
-            footprintGenLayer.getSource().clear();
+            const res = await fetch(`${API_BASE_URL}/api/photos/${encodeURIComponent(filename)}`, { headers });
+            if (res.ok) {
+                const photoData = await res.json();
+                console.log('[视域生成 v3] 后端返回数据:', photoData);
 
-            let footprintCoords;
-            if (corners === null) {
-                footprintCoords = makeCircularFootprint(lat, lon);
-                footprintResult = { success: true, hasCorners: false, message: '⚠️ 降级为圆形视域（全朝天或俯仰角过大）', corners: null };
+                // 用后端数据补全（只补前端缺失的）
+                const backendParams = extractFootprintParams(photoData);
+                for (const key of Object.keys(backendParams)) {
+                    if (params[key] == null && backendParams[key] != null) {
+                        params[key] = backendParams[key];
+                        if (key !== 'latLonSource') params.latLonSource = '后端API补全';
+                    }
+                }
+                // 如果后端有 lat/lon 而前端没有，也补上
+                if (params.lat == null && backendParams.lat != null) {
+                    params.lat = backendParams.lat;
+                    params.latLonSource = '后端API';
+                }
+                if (params.lon == null && backendParams.lon != null) {
+                    params.lon = backendParams.lon;
+                    params.latLonSource = '后端API';
+                }
+                console.log('[视域生成 v3] 后端补全后:', params);
             } else {
-                footprintCoords = [
-                    corners['bottom_left'],
-                    corners['bottom_right'],
-                    corners['top_right'],
-                    corners['top_left'],
-                    corners['bottom_left']
-                ];
-                footprintResult = { success: true, hasCorners: true, message: '✅ 视域生成成功（4角点）', corners: corners };
+                console.warn('[视域生成 v3] 后端请求失败:', res.status);
             }
-
-            // 将经纬度坐标转为地图投影坐标
-            const projectedCoords = footprintCoords.map(([lonVal, latVal]) =>
-                ol.proj.fromLonLat([lonVal, latVal])
-            );
-
-            const polygon = new ol.geom.Polygon([projectedCoords]);
-            const footprintFeature = new ol.Feature({
-                geometry: polygon,
-                filename: filename,
-                hasCorners: footprintResult.hasCorners
-            });
-            footprintGenLayer.getSource().addFeature(footprintFeature);
-
-            console.log(`[视域生成] ${filename}: ${footprintResult.message}`);
         } catch (e) {
-            console.error('视域计算错误:', e);
-            footprintResult = { success: false, hasCorners: false, message: '❌ 计算错误: ' + e.message, corners: null };
+            console.warn('[视域生成 v3] 后端获取异常:', e.message);
         }
     }
 
-    // ====== 步骤4：构建视域参数摘要 + 状态面板 ======
-    function statusCell(label, value, isValid) {
-        const color = isValid ? 'color:#237804; background:#f6ffed;' : 'color:#cf1322; background:#fff1f0;';
-        const valStr = (value === null || value === undefined || value === '')
-            ? '<span style="color:#999;">缺失</span>'
-            : String(value);
-        return `
-            <div style="flex:1; min-width:100px; ${color} padding:6px 8px; border-radius:4px; font-size:12px; border:1px solid #eee;">
-                <div style="font-weight:bold; margin-bottom:2px;">${label}</div>
-                <div style="font-family:monospace;">${valStr}</div>
-            </div>
-        `;
-    }
+    // ====== 步骤3：检查参数完整性，显示弹窗 ======
+    const missingParams = checkMissingParams(params);
+    const paramsComplete = missingParams.length === 0;
 
-    const summaryHtml = `
-        <div style="margin-top:10px; padding:10px; border-radius:6px; background:${missingParams.length === 0 ? '#f6ffed; border:1px solid #b7eb8f;' : '#fff1f0; border:1px solid #ffa39e;'}">
-            <div style="font-weight:bold; margin-bottom:6px; font-size:13px;">
-                ${missingParams.length === 0 ? '🎯 视域参数（全部有效）' : '⚠️ 视域参数（有缺失）'}
-            </div>
-            <div style="display:flex; flex-wrap:wrap; gap:6px;">
-                ${statusCell('lat (纬度)', lat != null ? lat.toFixed(6) : null, lat != null)}
-                ${statusCell('lon (经度)', lon != null ? lon.toFixed(6) : null, lon != null)}
-                ${statusCell('yaw (方位°)', yaw != null ? yaw.toFixed(1) : null, yaw != null)}
-                ${statusCell('pitch (俯仰°)', pitch != null ? pitch.toFixed(1) : null, pitch != null)}
-                ${statusCell('roll (翻滚°)', roll != null ? roll.toFixed(1) : '<span style="color:#888;">0(默认)</span>', true)}
-                ${statusCell('高度(m)', relHeight != null ? relHeight.toFixed(1) : null, relHeight != null && relHeight > 0)}
-                ${statusCell('H-FOV(°)', hFov != null ? hFov.toFixed(1) : null, hFov != null)}
-                ${statusCell('V-FOV(°)', vFov != null ? vFov.toFixed(1) : null, vFov != null)}
-                ${statusCell('设备', deviceType || '未知', true)}
-            </div>
-        </div>
-    `;
+    // 保存当前参数供"生成"按钮使用
+    window.__pendingFootprint = { params, filename, coordinate };
 
-    // 缺失参数提示或生成结果状态
-    let resultPanelHtml = '';
-    if (missingParams.length > 0) {
-        resultPanelHtml = `
-            <div style="margin-top:8px; background:#fff3cd; border:1px solid #ffc107; border-radius:4px; padding:10px; font-size:12px; color:#856404;">
-                <div style="font-weight:bold; margin-bottom:4px;">⚠️ 无法生成视域，缺少参数:</div>
-                <ul style="margin:0; padding-left:20px;">
-                    ${missingParams.map(p => `<li>${p}</li>`).join('')}
-                </ul>
-                <div style="margin-top:6px; color:#666;">💡 解决方法：请在前端上传照片时，确保已打开传感器并完成"正北归零"校准</div>
-            </div>
-        `;
-    } else if (footprintResult) {
-        const bgColor = footprintResult.success
-            ? (footprintResult.hasCorners ? '#d4edda; border:1px solid #28a745; color:#155724;' : '#fff3cd; border:1px solid #ffc107; color:#856404;')
-            : '#f8d7da; border:1px solid #f5c6cb; color:#721c24;';
-        let cornersInfo = '';
-        if (footprintResult.hasCorners && footprintResult.corners) {
-            const c = footprintResult.corners;
-            cornersInfo = `
-                <div style="margin-top:6px; font-size:11px; font-family:monospace; background:rgba(255,255,255,0.6); padding:4px; border-radius:3px;">
-                    BL:[${c.bottom_left[1].toFixed(5)},${c.bottom_left[0].toFixed(5)}]
-                    BR:[${c.bottom_right[1].toFixed(5)},${c.bottom_right[0].toFixed(5)}]
-                    TR:[${c.top_right[1].toFixed(5)},${c.top_right[0].toFixed(5)}]
-                    TL:[${c.top_left[1].toFixed(5)},${c.top_left[0].toFixed(5)}]
-                </div>`;
+    // 注册"生成视域"回调
+    window.__fpGenerate = function() {
+        const { params: p, filename: fn, coordinate: coord } = window.__pendingFootprint;
+        const result = generateFootprint(p, fn);
+        // 更新结果面板
+        const panel = document.getElementById('fpResultPanel');
+        if (panel) {
+            panel.innerHTML = result.html;
+            panel.style.cssText = 'margin-top:8px;' + result.style;
         }
-        resultPanelHtml = `
-            <div style="margin-top:8px; background:${bgColor} border-radius:4px; padding:10px; font-size:13px;">
-                <div style="font-weight:bold;">${footprintResult.message}</div>
-                ${cornersInfo}
-            </div>
-        `;
-    }
+        // 禁用生成按钮
+        const genBtn = document.getElementById('fpGenerateBtn');
+        if (genBtn) {
+            genBtn.disabled = true;
+            genBtn.style.opacity = '0.5';
+            genBtn.style.cursor = 'not-allowed';
+            genBtn.innerText = '✅ 已生成';
+        }
+    };
 
-    // ====== 步骤5：组装并显示弹窗 ======
-    // 内联脚本：清除视域（需要将弹窗里的onclick回调注册到window）
+    // 清除视域回调
     window.__fpClearCurrent = function() {
         if (footprintGenLayer) {
             const count = footprintGenLayer.getSource().getFeatures().length;
             footprintGenLayer.getSource().clear();
-            showMessage(count > 0 ? `已清除 ${count} 个视域图形` : '当前没有可清除的视域图形', count > 0 ? 'success' : 'info');
-            // 更新结果面板
+            showMessage(count > 0 ? `已清除 ${count} 个视域` : '当前无可清除视域', count > 0 ? 'success' : 'info');
             const panel = document.getElementById('fpResultPanel');
             if (panel) {
-                panel.innerHTML = '<div style="font-weight:bold;">🧹 已手动清除视域图形</div>';
-                panel.style.background = '#e6f7ff';
-                panel.style.border = '1px solid #91d5ff';
-                panel.style.color = '#0050b3';
+                panel.innerHTML = '<div style="font-weight:bold;">🧹 已清除视域</div>';
+                panel.style.cssText = 'margin-top:8px; background:#e6f7ff; border:1px solid #91d5ff; border-radius:4px; padding:10px; font-size:13px; color:#0050b3;';
+            }
+            // 重新启用生成按钮
+            const genBtn = document.getElementById('fpGenerateBtn');
+            if (genBtn && paramsComplete) {
+                genBtn.disabled = false;
+                genBtn.style.opacity = '1';
+                genBtn.style.cursor = 'pointer';
+                genBtn.innerText = '🎯 生成视域';
             }
         }
     };
-    const fpResultStyle = (missingParams.length === 0 && footprintResult && footprintResult.success)
-        ? (footprintResult.hasCorners
-            ? 'background:#d4edda; border:1px solid #28a745; border-radius:4px; padding:10px; font-size:13px; color:#155724;'
-            : 'background:#fff3cd; border:1px solid #ffc107; border-radius:4px; padding:10px; font-size:13px; color:#856404;')
-        : (missingParams.length > 0
-            ? ''  // 缺失参数的面板已有样式
-            : (footprintResult && !footprintResult.success)
-                ? 'background:#f8d7da; border:1px solid #f5c6cb; border-radius:4px; padding:10px; font-size:13px; color:#721c24;'
-                : '');
+
+    // 构建弹窗
+    const summaryHtml = buildParamsSummary(params, missingParams);
+    const resultPanelHtml = paramsComplete
+        ? '<div style="font-size:12px;color:#666;">参数完整，点击下方"生成视域"按钮绘制视域范围</div>'
+        : `<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:4px;padding:10px;font-size:12px;color:#856404;">
+              <div style="font-weight:bold;margin-bottom:4px;">⚠️ 缺少必要参数:</div>
+              <ul style="margin:0;padding-left:20px;">${missingParams.map(p => `<li>${p}</li>`).join('')}</ul>
+              <div style="margin-top:6px;color:#999;">${filename ? '后端数据库中也未找到这些参数' : '无文件名，无法从后端查询'}</div>
+           </div>`;
 
     const content = `
-        <div style="position:relative; padding-top:5px; min-width:340px; max-width:520px;">
+        <div style="position:relative;padding-top:5px;min-width:340px;max-width:520px;">
             <button onclick="closePopup()" style="position:absolute;top:-15px;right:-15px;width:24px;height:24px;border:none;background:#ff4d4f;color:white;border-radius:50%;cursor:pointer;font-size:14px;line-height:24px;text-align:center;padding:0;z-index:10;">×</button>
-            <h4 style="margin:0 0 8px 0; font-size:14px;">🎯 视域生成 &nbsp;|&nbsp; ${filename || '未命名照片'}</h4>
-
-            <!-- 视域参数摘要 -->
+            <h4 style="margin:0 0 8px 0;font-size:14px;">🎯 视域生成 v3 &nbsp;|&nbsp; ${filename || '未命名'}</h4>
             ${summaryHtml}
-
-            <!-- 结果状态面板 -->
-            <div id="fpResultPanel" style="${missingParams.length > 0 ? 'margin-top:8px;' : (fpResultStyle ? ('margin-top:8px;' + fpResultStyle) : 'margin-top:8px;')}">
-                ${missingParams.length > 0 ? resultPanelHtml : (footprintResult ? `<div style="font-weight:bold;">${footprintResult.message}</div>${cornersInfo || ''}` : '')}
+            <div id="fpResultPanel" style="margin-top:8px;">${resultPanelHtml}</div>
+            <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;padding-top:8px;border-top:1px dashed #ddd;">
+                ${paramsComplete
+                    ? '<button id="fpGenerateBtn" onclick="window.__fpGenerate()" style="flex:1;min-width:140px;padding:8px 16px;border:1px solid #52c41a;background:#f6ffed;color:#389e0c;border-radius:4px;cursor:pointer;font-size:13px;font-weight:bold;">🎯 生成视域</button>'
+                    : '<button disabled style="flex:1;min-width:140px;padding:8px 16px;border:1px solid #d9d9d9;background:#f5f5f5;color:#bfbfbf;border-radius:4px;font-size:13px;cursor:not-allowed;">参数不完整</button>'
+                }
+                <button onclick="window.__fpClearCurrent()" style="flex:1;min-width:100px;padding:8px 12px;border:1px solid #ffa940;background:#fff7e6;color:#d46b08;border-radius:4px;cursor:pointer;font-size:12px;">🧹 清除视域</button>
+                <button onclick="closePopup()" style="flex:1;min-width:80px;padding:8px 12px;border:1px solid #d9d9d9;background:white;color:#595959;border-radius:4px;cursor:pointer;font-size:12px;">关闭</button>
             </div>
-
-            <!-- 操作按钮条 -->
-            <div style="margin-top:10px; display:flex; gap:6px; flex-wrap:wrap; padding-top:8px; border-top:1px dashed #ddd;">
-                <button onclick="window.__fpClearCurrent && window.__fpClearCurrent()"
-                    style="flex:1; min-width:120px; padding:6px 12px; border:1px solid #ffa940; background:#fff7e6; color:#d46b08; border-radius:4px; cursor:pointer; font-size:12px; font-weight:bold;"
-                    ${(footprintGenLayer && footprintGenLayer.getSource().getFeatures().length === 0) ? 'disabled style="opacity:0.5; cursor:not-allowed; flex:1; min-width:120px; padding:6px 12px; border:1px solid #ffa940; background:#fff7e6; color:#d46b08; border-radius:4px; font-size:12px; font-weight:bold;"' : ''}>
-                    🧹 清除视域
-                </button>
-                <button onclick="closePopup()"
-                    style="flex:1; min-width:120px; padding:6px 12px; border:1px solid #d9d9d9; background:white; color:#595959; border-radius:4px; cursor:pointer; font-size:12px;">
-                    关闭弹窗
-                </button>
-            </div>
-
-            <!-- 全字段调试表格（可折叠） -->
-            <div style="margin-top:10px; border-top:1px dashed #ddd; padding-top:8px;">
-                <div id="fpToggleAllFields" style="cursor:pointer; font-size:12px; color:#1890ff; user-select:none;" onclick="(function(){
-                    var el=document.getElementById('fpAllFieldsBox');
-                    if(el.style.display==='none'){el.style.display='block'; this.innerText='▼ 隐藏全部字段 (' + ${keys.length} + '个，★=视域关键参数)';}
-                    else{el.style.display='none'; this.innerText='▶ 展开全部字段 (' + ${keys.length} + '个，★=视域关键参数)';}
-                })()">▶ 展开全部字段 (${keys.length}个，★=视域关键参数)</div>
-                <div id="fpAllFieldsBox" style="display:none; margin-top:6px; overflow:auto; max-height:260px;">
-                    <table style="width:100%; border-collapse:collapse; font-size:12px;">
-                        ${rowsHtml}
-                    </table>
-                </div>
-            </div>
-
-            <!-- Geometry 信息 -->
-            ${geomInfo}
         </div>
     `;
     popup.getElement().innerHTML = content;
@@ -1253,6 +1084,131 @@ function handleFootprintGenClick(feature, coordinate) {
     popup.setPositioning('top-center');
     popup.setOffset([0, 10]);
     popup.getElement().style.display = 'block';
+}
+
+/**
+ * 从 properties 对象中提取视域参数（兼容多套字段名）
+ */
+function extractFootprintParams(props) {
+    return {
+        lat: toNumber(pickFirst(props, ['lat','latitude','Lat','LAT','Latitude','LatitudeDD','gps_lat','GPSLatitude','纬度'])),
+        lon: toNumber(pickFirst(props, ['lon','lng','longitude','Lon','LNG','LON','Longitude','LongitudeDD','gps_lon','GPSLongitude','经度'])),
+        yaw: toNumber(pickFirst(props, ['yaw','azimuth','Yaw','Azimuth','heading','bearing','方位角','偏航角','航向角'])),
+        pitch: toNumber(pickFirst(props, ['pitch','Pitch','tilt','TILT','俯仰角','倾斜角'])),
+        roll: toNumber(pickFirst(props, ['roll','Roll','ROLL','翻滚角','横滚角'])),
+        relHeight: toNumber(pickFirst(props, ['relative_height','relativeHeight','rel_alt','altitude','height','elev','Altitude','Height','高度','相对高度','飞行高度','海拔'])),
+        hFov: toNumber(pickFirst(props, ['h_fov','hfov','H_FOV','HFOV','horizontal_fov','水平视场角','视场角H'])),
+        vFov: toNumber(pickFirst(props, ['v_fov','vfov','V_FOV','VFOV','vertical_fov','垂直视场角','视场角V'])),
+        deviceType: pickFirst(props, ['device_type','deviceType','Device_Type','设备类型','设备']) || '',
+        latLonSource: 'properties'
+    };
+}
+
+/**
+ * 检查缺失的视域参数
+ */
+function checkMissingParams(p) {
+    const missing = [];
+    if (p.lat == null || p.lon == null) missing.push('定位坐标(lat/lon)');
+    if (p.yaw == null) missing.push('偏航角(yaw)');
+    if (p.pitch == null) missing.push('俯仰角(pitch)');
+    if (p.relHeight == null || p.relHeight <= 0) missing.push('相对高度(>0m)');
+    if (p.hFov == null) missing.push('水平视场角(h_fov)');
+    if (p.vFov == null) missing.push('垂直视场角(v_fov)');
+    return missing;
+}
+
+/**
+ * 构建参数摘要面板
+ */
+function buildParamsSummary(p, missingParams) {
+    function cell(label, value, ok) {
+        const c = ok ? 'color:#237804;background:#f6ffed;' : 'color:#cf1322;background:#fff1f0;';
+        const v = (value == null || value === '') ? '<span style="color:#999;">缺失</span>' : String(value);
+        return `<div style="flex:1;min-width:100px;${c}padding:6px 8px;border-radius:4px;font-size:12px;border:1px solid #eee;">
+            <div style="font-weight:bold;margin-bottom:2px;">${label}</div>
+            <div style="font-family:monospace;">${v}</div></div>`;
+    }
+    return `
+        <div style="padding:10px;border-radius:6px;background:${missingParams.length === 0 ? '#f6ffed;border:1px solid #b7eb8f;' : '#fff1f0;border:1px solid #ffa39e;'}">
+            <div style="font-weight:bold;margin-bottom:6px;font-size:13px;">${missingParams.length === 0 ? '✅ 视域参数完整' : '⚠️ 视域参数有缺失'} <span style="font-size:11px;font-weight:normal;color:#888;">(来源: ${p.latLonSource})</span></div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                ${cell('lat', p.lat != null ? p.lat.toFixed(6) : null, p.lat != null)}
+                ${cell('lon', p.lon != null ? p.lon.toFixed(6) : null, p.lon != null)}
+                ${cell('yaw°', p.yaw != null ? p.yaw.toFixed(1) : null, p.yaw != null)}
+                ${cell('pitch°', p.pitch != null ? p.pitch.toFixed(1) : null, p.pitch != null)}
+                ${cell('roll°', p.roll != null ? p.roll.toFixed(1) : '0(默认)', true)}
+                ${cell('高度m', p.relHeight != null ? p.relHeight.toFixed(1) : null, p.relHeight != null && p.relHeight > 0)}
+                ${cell('H-FOV°', p.hFov != null ? p.hFov.toFixed(1) : null, p.hFov != null)}
+                ${cell('V-FOV°', p.vFov != null ? p.vFov.toFixed(1) : null, p.vFov != null)}
+                ${cell('设备', p.deviceType || '未知', true)}
+            </div>
+        </div>`;
+}
+
+/**
+ * 显示加载中弹窗
+ */
+function showPopupLoading(filename, coordinate) {
+    popup.getElement().innerHTML = `
+        <div style="padding:15px;min-width:280px;text-align:center;">
+            <div style="font-size:14px;font-weight:bold;margin-bottom:8px;">📡 从后端获取参数...</div>
+            <div style="font-size:12px;color:#888;">${filename}</div>
+            <div style="margin-top:10px;color:#1890ff;">⏳ 请稍候</div>
+        </div>`;
+    popup.setPosition(coordinate);
+    popup.setPositioning('top-center');
+    popup.setOffset([0, 10]);
+    popup.getElement().style.display = 'block';
+}
+
+/**
+ * 实际生成视域并绘制到地图
+ */
+function generateFootprint(params, filename) {
+    try {
+        const isPhone = String(params.deviceType).includes('phone') || String(params.deviceType).includes('footprint') || String(params.deviceType).includes('手机');
+        const rollVal = params.roll != null ? params.roll : 0;
+        const corners = computeFootprintCorners(params.lat, params.lon, params.relHeight, params.yaw, params.pitch, params.hFov, params.vFov, isPhone, rollVal);
+
+        footprintGenLayer.getSource().clear();
+
+        let footprintCoords, hasCorners, message;
+        if (corners === null) {
+            footprintCoords = makeCircularFootprint(params.lat, params.lon);
+            hasCorners = false;
+            message = '⚠️ 降级为圆形视域（全朝天或俯仰角过大）';
+        } else {
+            footprintCoords = [corners.bottom_left, corners.bottom_right, corners.top_right, corners.top_left, corners.bottom_left];
+            hasCorners = true;
+            message = '✅ 视域生成成功（4角点）';
+        }
+
+        const projectedCoords = footprintCoords.map(([lon, lat]) => ol.proj.fromLonLat([lon, lat]));
+        const polygon = new ol.geom.Polygon([projectedCoords]);
+        const footprintFeature = new ol.Feature({ geometry: polygon, filename: filename, hasCorners: hasCorners });
+        footprintGenLayer.getSource().addFeature(footprintFeature);
+
+        console.log(`[视域生成] ${filename}: ${message}`);
+
+        const style = hasCorners
+            ? 'background:#d4edda;border:1px solid #28a745;border-radius:4px;padding:10px;font-size:13px;color:#155724;'
+            : 'background:#fff3cd;border:1px solid #ffc107;border-radius:4px;padding:10px;font-size:13px;color:#856404;';
+
+        let cornersInfo = '';
+        if (hasCorners) {
+            const c = corners;
+            cornersInfo = `<div style="margin-top:6px;font-size:11px;font-family:monospace;opacity:0.8;">
+                BL:[${c.bottom_left[1].toFixed(5)},${c.bottom_left[0].toFixed(5)}]
+                BR:[${c.bottom_right[1].toFixed(5)},${c.bottom_right[0].toFixed(5)}]
+                TR:[${c.top_right[1].toFixed(5)},${c.top_right[0].toFixed(5)}]
+                TL:[${c.top_left[1].toFixed(5)},${c.top_left[0].toFixed(5)}]</div>`;
+        }
+        return { html: `<div style="font-weight:bold;">${message}</div>${cornersInfo}`, style };
+    } catch (e) {
+        console.error('[视域生成] 计算错误:', e);
+        return { html: `<div style="font-weight:bold;">❌ 计算错误: ${e.message}</div>`, style: 'background:#f8d7da;border:1px solid #f5c6cb;border-radius:4px;padding:10px;font-size:13px;color:#721c24;' };
+    }
 }
 
 /**
