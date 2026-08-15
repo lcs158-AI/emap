@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>卫星云图测试 - ESRI影像 + NASA GIBS</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@8.2.0/ol.css">
+    <script src="https://cdn.jsdelivr.net/npm/ol@8.2.0/dist/ol.js"></script>
+    <style>
+        html, body { margin: 0; padding: 0; height: 100%; width: 100%; font-family: "Microsoft YaHei", sans-serif; }
+        #map { width: 100%; height: 100%; background: #000; }
+
+        /* 顶部控制条 */
+        #controls {
+            position: absolute; top: 15px; left: 15px; z-index: 1000;
+            background: rgba(255,255,255,0.95); border-radius: 8px; padding: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2); min-width: 420px;
+        }
+        #controls h3 { margin: 0 0 10px 0; font-size: 15px; color: #1890ff; }
+        .row { display: flex; align-items: center; gap: 8px; margin: 6px 0; font-size: 13px; }
+        .row label { min-width: 80px; color: #555; }
+        .row input[type=text], .row select {
+            flex: 1; padding: 5px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px;
+        }
+        .row input[type=range] { flex: 1; }
+        .btn {
+            padding: 6px 14px; background: #1890ff; color: white; border: none;
+            border-radius: 4px; cursor: pointer; font-size: 13px;
+        }
+        .btn.secondary { background: #52c41a; }
+        .btn.gray { background: #888; }
+        .btn:hover { opacity: 0.85; }
+
+        /* 状态栏 */
+        #status {
+            margin-top: 10px; padding: 8px; border-radius: 4px;
+            background: #f6f6f6; font-size: 11px; color: #555;
+            max-height: 120px; overflow-y: auto; font-family: Consolas, monospace;
+            word-break: break-all; white-space: pre-wrap;
+        }
+        .ok { color: #52c41a; font-weight: bold; }
+        .err { color: #f5222d; font-weight: bold; }
+        .info { color: #1890ff; }
+
+        /* 直接测试链接 */
+        #testUrls { margin-top: 10px; font-size: 11px; }
+        #testUrls a { display: block; color: #1890ff; margin: 2px 0; text-decoration: none; }
+        #testUrls a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+
+    <div id="controls">
+        <h3>🛰️ NASA GIBS 卫星云图调试器</h3>
+
+        <div class="row">
+            <label>图层：</label>
+            <select id="layerSelect">
+                <option value="MODIS_Aqua_CorrectedReflectance_TrueColor">MODIS Aqua 真彩色（全球/每日，下午过境，中国区完整）</option>
+                <option value="MODIS_Terra_CorrectedReflectance_TrueColor">MODIS Terra 真彩色（全球/每日，上午过境）</option>
+                <option value="VIIRS_SNPP_CorrectedReflectance_TrueColor">VIIRS SNPP 真彩色（全球/每日）</option>
+                <option value="Himawari_AHI_Full_Disk_Normalized_Reflectance_Band_3_2_1">Himawari 葵花 8 号 真彩色（亚太区/每小时）</option>
+                <option value="MODIS_Aqua_Cloud_Top_Temperature_Day">MODIS Aqua 云顶温度（全球/每日）</option>
+                <option value="MODIS_Terra_Cloud_Fraction_Day">MODIS Terra 云量（全球/每日）</option>
+            </select>
+        </div>
+
+        <div class="row">
+            <label>时间：</label>
+            <input type="text" id="timeInput" placeholder="YYYY-MM-DD 或 YYYY-MM-DDTHH:00:00Z">
+            <button class="btn" id="btnToday">-2天</button>
+            <button class="btn secondary" id="btnHour">-3小时</button>
+        </div>
+
+        <div class="row">
+            <label>透明度：</label>
+            <input type="range" id="opacitySlider" min="0" max="100" value="50">
+            <span id="opacityVal" style="min-width:40px;text-align:right;">50%</span>
+        </div>
+
+        <div class="row" style="justify-content:flex-end; gap:6px;">
+            <button class="btn gray" id="btnToggle">开关云图</button>
+            <button class="btn" id="btnApply">应用配置</button>
+        </div>
+
+        <div id="status">尚未加载...</div>
+
+        <div id="testUrls"></div>
+    </div>
+
+<script>
+// ============================================================
+//  1. 地图初始化：只加载 ESRI 影像底图
+// ============================================================
+const esriLayer = new ol.layer.Tile({
+    source: new ol.source.XYZ({
+        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        crossOrigin: 'anonymous',
+        maxZoom: 19
+    })
+});
+
+const view = new ol.View({
+    center: ol.proj.fromLonLat([118.8, 28.5]),  // 中国东海附近
+    zoom: 4
+});
+
+const map = new ol.Map({
+    target: 'map',
+    layers: [esriLayer],
+    view: view,
+    controls: ol.control.defaults.defaults()
+});
+
+let satelliteLayer = null;
+
+// ============================================================
+//  2. 辅助函数
+// ============================================================
+function log(msg, type) {
+    const el = document.getElementById('status');
+    const ts = new Date().toLocaleTimeString();
+    const prefix = type === 'ok' ? '✅ ' : type === 'err' ? '❌ ' : type === 'info' ? 'ℹ️ ' : '';
+    const cls = type || '';
+    el.innerHTML = `<span class="${cls}">[${ts}] ${prefix}${msg}</span>\n` + el.innerHTML;
+    console.log('[satellite]', msg);
+}
+
+function buildTimeString(isHourly, delayHours, delayDays) {
+    const now = new Date();
+    if (isHourly) {
+        const base = new Date(Date.UTC(
+            now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(),
+            now.getUTCHours() - (delayHours || 3)
+        ));
+        return base.toISOString().replace(/\.\d+Z$/, 'Z');
+    } else {
+        const base = new Date(Date.UTC(
+            now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - (delayDays || 2)
+        ));
+        return base.toISOString().substring(0, 10);
+    }
+}
+
+function buildTileUrl(layer, time) {
+    return `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/${layer}/default/${time}/250m/{z}/{y}/{x}.jpg`;
+}
+
+function isHourlyLayer(layer) {
+    return layer.toLowerCase().includes('himawari') || layer.toLowerCase().includes('goes') || layer.toLowerCase().includes('msg');
+}
+
+// ============================================================
+//  3. 核心：加载卫星图层
+// ============================================================
+function loadSatelliteLayer() {
+    const layer = document.getElementById('layerSelect').value;
+    const timeInput = document.getElementById('timeInput').value.trim();
+    const time = timeInput || buildTimeString(isHourlyLayer(layer), 3, 2);
+    const opacity = parseInt(document.getElementById('opacitySlider').value) / 100;
+
+    // 移除旧图层
+    if (satelliteLayer) {
+        map.removeLayer(satelliteLayer);
+        satelliteLayer = null;
+    }
+
+    const tileUrl = buildTileUrl(layer, time);
+    log(`图层: ${layer}`);
+    log(`时间: ${time}`);
+    log(`URL: ${tileUrl}`, 'info');
+
+    // 生成 3 个直接可点击测试的瓦片 URL
+    const testZ = 3;
+    const tileTest = document.getElementById('testUrls');
+    const samples = [
+        tileUrl.replace('{z}', testZ).replace('{y}','5').replace('{x}','6'),   // 东海附近
+        tileUrl.replace('{z}', testZ).replace('{y}','5').replace('{x}','5'),   // 中国中部
+        tileUrl.replace('{z}', testZ).replace('{y}','2').replace('{x}','4'),   // 全球(低z)
+    ];
+    tileTest.innerHTML = `<div style="color:#888;margin:4px 0;">瓦片测试（复制到浏览器单独打开）：</div>` +
+        samples.map((u, i) => {
+            const labels = ['东海附近(z3)', '中国内陆(z3)', '低z全局(z3)'];
+            return `<a href="${u}" target="_blank">🔗 ${labels[i]} → ${u.substring(0, 110)}...</a>`;
+        }).join('');
+
+    // 创建图层 + 瓦片加载事件监听
+    satelliteLayer = new ol.layer.Tile({
+        source: new ol.source.XYZ({
+            url: tileUrl,
+            crossOrigin: 'anonymous',
+            tileSize: 256,
+            maxZoom: 9
+        }),
+        opacity: opacity,
+        visible: true
+    });
+
+    let loaded = 0, failed = 0, total = 0;
+    const src = satelliteLayer.getSource();
+
+    src.on('tileloadstart', (e) => { total++; });
+    src.on('tileloadend', (e) => {
+        loaded++;
+        if (loaded === 1) log('第一片瓦片加载成功 🎉', 'ok');
+    });
+    src.on('tileloaderror', (e) => {
+        failed++;
+        // 只在前 10 片报错时提示
+        if (failed <= 3) {
+            const tc = e.tile && e.tile.urls_ ? e.tile.urls_[0] : '未知瓦片';
+            log(`瓦片失败（${failed}片）：${tc}`, 'err');
+        }
+        if (failed === 5) {
+            log('已连续失败 5 片 → 建议检查：时间格式 / 图层名 / 延迟量', 'err');
+        }
+    });
+
+    map.addLayer(satelliteLayer);
+
+    // 5 秒后汇总
+    setTimeout(() => {
+        log(`5秒统计：成功 ${loaded} / 失败 ${failed} / 请求 ${total}`,
+            loaded > 0 ? 'ok' : 'info');
+    }, 5000);
+}
+
+// ============================================================
+//  4. 事件绑定
+// ============================================================
+document.getElementById('btnApply').addEventListener('click', loadSatelliteLayer);
+
+document.getElementById('btnToggle').addEventListener('click', () => {
+    if (!satelliteLayer) { loadSatelliteLayer(); return; }
+    const v = satelliteLayer.getVisible();
+    satelliteLayer.setVisible(!v);
+    log('云图 ' + (!v ? '显示' : '隐藏'));
+});
+
+document.getElementById('opacitySlider').addEventListener('input', (e) => {
+    const v = parseInt(e.target.value);
+    document.getElementById('opacityVal').textContent = v + '%';
+    if (satelliteLayer) satelliteLayer.setOpacity(v / 100);
+});
+
+document.getElementById('btnToday').addEventListener('click', () => {
+    const layer = document.getElementById('layerSelect').value;
+    document.getElementById('timeInput').value = buildTimeString(isHourlyLayer(layer), 3, 2);
+});
+document.getElementById('btnHour').addEventListener('click', () => {
+    document.getElementById('timeInput').value = buildTimeString(true, 3, 0);
+});
+
+document.getElementById('layerSelect').addEventListener('change', (e) => {
+    // 切换图层时，时间框自动填推荐格式
+    const hourly = isHourlyLayer(e.target.value);
+    document.getElementById('timeInput').value = buildTimeString(hourly, 3, 2);
+});
+
+// ============================================================
+//  5. 页面加载即尝试
+// ============================================================
+window.addEventListener('DOMContentLoaded', () => {
+    log('ESRI 影像底图已加载', 'ok');
+    const layer = document.getElementById('layerSelect').value;
+    document.getElementById('timeInput').value = buildTimeString(isHourlyLayer(layer), 3, 2);
+    log('默认 MODIS Aqua + 2 天延迟 — 点击【应用配置】加载云图', 'info');
+});
+</script>
+</body>
+</html>
