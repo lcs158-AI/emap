@@ -2,22 +2,23 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>卫星云图测试 - ESRI影像 + NASA GIBS</title>
+    <title>卫星云图 - ESRI影像 + NASA GIBS</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@8.2.0/ol.css">
     <script src="https://cdn.jsdelivr.net/npm/ol@8.2.0/dist/ol.js"></script>
     <style>
         html, body { margin: 0; padding: 0; height: 100%; width: 100%; font-family: "Microsoft YaHei", sans-serif; }
         #map { width: 100%; height: 100%; background: #000; }
 
-        /* 顶部控制条 */
         #controls {
             position: absolute; top: 15px; left: 15px; z-index: 1000;
             background: rgba(255,255,255,0.95); border-radius: 8px; padding: 15px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.2); min-width: 420px;
+            max-height: calc(100vh - 30px);
+            overflow-y: auto;
         }
         #controls h3 { margin: 0 0 10px 0; font-size: 15px; color: #1890ff; }
         .row { display: flex; align-items: center; gap: 8px; margin: 6px 0; font-size: 13px; }
-        .row label { min-width: 80px; color: #555; }
+        .row label { min-width: 80px; color: #555; flex-shrink: 0; }
         .row input[type=text], .row select {
             flex: 1; padding: 5px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px;
         }
@@ -25,12 +26,12 @@
         .btn {
             padding: 6px 14px; background: #1890ff; color: white; border: none;
             border-radius: 4px; cursor: pointer; font-size: 13px;
+            white-space: nowrap;
         }
         .btn.secondary { background: #52c41a; }
         .btn.gray { background: #888; }
         .btn:hover { opacity: 0.85; }
 
-        /* 状态栏 */
         #status {
             margin-top: 10px; padding: 8px; border-radius: 4px;
             background: #f6f6f6; font-size: 11px; color: #555;
@@ -41,9 +42,8 @@
         .err { color: #f5222d; font-weight: bold; }
         .info { color: #1890ff; }
 
-        /* 直接测试链接 */
-        #testUrls { margin-top: 10px; font-size: 11px; }
-        #testUrls a { display: block; color: #1890ff; margin: 2px 0; text-decoration: none; }
+        #testUrls { margin-top: 10px; font-size: 11px; max-height: 150px; overflow-y: auto; }
+        #testUrls a { display: block; color: #1890ff; margin: 2px 0; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         #testUrls a:hover { text-decoration: underline; }
     </style>
 </head>
@@ -51,31 +51,71 @@
     <div id="map"></div>
 
     <div id="controls">
-        <h3>🛰️ NASA GIBS 卫星云图调试器</h3>
+        <h3>🛰️ NASA GIBS 卫星云图</h3>
 
         <div class="row">
             <label>图层：</label>
             <select id="layerSelect">
-                <option value="MODIS_Aqua_CorrectedReflectance_TrueColor">MODIS Aqua 真彩色（全球/每日，下午过境，中国区完整）</option>
-                <option value="MODIS_Terra_CorrectedReflectance_TrueColor">MODIS Terra 真彩色（全球/每日，上午过境）</option>
-                <option value="VIIRS_SNPP_CorrectedReflectance_TrueColor">VIIRS SNPP 真彩色（全球/每日）</option>
-                <option value="Himawari_AHI_Full_Disk_Normalized_Reflectance_Band_3_2_1">Himawari 葵花 8 号 真彩色（亚太区/每小时）</option>
-                <option value="MODIS_Aqua_Cloud_Top_Temperature_Day">MODIS Aqua 云顶温度（全球/每日）</option>
-                <option value="MODIS_Terra_Cloud_Fraction_Day">MODIS Terra 云量（全球/每日）</option>
+                <!-- 【推荐默认】VIIRS 每日合成 → 真实数据无拼接缝（用户实测✅） -->
+                <option value="VIIRS_SNPP_CorrectedReflectance_TrueColor|GoogleMapsCompatible_Level9|jpg|daily|推荐✅无缝">⭐ VIIRS SNPP 真彩色（全球/每日，已验证，无缝推荐）</option>
+                <!-- 单轨道每日合成：真实数据存在条带色差（Aqua下午过境略好于Terra上午） -->
+                <option value="MODIS_Aqua_CorrectedReflectance_TrueColor|GoogleMapsCompatible_Level9|jpg|daily|有接缝(轨道差)">✅ MODIS Aqua 真彩色（全球/每日，下午过境，有轨道接缝）</option>
+                <option value="MODIS_Terra_CorrectedReflectance_TrueColor|GoogleMapsCompatible_Level9|jpg|daily|有接缝(轨道差)">✅ MODIS Terra 真彩色（全球/每日，上午过境，有轨道接缝）</option>
+                <!-- 8 天合成 → 多轨道平均消除色差，完全无缝，但时间粒度变粗 -->
+                <option value="MODIS_Aqua_CorrectedReflectance_TrueColor_8Day|GoogleMapsCompatible_Level9|jpg|daily|8天✅无缝">MODIS Aqua 真彩色（8天合成，完全无缝，时间变粗）</option>
+                <option value="MODIS_Terra_CorrectedReflectance_TrueColor_8Day|GoogleMapsCompatible_Level9|jpg|daily|8天✅无缝">MODIS Terra 真彩色（8天合成，完全无缝，时间变粗）</option>
+                <option value="VIIRS_SNPP_CorrectedReflectance_TrueColor_8Day|GoogleMapsCompatible_Level9|jpg|daily|8天✅无缝">VIIRS SNPP 真彩色（8天合成，超稳无缝）</option>
+                <!-- 需用小时时间格式 + Level8 + 最近 -3h 整点 -->
+                <option value="Himawari_AHI_Full_Disk_Normalized_Reflectance_Band_3_2_1|GoogleMapsCompatible_Level8|jpg|hourly|亚太逐小时">🌏 Himawari 葵花8号（亚太区/每小时，自动用-3h整点）</option>
+                <!-- 云顶温度 / 云量：派生产品分辨率较低 -->
+                <option value="MODIS_Aqua_Cloud_Top_Temperature_Day|GoogleMapsCompatible_Level7|jpg|daily|派生产品">MODIS Aqua 云顶温度（全球/每日，Level7）</option>
+                <option value="MODIS_Terra_Cloud_Fraction_Day|GoogleMapsCompatible_Level7|jpg|daily|派生产品">MODIS Terra 云量（全球/每日，Level7）</option>
+            </select>
+        </div>
+
+        <div class="row">
+            <label>反锯齿：</label>
+            <select id="gutterSelect">
+                <option value="1" selected>开启（gutter=1，消除瓦片1px缝✅推荐）</option>
+                <option value="0">关闭（原始瓦片边缘）</option>
+                <option value="2">强（gutter=2，重叠多2px）</option>
             </select>
         </div>
 
         <div class="row">
             <label>时间：</label>
-            <input type="text" id="timeInput" placeholder="YYYY-MM-DD 或 YYYY-MM-DDTHH:00:00Z">
-            <button class="btn" id="btnToday">-2天</button>
+            <input type="text" id="timeInput" placeholder="YYYY-MM-DD 或 YYYY-MM-DDTHH:00:00Z" style="flex:1;">
+            <button class="btn" id="btnD7">-7天</button>
+            <button class="btn" id="btnD5">-5天</button>
+            <button class="btn" id="btnD2">-2天</button>
             <button class="btn secondary" id="btnHour">-3小时</button>
+            <button class="btn gray" id="btnAuto">🎯 推荐时间</button>
+        </div>
+
+        <div class="row">
+            <label>TileMatrixSet：</label>
+            <select id="tmsSelect">
+                <option value="auto">自动（从图层配置取）</option>
+                <option value="GoogleMapsCompatible_Level9">Level9（1km, z最大9）</option>
+                <option value="GoogleMapsCompatible_Level8">Level8（2km, z最大8）</option>
+                <option value="GoogleMapsCompatible_Level7">Level7（4km, z最大7）</option>
+                <option value="GoogleMapsCompatible_Level6">Level6（8km, z最大6）</option>
+            </select>
+        </div>
+
+        <div class="row">
+            <label>URL模式：</label>
+            <select id="urlMode">
+                <option value="wmts">WMTS（标准）</option>
+                <option value="wmts_zpad">WMTS+补零</option>
+                <option value="tms">TMS（y翻转）</option>
+            </select>
         </div>
 
         <div class="row">
             <label>透明度：</label>
-            <input type="range" id="opacitySlider" min="0" max="100" value="50">
-            <span id="opacityVal" style="min-width:40px;text-align:right;">50%</span>
+            <input type="range" id="opacitySlider" min="0" max="100" value="70">
+            <span id="opacityVal" style="min-width:40px;text-align:right;">70%</span>
         </div>
 
         <div class="row" style="justify-content:flex-end; gap:6px;">
@@ -84,13 +124,12 @@
         </div>
 
         <div id="status">尚未加载...</div>
-
         <div id="testUrls"></div>
     </div>
 
 <script>
 // ============================================================
-//  1. 地图初始化：只加载 ESRI 影像底图
+//  1. 地图初始化
 // ============================================================
 const esriLayer = new ol.layer.Tile({
     source: new ol.source.XYZ({
@@ -101,7 +140,7 @@ const esriLayer = new ol.layer.Tile({
 });
 
 const view = new ol.View({
-    center: ol.proj.fromLonLat([118.8, 28.5]),  // 中国东海附近
+    center: ol.proj.fromLonLat([110, 30]),  // 中国中部
     zoom: 4
 });
 
@@ -133,6 +172,8 @@ function buildTimeString(isHourly, delayHours, delayDays) {
             now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(),
             now.getUTCHours() - (delayHours || 3)
         ));
+        // 对齐到整点
+        base.setUTCMinutes(0, 0, 0);
         return base.toISOString().replace(/\.\d+Z$/, 'Z');
     } else {
         const base = new Date(Date.UTC(
@@ -142,21 +183,47 @@ function buildTimeString(isHourly, delayHours, delayDays) {
     }
 }
 
-function buildTileUrl(layer, time) {
-    return `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/${layer}/default/${time}/250m/{z}/{y}/{x}.jpg`;
+function isHourlyLayer(layer) {
+    return layer.toLowerCase().includes('himawari') || 
+           layer.toLowerCase().includes('goes') || 
+           layer.toLowerCase().includes('msg');
 }
 
-function isHourlyLayer(layer) {
-    return layer.toLowerCase().includes('himawari') || layer.toLowerCase().includes('goes') || layer.toLowerCase().includes('msg');
+/**
+ * 生成GIBS瓦片URL
+ */
+function buildTileUrl(layer, tms, time, ext, urlMode, z, x, y) {
+    if (urlMode === 'tms') {
+        const yMax = Math.pow(2, z);
+        y = yMax - 1 - y;
+    }
+    
+    let zStr = String(z);
+    if (urlMode === 'wmts_zpad') {
+        zStr = String(z).padStart(2, '0');
+    }
+    
+    return `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/${layer}/default/${time}/${tms}/${zStr}/${y}/${x}.${ext}`;
 }
 
 // ============================================================
 //  3. 核心：加载卫星图层
 // ============================================================
 function loadSatelliteLayer() {
-    const layer = document.getElementById('layerSelect').value;
+    // 解析图层选择值（格式：layerName|tileMatrixSet|ext|timing）
+    const parts = document.getElementById('layerSelect').value.split('|');
+    const layerName = parts[0];
+    const defaultTMS = parts[1];
+    const ext = parts[2] || 'jpg';
+    const timing = parts[3] || 'daily'; // daily | hourly
+    
+    const tmsSel = document.getElementById('tmsSelect').value;
+    const tms = tmsSel === 'auto' ? defaultTMS : tmsSel;
+    const urlMode = document.getElementById('urlMode').value;
+    
     const timeInput = document.getElementById('timeInput').value.trim();
-    const time = timeInput || buildTimeString(isHourlyLayer(layer), 3, 2);
+    const isHourly = timing === 'hourly';
+    const time = timeInput || buildTimeString(isHourly, 3, 5);
     const opacity = parseInt(document.getElementById('opacitySlider').value) / 100;
 
     // 移除旧图层
@@ -165,63 +232,86 @@ function loadSatelliteLayer() {
         satelliteLayer = null;
     }
 
-    const tileUrl = buildTileUrl(layer, time);
-    log(`图层: ${layer}`);
-    log(`时间: ${time}`);
-    log(`URL: ${tileUrl}`, 'info');
+    log(`图层: ${layerName}`, 'info');
+    log(`时间: ${time} (${isHourly ? '按小时' : '按日'})`, 'info');
+    log(`TMS: ${tms}, 格式: .${ext}, URL模式: ${urlMode}`, 'info');
 
-    // 生成 3 个直接可点击测试的瓦片 URL
-    const testZ = 3;
-    const tileTest = document.getElementById('testUrls');
-    const samples = [
-        tileUrl.replace('{z}', testZ).replace('{y}','5').replace('{x}','6'),   // 东海附近
-        tileUrl.replace('{z}', testZ).replace('{y}','5').replace('{x}','5'),   // 中国中部
-        tileUrl.replace('{z}', testZ).replace('{y}','2').replace('{x}','4'),   // 全球(低z)
+    // 获取最大缩放级别
+    const levelMatch = tms.match(/Level(\d+)/);
+    const maxZoom = levelMatch ? parseInt(levelMatch[1]) : 9;
+
+    // 创建自定义Tile源（使用 ol.source.XYZ：内置EPSG3857标准瓦片网格）
+    const gutter = parseInt(document.getElementById('gutterSelect').value || '1', 10);
+    const source = new ol.source.XYZ({
+        tileUrlFunction: function(tileCoord) {
+            const z = tileCoord[0];
+            const x = tileCoord[1];
+            const y = tileCoord[2];
+            return buildTileUrl(layerName, tms, time, ext, urlMode, z, x, y);
+        },
+        crossOrigin: 'anonymous',
+        tileSize: 256,
+        maxZoom: maxZoom,
+        // gutter=N 让每个瓦片多抓周围 N px 再丢弃：相邻瓦片边缘重合消除 1px 采样缝
+        gutter: gutter
+    });
+
+    // 事件监听
+    let loaded = 0, failed = 0;
+    let firstError = true;
+    
+    source.on('tileloadend', function() {
+        loaded++;
+        if (loaded === 1) log('🎉 首片瓦片加载成功！', 'ok');
+    });
+    
+    source.on('tileloaderror', function(e) {
+        failed++;
+        if (firstError) {
+            firstError = false;
+            const tileCoord = e.tile && e.tile.tileCoord;
+            if (tileCoord) {
+                const url = buildTileUrl(layerName, tms, time, ext, urlMode,
+                    tileCoord[0], tileCoord[1], tileCoord[2]);
+                log('❌ 首片失败瓦片: ' + url, 'err');
+                log('💡 在新标签页打开上方链接 → 查看返回的 XML/错误码 → 告诉我具体内容', 'info');
+            }
+        }
+        if (failed === 10) {
+            log('⚠️ 已失败 10 片 → 尝试: 改时间(-7天) / 换 TileMatrixSet / 切 URL模式', 'err');
+        }
+    });
+
+    // 生成测试链接
+    const testUrls = document.getElementById('testUrls');
+    const testCoords = [
+        { z:3, x:4, y:3, label:'中国中部 z3' },
+        { z:4, x:8, y:6, label:'中国东部 z4' },
+        { z:2, x:2, y:2, label:'东亚 z2' }
     ];
-    tileTest.innerHTML = `<div style="color:#888;margin:4px 0;">瓦片测试（复制到浏览器单独打开）：</div>` +
-        samples.map((u, i) => {
-            const labels = ['东海附近(z3)', '中国内陆(z3)', '低z全局(z3)'];
-            return `<a href="${u}" target="_blank">🔗 ${labels[i]} → ${u.substring(0, 110)}...</a>`;
+    
+    testUrls.innerHTML = `<div style="color:#888;margin:4px 0;">🔗 测试瓦片链接（可点击打开验证）：</div>` +
+        testCoords.map(t => {
+            const u = buildTileUrl(layerName, tms, time, ext, urlMode, t.z, t.x, t.y);
+            return `<a href="${u}" target="_blank">${t.label}: ${u.substring(0, 80)}...</a>`;
         }).join('');
 
-    // 创建图层 + 瓦片加载事件监听
+    // 创建图层
     satelliteLayer = new ol.layer.Tile({
-        source: new ol.source.XYZ({
-            url: tileUrl,
-            crossOrigin: 'anonymous',
-            tileSize: 256,
-            maxZoom: 9
-        }),
+        source: source,
         opacity: opacity,
-        visible: true
-    });
-
-    let loaded = 0, failed = 0, total = 0;
-    const src = satelliteLayer.getSource();
-
-    src.on('tileloadstart', (e) => { total++; });
-    src.on('tileloadend', (e) => {
-        loaded++;
-        if (loaded === 1) log('第一片瓦片加载成功 🎉', 'ok');
-    });
-    src.on('tileloaderror', (e) => {
-        failed++;
-        // 只在前 10 片报错时提示
-        if (failed <= 3) {
-            const tc = e.tile && e.tile.urls_ ? e.tile.urls_[0] : '未知瓦片';
-            log(`瓦片失败（${failed}片）：${tc}`, 'err');
-        }
-        if (failed === 5) {
-            log('已连续失败 5 片 → 建议检查：时间格式 / 图层名 / 延迟量', 'err');
-        }
+        visible: true,
+        zIndex: 1
     });
 
     map.addLayer(satelliteLayer);
-
-    // 5 秒后汇总
+    
+    // 统计
     setTimeout(() => {
-        log(`5秒统计：成功 ${loaded} / 失败 ${failed} / 请求 ${total}`,
-            loaded > 0 ? 'ok' : 'info');
+        log(`加载统计：成功 ${loaded} / 失败 ${failed}`, loaded > 0 ? 'ok' : 'info');
+        if (loaded === 0 && failed > 0) {
+            log('⚠️ 所有瓦片加载失败，请检查时间或TileMatrixSet设置', 'err');
+        }
     }, 5000);
 }
 
@@ -230,41 +320,64 @@ function loadSatelliteLayer() {
 // ============================================================
 document.getElementById('btnApply').addEventListener('click', loadSatelliteLayer);
 
-document.getElementById('btnToggle').addEventListener('click', () => {
-    if (!satelliteLayer) { loadSatelliteLayer(); return; }
-    const v = satelliteLayer.getVisible();
-    satelliteLayer.setVisible(!v);
-    log('云图 ' + (!v ? '显示' : '隐藏'));
+document.getElementById('btnToggle').addEventListener('click', function() {
+    if (!satelliteLayer) {
+        loadSatelliteLayer();
+        return;
+    }
+    const visible = satelliteLayer.getVisible();
+    satelliteLayer.setVisible(!visible);
+    log('云图 ' + (visible ? '隐藏' : '显示'), 'info');
 });
 
-document.getElementById('opacitySlider').addEventListener('input', (e) => {
+document.getElementById('opacitySlider').addEventListener('input', function(e) {
     const v = parseInt(e.target.value);
     document.getElementById('opacityVal').textContent = v + '%';
-    if (satelliteLayer) satelliteLayer.setOpacity(v / 100);
+    if (satelliteLayer) {
+        satelliteLayer.setOpacity(v / 100);
+    }
 });
 
-document.getElementById('btnToday').addEventListener('click', () => {
-    const layer = document.getElementById('layerSelect').value;
-    document.getElementById('timeInput').value = buildTimeString(isHourlyLayer(layer), 3, 2);
+/** 取图层配置中的时间模式（第4段：daily | hourly） */
+function getTimingFromLayer() {
+    const parts = document.getElementById('layerSelect').value.split('|');
+    return parts[3] || 'daily';
+}
+
+// 时间快捷按钮
+document.getElementById('btnD2').addEventListener('click', function() {
+    document.getElementById('timeInput').value = buildTimeString(false, 3, 2);
 });
-document.getElementById('btnHour').addEventListener('click', () => {
+document.getElementById('btnD5').addEventListener('click', function() {
+    document.getElementById('timeInput').value = buildTimeString(false, 3, 5);
+});
+document.getElementById('btnD7').addEventListener('click', function() {
+    document.getElementById('timeInput').value = buildTimeString(false, 3, 7);
+});
+document.getElementById('btnHour').addEventListener('click', function() {
     document.getElementById('timeInput').value = buildTimeString(true, 3, 0);
 });
+document.getElementById('btnAuto').addEventListener('click', function() {
+    const isHourly = getTimingFromLayer() === 'hourly';
+    document.getElementById('timeInput').value = buildTimeString(isHourly, 3, isHourly ? 0 : 5);
+    log('已填入该图层推荐时间: ' + document.getElementById('timeInput').value, 'info');
+});
 
-document.getElementById('layerSelect').addEventListener('change', (e) => {
-    // 切换图层时，时间框自动填推荐格式
-    const hourly = isHourlyLayer(e.target.value);
-    document.getElementById('timeInput').value = buildTimeString(hourly, 3, 2);
+// 图层切换时：总是自动填入该图层推荐时间（防止切到Himawari还在用按日格式）
+document.getElementById('layerSelect').addEventListener('change', function() {
+    const isHourly = getTimingFromLayer() === 'hourly';
+    document.getElementById('timeInput').value = buildTimeString(isHourly, 3, isHourly ? 0 : 5);
+    log('切换图层，推荐时间已填入（' + (isHourly ? '按小时-3h' : '按日-5天') + '）', 'info');
 });
 
 // ============================================================
-//  5. 页面加载即尝试
+//  5. 页面加载 → 默认 MODIS Aqua（已验证✅）+ 填入推荐时间（不自动请求）
 // ============================================================
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', function() {
     log('ESRI 影像底图已加载', 'ok');
-    const layer = document.getElementById('layerSelect').value;
-    document.getElementById('timeInput').value = buildTimeString(isHourlyLayer(layer), 3, 2);
-    log('默认 MODIS Aqua + 2 天延迟 — 点击【应用配置】加载云图', 'info');
+    // 默认图层：MODIS Aqua（18/18 验证通过），填入推荐延迟 -5 天
+    document.getElementById('timeInput').value = buildTimeString(false, 3, 5);
+    log('💡 当前图层：MODIS Aqua 真彩色（已验证✅）| 时间 -5 天 | 点【应用配置】即可出图', 'ok');
 });
 </script>
 </body>

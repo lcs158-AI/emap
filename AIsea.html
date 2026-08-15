@@ -219,10 +219,15 @@
                 <button id="closeSatelliteBtn" style="background: none; border: none; font-size: 16px; cursor: pointer; color: #888;">✕</button>
             </div>
         </div>
-        <!-- 模式切换标签 -->
-        <div style="display:flex;gap:4px;margin-bottom:10px;">
-            <button id="cloudModeDailyBtn" style="flex:1;padding:4px 8px;font-size:12px;border:1px solid #1890ff;background:#1890ff;color:white;border-radius:4px;cursor:pointer;">🌍 全球（每日 24 天）</button>
-            <button id="cloudModeHourlyBtn" style="flex:1;padding:4px 8px;font-size:12px;border:1px solid #444;background:rgba(255,255,255,0.06);color:#bbb;border-radius:4px;cursor:pointer;">🌏 亚太（每小时 24h）</button>
+        <!-- 模式切换：下拉选择器（4 种预设，VIIRS 默认无缝 / MODIS 8天无缝 / MODIS 每日 / Himawari 逐小时） -->
+        <div style="display:flex;gap:6px;margin-bottom:10px;align-items:center;">
+            <label style="font-size:12px;color:#88a;min-width:60px;">图层模式：</label>
+            <select id="cloudModeSelect" style="flex:1;padding:5px 8px;background:rgba(255,255,255,0.08);border:1px solid #1890ff;border-radius:4px;color:#e6f4ff;font-size:12px;">
+                <option value="daily" selected>⭐ VIIRS SNPP（全球每日·完全无缝✅推荐）</option>
+                <option value="daily_modis_8day">🌍 MODIS Aqua 8天合成（全球·完全无缝·时间变粗）</option>
+                <option value="daily_modis_aqua">🌍 MODIS Aqua 每日（全球·下午过境·有轨道色差缝）</option>
+                <option value="hourly">🌏 Himawari 葵花8号（亚太区·每小时 24h·-3h延迟）</option>
+            </select>
         </div>
         <div style="display: flex; align-items: center; gap: 10px;">
             <button id="cloudPrevBtn" style="background: rgba(255,255,255,0.15); border: none; color: white; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center;">◀</button>
