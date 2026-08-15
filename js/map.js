@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
@@ -6647,67 +6647,82 @@ let cloudPlayTimer = null;
 let cloudIsPlaying = false;
 
 /**
- * 生成 NASA GIBS 可用的 24 个时间点
- * 
- * 注意：
- * 1. NASA GIBS MODIS TrueColor 是【全球按日产品】，时间参数格式 YYYY-MM-DD（仅按日）
- *    如果要【按小时】的全球云图，应改用气象卫星系列（Himawari/GOES/MSG，分区域）
- * 2. NASA 数据通常有 1~3 天延迟，最新日期取【当前 UTC 日期 - 2 天】
- * 3. 这里用过去 24 天生成 24 帧，展示近一个月的变化；
- *    如果需要 24 小时变化，将 USE_DAILY 改为 false 会使用 Himawari 亚太区（每小时）
+ * 卫星云图模式配置：匹配卫星的【真实时间分辨率】
+ *  - 按日（MODIS）：适合全球、长周期变化
+ *  - 每小时（Himawari 葵花）：适合亚太区、24 小时内云的演变
  */
-const GIBS_USE_HOURLY_HIMAWARI = false; // 改为 true 启用 Himawari 亚太区逐小时
+const SATELLITE_MODES = {
+    daily: {
+        name: '全球观测（MODIS 每日）',
+        description: '🌍 MODIS Aqua + Terra 双星真彩色 / 每天 1 帧 / 24 天',
+        layer: 'MODIS_Aqua_CorrectedReflectance_TrueColor', // Aqua 下午过境，中国区数据比 Terra 更完整
+        altLayer: 'MODIS_Terra_CorrectedReflectance_TrueColor', // 回退备选
+        stepMs: 24 * 3600 * 1000, // 每天 1 帧
+        frameCount: 24,            // 24 帧 = 24 天
+        delayDays: 2,              // NASA 通常延迟 2~3 天出图
+        timeFormat: (d) => d.toISOString().substring(0, 10), // YYYY-MM-DD
+        displayFormat: (d) => (d.getMonth() + 1) + '/' + d.getDate(),
+        marks: ['-24天', '-18天', '-12天', '-6天', '最新']
+    },
+    hourly: {
+        name: '亚太区（Himawari 每小时）',
+        description: '🌏 Himawari 葵花 8 号 / 每小时 1 帧 / 24 小时',
+        layer: 'Himawari_AHI_Full_Disk_Normalized_Reflectance_Band_3_2_1',
+        stepMs: 60 * 60 * 1000, // 每小时 1 帧
+        frameCount: 24,          // 24 帧 = 24 小时
+        delayHours: 3,           // Himawari 延迟约 2~3 小时
+        timeFormat: (d) => d.toISOString().replace(/\.\d+Z$/, 'Z'), // 完整 ISO (去掉毫秒)
+        displayFormat: (d) =>
+            (d.getMonth() + 1) + '/' + d.getDate() + ' ' +
+            String(d.getHours()).padStart(2, '0') + ':00',
+        marks: ['-24h', '-18h', '-12h', '-6h', '最新']
+    }
+};
 
-function getGibsDateList() {
-    const dates = [];
+let currentSatelliteMode = 'daily'; // daily | hourly
+
+/** 根据当前模式生成时间列表 */
+function getGibsDateList(mode) {
+    const cfg = SATELLITE_MODES[mode || currentSatelliteMode];
+    const out = [];
     const now = new Date();
 
-    if (GIBS_USE_HOURLY_HIMAWARI) {
-        // ---------- 方案 A：Himawari 亚太区逐小时（日本葵花卫星） ----------
-        // 覆盖东亚/西太平洋，时间格式 YYYY-MM-DDTHH:MM:SSZ（每 10 分钟更新）
-        // Himawari 有 2 小时左右延迟，所以取最近整点-2h
-        const base = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours() - 2));
-        for (let i = 23; i >= 0; i--) {
-            const d = new Date(base.getTime() - i * 60 * 60 * 1000);
-            const dateStr = d.toISOString().replace(/\.\d+Z$/, 'Z'); // 去掉毫秒
-            const localD = new Date(d.getTime() + 8 * 3600 * 1000); // 转 UTC+8
-            dates.push({
-                dateStr: dateStr,
-                display: localD.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) + ' (亚太区)',
-                full: d,
-                layer: 'Himawari_AHI_Full_Disk_Normalized_Reflectance_Band_3_2_1'
-            });
-        }
+    // 基准时间（UTC 对齐，避免时区偏移导致日期错误）
+    let base;
+    if (cfg.delayDays != null) {
+        // 按日模式：UTC 零点 - 延迟天数
+        base = new Date(Date.UTC(
+            now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - cfg.delayDays
+        ));
+    } else if (cfg.delayHours != null) {
+        // 小时模式：最近整点 - 延迟小时
+        base = new Date(Date.UTC(
+            now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(),
+            now.getUTCHours() - cfg.delayHours
+        ));
     } else {
-        // ---------- 方案 B：MODIS 全球按日（默认） ----------
-        // 真正的全球覆盖，时间格式 YYYY-MM-DD，取过去 24 天每天一张
-        // 延迟 2 天：UTC 日期减去 2 天
-        const baseUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 2));
-        for (let i = 23; i >= 0; i--) {
-            const d = new Date(baseUTC.getTime() - i * 24 * 60 * 60 * 1000);
-            const dateStr = d.toISOString().substring(0, 10); // YYYY-MM-DD
-            const localD = new Date(d.getTime() + 8 * 3600 * 1000); // 转 UTC+8
-            dates.push({
-                dateStr: dateStr,
-                display: localD.toLocaleDateString('zh-CN', { year: '2-digit', month: '2-digit', day: '2-digit' }),
-                full: d,
-                layer: 'MODIS_Terra_CorrectedReflectance_TrueColor'
-            });
-        }
+        base = new Date(now.getTime());
     }
-    return dates;
+
+    for (let i = cfg.frameCount - 1; i >= 0; i--) {
+        const d = new Date(base.getTime() - i * cfg.stepMs);
+        // 显示用 UTC+8（中国本地时间）
+        const localD = new Date(d.getTime() + 8 * 3600 * 1000);
+        out.push({
+            dateStr: cfg.timeFormat(d),
+            display: cfg.displayFormat(localD),
+            full: d,
+            layer: cfg.layer
+        });
+    }
+    return out;
 }
 
-/**
- * 创建 NASA GIBS WMTS 图层
- *  - MODIS 全球按日：/epsg3857/best/{layer}/default/{YYYY-MM-DD}/250m/{z}/{y}/{x}.jpg
- *  - Himawari 亚太区逐小时：同路径，time 用完整 ISO
- */
+/** 创建 GIBS XYZ 图层 */
 function createSatelliteCloudLayer(dateStr, layerName) {
-    const layer = layerName || 'MODIS_Terra_CorrectedReflectance_TrueColor';
     return new ol.layer.Tile({
         source: new ol.source.XYZ({
-            url: `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/${layer}/default/${dateStr}/250m/{z}/{y}/{x}.jpg`,
+            url: `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/${layerName}/default/${dateStr}/250m/{z}/{y}/{x}.jpg`,
             crossOrigin: 'anonymous',
             tileSize: 256,
             maxZoom: 9,
@@ -6720,11 +6735,8 @@ function createSatelliteCloudLayer(dateStr, layerName) {
 
 /** 切换卫星云图显示 */
 function toggleSatelliteCloud() {
-    if (satelliteCloudVisible) {
-        hideSatelliteCloud();
-    } else {
-        showSatelliteCloud();
-    }
+    if (satelliteCloudVisible) hideSatelliteCloud();
+    else showSatelliteCloud();
 }
 
 function showSatelliteCloud() {
@@ -6732,23 +6744,22 @@ function showSatelliteCloud() {
     const latestIdx = dates.length - 1;
     const item = dates[latestIdx];
 
-    // 创建并添加图层
     satelliteCloudLayer = createSatelliteCloudLayer(item.dateStr, item.layer);
     map.addLayer(satelliteCloudLayer);
 
     satelliteCloudVisible = true;
     document.getElementById('satellitePanel').style.display = 'block';
 
-    // 更新按钮状态
     const btn = document.getElementById('satelliteCloudBtn');
     if (btn) btn.classList.add('active');
 
-    // 更新时间标签和时间刻度
+    updateCloudModeButtons();
     updateCloudTimeLabel(latestIdx);
     updateCloudTimeMarks();
 
-    console.log('[卫星云图] 加载: layer=' + item.layer + ' time=' + item.dateStr);
-    console.log('[卫星云图] 瓦片 URL 示例:', satelliteCloudLayer.getSource().getUrls()[0]);
+    console.log('[卫星云图] 加载 mode=' + currentSatelliteMode +
+        ' layer=' + item.layer + ' time=' + item.dateStr);
+    console.log('[卫星云图] URL 示例:', satelliteCloudLayer.getSource().getUrls()[0]);
 }
 
 function hideSatelliteCloud() {
@@ -6759,7 +6770,6 @@ function hideSatelliteCloud() {
     satelliteCloudVisible = false;
     document.getElementById('satellitePanel').style.display = 'none';
 
-    // 停止播放
     if (cloudPlayTimer) {
         clearInterval(cloudPlayTimer);
         cloudPlayTimer = null;
@@ -6767,20 +6777,46 @@ function hideSatelliteCloud() {
         document.getElementById('cloudPlayBtn').innerText = '▶';
     }
 
-    // 更新按钮状态
     const btn = document.getElementById('satelliteCloudBtn');
     if (btn) btn.classList.remove('active');
 }
 
+/** 切换模式（daily ↔ hourly） */
+function switchSatelliteMode(mode) {
+    if (!SATELLITE_MODES[mode]) return;
+    currentSatelliteMode = mode;
+    updateCloudModeButtons();
+
+    // 滑块重置到最新一帧
+    document.getElementById('cloudTimeSlider').value = 23;
+
+    // 如果已显示云图，立即用新模式刷新
+    if (satelliteCloudVisible) {
+        updateCloudLayer(23);
+    } else {
+        updateCloudTimeLabel(23);
+        updateCloudTimeMarks();
+    }
+}
+
+function updateCloudModeButtons() {
+    const cfg = SATELLITE_MODES[currentSatelliteMode];
+    const label = document.getElementById('cloudModeLabel');
+    if (label) label.textContent = cfg.name;
+
+    const dailyBtn = document.getElementById('cloudModeDailyBtn');
+    const hourlyBtn = document.getElementById('cloudModeHourlyBtn');
+    const activeStyle = 'flex:1;padding:4px 8px;font-size:12px;border:1px solid #1890ff;background:#1890ff;color:white;border-radius:4px;cursor:pointer;';
+    const idleStyle = 'flex:1;padding:4px 8px;font-size:12px;border:1px solid #444;background:rgba(255,255,255,0.06);color:#bbb;border-radius:4px;cursor:pointer;';
+    if (dailyBtn) dailyBtn.style.cssText = currentSatelliteMode === 'daily' ? activeStyle : idleStyle;
+    if (hourlyBtn) hourlyBtn.style.cssText = currentSatelliteMode === 'hourly' ? activeStyle : idleStyle;
+}
+
 function updateCloudTimeMarks() {
-    const dates = getGibsDateList();
+    const cfg = SATELLITE_MODES[currentSatelliteMode];
     const marks = document.getElementById('cloudTimeMarks');
     if (!marks) return;
-    if (GIBS_USE_HOURLY_HIMAWARI) {
-        marks.innerHTML = '<span>-24h</span><span>-18h</span><span>-12h</span><span>-6h</span><span>最新</span>';
-    } else {
-        marks.innerHTML = '<span>-24天</span><span>-18天</span><span>-12天</span><span>-6天</span><span>最新</span>';
-    }
+    marks.innerHTML = cfg.marks.map(t => `<span>${t}</span>`).join('');
 }
 
 function updateCloudTimeLabel(sliderIdx) {
@@ -6792,15 +6828,11 @@ function updateCloudTimeLabel(sliderIdx) {
 function updateCloudLayer(sliderIdx) {
     const dates = getGibsDateList();
     const item = dates[sliderIdx];
-
-    if (satelliteCloudLayer) {
-        map.removeLayer(satelliteCloudLayer);
-    }
+    if (satelliteCloudLayer) map.removeLayer(satelliteCloudLayer);
     satelliteCloudLayer = createSatelliteCloudLayer(item.dateStr, item.layer);
     map.addLayer(satelliteCloudLayer);
-
     updateCloudTimeLabel(sliderIdx);
-    console.log('[卫星云图] 切换: layer=' + item.layer + ' time=' + item.dateStr);
+    console.log('[卫星云图] 切换 mode=' + currentSatelliteMode + ' time=' + item.dateStr);
 }
 
 /** 初始化卫星云图按钮事件 */
@@ -6813,71 +6845,51 @@ function initSatelliteCloud() {
         document.getElementById('weatherDropdown').style.display = 'none';
     });
 
-    // 关闭按钮
     const closeBtn = document.getElementById('closeSatelliteBtn');
-    if (closeBtn) {
-        closeBtn.addEventListener('click', hideSatelliteCloud);
-    }
+    if (closeBtn) closeBtn.addEventListener('click', hideSatelliteCloud);
 
-    // 时间轴滑块
+    // 模式切换
+    const dailyBtn = document.getElementById('cloudModeDailyBtn');
+    if (dailyBtn) dailyBtn.addEventListener('click', () => switchSatelliteMode('daily'));
+    const hourlyBtn = document.getElementById('cloudModeHourlyBtn');
+    if (hourlyBtn) hourlyBtn.addEventListener('click', () => switchSatelliteMode('hourly'));
+
+    // 时间轴
     const slider = document.getElementById('cloudTimeSlider');
     if (slider) {
-        slider.addEventListener('input', (e) => {
-            const idx = parseInt(e.target.value);
-            updateCloudLayer(idx);
-        });
+        slider.addEventListener('input', (e) => updateCloudLayer(parseInt(e.target.value)));
     }
-
-    // 上一个按钮
     const prevBtn = document.getElementById('cloudPrevBtn');
-    if (prevBtn) {
-        prevBtn.addEventListener('click', () => {
-            const slider = document.getElementById('cloudTimeSlider');
-            let idx = parseInt(slider.value);
-            if (idx > 0) {
-                idx--;
-                slider.value = idx;
-                updateCloudLayer(idx);
-            }
-        });
-    }
-
-    // 下一个按钮
+    if (prevBtn) prevBtn.addEventListener('click', () => {
+        const slider = document.getElementById('cloudTimeSlider');
+        const idx = Math.max(0, parseInt(slider.value) - 1);
+        slider.value = idx;
+        updateCloudLayer(idx);
+    });
     const nextBtn = document.getElementById('cloudNextBtn');
-    if (nextBtn) {
-        nextBtn.addEventListener('click', () => {
-            const slider = document.getElementById('cloudTimeSlider');
-            let idx = parseInt(slider.value);
-            if (idx < 23) {
-                idx++;
-                slider.value = idx;
-                updateCloudLayer(idx);
-            }
-        });
-    }
+    if (nextBtn) nextBtn.addEventListener('click', () => {
+        const slider = document.getElementById('cloudTimeSlider');
+        const idx = Math.min(23, parseInt(slider.value) + 1);
+        slider.value = idx;
+        updateCloudLayer(idx);
+    });
 
-    // 播放/暂停按钮
+    // 播放/暂停
     const playBtn = document.getElementById('cloudPlayBtn');
     if (playBtn) {
         playBtn.addEventListener('click', () => {
             if (cloudIsPlaying) {
-                // 暂停
                 clearInterval(cloudPlayTimer);
                 cloudPlayTimer = null;
                 cloudIsPlaying = false;
                 playBtn.innerText = '▶';
             } else {
-                // 播放：从当前位置开始，每秒前进一格
                 cloudIsPlaying = true;
                 playBtn.innerText = '⏸';
                 cloudPlayTimer = setInterval(() => {
                     const slider = document.getElementById('cloudTimeSlider');
                     let idx = parseInt(slider.value);
-                    if (idx >= 23) {
-                        idx = 0; // 循环到开头
-                    } else {
-                        idx++;
-                    }
+                    idx = idx >= 23 ? 0 : idx + 1;
                     slider.value = idx;
                     updateCloudLayer(idx);
                 }, 800);

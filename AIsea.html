@@ -209,13 +209,20 @@
 
     <!-- 卫星云图时间轴面板 -->
     <div id="satellitePanel"
-        style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 1000; background: rgba(20, 25, 40, 0.92); border-radius: 8px; padding: 12px 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.4); min-width: 520px; max-width: 720px; display: none; color: white;">
+        style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 1000; background: rgba(20, 25, 40, 0.92); border-radius: 8px; padding: 12px 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.4); min-width: 560px; max-width: 760px; display: none; color: white;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-            <h4 style="margin: 0; color: #69c0ff; font-size: 14px;">🛰️ NASA GIBS 卫星云图</h4>
+            <h4 style="margin: 0; color: #69c0ff; font-size: 14px;">🛰️ 卫星云图 &nbsp;·&nbsp;
+                <span id="cloudModeLabel" style="color:#91d5ff;font-weight:normal;font-size:12px;">全球观测（MODIS 每日）</span>
+            </h4>
             <div style="display: flex; gap: 8px; align-items: center;">
                 <span id="cloudTimeLabel" style="font-size: 13px; color: #b3d4ff; min-width: 180px; text-align: center; font-family: monospace;">--</span>
                 <button id="closeSatelliteBtn" style="background: none; border: none; font-size: 16px; cursor: pointer; color: #888;">✕</button>
             </div>
+        </div>
+        <!-- 模式切换标签 -->
+        <div style="display:flex;gap:4px;margin-bottom:10px;">
+            <button id="cloudModeDailyBtn" style="flex:1;padding:4px 8px;font-size:12px;border:1px solid #1890ff;background:#1890ff;color:white;border-radius:4px;cursor:pointer;">🌍 全球（每日 24 天）</button>
+            <button id="cloudModeHourlyBtn" style="flex:1;padding:4px 8px;font-size:12px;border:1px solid #444;background:rgba(255,255,255,0.06);color:#bbb;border-radius:4px;cursor:pointer;">🌏 亚太（每小时 24h）</button>
         </div>
         <div style="display: flex; align-items: center; gap: 10px;">
             <button id="cloudPrevBtn" style="background: rgba(255,255,255,0.15); border: none; color: white; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center;">◀</button>
@@ -223,13 +230,13 @@
                 <input type="range" id="cloudTimeSlider" min="0" max="23" value="23" step="1"
                     style="width: 100%; accent-color: #1890ff; height: 6px; cursor: pointer;">
                 <div id="cloudTimeMarks" style="display: flex; justify-content: space-between; width: 100%; margin-top: 4px; font-size: 10px; color: #666;">
-                    <span>-24h</span><span>-18h</span><span>-12h</span><span>-6h</span><span>现在</span>
+                    <span>-24天</span><span>-18天</span><span>-12天</span><span>-6天</span><span>最新</span>
                 </div>
             </div>
             <button id="cloudNextBtn" style="background: rgba(255,255,255,0.15); border: none; color: white; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center;">▶</button>
             <button id="cloudPlayBtn" style="background: #1890ff; border: none; color: white; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; margin-left: 4px;" title="播放/暂停">▶</button>
         </div>
-        <div style="margin-top: 6px; font-size: 11px; color: #555; text-align: center;">数据来源：NASA GIBS / MODIS_Terra_CorrectedReflectance_TrueColor</div>
+        <div style="margin-top: 6px; font-size: 11px; color: #555; text-align: center;">数据来源：NASA GIBS · 瓦片透明度 50%</div>
     </div>
 
     <!-- ==================== 集成上传/认证侧边栏 ==================== -->
