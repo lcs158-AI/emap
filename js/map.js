@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
@@ -930,18 +930,24 @@ function toNumber(val) {
 }
 
 /**
- * 处理视域生成模式下的点击（异步：可能需要从后端补全参数）
+ * 处理视域生成模式下的点击
+ * 参照图层管理功能：直接遍历 feature.getProperties() 的所有字段
+ * 用模糊匹配自动识别视域参数，不再依赖硬编码字段名
  */
 async function handleFootprintGenClick(feature, coordinate) {
-    console.log('%c[视域生成 v3] 点击处理开始', 'background:#1890ff;color:white;padding:3px 8px;border-radius:3px;');
+    console.log('%c[视域生成 v4] 点击处理开始', 'background:#1890ff;color:white;padding:3px 8px;border-radius:3px;');
 
+    // ====== 参照图层管理：获取所有 properties ======
     const props = feature.getProperties();
-    const filename = props.filename || '';
+    const allKeys = Object.keys(props).filter(k => k !== 'geometry').sort();
 
-    // ====== 步骤1：从前端 properties 提取参数 ======
-    let params = extractFootprintParams(props);
+    console.log('[视域生成 v4] 所有字段名:', allKeys);
+    console.log('[视域生成 v4] properties 完整内容:', JSON.parse(JSON.stringify(props)));
 
-    // 坐标回退：properties → geometry → 点击坐标
+    // ====== 遍历所有字段，用模糊匹配自动识别视域参数 ======
+    const params = scanParamsFromProperties(props);
+
+    // 坐标回退：properties 没有 → geometry → 点击坐标
     if (params.lat == null || params.lon == null) {
         if (typeof feature.getGeometry === 'function') {
             const geom = feature.getGeometry();
@@ -949,7 +955,9 @@ async function handleFootprintGenClick(feature, coordinate) {
                 try {
                     const c = ol.proj.toLonLat(geom.getCoordinates());
                     params.lon = c[0]; params.lat = c[1];
-                    params.latLonSource = 'geometry';
+                    params.latLonSource = 'geometry(Point)';
+                    params.fieldMap.lat = 'geometry';
+                    params.fieldMap.lon = 'geometry';
                 } catch (e) {}
             }
         }
@@ -960,12 +968,13 @@ async function handleFootprintGenClick(feature, coordinate) {
         }
     }
 
-    console.log('[视域生成 v3] 前端提取:', params);
+    const filename = props.filename || '';
+    console.log('[视域生成 v4] 识别到的参数:', params);
 
-    // ====== 步骤2：如果参数不完整，尝试从后端补全 ======
+    // ====== 如果参数不完整，尝试从后端补全 ======
     const missingFromFrontend = checkMissingParams(params);
     if (missingFromFrontend.length > 0 && filename) {
-        console.log('[视域生成 v3] 前端缺少参数，尝试从后端获取:', missingFromFrontend);
+        console.log('[视域生成 v4] 前端缺少:', missingFromFrontend, '→ 从后端补全');
         showPopupLoading(filename, coordinate);
 
         try {
@@ -976,10 +985,10 @@ async function handleFootprintGenClick(feature, coordinate) {
             const res = await fetch(`${API_BASE_URL}/api/photos/${encodeURIComponent(filename)}`, { headers });
             if (res.ok) {
                 const photoData = await res.json();
-                console.log('[视域生成 v3] 后端返回数据:', photoData);
+                console.log('[视域生成 v4] 后端返回:', photoData);
 
-                // 用后端数据补全（只补前端缺失的）
-                const backendParams = extractFootprintParams(photoData);
+                // 用同样的模糊匹配从后端数据提取
+                const backendParams = scanParamsFromProperties(photoData);
                 const dataKeys = ['lat','lon','yaw','pitch','roll','relHeight','hFov','vFov','deviceType'];
                 for (const key of dataKeys) {
                     if (params[key] == null && backendParams[key] != null) {
@@ -987,41 +996,36 @@ async function handleFootprintGenClick(feature, coordinate) {
                         params.latLonSource = '后端API补全';
                     }
                 }
-                // 合并 fieldMap（后端字段名优先补全）
-                if (backendParams.fieldMap && params.fieldMap) {
+                if (backendParams.fieldMap) {
                     for (const k of Object.keys(backendParams.fieldMap)) {
                         if (!params.fieldMap[k] && backendParams.fieldMap[k]) {
                             params.fieldMap[k] = backendParams.fieldMap[k];
                         }
                     }
                 }
-                console.log('[视域生成 v3] 后端补全后:', params);
+                console.log('[视域生成 v4] 后端补全后:', params);
             } else {
-                console.warn('[视域生成 v3] 后端请求失败:', res.status);
+                console.warn('[视域生成 v4] 后端请求失败:', res.status);
             }
         } catch (e) {
-            console.warn('[视域生成 v3] 后端获取异常:', e.message);
+            console.warn('[视域生成 v4] 后端获取异常:', e.message);
         }
     }
 
-    // ====== 步骤3：检查参数完整性，显示弹窗 ======
+    // ====== 构建弹窗 ======
     const missingParams = checkMissingParams(params);
     const paramsComplete = missingParams.length === 0;
 
-    // 保存当前参数供"生成"按钮使用
     window.__pendingFootprint = { params, filename, coordinate };
 
-    // 注册"生成视域"回调
     window.__fpGenerate = function() {
-        const { params: p, filename: fn, coordinate: coord } = window.__pendingFootprint;
+        const { params: p, filename: fn } = window.__pendingFootprint;
         const result = generateFootprint(p, fn);
-        // 更新结果面板
         const panel = document.getElementById('fpResultPanel');
         if (panel) {
             panel.innerHTML = result.html;
             panel.style.cssText = 'margin-top:8px;' + result.style;
         }
-        // 禁用生成按钮
         const genBtn = document.getElementById('fpGenerateBtn');
         if (genBtn) {
             genBtn.disabled = true;
@@ -1031,7 +1035,6 @@ async function handleFootprintGenClick(feature, coordinate) {
         }
     };
 
-    // 清除视域回调
     window.__fpClearCurrent = function() {
         if (footprintGenLayer) {
             const count = footprintGenLayer.getSource().getFeatures().length;
@@ -1042,7 +1045,6 @@ async function handleFootprintGenClick(feature, coordinate) {
                 panel.innerHTML = '<div style="font-weight:bold;">🧹 已清除视域</div>';
                 panel.style.cssText = 'margin-top:8px; background:#e6f7ff; border:1px solid #91d5ff; border-radius:4px; padding:10px; font-size:13px; color:#0050b3;';
             }
-            // 重新启用生成按钮
             const genBtn = document.getElementById('fpGenerateBtn');
             if (genBtn && paramsComplete) {
                 genBtn.disabled = false;
@@ -1053,46 +1055,56 @@ async function handleFootprintGenClick(feature, coordinate) {
         }
     };
 
-    // 构建原始 properties 调试表格
-    const propKeys = Object.keys(props).sort();
+    // ====== 构建全字段表格（参照图层管理，直接遍历所有 properties） ======
     let propRowsHtml = '';
-    for (const k of propKeys) {
+    for (const k of allKeys) {
         let val = props[k];
-        let displayVal;
-        if (val === null || val === undefined) {
-            displayVal = '<span style="color:#999;">null</span>';
+        let displayVal, valType;
+        if (val === null) {
+            displayVal = '<span style="color:#ccc;">null</span>';
+            valType = 'null';
+        } else if (val === undefined) {
+            displayVal = '<span style="color:#ccc;">undefined</span>';
+            valType = 'undefined';
         } else if (typeof val === 'object') {
             try {
                 const str = JSON.stringify(val);
-                displayVal = '<code style="font-size:11px;color:#888;max-width:200px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' +
-                    str.substring(0, 150) + (str.length > 150 ? '...' : '') + '</code>';
+                displayVal = '<code style="font-size:11px;color:#888;">' + str.substring(0, 120) + (str.length > 120 ? '...' : '') + '</code>';
             } catch (e) {
-                displayVal = String(val);
+                displayVal = String(val).substring(0, 120);
             }
+            valType = typeof val;
         } else {
             displayVal = String(val).substring(0, 200);
+            valType = typeof val;
         }
-        // 标记关键视域字段
-        const isKey = ['yaw','pitch','relative_height','h_fov','v_fov','device_type','filename','datetime','lat','lon','heading','hfov_deg','vfov_deg','pitch_actual','gimbal_pitch','altitude'].includes(k);
-        const rowBg = isKey ? 'background:#fff7e6;' : '';
-        const flag = isKey ? ' <span style="color:#fa8c16;">★</span>' : '';
-        propRowsHtml += `<tr style="${rowBg}"><td style="padding:3px 8px;border:1px solid #eee;font-weight:bold;white-space:nowrap;">${k}${flag}</td><td style="padding:3px 8px;border:1px solid #eee;">${displayVal}</td></tr>`;
+        // 检查这个字段是否被模糊匹配识别为视域参数
+        const matchedParam = Object.entries(params.fieldMap || {}).find(([_, key]) => key === k);
+        const isMatched = matchedParam && matchedParam[1] === k;
+        const hasValue = val !== null && val !== undefined && val !== '';
+        const rowBg = isMatched ? 'background:#f6ffed;' : (hasValue ? '' : 'background:#fafafa;');
+        const flag = isMatched ? ' <span style="color:#52c41a;font-weight:bold;">✓' + matchedParam[0] + '</span>' : '';
+        const typeBadge = `<span style="font-size:9px;color:#999;background:#f0f0f0;padding:1px 4px;border-radius:2px;">${valType}</span>`;
+        propRowsHtml += `<tr style="${rowBg}">
+            <td style="padding:4px 8px;border:1px solid #eee;font-weight:bold;white-space:nowrap;">${k}${flag}</td>
+            <td style="padding:4px 8px;border:1px solid #eee;">${displayVal}</td>
+            <td style="padding:4px 8px;border:1px solid #eee;font-size:10px;">${typeBadge}</td>
+        </tr>`;
     }
 
-    // 构建弹窗
+    // 参数摘要
     const summaryHtml = buildParamsSummary(params, missingParams);
     const resultPanelHtml = paramsComplete
         ? '<div style="font-size:12px;color:#666;">参数完整，点击下方"生成视域"按钮绘制视域范围</div>'
         : `<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:4px;padding:10px;font-size:12px;color:#856404;">
               <div style="font-weight:bold;margin-bottom:4px;">⚠️ 缺少必要参数:</div>
               <ul style="margin:0;padding-left:20px;">${missingParams.map(p => `<li>${p}</li>`).join('')}</ul>
-              <div style="margin-top:6px;color:#999;">${filename ? '后端数据库中也未找到这些参数' : '无文件名，无法从后端查询'}</div>
            </div>`;
 
     const content = `
-        <div style="position:relative;padding-top:5px;min-width:340px;max-width:520px;">
+        <div style="position:relative;padding-top:5px;min-width:360px;max-width:560px;">
             <button onclick="closePopup()" style="position:absolute;top:-15px;right:-15px;width:24px;height:24px;border:none;background:#ff4d4f;color:white;border-radius:50%;cursor:pointer;font-size:14px;line-height:24px;text-align:center;padding:0;z-index:10;">×</button>
-            <h4 style="margin:0 0 8px 0;font-size:14px;">🎯 视域生成 v3 &nbsp;|&nbsp; ${filename || '未命名'}</h4>
+            <h4 style="margin:0 0 8px 0;font-size:14px;">🎯 视域生成 v4 &nbsp;|&nbsp; ${filename || '未命名'}</h4>
             ${summaryHtml}
             <div id="fpResultPanel" style="margin-top:8px;">${resultPanelHtml}</div>
             <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;padding-top:8px;border-top:1px dashed #ddd;">
@@ -1103,19 +1115,18 @@ async function handleFootprintGenClick(feature, coordinate) {
                 <button onclick="window.__fpClearCurrent()" style="flex:1;min-width:100px;padding:8px 12px;border:1px solid #ffa940;background:#fff7e6;color:#d46b08;border-radius:4px;cursor:pointer;font-size:12px;">🧹 清除视域</button>
                 <button onclick="closePopup()" style="flex:1;min-width:80px;padding:8px 12px;border:1px solid #d9d9d9;background:white;color:#595959;border-radius:4px;cursor:pointer;font-size:12px;">关闭</button>
             </div>
-            <!-- 调试面板：原始 properties -->
+            <!-- 全字段表格（参照图层管理，遍历 feature.getProperties()） -->
             <div style="margin-top:10px;border-top:1px dashed #ddd;padding-top:8px;">
-                <div id="fpToggleDebug" style="cursor:pointer;font-size:12px;color:#1890ff;user-select:none;padding:4px 8px;background:#f5f5f5;border-radius:3px;display:inline-block;" onclick="(function(){
-                    var el=document.getElementById('fpDebugBox');
-                    var t=document.getElementById('fpToggleDebug');
-                    if(el.style.display==='none'){el.style.display='block'; t.innerText='▼ 隐藏原始字段 (' + ${propKeys.length} + '个，★=关键视域参数)';}
-                    else{el.style.display='none'; t.innerText='▶ 查看原始字段 (' + ${propKeys.length} + '个，★=关键视域参数)';}
-                })()">▶ 查看原始字段 (${propKeys.length}个，★=关键视域参数)</div>
-                <div id="fpDebugBox" style="display:none;margin-top:6px;overflow:auto;max-height:300px;border:1px solid #e8e8e8;border-radius:4px;">
+                <div style="font-size:12px;font-weight:bold;margin-bottom:6px;color:#333;">
+                    📋 全部字段 (${allKeys.length}个)
+                    <span style="font-size:11px;font-weight:normal;color:#888;">（绿色=已匹配视域参数，灰色=值为空）</span>
+                </div>
+                <div style="overflow:auto;max-height:300px;border:1px solid #e8e8e8;border-radius:4px;">
                     <table style="width:100%;border-collapse:collapse;font-size:12px;">
                         <thead><tr style="background:#fafafa;position:sticky;top:0;">
                             <th style="padding:4px 8px;border:1px solid #eee;text-align:left;">字段名</th>
                             <th style="padding:4px 8px;border:1px solid #eee;text-align:left;">值</th>
+                            <th style="padding:4px 8px;border:1px solid #eee;text-align:left;width:50px;">类型</th>
                         </tr></thead>
                         <tbody>${propRowsHtml}</tbody>
                     </table>
@@ -1128,6 +1139,86 @@ async function handleFootprintGenClick(feature, coordinate) {
     popup.setPositioning('top-center');
     popup.setOffset([0, 10]);
     popup.getElement().style.display = 'block';
+}
+
+/**
+ * 参照图层管理方式：遍历 properties 的所有字段
+ * 用模糊匹配（key.toLowerCase().includes()）自动识别视域参数
+ * 不再依赖硬编码的候选键列表
+ */
+function scanParamsFromProperties(props) {
+    const result = {
+        lat: null, lon: null, yaw: null, pitch: null, roll: null,
+        relHeight: null, hFov: null, vFov: null, deviceType: '',
+        latLonSource: 'properties',
+        fieldMap: {}
+    };
+
+    // 遍历所有 key，用模糊匹配识别
+    for (const key of Object.keys(props)) {
+        if (key === 'geometry' || key === 'layer') continue;
+        const val = props[key];
+        // 跳过 null/undefined/空字符串
+        if (val === null || val === undefined || val === '') continue;
+
+        const lk = key.toLowerCase();
+
+        // lat（纬度）：key 包含 'lat' 但不包含 'lon'/'lng'
+        if (result.lat == null && lk.includes('lat') && !lk.includes('lon') && !lk.includes('lng')) {
+            const n = toNumber(val);
+            if (n != null) { result.lat = n; result.fieldMap.lat = key; }
+        }
+        // lon（经度）：key 包含 'lon' 或 'lng'
+        if (result.lon == null && (lk.includes('lon') || lk.includes('lng'))) {
+            const n = toNumber(val);
+            if (n != null) { result.lon = n; result.fieldMap.lon = key; }
+        }
+        // yaw（偏航角）：key 包含 'yaw'/'heading'/'azimuth'/'bearing'/'方位'/'偏航'/'航向'
+        if (result.yaw == null && (lk.includes('yaw') || lk.includes('heading') || lk.includes('azimuth') || lk.includes('bearing') || lk.includes('方位') || lk.includes('偏航') || lk.includes('航向'))) {
+            let n = toNumber(val);
+            if (n != null) {
+                if (n < 0) n += 360; // 负值转 0~360
+                result.yaw = n; result.fieldMap.yaw = key;
+            }
+        }
+        // pitch（俯仰角）：key 包含 'pitch'/'tilt'/'俯仰'/'倾斜'/'俯视'
+        if (result.pitch == null && (lk.includes('pitch') || lk.includes('tilt') || lk.includes('俯仰') || lk.includes('倾斜') || lk.includes('俯视'))) {
+            const n = toNumber(val);
+            if (n != null) { result.pitch = n; result.fieldMap.pitch = key; }
+        }
+        // roll（翻滚角）：key 包含 'roll'/'翻滚'/'横滚'
+        if (result.roll == null && (lk.includes('roll') || lk.includes('翻滚') || lk.includes('横滚'))) {
+            const n = toNumber(val);
+            if (n != null) { result.roll = n; result.fieldMap.roll = key; }
+        }
+        // relHeight（相对高度）：key 包含 'height'/'altitude'/'alt'/'高度'/'海拔'/'elev'
+        //   排除 hfov/vfov 中的 'h'/'v' 干扰
+        if (result.relHeight == null && !lk.includes('fov') &&
+            (lk.includes('height') || lk.includes('altitude') || lk.includes('alt') ||
+             lk.includes('高度') || lk.includes('海拔') || lk.includes('elev'))) {
+            const n = toNumber(val);
+            if (n != null && n > 0) { result.relHeight = n; result.fieldMap.relHeight = key; }
+        }
+        // hFov（水平视场角）：key 包含 'h_fov'/'hfov'/'horizontal_fov'/'水平'/'视场角h'
+        if (result.hFov == null && (lk.includes('h_fov') || lk.includes('hfov') ||
+             lk.includes('horizontal_fov') || lk.includes('水平视场') || lk.includes('视场角h') || lk.includes('horiz_fov'))) {
+            const n = toNumber(val);
+            if (n != null) { result.hFov = n; result.fieldMap.hFov = key; }
+        }
+        // vFov（垂直视场角）：key 包含 'v_fov'/'vfov'/'vertical_fov'/'垂直'/'视场角v'
+        if (result.vFov == null && (lk.includes('v_fov') || lk.includes('vfov') ||
+             lk.includes('vertical_fov') || lk.includes('垂直视场') || lk.includes('视场角v') || lk.includes('vert_fov'))) {
+            const n = toNumber(val);
+            if (n != null) { result.vFov = n; result.fieldMap.vFov = key; }
+        }
+        // deviceType（设备类型）：key 包含 'device'/'设备'/'型号'/'model'
+        if (!result.deviceType && (lk.includes('device') || lk.includes('设备') || lk.includes('型号') || lk === 'model')) {
+            result.deviceType = String(val);
+            result.fieldMap.device = key;
+        }
+    }
+
+    return result;
 }
 
 /**
