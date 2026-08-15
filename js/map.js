@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
@@ -980,20 +980,20 @@ async function handleFootprintGenClick(feature, coordinate) {
 
                 // 用后端数据补全（只补前端缺失的）
                 const backendParams = extractFootprintParams(photoData);
-                for (const key of Object.keys(backendParams)) {
+                const dataKeys = ['lat','lon','yaw','pitch','roll','relHeight','hFov','vFov','deviceType'];
+                for (const key of dataKeys) {
                     if (params[key] == null && backendParams[key] != null) {
                         params[key] = backendParams[key];
-                        if (key !== 'latLonSource') params.latLonSource = '后端API补全';
+                        params.latLonSource = '后端API补全';
                     }
                 }
-                // 如果后端有 lat/lon 而前端没有，也补上
-                if (params.lat == null && backendParams.lat != null) {
-                    params.lat = backendParams.lat;
-                    params.latLonSource = '后端API';
-                }
-                if (params.lon == null && backendParams.lon != null) {
-                    params.lon = backendParams.lon;
-                    params.latLonSource = '后端API';
+                // 合并 fieldMap（后端字段名优先补全）
+                if (backendParams.fieldMap && params.fieldMap) {
+                    for (const k of Object.keys(backendParams.fieldMap)) {
+                        if (!params.fieldMap[k] && backendParams.fieldMap[k]) {
+                            params.fieldMap[k] = backendParams.fieldMap[k];
+                        }
+                    }
                 }
                 console.log('[视域生成 v3] 后端补全后:', params);
             } else {
@@ -1053,6 +1053,32 @@ async function handleFootprintGenClick(feature, coordinate) {
         }
     };
 
+    // 构建原始 properties 调试表格
+    const propKeys = Object.keys(props).sort();
+    let propRowsHtml = '';
+    for (const k of propKeys) {
+        let val = props[k];
+        let displayVal;
+        if (val === null || val === undefined) {
+            displayVal = '<span style="color:#999;">null</span>';
+        } else if (typeof val === 'object') {
+            try {
+                const str = JSON.stringify(val);
+                displayVal = '<code style="font-size:11px;color:#888;max-width:200px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' +
+                    str.substring(0, 150) + (str.length > 150 ? '...' : '') + '</code>';
+            } catch (e) {
+                displayVal = String(val);
+            }
+        } else {
+            displayVal = String(val).substring(0, 200);
+        }
+        // 标记关键视域字段
+        const isKey = ['yaw','pitch','relative_height','h_fov','v_fov','device_type','filename','datetime','lat','lon','heading','hfov_deg','vfov_deg','pitch_actual','gimbal_pitch','altitude'].includes(k);
+        const rowBg = isKey ? 'background:#fff7e6;' : '';
+        const flag = isKey ? ' <span style="color:#fa8c16;">★</span>' : '';
+        propRowsHtml += `<tr style="${rowBg}"><td style="padding:3px 8px;border:1px solid #eee;font-weight:bold;white-space:nowrap;">${k}${flag}</td><td style="padding:3px 8px;border:1px solid #eee;">${displayVal}</td></tr>`;
+    }
+
     // 构建弹窗
     const summaryHtml = buildParamsSummary(params, missingParams);
     const resultPanelHtml = paramsComplete
@@ -1077,6 +1103,24 @@ async function handleFootprintGenClick(feature, coordinate) {
                 <button onclick="window.__fpClearCurrent()" style="flex:1;min-width:100px;padding:8px 12px;border:1px solid #ffa940;background:#fff7e6;color:#d46b08;border-radius:4px;cursor:pointer;font-size:12px;">🧹 清除视域</button>
                 <button onclick="closePopup()" style="flex:1;min-width:80px;padding:8px 12px;border:1px solid #d9d9d9;background:white;color:#595959;border-radius:4px;cursor:pointer;font-size:12px;">关闭</button>
             </div>
+            <!-- 调试面板：原始 properties -->
+            <div style="margin-top:10px;border-top:1px dashed #ddd;padding-top:8px;">
+                <div id="fpToggleDebug" style="cursor:pointer;font-size:12px;color:#1890ff;user-select:none;padding:4px 8px;background:#f5f5f5;border-radius:3px;display:inline-block;" onclick="(function(){
+                    var el=document.getElementById('fpDebugBox');
+                    var t=document.getElementById('fpToggleDebug');
+                    if(el.style.display==='none'){el.style.display='block'; t.innerText='▼ 隐藏原始字段 (' + ${propKeys.length} + '个，★=关键视域参数)';}
+                    else{el.style.display='none'; t.innerText='▶ 查看原始字段 (' + ${propKeys.length} + '个，★=关键视域参数)';}
+                })()">▶ 查看原始字段 (${propKeys.length}个，★=关键视域参数)</div>
+                <div id="fpDebugBox" style="display:none;margin-top:6px;overflow:auto;max-height:300px;border:1px solid #e8e8e8;border-radius:4px;">
+                    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+                        <thead><tr style="background:#fafafa;position:sticky;top:0;">
+                            <th style="padding:4px 8px;border:1px solid #eee;text-align:left;">字段名</th>
+                            <th style="padding:4px 8px;border:1px solid #eee;text-align:left;">值</th>
+                        </tr></thead>
+                        <tbody>${propRowsHtml}</tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     `;
     popup.getElement().innerHTML = content;
@@ -1088,19 +1132,86 @@ async function handleFootprintGenClick(feature, coordinate) {
 
 /**
  * 从 properties 对象中提取视域参数（兼容多套字段名）
+ * 兼容 3 套数据源：
+ *   - 数据库 API 字段：yaw / pitch / relative_height / h_fov / v_fov / device_type
+ *   - GeoJSON 导出文件（DJI无人机）：heading / pitch_actual / gimbal_pitch / altitude / hfov_deg / vfov_deg / device
+ *   - 其他别名：azimuth / tilt / relativeHeight / latitude / longitude 等
+ *
+ * 返回结果带有 fieldMap，记录每个参数实际用到的字段名，用于弹窗显示
  */
 function extractFootprintParams(props) {
+    // 从 properties 中查找第一个有值的候选键，返回 {value, key} 或 {value:null, key:null}
+    const pick = (candidates) => {
+        for (const k of candidates) {
+            if (props[k] !== undefined && props[k] !== null && props[k] !== '' && !Number.isNaN(props[k])) {
+                return { value: props[k], key: k };
+            }
+        }
+        return { value: null, key: null };
+    };
+
+    const latResult = pick([
+        'lat','latitude','Lat','LAT','Latitude','LATITUDE','LatitudeDD',
+        'gps_lat','GPSLatitude','gps_latitude','GPSLat','纬度','WGS84纬度'
+    ]);
+    const lonResult = pick([
+        'lon','lng','longitude','Lon','LNG','LON','Longitude','LONGITUDE','LongitudeDD',
+        'gps_lon','gps_lng','GPSLongitude','gps_longitude','GPSLon','GPSLng','经度','WGS84经度'
+    ]);
+    const yawResult = pick([
+        'yaw','azimuth','Yaw','Azimuth','YAW','AZIMUTH','heading','Heading','HEADING','bearing','方位角','偏航角','航向角'
+    ]);
+    let yawVal = toNumber(yawResult.value);
+    if (yawVal != null && yawVal < 0) yawVal = yawVal + 360;
+
+    // pitch: 优先用 pitch_actual（实际云台俯仰），其次 gimbal_pitch，再其次 flight_pitch
+    const pitchResult = pick([
+        'pitch','Pitch','PITCH','pitch_actual','gimbal_pitch','flight_pitch','tilt','TILT','俯仰角','倾斜角','俯视角'
+    ]);
+    const rollResult = pick(['roll','Roll','ROLL','翻滚角','横滚角','gimbal_roll','flight_roll']);
+    const rhResult = pick([
+        'relative_height','relativeHeight','relative_altitude','rel_alt','relAlt',
+        'altitude','Altitude','ALTITUDE','height','HEIGHT','Height',
+        'elev','ELEV','Elevation','flight_altitude','飞行高度',
+        '高度','相对高度','海拔'
+    ]);
+    const hFovResult = pick([
+        'h_fov','hfov','H_FOV','HFOV','horizontal_fov','horiz_fov','horizontalFov',
+        'hfov_deg','HFOV_DEG','水平视场角','视场角H'
+    ]);
+    const vFovResult = pick([
+        'v_fov','vfov','V_FOV','VFOV','vertical_fov','vert_fov','verticalFov',
+        'vfov_deg','VFOV_DEG','垂直视场角','视场角V'
+    ]);
+    const devResult = pick([
+        'device_type','deviceType','Device_Type','DEVICE_TYPE',
+        'device','Device','DEVICE','model','Model',
+        '设备类型','设备','型号'
+    ]);
+
     return {
-        lat: toNumber(pickFirst(props, ['lat','latitude','Lat','LAT','Latitude','LatitudeDD','gps_lat','GPSLatitude','纬度'])),
-        lon: toNumber(pickFirst(props, ['lon','lng','longitude','Lon','LNG','LON','Longitude','LongitudeDD','gps_lon','GPSLongitude','经度'])),
-        yaw: toNumber(pickFirst(props, ['yaw','azimuth','Yaw','Azimuth','heading','bearing','方位角','偏航角','航向角'])),
-        pitch: toNumber(pickFirst(props, ['pitch','Pitch','tilt','TILT','俯仰角','倾斜角'])),
-        roll: toNumber(pickFirst(props, ['roll','Roll','ROLL','翻滚角','横滚角'])),
-        relHeight: toNumber(pickFirst(props, ['relative_height','relativeHeight','rel_alt','altitude','height','elev','Altitude','Height','高度','相对高度','飞行高度','海拔'])),
-        hFov: toNumber(pickFirst(props, ['h_fov','hfov','H_FOV','HFOV','horizontal_fov','水平视场角','视场角H'])),
-        vFov: toNumber(pickFirst(props, ['v_fov','vfov','V_FOV','VFOV','vertical_fov','垂直视场角','视场角V'])),
-        deviceType: pickFirst(props, ['device_type','deviceType','Device_Type','设备类型','设备']) || '',
-        latLonSource: 'properties'
+        lat: toNumber(latResult.value),
+        lon: toNumber(lonResult.value),
+        yaw: yawVal,
+        pitch: toNumber(pitchResult.value),
+        roll: toNumber(rollResult.value),
+        relHeight: toNumber(rhResult.value),
+        hFov: toNumber(hFovResult.value),
+        vFov: toNumber(vFovResult.value),
+        deviceType: devResult.value || '',
+        latLonSource: 'properties',
+        // 记录用到的原字段名，便于弹窗显示
+        fieldMap: {
+            lat: latResult.key,
+            lon: lonResult.key,
+            yaw: yawResult.key,
+            pitch: pitchResult.key,
+            roll: rollResult.key,
+            relHeight: rhResult.key,
+            hFov: hFovResult.key,
+            vFov: vFovResult.key,
+            device: devResult.key
+        }
     };
 }
 
@@ -1119,29 +1230,40 @@ function checkMissingParams(p) {
 }
 
 /**
- * 构建参数摘要面板
+ * 构建参数摘要面板（显示实际用到的字段名）
  */
 function buildParamsSummary(p, missingParams) {
-    function cell(label, value, ok) {
+    const fm = p.fieldMap || {};
+    function cell(title, paramName, value, ok, defaultText) {
         const c = ok ? 'color:#237804;background:#f6ffed;' : 'color:#cf1322;background:#fff1f0;';
-        const v = (value == null || value === '') ? '<span style="color:#999;">缺失</span>' : String(value);
+        let v;
+        if (value == null || value === '') {
+            v = defaultText || '<span style="color:#999;">缺失</span>';
+        } else {
+            v = String(value);
+        }
+        const srcField = fm[paramName];
+        const sub = srcField && srcField !== paramName
+            ? `<div style="font-size:10px;color:#888;opacity:0.8;">字段:${srcField}</div>`
+            : '';
         return `<div style="flex:1;min-width:100px;${c}padding:6px 8px;border-radius:4px;font-size:12px;border:1px solid #eee;">
-            <div style="font-weight:bold;margin-bottom:2px;">${label}</div>
+            <div style="font-weight:bold;margin-bottom:2px;">${title}</div>
+            ${sub}
             <div style="font-family:monospace;">${v}</div></div>`;
     }
     return `
         <div style="padding:10px;border-radius:6px;background:${missingParams.length === 0 ? '#f6ffed;border:1px solid #b7eb8f;' : '#fff1f0;border:1px solid #ffa39e;'}">
             <div style="font-weight:bold;margin-bottom:6px;font-size:13px;">${missingParams.length === 0 ? '✅ 视域参数完整' : '⚠️ 视域参数有缺失'} <span style="font-size:11px;font-weight:normal;color:#888;">(来源: ${p.latLonSource})</span></div>
             <div style="display:flex;flex-wrap:wrap;gap:6px;">
-                ${cell('lat', p.lat != null ? p.lat.toFixed(6) : null, p.lat != null)}
-                ${cell('lon', p.lon != null ? p.lon.toFixed(6) : null, p.lon != null)}
-                ${cell('yaw°', p.yaw != null ? p.yaw.toFixed(1) : null, p.yaw != null)}
-                ${cell('pitch°', p.pitch != null ? p.pitch.toFixed(1) : null, p.pitch != null)}
-                ${cell('roll°', p.roll != null ? p.roll.toFixed(1) : '0(默认)', true)}
-                ${cell('高度m', p.relHeight != null ? p.relHeight.toFixed(1) : null, p.relHeight != null && p.relHeight > 0)}
-                ${cell('H-FOV°', p.hFov != null ? p.hFov.toFixed(1) : null, p.hFov != null)}
-                ${cell('V-FOV°', p.vFov != null ? p.vFov.toFixed(1) : null, p.vFov != null)}
-                ${cell('设备', p.deviceType || '未知', true)}
+                ${cell('lat', 'lat', p.lat != null ? p.lat.toFixed(6) : null, p.lat != null)}
+                ${cell('lon', 'lon', p.lon != null ? p.lon.toFixed(6) : null, p.lon != null)}
+                ${cell('yaw°', 'yaw', p.yaw != null ? p.yaw.toFixed(1) : null, p.yaw != null)}
+                ${cell('pitch°', 'pitch', p.pitch != null ? p.pitch.toFixed(1) : null, p.pitch != null)}
+                ${cell('roll°', 'roll', p.roll != null ? p.roll.toFixed(1) : null, true, '<span style="color:#888;">0(默认)</span>')}
+                ${cell('高度m', 'relHeight', p.relHeight != null ? p.relHeight.toFixed(1) : null, p.relHeight != null && p.relHeight > 0)}
+                ${cell('H-FOV°', 'hFov', p.hFov != null ? p.hFov.toFixed(1) : null, p.hFov != null)}
+                ${cell('V-FOV°', 'vFov', p.vFov != null ? p.vFov.toFixed(1) : null, p.vFov != null)}
+                ${cell('设备', 'device', p.deviceType || '未知', true)}
             </div>
         </div>`;
 }
