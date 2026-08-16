@@ -106,6 +106,24 @@
         .dropdown-btn.active:hover {
             background-color: #0050b3;
         }
+        /* ========== 卫星云图下拉框样式：强制白底黑字 ========== */
+        #cloudModeSelect {
+            background: white !important;
+            color: #111 !important;
+        }
+        #cloudModeSelect option {
+            background: white;
+            color: #111;
+            font-size: 12px;
+        }
+        #cloudModeSelect optgroup {
+            background: white;
+            color: #111;
+        }
+        #cloudModeSelect optgroup[label^="⭐"] option {
+            background: #f0f8ff; /* 主星源选项带一点浅蓝底，易于区分 */
+            color: #111;
+        }
     </style>
     <!-- 隐藏的 GeoJSON、KML、KMZ 和 GML 文件上传输入框 -->
     <input type="file" id="geoJsonFileInput" accept=".geojson,.json,.kml,.kmz,.gml,application/json,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz,application/gml+xml" style="display: none;" />
@@ -219,15 +237,27 @@
                 <button id="closeSatelliteBtn" style="background: none; border: none; font-size: 16px; cursor: pointer; color: #888;">✕</button>
             </div>
         </div>
-        <!-- 模式切换：下拉选择器（4 种预设，VIIRS 默认无缝 / MODIS 8天无缝 / MODIS 每日 / Himawari 逐小时） -->
-        <div style="display:flex;gap:6px;margin-bottom:10px;align-items:center;">
-            <label style="font-size:12px;color:#88a;min-width:60px;">图层模式：</label>
-            <select id="cloudModeSelect" style="flex:1;padding:5px 8px;background:rgba(255,255,255,0.08);border:1px solid #1890ff;border-radius:4px;color:#e6f4ff;font-size:12px;">
-                <option value="daily" selected>⭐ VIIRS SNPP（全球每日·完全无缝✅推荐）</option>
-                <option value="daily_modis_8day">🌍 MODIS Aqua 8天合成（全球·完全无缝·时间变粗）</option>
-                <option value="daily_modis_aqua">🌍 MODIS Aqua 每日（全球·下午过境·有轨道色差缝）</option>
-                <option value="hourly">🌏 Himawari 葵花8号（亚太区·每小时 24h·-3h延迟）</option>
+        <!-- 模式切换：只展示 1 个主星源 + 【高级/备选】按钮展开隐藏的 3 个备选 -->
+        <div style="display:flex;gap:6px;margin-bottom:10px;align-items:center;flex-wrap:wrap;">
+            <label style="font-size:12px;color:#aabbdd;min-width:60px;">🛰️ 星源：</label>
+            <select id="cloudModeSelect" style="flex:1;min-width:220px;padding:5px 8px;background:white;border:1px solid #1890ff;border-radius:4px;color:#111;font-size:12px;appearance:auto;-webkit-appearance:none;background-image:linear-gradient(45deg,transparent 50%,#1890ff 50%),linear-gradient(135deg,#1890ff 50%,transparent 50%);background-position:calc(100% - 14px) 50%,calc(100% - 9px) 50%;background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:26px;">
+                <optgroup label="⭐ 默认主星源（无缝·日更新·推荐）">
+                    <option value="daily" selected>⭐ VIIRS SNPP（全球每日 · 完全无缝 · 延迟5天）</option>
+                </optgroup>
+                <optgroup label="🔧 备选星源（点击展开“更多模式”按钮切换）">
+                    <option value="daily_modis_8day" class="cloud-mode-advanced">🌍 MODIS Aqua 8天合成（全球·完全无缝·192天跨度）</option>
+                    <option value="daily_modis_aqua" class="cloud-mode-advanced">🌍 MODIS Aqua 每日（下午过境·有轨道色差缝）</option>
+                    <option value="hourly" class="cloud-mode-advanced">🌏 Himawari 葵花8号（亚太·每小时·-3h延迟）</option>
+                </optgroup>
             </select>
+            <button id="cloudAdvancedToggle" type="button" title="显示/隐藏备选星源"
+                style="padding:5px 10px;background:rgba(24,144,255,0.12);border:1px solid #1890ff;color:#69c0ff;font-size:11px;border-radius:4px;cursor:pointer;white-space:nowrap;">
+                ⚙️ 更多模式
+            </button>
+        </div>
+        <!-- 高级模式提示（默认隐藏，点击“更多模式”显示） -->
+        <div id="cloudAdvancedHint" style="display:none;margin:-6px 0 10px 60px;padding:6px 10px;background:rgba(255,193,7,0.1);border-left:3px solid #faad14;border-radius:0 4px 4px 0;font-size:11px;color:#ffd591;">
+            🔧 备选说明：日级组=全球覆盖真彩色；每小时组=静止卫星·-3h延迟；GeoColor=真彩色，Band3=单通道红光灰度，Band13=红外亮温看云顶强对流。
         </div>
         <div style="display: flex; align-items: center; gap: 10px;">
             <button id="cloudPrevBtn" style="background: rgba(255,255,255,0.15); border: none; color: white; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center;">◀</button>

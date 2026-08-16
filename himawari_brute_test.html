@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>🌏 Himawari 葵花8号专项暴力测试（NASA GIBS）</title>
+<style>
+  html,body{margin:0;padding:0;height:100%;width:100%;font-family:"Microsoft YaHei",sans-serif;background:#0b1020;color:#ddd;}
+  #wrap{display:flex;height:100vh;width:100vw;}
+  #left{width:520px;min-width:520px;padding:14px;overflow-y:auto;border-right:1px solid #223;background:#0e1430;}
+  #right{flex:1;background:#000;position:relative;}
+  #preview{width:100%;height:100%;}
+  #preview iframe{width:100%;height:100%;border:0;}
+  h1{margin:0 0 10px;font-size:17px;color:#69c0ff;}
+  h2{margin:16px 0 8px;font-size:14px;color:#91d5ff;border-left:3px solid #1890ff;padding-left:8px;}
+  p{margin:6px 0;font-size:12px;color:#aab;line-height:1.6;}
+  button{padding:8px 14px;background:#1890ff;color:white;border:none;border-radius:5px;cursor:pointer;font-size:13px;margin:3px;}
+  button.secondary{background:#52c41a;}
+  button.warn{background:#faad14;color:#111;}
+  button:disabled{background:#555;cursor:not-allowed;}
+  table{width:100%;border-collapse:collapse;font-size:11px;margin-top:6px;}
+  th,td{border:1px solid #334;padding:4px 6px;text-align:left;vertical-align:top;word-break:break-all;}
+  th{background:#183055;color:#cfd8ff;position:sticky;top:0;}
+  tr.ok td{background:#13342a !important;}
+  tr.fail td{background:#33161a !important;}
+  td .tag{display:inline-block;padding:1px 6px;border-radius:3px;font-size:10px;margin-right:4px;}
+  .tag.ok{background:#23783e;color:white;}
+  .tag.fail{background:#8a2430;color:white;}
+  .tag.info{background:#1b4a8c;color:#cfe0ff;}
+  #progress{margin:8px 0;font-size:12px;color:#9ac;}
+  .bar{height:8px;background:#223;border-radius:4px;overflow:hidden;margin:4px 0;}
+  .bar>div{height:100%;background:linear-gradient(90deg,#1890ff,#52c41a);width:0%;transition:width 0.2s;}
+  #summary{padding:8px 10px;background:#16264d;border-radius:5px;font-size:12px;margin:6px 0;}
+  #summary b{color:#52c41a;font-size:14px;}
+  #summary .b{color:#f5222d;}
+  a{color:#69c0ff;}
+  code{background:#1a2142;padding:1px 4px;border-radius:3px;color:#ffd591;font-size:11px;}
+  .mini{font-size:11px;color:#778;}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="left">
+    <h1>🌏 Himawari 葵花8号 · 暴力测试面板</h1>
+    <p>自动遍历：<b>候选图层名 × TileMatrixSet × 延迟小时 × URL模式</b> 的所有组合，真实 <code>new Image()</code> 请求瓦片 HTTP 状态，5 秒判定成功/失败，输出唯一可用参数组合。</p>
+
+    <h2>1. 参数矩阵</h2>
+    <p><b>候选图层名（12 个）</b>：NASA HIMAWARI/AHI 真实产品名（来自文档命名规范推断 + Worldview 实际使用）</p>
+    <p><b>TileMatrixSet（4 个）</b>：Level6 / Level7 / Level8 / Level9（文档显示 Himawari 通常 Level6=32km → Level8=8km 或者更低）</p>
+    <p><b>延迟整点（6 个）</b>：UTC 现在 -3h / -4h / -6h / -9h / -12h / -24h（葵花数据必须 -2~-4h 延迟，防止 NASA 积压多回退几个）</p>
+    <p><b>格式（2 个）</b>：jpg / png（GIBS 真彩色通常是 jpg，但 Himawari 可能 png）</p>
+    <p><b>总组合</b>：12 × 4 × 6 × 2 = <b>576 组</b>。每组请求 3 片真实瓦片（z2/3/4，亚太区域坐标）。</p>
+
+    <h2>2. 执行控制</h2>
+    <div>
+      <button id="btnRun" class="secondary">▶ 开始暴力测试</button>
+      <button id="btnStop" disabled>⏹ 停止</button>
+      <button id="btnClear">🗑️ 清空结果</button>
+    </div>
+    <div id="progress">未开始</div>
+    <div class="bar"><div id="bar"></div></div>
+    <div id="summary"></div>
+
+    <h2>3. 结果表（点击任一组合在右侧预览验证）</h2>
+    <div style="font-size:11px;color:#789;margin-bottom:4px;">
+      状态：✅ 全3片成功 &nbsp; ⚠️ 部分成功 &nbsp; ❌ 全失败
+      &nbsp; | &nbsp; 排序：<a id="sortOk" href="#">成功率↓</a> · <a id="sortName" href="#">图层名</a>
+    </div>
+    <table id="resultTbl">
+      <thead><tr>
+        <th style="width:36px;">#</th>
+        <th>图层名</th>
+        <th>TMS</th>
+        <th>时间</th>
+        <th>格式</th>
+        <th>成功/总数</th>
+        <th>首片 URL（点击预览）</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div id="right">
+    <div id="preview">
+      <iframe id="previewFrame" src=""></iframe>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   候选参数矩阵（暴力枚举）
+========================================================= */
+const LAYER_CANDIDATES = [
+  // 1. VIIRS/MODIS 的命名模式直接套（最常用的模式）
+  'Himawari_AHI_CorrectedReflectance_TrueColor',
+  'Himawari8_AHI_CorrectedReflectance_TrueColor',
+  'Himawari-8_AHI_CorrectedReflectance_TrueColor',
+  // 2. 带波段后缀（旧版 satellite_test 用的名）
+  'Himawari_AHI_CorrectedReflectance_TrueColor_3_2_1',
+  'Himawari8_AHI_CorrectedReflectance_TrueColor_3_2_1',
+  // 3. Full Disk Normalized Reflectance 模式（AHI 是成像仪，不是光谱仪，常叫 Normalized Refl）
+  'Himawari_AHI_Full_Disk_Normalized_Reflectance_Band_3_2_1',
+  'Himawari8_AHI_Full_Disk_Normalized_Reflectance_Band_3_2_1',
+  'Himawari_AHI_Full_Disk_Normalized_Reflectance_TrueColor',
+  // 4. v6_STD / NRT 等后缀（NASA GIBS 标准命名）
+  'Himawari_AHI_CorrectedReflectance_TrueColor_v6_NRT',
+  'Himawari_AHI_CorrectedReflectance_TrueColor_v6_STD',
+  'Himawari8_AHI_CorrectedReflectance_TrueColor_v6_NRT',
+  // 5. 可能直接用 "Himawari_AHI_TrueColor"
+  'Himawari_AHI_TrueColor'
+];
+const TMS_CANDIDATES = [
+  'GoogleMapsCompatible_Level6',
+  'GoogleMapsCompatible_Level7',
+  'GoogleMapsCompatible_Level8',
+  'GoogleMapsCompatible_Level9'
+];
+const DELAY_HOURS = [3, 4, 6, 9, 12, 24];  // NASA 处理 3~4h；多退几个防止最近几小时没数据
+const EXT_CANDIDATES = ['jpg', 'png'];
+
+/* =========================================================
+   生成组合 + 真实时间
+========================================================= */
+function buildHourlyTime(delayHours){
+  const now = new Date();
+  const base = new Date(Date.UTC(
+    now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(),
+    now.getUTCHours() - delayHours
+  ));
+  base.setUTCMinutes(0, 0, 0);
+  return base.toISOString().replace(/\.\d+Z$/, 'Z');
+}
+function testTilesFor(layer, tms, time, ext){
+  // 亚太区（葵花覆盖）3 个真实瓦片坐标：z2(亚太框), z3(中国+日本), z4(长三角)
+  const tiles = [
+    {z:2, x:3, y:1},
+    {z:3, x:6, y:3},
+    {z:4, x:13, y:6}
+  ];
+  return tiles.map(t =>
+    `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/${layer}/default/${time}/${tms}/${t.z}/${t.y}/${t.x}.${ext}`
+  );
+}
+function probeOne(url){
+  return new Promise(resolve => {
+    const img = new Image();
+    let done = false;
+    const timeout = setTimeout(() => {
+      if (!done){ done = true; resolve({ok:false, reason:'timeout(8s)', url}); }
+    }, 8000);
+    img.onload = () => {
+      if (done) return;
+      done = true;
+      clearTimeout(timeout);
+      // 真实图片一般 >500 字节（GIBS 404 的 XML 不会触发 onload）
+      resolve({ok:true, url});
+    };
+    img.onerror = (e) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timeout);
+      resolve({ok:false, reason:'onerror(404/CORS?)', url});
+    };
+    img.src = url;
+  });
+}
+
+/* =========================================================
+   主逻辑：顺序遍历（避免 576×3=1728 并发打挂浏览器/GIBS）
+========================================================= */
+let stopFlag = false;
+let allResults = [];  // {idx, layer, tms, time, ext, urls, successes, total, firstUrl}
+
+function buildAllCombos(){
+  const out = [];
+  for (const layer of LAYER_CANDIDATES){
+    for (const tms of TMS_CANDIDATES){
+      for (const dh of DELAY_HOURS){
+        for (const ext of EXT_CANDIDATES){
+          const time = buildHourlyTime(dh);
+          out.push({layer, tms, time, ext, delayHours: dh});
+        }
+      }
+    }
+  }
+  return out;
+}
+
+function renderRow(r, idx){
+  const successRate = r.successes / r.total;
+  const cls = successRate === 1 ? 'ok' : successRate > 0 ? '' : 'fail';
+  const tagCls = successRate === 1 ? 'ok' : successRate > 0 ? 'info' : 'fail';
+  const tagTxt = successRate === 1 ? '✅ 全成' : successRate > 0 ? `⚠️ ${r.successes}/${r.total}` : '❌ 全败';
+  return `<tr class="${cls}" data-idx="${idx}">
+    <td style="text-align:right;">${idx+1}</td>
+    <td><code>${r.layer}</code></td>
+    <td>${r.tms.replace('GoogleMapsCompatible_','')}</td>
+    <td style="white-space:nowrap;">${r.time}<br><span class="mini">delay -${r.delayHours}h</span></td>
+    <td>${r.ext}</td>
+    <td><span class="tag ${tagCls}">${tagTxt}</span><br>${r.successes}/${r.total}</td>
+    <td><a href="#" class="previewLink" data-idx="${idx}">🔍 预览首片</a><br><span class="mini">${r.urls[0].length>60?r.urls[0].substring(0,60)+'...':r.urls[0]}</span></td>
+  </tr>`;
+}
+
+function renderAll(sortMode){
+  const tbody = document.querySelector('#resultTbl tbody');
+  let list = allResults.map((r,i)=>({r,i}));
+  if (sortMode === 'ok'){
+    list.sort((a,b)=> (b.r.successes/b.r.total) - (a.r.successes/a.r.total));
+  } else if (sortMode === 'name'){
+    list.sort((a,b)=> a.r.layer.localeCompare(b.r.layer) || a.r.tms.localeCompare(b.r.tms));
+  }
+  tbody.innerHTML = list.map(x => renderRow(x.r, x.i)).join('');
+}
+
+function showSummary(){
+  const total = allResults.length;
+  const fullOk = allResults.filter(r => r.successes === r.total).length;
+  const partialOk = allResults.filter(r => r.successes > 0 && r.successes < r.total).length;
+  const fail = total - fullOk - partialOk;
+  document.getElementById('summary').innerHTML =
+    `总计 <b>${total}</b> 组合　|　✅ 全成：<b>${fullOk}</b>　|　⚠️ 部分：<b style="color:#faad14;">${partialOk}</b>　|　❌ 全败：<span class="b">${fail}</span>`;
+  // 第一个全成 → 右侧自动预览
+  const firstFull = allResults.find(r => r.successes === r.total);
+  if (firstFull){
+    document.getElementById('summary').innerHTML +=
+      `<br>🎯 <b style="color:#52c41a;">第一个全成组合：</b><code>${firstFull.layer}</code> / ${firstFull.tms.replace('GoogleMapsCompatible_','')} / ${firstFull.time} / .${firstFull.ext}`;
+  }
+}
+
+async function runBruteForce(){
+  const combos = buildAllCombos();
+  allResults = [];
+  stopFlag = false;
+  document.getElementById('btnRun').disabled = true;
+  document.getElementById('btnStop').disabled = false;
+  const total = combos.length;
+
+  for (let i=0;i<combos.length;i++){
+    if (stopFlag) break;
+    const c = combos[i];
+    const urls = testTilesFor(c.layer, c.tms, c.time, c.ext);
+    const results = await Promise.all(urls.map(u => probeOne(u)));
+    const successes = results.filter(r=>r.ok).length;
+    allResults.push({
+      layer: c.layer, tms: c.tms, time: c.time, ext: c.ext,
+      delayHours: c.delayHours,
+      urls, successes, total: results.length
+    });
+    // UI 更新
+    const pct = Math.round((i+1)/total*100);
+    document.getElementById('progress').textContent = `进度：${i+1}/${total}（${pct}%）· 当前：${c.layer} / ${c.tms}`;
+    document.getElementById('bar').style.width = pct + '%';
+    if ((i % 8 === 0) || i === total-1){
+      renderAll('ok');
+      showSummary();
+    }
+  }
+  renderAll('ok');
+  showSummary();
+  document.getElementById('btnRun').disabled = false;
+  document.getElementById('btnStop').disabled = true;
+}
+
+/* =========================================================
+   UI 事件
+========================================================= */
+document.getElementById('btnRun').addEventListener('click', runBruteForce);
+document.getElementById('btnStop').addEventListener('click', ()=>{stopFlag=true;});
+document.getElementById('btnClear').addEventListener('click', ()=>{
+  allResults = [];
+  renderAll();
+  showSummary();
+  document.getElementById('progress').textContent = '已清空';
+  document.getElementById('bar').style.width = '0%';
+});
+document.getElementById('sortOk').addEventListener('click', e=>{e.preventDefault();renderAll('ok');});
+document.getElementById('sortName').addEventListener('click', e=>{e.preventDefault();renderAll('name');});
+
+document.querySelector('#resultTbl tbody').addEventListener('click', (e)=>{
+  const a = e.target.closest('.previewLink');
+  if (!a) return;
+  e.preventDefault();
+  const idx = parseInt(a.dataset.idx);
+  const r = allResults[idx];
+  if (!r) return;
+  // 在右侧预览：直接用 OpenLayers 版 satellite_test.html 的 combo 形式？
+  // 简单起见：打开首片的原始图链接（iframe 直接显示）
+  document.getElementById('previewFrame').src = r.urls[0];
+  document.getElementById('progress').textContent = '🔍 预览：' + r.urls[0];
+});
+
+// 初始化：空表，默认 summary
+showSummary = showSummary;  // 先不执行
+document.getElementById('summary').innerHTML = '尚未开始。点击上方 <b style="color:#52c41a;">▶ 开始暴力测试</b>，预计 1~3 分钟。';
+</script>
+</body>
+</html>
