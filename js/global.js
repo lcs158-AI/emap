@@ -1525,6 +1525,12 @@ async function initKMLRoute() {
         if (kmlRoute && !flyRoutes.find(r => r.id === 'kml_route')) {
             flyRoutes.push(kmlRoute);
             renderFlyRouteList(routeList);
+            
+            // 加载成功后自动定位到KML路径区域（吉隆沟）
+            // 延时1秒等待初始加载的视角完成
+            setTimeout(() => {
+                flyToKMLRoute(kmlRoute);
+            }, 1000);
         }
         
         // 如果KML加载失败
@@ -1546,4 +1552,43 @@ async function initKMLRoute() {
     } finally {
         kmlLoading = false;
     }
+}
+
+// 飞到KML路径区域查看
+function flyToKMLRoute(route) {
+    if (!route || !route.waypoints || route.waypoints.length === 0) return;
+    
+    // 计算路径的中心位置和范围
+    let minLon = Infinity, maxLon = -Infinity, minLat = Infinity, maxLat = -Infinity;
+    route.waypoints.forEach(wp => {
+        minLon = Math.min(minLon, wp.lon);
+        maxLon = Math.max(maxLon, wp.lon);
+        minLat = Math.min(minLat, wp.lat);
+        maxLat = Math.max(maxLat, wp.lat);
+    });
+    
+    const centerLon = (minLon + maxLon) / 2;
+    const centerLat = (minLat + maxLat) / 2;
+    
+    // 计算路径长度估算（度）
+    const spanLon = maxLon - minLon;
+    const spanLat = maxLat - minLat;
+    const maxSpan = Math.max(spanLon, spanLat);
+    
+    // 根据范围计算合适的飞行高度
+    const viewHeight = Math.max(5000, maxSpan * 111000 * 3); // 3倍范围
+    
+    console.log(`🎯 定位到KML路径中心: ${centerLon.toFixed(4)}, ${centerLat.toFixed(4)}`);
+    console.log(`📏 路径范围: ${spanLon.toFixed(3)}° × ${spanLat.toFixed(3)}°`);
+    
+    // 平滑飞到路径中心上方
+    viewer.camera.flyTo({
+        destination: Cesium.Cartesian3.fromDegrees(centerLon, centerLat, viewHeight),
+        orientation: {
+            heading: 0,
+            pitch: Cesium.Math.toRadians(-45),
+            roll: 0
+        },
+        duration: 3
+    });
 }
