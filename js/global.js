@@ -460,55 +460,20 @@ function renderTideChart(tideHourly) {
 document.addEventListener('DOMContentLoaded', () => {
     initTideFunctionality();
     initFlyFunctionality();
+    initKMLRoute(); // 异步加载KML路线
 });
 
 // ==================== 飞行功能 ====================
-// 飞行路径数据：每个路径包含多个航点（经度、纬度、高度、名称）
-const flyRoutes = [
-    {
-        id: 'route1',
-        name: '🗺️ 博贺湾沿海观光',
-        description: '沿海岸线飞行，欣赏博贺湾美景',
-        speed: 200, // 飞行速度 (米/秒)
-        waypoints: [
-            { lon: 111.116915, lat: 21.467190, height: 500, name: '滨海旅游公路' },
-            { lon: 111.130000, lat: 21.470000, height: 600, name: '海岸观景点' },
-            { lon: 111.150000, lat: 21.475000, height: 700, name: '海岛远眺' },
-            { lon: 111.180000, lat: 21.480000, height: 800, name: '海湾中心' },
-            { lon: 111.212202, lat: 21.483160, height: 600, name: '博贺湾大酒店' }
-        ]
-    },
-    {
-        id: 'route2',
-        name: '🏔️ 地形探索飞行',
-        description: '穿越起伏地形，体验3D地貌',
-        speed: 300,
-        waypoints: [
-            { lon: 111.100000, lat: 21.450000, height: 800, name: '起点高地' },
-            { lon: 111.120000, lat: 21.460000, height: 1000, name: '山谷航点' },
-            { lon: 111.150000, lat: 21.470000, height: 1200, name: '山峰观测' },
-            { lon: 111.180000, lat: 21.485000, height: 900, name: '下坡航点' },
-            { lon: 111.220000, lat: 21.500000, height: 700, name: '终点平原' }
-        ]
-    },
-    {
-        id: 'route3',
-        name: '🌅 日出东方航线',
-        description: '从西向东飞行，模拟日出方向',
-        speed: 250,
-        waypoints: [
-            { lon: 111.100000, lat: 21.480000, height: 600, name: '西部起点' },
-            { lon: 111.130000, lat: 21.482000, height: 700, name: '中段高点' },
-            { lon: 111.160000, lat: 21.483000, height: 800, name: '观景平台' },
-            { lon: 111.190000, lat: 21.484000, height: 750, name: '东部航点' },
-            { lon: 111.220000, lat: 21.485000, height: 650, name: '东岸终点' }
-        ]
-    }
-];
+// 飞行路径数据存储（初始为空，KML路线通过异步加载）
+const flyRoutes = [];
+
+// 加载状态提示
+let kmlLoading = false;
 
 // 飞行状态变量
 let flyState = {
     active: false,          // 是否正在飞行
+    preFlight: false,       // 是否处于预飞阶段（飞到起点）
     paused: false,          // 是否暂停
     route: null,            // 当前飞行路径
     currentSegment: 0,      // 当前段索引
@@ -520,7 +485,9 @@ let flyState = {
     waypointEntities: [],   // 航点实体
     rafId: null,            // requestAnimationFrame ID
     totalDistance: 0,       // 路径总距离
-    segmentDistances: []    // 各段距离
+    segmentDistances: [],   // 各段距离
+    speedMultiplier: 1,     // 速度倍率
+    preFlightComplete: false // 预飞是否完成
 };
 
 // 初始化飞行功能
@@ -532,6 +499,7 @@ function initFlyFunctionality() {
     const stopFlyBtn = document.getElementById('stopFlyBtn');
     const pauseFlyBtn = document.getElementById('pauseFlyBtn');
     const resumeFlyBtn = document.getElementById('resumeFlyBtn');
+    const speedControl = document.getElementById('speedControl');
 
     // 渲染飞行路径列表
     renderFlyRouteList(flyRouteList);
@@ -564,11 +532,51 @@ function initFlyFunctionality() {
     resumeFlyBtn.addEventListener('click', () => {
         resumeFlight();
     });
+
+    // 速度控制按钮
+    const speedBtns = document.querySelectorAll('.speed-btn');
+    speedBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const speed = parseFloat(btn.dataset.speed);
+            setFlySpeed(speed);
+            // 更新按钮状态
+            speedBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        });
+    });
+}
+
+// 设置飞行速度
+function setFlySpeed(multiplier) {
+    flyState.speedMultiplier = multiplier;
+    // 更新状态显示
+    if (flyState.active && flyState.route) {
+        const totalSeconds = flyState.totalDistance / (flyState.route.speed * multiplier);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = Math.round(totalSeconds % 60);
+        const progress = ((flyState.currentSegment + flyState.segmentProgress) / 
+            (flyState.route.waypoints.length - 1) * 100).toFixed(0);
+        document.getElementById('flyStatus').textContent = 
+            `进度: ${progress}% | 速度: ${multiplier}x | 预计剩余: ${minutes}分${seconds}秒`;
+    }
 }
 
 // 渲染飞行路径列表
 function renderFlyRouteList(container) {
     container.innerHTML = '';
+    
+    if (flyRoutes.length === 0) {
+        // 显示加载状态
+        const loadingDiv = document.createElement('div');
+        loadingDiv.className = 'fly-route-item';
+        loadingDiv.style.textAlign = 'center';
+        loadingDiv.style.color = '#999';
+        loadingDiv.style.cursor = 'default';
+        loadingDiv.innerHTML = `<div class="route-name" style="font-size: 12px;">⏳ 正在加载KML路线...</div>`;
+        container.appendChild(loadingDiv);
+        return;
+    }
+    
     flyRoutes.forEach(route => {
         const item = document.createElement('div');
         item.className = 'fly-route-item';
@@ -586,7 +594,7 @@ function renderFlyRouteList(container) {
 // 启动飞行
 function startFlight(route) {
     // 如果之前有飞行，先停止
-    if (flyState.active) {
+    if (flyState.active || flyState.preFlight) {
         stopFlight();
     }
 
@@ -597,16 +605,33 @@ function startFlight(route) {
     flyState.segmentProgress = 0;
     flyState.startTime = performance.now();
     flyState.lastTime = performance.now();
+    flyState.speedMultiplier = 1; // 默认正常速度
+    flyState.preFlightComplete = false;
 
-    // 计算各段距离和总距离
+    // 计算各段距离和总距离（优化：对于大量航点使用近似计算）
     flyState.segmentDistances = [];
     flyState.totalDistance = 0;
-    for (let i = 0; i < route.waypoints.length - 1; i++) {
-        const wp1 = route.waypoints[i];
-        const wp2 = route.waypoints[i + 1];
-        const dist = calculateDistance(wp1, wp2);
-        flyState.segmentDistances.push(dist);
-        flyState.totalDistance += dist;
+    const isKMLRoute = route.namedPoints && route.namedPoints.length > 0;
+    
+    if (isKMLRoute) {
+        // 对于KML路线，使用近似距离计算（1度约111公里）
+        for (let i = 0; i < route.waypoints.length - 1; i++) {
+            const wp1 = route.waypoints[i];
+            const wp2 = route.waypoints[i + 1];
+            const dLon = (wp2.lon - wp1.lon) * 111000 * Math.cos((wp1.lat + wp2.lat) / 2 * Math.PI / 180);
+            const dLat = (wp2.lat - wp1.lat) * 111000;
+            const dist = Math.sqrt(dLon * dLon + dLat * dLat + Math.pow(wp2.height - wp1.height, 2));
+            flyState.segmentDistances.push(dist);
+            flyState.totalDistance += dist;
+        }
+    } else {
+        for (let i = 0; i < route.waypoints.length - 1; i++) {
+            const wp1 = route.waypoints[i];
+            const wp2 = route.waypoints[i + 1];
+            const dist = calculateDistance(wp1, wp2);
+            flyState.segmentDistances.push(dist);
+            flyState.totalDistance += dist;
+        }
     }
 
     // 创建路径线
@@ -615,30 +640,76 @@ function startFlight(route) {
     // 创建航点实体
     createWaypointEntities(route);
 
-    // 创建飞机实体
+    // 创建飞机实体（起点位置）
     createPlaneEntity(route.waypoints[0]);
-
-    // 让相机跟随飞机
-    viewer.trackedEntity = flyState.planeEntity;
-    
-    // 设置相机视角参数
-    const planePos = flyState.planeEntity.position;
-    viewer.camera.lookAt(
-        planePos,
-        new Cesium.HeadingPitchRange(0, Cesium.Math.toRadians(-15), 400)
-    );
 
     // 显示控制面板
     document.getElementById('stopFlyBtn').style.display = 'block';
     document.getElementById('pauseFlyBtn').style.display = 'block';
     document.getElementById('resumeFlyBtn').style.display = 'none';
-    document.getElementById('flyStatus').textContent = `飞行中: ${route.name}`;
+    document.getElementById('speedControl').style.display = 'block';
+    // 重置速度按钮状态
+    document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
+    document.querySelector('.speed-btn[data-speed="1"]').classList.add('active');
+    document.getElementById('flyStatus').textContent = `预飞中: ${route.name}`;
     document.body.classList.add('flying');
 
-    // 显示第一个航点名称
-    showWaypointLabel(route.waypoints[0].name);
+    // 预飞阶段：从当前视角飞到起点高空（4秒过渡）
+    const startWp = route.waypoints[0];
+    const preFlightHeight = Math.max(startWp.height + 1000, 3000); // 起点上方1000米，至少3000米
+    
+    flyState.preFlight = true;
+    
+    // 显示第一个有名称的航点（预飞完成后显示）
+    const firstNamedWp = route.waypoints.find(wp => wp.name);
+    
+    // 计算飞行时间提示
+    const totalSeconds = flyState.totalDistance / (route.speed * flyState.speedMultiplier);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = Math.round(totalSeconds % 60);
+    document.getElementById('flyStatus').textContent = 
+        `🚀 飞往起点... | 路径总长: ${(flyState.totalDistance/1000).toFixed(1)}km | 预计飞行: ${minutes}分${seconds}秒`;
+    
+    // 平滑飞到起点高空
+    viewer.camera.flyTo({
+        destination: Cesium.Cartesian3.fromDegrees(startWp.lon, startWp.lat + 0.02, preFlightHeight),
+        orientation: {
+            heading: 0,
+            pitch: Cesium.Math.toRadians(-30),
+            roll: 0
+        },
+        duration: 4, // 4秒预飞
+        complete: () => {
+            // 预飞完成
+            flyState.preFlight = false;
+            flyState.preFlightComplete = true;
+            
+            // 让相机跟随飞机
+            viewer.trackedEntity = flyState.planeEntity;
+            
+            // 根据路线类型调整相机距离
+            const isHighAltitude = route.waypoints.some(wp => wp.height > 3000);
+            const cameraRange = isHighAltitude ? 800 : 500;
+            const cameraPitch = isHighAltitude ? Cesium.Math.toRadians(-20) : Cesium.Math.toRadians(-15);
+            
+            // 设置相机视角参数
+            const planePos = flyState.planeEntity.position;
+            viewer.camera.lookAt(
+                planePos,
+                new Cesium.HeadingPitchRange(0, cameraPitch, cameraRange)
+            );
 
-    // 开始动画
+            // 显示第一个有名称的航点
+            if (firstNamedWp) {
+                showWaypointLabel(firstNamedWp.name);
+            }
+            
+            document.getElementById('flyStatus').textContent = 
+                `✈️ 飞行中: ${route.name} | 总长: ${(flyState.totalDistance/1000).toFixed(1)}km`;
+        }
+    });
+
+    // 开始动画（预飞阶段也启动，飞机会显示在起点等待）
     animateFlight();
 }
 
@@ -670,34 +741,71 @@ function createRouteLine(route) {
 
 // 创建航点实体
 function createWaypointEntities(route) {
-    flyState.waypointEntities = route.waypoints.map((wp, index) => {
-        return viewer.entities.add({
-            position: Cesium.Cartesian3.fromDegrees(wp.lon, wp.lat, wp.height),
-            point: {
-                pixelSize: 12,
-                color: Cesium.Color.YELLOW,
-                outlineColor: Cesium.Color.WHITE,
-                outlineWidth: 2,
-                heightReference: Cesium.HeightReference.NONE,
-                disableDepthTestDistance: Number.POSITIVE_INFINITY
-            },
-            label: {
-                text: wp.name,
-                font: '14px sans-serif',
-                fillColor: Cesium.Color.WHITE,
-                backgroundColor: Cesium.Color.fromCssColorString('rgba(0,100,200,0.8)'),
-                style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-                outlineWidth: 2,
-                outlineColor: Cesium.Color.BLACK,
-                pixelOffset: new Cesium.Cartesian2(0, -25),
-                show: false,
-                horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
-                verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
-                heightReference: Cesium.HeightReference.NONE,
-                disableDepthTestDistance: Number.POSITIVE_INFINITY
-            }
+    // 对于KML路线，waypoints数量可能很大（100+），只为命名点创建实体
+    const hasNamedPoints = route.namedPoints && route.namedPoints.length > 0;
+    
+    if (hasNamedPoints) {
+        // KML路线：命名点贴地显示
+        flyState.waypointEntities = route.namedPoints.map(np => {
+            return viewer.entities.add({
+                id: 'named_' + np.originalName,
+                position: Cesium.Cartesian3.fromDegrees(np.lon, np.lat, 0),
+                point: {
+                    pixelSize: 14,
+                    color: Cesium.Color.YELLOW,
+                    outlineColor: Cesium.Color.WHITE,
+                    outlineWidth: 2,
+                    heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+                    disableDepthTestDistance: Number.POSITIVE_INFINITY
+                },
+                label: {
+                    text: np.name,
+                    font: '14px sans-serif',
+                    fillColor: Cesium.Color.WHITE,
+                    backgroundColor: Cesium.Color.fromCssColorString('rgba(0,100,200,0.85)'),
+                    style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+                    outlineWidth: 2,
+                    outlineColor: Cesium.Color.BLACK,
+                    pixelOffset: new Cesium.Cartesian2(0, -20),
+                    show: false,
+                    horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
+                    verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+                    heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+                    disableDepthTestDistance: Number.POSITIVE_INFINITY
+                }
+            });
         });
-    });
+    } else {
+        // 普通路线：为所有航点创建实体
+        flyState.waypointEntities = route.waypoints.map((wp, index) => {
+            return viewer.entities.add({
+                position: Cesium.Cartesian3.fromDegrees(wp.lon, wp.lat, wp.height),
+                point: {
+                    pixelSize: 12,
+                    color: Cesium.Color.YELLOW,
+                    outlineColor: Cesium.Color.WHITE,
+                    outlineWidth: 2,
+                    heightReference: Cesium.HeightReference.NONE,
+                    disableDepthTestDistance: Number.POSITIVE_INFINITY
+                },
+                label: {
+                    text: wp.name,
+                    font: '14px sans-serif',
+                    fillColor: Cesium.Color.WHITE,
+                    backgroundColor: Cesium.Color.fromCssColorString('rgba(0,100,200,0.8)'),
+                    style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+                    outlineWidth: 2,
+                    outlineColor: Cesium.Color.BLACK,
+                    pixelOffset: new Cesium.Cartesian2(0, -25),
+                    show: false,
+                    horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
+                    verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+                    heightReference: Cesium.HeightReference.NONE,
+                    disableDepthTestDistance: Number.POSITIVE_INFINITY
+                }
+            });
+        });
+    }
 }
 
 // 创建飞机实体（使用点和标签表示）
@@ -731,11 +839,28 @@ function showWaypointLabel(name, duration = 2000) {
     const route = flyState.route;
     if (!route) return;
 
-    // 找到对应的航点实体
-    const index = route.waypoints.findIndex(wp => wp.name === name);
-    if (index === -1 || !flyState.waypointEntities[index]) return;
+    let entity = null;
+    let entityIndex = -1;
 
-    const entity = flyState.waypointEntities[index];
+    // KML路线：在namedPoints中查找
+    if (route.namedPoints && route.namedPoints.length > 0) {
+        const npIndex = route.namedPoints.findIndex(np => np.name === name);
+        if (npIndex !== -1 && flyState.waypointEntities[npIndex]) {
+            entity = flyState.waypointEntities[npIndex];
+            entityIndex = npIndex;
+            // 标记已触发
+            route.namedPoints[npIndex].triggered = true;
+        }
+    } else {
+        // 普通路线：在waypoints中查找
+        const index = route.waypoints.findIndex(wp => wp.name === name);
+        if (index !== -1 && flyState.waypointEntities[index]) {
+            entity = flyState.waypointEntities[index];
+            entityIndex = index;
+        }
+    }
+
+    if (!entity) return;
 
     // 显示标签
     entity.label.show = true;
@@ -755,7 +880,7 @@ function showWaypointLabel(name, duration = 2000) {
     // 节点闪烁动画 - 使用多个脉冲
     let pulseCount = 0;
     const pulseInterval = setInterval(() => {
-        if (!flyState.active || flyState.currentSegment <= index - 1) {
+        if (!flyState.active) {
             clearInterval(pulseInterval);
             return;
         }
@@ -763,7 +888,7 @@ function showWaypointLabel(name, duration = 2000) {
         entity.point.color = Cesium.Color.RED;
         setTimeout(() => {
             if (entity && entity.point) {
-                entity.point.pixelSize = 12;
+                entity.point.pixelSize = 14;
                 entity.point.color = Cesium.Color.YELLOW;
             }
         }, 150);
@@ -776,8 +901,14 @@ function showWaypointLabel(name, duration = 2000) {
 
 // 飞行动画循环
 function animateFlight() {
-    if (!flyState.active || flyState.paused) {
+    // 预飞阶段或暂停状态
+    if (flyState.preFlight || flyState.paused) {
         flyState.rafId = requestAnimationFrame(animateFlight);
+        return;
+    }
+    
+    // 非飞行状态，停止动画
+    if (!flyState.active && !flyState.preFlight) {
         return;
     }
 
@@ -786,7 +917,7 @@ function animateFlight() {
     flyState.lastTime = now;
 
     const route = flyState.route;
-    const currentSpeed = route.speed; // 米/秒
+    const currentSpeed = route.speed * flyState.speedMultiplier; // 应用速度倍率
     const segmentDistance = flyState.segmentDistances[flyState.currentSegment];
 
     // 计算当前段的进度
@@ -800,10 +931,13 @@ function animateFlight() {
     if (flyState.segmentProgress >= 1) {
         flyState.segmentProgress = 1;
 
-        // 显示下一个航点的标签
+        // 检查下一个航点是否有命名点
         const nextIndex = flyState.currentSegment + 1;
         if (nextIndex < route.waypoints.length) {
-            showWaypointLabel(route.waypoints[nextIndex].name);
+            const nextWp = route.waypoints[nextIndex];
+            if (nextWp.name) {
+                showWaypointLabel(nextWp.name);
+            }
         }
 
         // 移动到下一段
@@ -812,7 +946,6 @@ function animateFlight() {
 
         // 如果完成所有段
         if (flyState.currentSegment >= route.waypoints.length - 1) {
-            // 飞行完成
             finishFlight();
             return;
         }
@@ -821,8 +954,7 @@ function animateFlight() {
     // 更新飞机位置
     updatePlanePosition();
 
-    // 更新相机跟随
-    updateCameraFollow();
+    // 更新相机跟随（使用 trackedEntity，无需额外操作）
 
     // 更新状态显示
     updateFlyStatus();
@@ -847,27 +979,11 @@ function updatePlanePosition() {
     flyState.planeEntity.position = newPosition;
 }
 
-// 更新相机跟随（使用 trackedEntity 自动跟随，这里只更新航向）
+// 更新相机跟随（使用 trackedEntity 自动跟随，不需要每帧设置）
 function updateCameraFollow() {
-    const route = flyState.route;
-    const segIdx = flyState.currentSegment;
-    const wp1 = route.waypoints[segIdx];
-    const wp2 = route.waypoints[segIdx + 1];
-
-    // 计算航向角
-    const dirLon = wp2.lon - wp1.lon;
-    const dirLat = wp2.lat - wp1.lat;
-    const heading = Math.atan2(dirLat, dirLon);
-
-    // 如果使用 trackedEntity，不需要更新相机位置
-    // 但可以更新相机朝向
-    if (viewer.trackedEntity === flyState.planeEntity) {
-        const planePos = flyState.planeEntity.position;
-        viewer.camera.lookAt(
-            planePos,
-            new Cesium.HeadingPitchRange(heading, Cesium.Math.toRadians(-15), 400)
-        );
-    }
+    // 使用 trackedEntity 时，Cesium 自动处理相机跟随
+    // 这里不需要额外操作，留空以避免性能问题
+    // 如果需要，可以添加平滑的视角过渡
 }
 
 // 更新飞行状态显示
@@ -876,10 +992,35 @@ function updateFlyStatus() {
     const segIdx = flyState.currentSegment;
     const progress = ((segIdx + flyState.segmentProgress) / (route.waypoints.length - 1) * 100).toFixed(0);
     const currentWp = route.waypoints[segIdx];
-    const nextWp = route.waypoints[segIdx + 1];
+    
+    // 计算当前高度（线性插值）
+    let currentHeight = 0;
+    if (segIdx < route.waypoints.length - 1) {
+        const wp1 = route.waypoints[segIdx];
+        const wp2 = route.waypoints[segIdx + 1];
+        currentHeight = Math.round(wp1.height + (wp2.height - wp1.height) * flyState.segmentProgress);
+    } else {
+        currentHeight = Math.round(currentWp.height);
+    }
 
-    document.getElementById('flyStatus').textContent =
-        `进度: ${progress}% | 当前: ${currentWp.name} → 下一: ${nextWp ? nextWp.name : '终点'}`;
+    // 查找最近的命名点
+    let currentNamedPoint = '';
+    if (route.namedPoints && route.namedPoints.length > 0) {
+        for (const np of route.namedPoints) {
+            if (segIdx >= np.segmentIndex - 2 && segIdx <= np.segmentIndex + 2) {
+                currentNamedPoint = np.name;
+                break;
+            }
+        }
+    }
+
+    if (currentNamedPoint) {
+        document.getElementById('flyStatus').textContent =
+            `进度: ${progress}% | 高度: ${currentHeight}m | 📍 ${currentNamedPoint}`;
+    } else {
+        document.getElementById('flyStatus').textContent =
+            `进度: ${progress}% | 高度: ${currentHeight}m | 飞行中...`;
+    }
 }
 
 // 暂停飞行
@@ -924,6 +1065,8 @@ function stopFlight() {
 
     // 重置状态
     flyState.active = false;
+    flyState.preFlight = false;
+    flyState.preFlightComplete = false;
     flyState.paused = false;
     flyState.route = null;
     flyState.currentSegment = 0;
@@ -933,6 +1076,7 @@ function stopFlight() {
     document.getElementById('stopFlyBtn').style.display = 'none';
     document.getElementById('pauseFlyBtn').style.display = 'none';
     document.getElementById('resumeFlyBtn').style.display = 'none';
+    document.getElementById('speedControl').style.display = 'none';
     document.getElementById('flyStatus').textContent = '';
     document.body.classList.remove('flying');
 }
@@ -952,6 +1096,7 @@ function finishFlight() {
     document.getElementById('stopFlyBtn').style.display = 'none';
     document.getElementById('pauseFlyBtn').style.display = 'none';
     document.getElementById('resumeFlyBtn').style.display = 'none';
+    document.getElementById('speedControl').style.display = 'none';
     document.body.classList.remove('flying');
 
     // 3秒后清除实体
@@ -970,4 +1115,211 @@ function finishFlight() {
             flyToLocation(lon, lat, height, pitch);
         }
     }, 3000);
+}
+
+// ==================== KML飞行路径解析 ====================
+// 存储解析后的KML路线
+let kmlRoute = null;
+let kmlLoadAttempted = false;
+
+// 解析KML文件
+async function parseKMLFile() {
+    if (kmlLoadAttempted) return kmlRoute;
+    kmlLoadAttempted = true;
+    
+    try {
+        const response = await fetch('data/JILONG20260826.kml', { cache: 'no-cache' });
+        if (!response.ok) throw new Error('无法加载KML文件');
+        const kmlText = await response.text();
+        
+        const parser = new DOMParser();
+        const xml = parser.parseFromString(kmlText, 'text/xml');
+        
+        // 解析所有 Placemark
+        const allPlacemarks = xml.getElementsByTagName('Placemark');
+        const pointPlacemarks = [];
+        let linePlacemark = null;
+        
+        for (let i = 0; i < allPlacemarks.length; i++) {
+            const pm = allPlacemarks[i];
+            
+            // 获取 Placemark 的直接子元素 name
+            const nameEl = pm.children[0]; // 第一个子元素通常是 <name>
+            const pmName = nameEl ? nameEl.textContent.trim() : '';
+            
+            // 从 ExtendedData 中获取属性
+            const extData = pm.getElementsByTagName('ExtendedData')[0];
+            let type = '';
+            let displayName = pmName;
+            
+            if (extData) {
+                const dataEls = extData.getElementsByTagName('Data');
+                for (let j = 0; j < dataEls.length; j++) {
+                    const dataEl = dataEls[j];
+                    const attrName = dataEl.getAttribute('name');
+                    const valueEl = dataEl.getElementsByTagName('value')[0];
+                    const value = valueEl ? valueEl.textContent.trim() : '';
+                    
+                    if (attrName === 'type') type = value;
+                    if (attrName === '名称') displayName = value;
+                }
+            }
+            
+            // 判断是点还是线
+            const hasPoint = pm.getElementsByTagName('Point').length > 0;
+            const hasLineString = pm.getElementsByTagName('LineString').length > 0;
+            
+            if (hasPoint && type === 'Point') {
+                const coordsEl = pm.getElementsByTagName('coordinates')[0];
+                const coords = coordsEl ? coordsEl.textContent.trim() : '';
+                if (coords) {
+                    const parts = coords.split(',').map(Number);
+                    pointPlacemarks.push({
+                        name: displayName,
+                        lon: parts[0],
+                        lat: parts[1],
+                        originalName: pmName
+                    });
+                }
+            } else if (hasLineString && type === 'LineString') {
+                const coordsEl = pm.getElementsByTagName('coordinates')[0];
+                const coordsText = coordsEl ? coordsEl.textContent.trim() : '';
+                if (coordsText) {
+                    const lineCoords = coordsText.split(/\s+/).map(pair => {
+                        const parts = pair.split(',').map(Number);
+                        return { lon: parts[0], lat: parts[1] };
+                    });
+                    linePlacemark = { coords: lineCoords, name: displayName };
+                }
+            }
+        }
+        
+        if (!linePlacemark || linePlacemark.coords.length === 0) {
+            throw new Error('KML中未找到有效的路径线');
+        }
+        
+        // 为路径线添加高度 - 根据吉隆沟地形特点，从5000米平缓降至1800米
+        // 地形从起点约5000m降至终点约1800m，飞行高度在地形基础上保持约200m的飞行高度
+        const pointCount = linePlacemark.coords.length;
+        const startHeight = 5200;  // 起点飞行高度（地形5000m + 200m）
+        const endHeight = 2000;    // 终点飞行高度（地形1800m + 200m）
+        
+        const lineWaypoints = linePlacemark.coords.map((c, i) => {
+            // 使用三次曲线平滑过渡，使飞行高度变化更自然
+            const t = i / (pointCount - 1);
+            // 使用 ease-in-out 曲线，使高度变化在两端平缓
+            const easeT = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+            const height = startHeight + (endHeight - startHeight) * easeT;
+            
+            return {
+                lon: c.lon,
+                lat: c.lat,
+                height: height,
+                name: '',
+                index: i
+            };
+        });
+        
+        // 建立点到线段的映射关系
+        const namedPoints = pointPlacemarks.map(pp => {
+            let minDist = Infinity;
+            let segmentIdx = 0;
+            for (let i = 0; i < lineWaypoints.length - 1; i++) {
+                const wp1 = lineWaypoints[i];
+                const wp2 = lineWaypoints[i + 1];
+                const dist = pointToSegmentDistance(pp.lon, pp.lat, wp1, wp2);
+                if (dist < minDist) {
+                    minDist = dist;
+                    segmentIdx = i;
+                }
+            }
+            return {
+                ...pp,
+                segmentIndex: segmentIdx,
+                triggered: false
+            };
+        });
+        
+        // 设置路径点的名称（仅在命名点所在位置标记）
+        namedPoints.forEach(np => {
+            if (np.segmentIndex < lineWaypoints.length) {
+                lineWaypoints[np.segmentIndex].name = np.name;
+                lineWaypoints[np.segmentIndex].namedPoint = true;
+            }
+        });
+        
+        kmlRoute = {
+            id: 'kml_route',
+            name: '🏔️ 吉隆沟泥石流路径',
+            description: 'KML导入路径 · 约20公里 · 7分钟冲击',
+            speed: 50, // 约50m/s ≈ 180km/h，模拟泥石流冲击速度
+            waypoints: lineWaypoints,
+            namedPoints: namedPoints
+        };
+        
+        return kmlRoute;
+    } catch (error) {
+        console.error('KML解析失败:', error);
+        return null;
+    }
+}
+
+// 计算点到线段的距离（使用经纬度近似）
+function pointToSegmentDistance(plon, plat, wp1, wp2) {
+    const dx = wp2.lon - wp1.lon;
+    const dy = wp2.lat - wp1.lat;
+    if (dx === 0 && dy === 0) {
+        const dlon = plon - wp1.lon;
+        const dlat = plat - wp1.lat;
+        return Math.sqrt(dlon * dlon + dlat * dlat);
+    }
+    
+    let t = ((plon - wp1.lon) * dx + (plat - wp1.lat) * dy) / (dx * dx + dy * dy);
+    t = Math.max(0, Math.min(1, t));
+    
+    const projLon = wp1.lon + t * dx;
+    const projLat = wp1.lat + t * dy;
+    
+    const dlon = plon - projLon;
+    const dlat = plat - projLat;
+    return Math.sqrt(dlon * dlon + dlat * dlat);
+}
+
+// KML路线专用的飞行初始化
+async function initKMLRoute() {
+    try {
+        kmlLoading = true;
+        const routeList = document.getElementById('flyRouteList');
+        
+        // 先显示加载状态
+        renderFlyRouteList(routeList);
+        
+        // 解析KML文件
+        await parseKMLFile();
+        
+        // 添加到路线列表
+        if (kmlRoute && !flyRoutes.find(r => r.id === 'kml_route')) {
+            flyRoutes.push(kmlRoute);
+            renderFlyRouteList(routeList);
+        }
+        
+        // 如果KML加载失败
+        if (!kmlRoute) {
+            console.error('KML路线加载失败');
+            routeList.innerHTML = '<div class="fly-route-item" style="text-align:center;color:#ff4d4f;cursor:pointer;" id="retryLoadKML"><div class="route-name" style="font-size:12px;">❌ KML加载失败，点击重试</div></div>';
+            const retryBtn = document.getElementById('retryLoadKML');
+            if (retryBtn) {
+                retryBtn.addEventListener('click', () => {
+                    // 重置加载状态，重试
+                    kmlLoadAttempted = false;
+                    kmlRoute = null;
+                    initKMLRoute();
+                });
+            }
+        }
+    } catch (error) {
+        console.error('初始化KML路线时出错:', error);
+    } finally {
+        kmlLoading = false;
+    }
 }

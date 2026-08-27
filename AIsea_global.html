@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>跬步地球1.211</title>
+    <title>跬步地球1.23</title>
     <!-- Cesium 本地样式 -->
     <link rel="stylesheet" href="libs/cesium/Widgets/widgets.css">
     <!-- 自定义样式 -->
@@ -47,10 +47,20 @@
             <button id="closeFlyBtn" class="close-btn">✕</button>
         </div>
         <div id="flyRouteList"></div>
-        <div style="margin-top: 10px; display: flex; gap: 8px;">
+        <div style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
             <button id="stopFlyBtn" class="fly-control-btn" style="display: none;">⏹️ 停止</button>
             <button id="pauseFlyBtn" class="fly-control-btn" style="display: none;">⏸️ 暂停</button>
             <button id="resumeFlyBtn" class="fly-control-btn" style="display: none;">▶️ 继续</button>
+        </div>
+        <div id="speedControl" style="display: none; margin-top: 8px; padding-top: 8px; border-top: 1px solid #eee;">
+            <div style="font-size: 11px; color: #666; margin-bottom: 4px;">飞行速度：</div>
+            <div style="display: flex; gap: 4px;">
+                <button class="speed-btn" data-speed="0.5">🐢 0.5x</button>
+                <button class="speed-btn active" data-speed="1">🚶 1x</button>
+                <button class="speed-btn" data-speed="2">🏃 2x</button>
+                <button class="speed-btn" data-speed="4">🚗 4x</button>
+                <button class="speed-btn" data-speed="8">✈️ 8x</button>
+            </div>
         </div>
         <div id="flyStatus" style="font-size: 11px; color: #888; margin-top: 8px;"></div>
     </div>

@@ -216,6 +216,27 @@ body, html {
     background: #f0f0f0;
     border-color: #1890ff;
 }
+/* 速度控制按钮 */
+.speed-btn {
+    flex: 1;
+    padding: 5px 8px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    background: white;
+    cursor: pointer;
+    font-size: 11px;
+    transition: all 0.2s;
+    min-width: 45px;
+}
+.speed-btn:hover {
+    background: #f0f0f0;
+    border-color: #1890ff;
+}
+.speed-btn.active {
+    background: #1890ff;
+    color: white;
+    border-color: #1890ff;
+}
 /* 节点闪烁标签效果 */
 .node-flash-label {
     animation: flashLabel 1.5s ease-out;
