@@ -18,10 +18,11 @@
 <body>
     <div id="cesiumContainer"></div>
     <div class="toolbar">
-        <button id="locateBtn">📍</button>
-        <button id="toggleAnnotationBtn">🏷️</button>
-        <button id="measureBtn">📏</button>
-        <button id="tideBtn">🌊</button>
+        <button id="locateBtn" data-tooltip="📍 定位">📍</button>
+        <button id="toggleAnnotationBtn" data-tooltip="🏷️ 标注">🏷️</button>
+        <button id="measureBtn" data-tooltip="📏 测量">📏</button>
+        <button id="tideBtn" data-tooltip="🌊 潮汐">🌊</button>
+        <button id="flyBtn" data-tooltip="✈️ 飞行">✈️</button>
     </div>
     <div id="tidePanel" style="display: none;">
         <div style="display: flex; justify-content: space-between;">
@@ -38,6 +39,21 @@
         <div style="font-size: 10px; color: #aaa; text-align: right;">数据：和风天气</div>
     </div>
     <div id="measureResult">距离: -- 米</div>
+
+    <!-- 飞行规划面板 -->
+    <div id="flyPanel" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <h4 style="margin: 0; color: #1890ff;">✈️ 飞行规划</h4>
+            <button id="closeFlyBtn" class="close-btn">✕</button>
+        </div>
+        <div id="flyRouteList"></div>
+        <div style="margin-top: 10px; display: flex; gap: 8px;">
+            <button id="stopFlyBtn" class="fly-control-btn" style="display: none;">⏹️ 停止</button>
+            <button id="pauseFlyBtn" class="fly-control-btn" style="display: none;">⏸️ 暂停</button>
+            <button id="resumeFlyBtn" class="fly-control-btn" style="display: none;">▶️ 继续</button>
+        </div>
+        <div id="flyStatus" style="font-size: 11px; color: #888; margin-top: 8px;"></div>
+    </div>
 
     <!-- 引入配置文件 -->
     <script src="js/config.js"></script>

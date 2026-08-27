@@ -459,4 +459,515 @@ function renderTideChart(tideHourly) {
 
 document.addEventListener('DOMContentLoaded', () => {
     initTideFunctionality();
+    initFlyFunctionality();
 });
+
+// ==================== 飞行功能 ====================
+// 飞行路径数据：每个路径包含多个航点（经度、纬度、高度、名称）
+const flyRoutes = [
+    {
+        id: 'route1',
+        name: '🗺️ 博贺湾沿海观光',
+        description: '沿海岸线飞行，欣赏博贺湾美景',
+        speed: 200, // 飞行速度 (米/秒)
+        waypoints: [
+            { lon: 111.116915, lat: 21.467190, height: 500, name: '滨海旅游公路' },
+            { lon: 111.130000, lat: 21.470000, height: 600, name: '海岸观景点' },
+            { lon: 111.150000, lat: 21.475000, height: 700, name: '海岛远眺' },
+            { lon: 111.180000, lat: 21.480000, height: 800, name: '海湾中心' },
+            { lon: 111.212202, lat: 21.483160, height: 600, name: '博贺湾大酒店' }
+        ]
+    },
+    {
+        id: 'route2',
+        name: '🏔️ 地形探索飞行',
+        description: '穿越起伏地形，体验3D地貌',
+        speed: 300,
+        waypoints: [
+            { lon: 111.100000, lat: 21.450000, height: 800, name: '起点高地' },
+            { lon: 111.120000, lat: 21.460000, height: 1000, name: '山谷航点' },
+            { lon: 111.150000, lat: 21.470000, height: 1200, name: '山峰观测' },
+            { lon: 111.180000, lat: 21.485000, height: 900, name: '下坡航点' },
+            { lon: 111.220000, lat: 21.500000, height: 700, name: '终点平原' }
+        ]
+    },
+    {
+        id: 'route3',
+        name: '🌅 日出东方航线',
+        description: '从西向东飞行，模拟日出方向',
+        speed: 250,
+        waypoints: [
+            { lon: 111.100000, lat: 21.480000, height: 600, name: '西部起点' },
+            { lon: 111.130000, lat: 21.482000, height: 700, name: '中段高点' },
+            { lon: 111.160000, lat: 21.483000, height: 800, name: '观景平台' },
+            { lon: 111.190000, lat: 21.484000, height: 750, name: '东部航点' },
+            { lon: 111.220000, lat: 21.485000, height: 650, name: '东岸终点' }
+        ]
+    }
+];
+
+// 飞行状态变量
+let flyState = {
+    active: false,          // 是否正在飞行
+    paused: false,          // 是否暂停
+    route: null,            // 当前飞行路径
+    currentSegment: 0,      // 当前段索引
+    segmentProgress: 0,     // 当前段进度 (0-1)
+    startTime: 0,           // 动画起始时间
+    lastTime: 0,            // 上一帧时间
+    planeEntity: null,      // 飞机实体
+    routeLineEntity: null,  // 路径线实体
+    waypointEntities: [],   // 航点实体
+    rafId: null,            // requestAnimationFrame ID
+    totalDistance: 0,       // 路径总距离
+    segmentDistances: []    // 各段距离
+};
+
+// 初始化飞行功能
+function initFlyFunctionality() {
+    const flyBtn = document.getElementById('flyBtn');
+    const flyPanel = document.getElementById('flyPanel');
+    const closeFlyBtn = document.getElementById('closeFlyBtn');
+    const flyRouteList = document.getElementById('flyRouteList');
+    const stopFlyBtn = document.getElementById('stopFlyBtn');
+    const pauseFlyBtn = document.getElementById('pauseFlyBtn');
+    const resumeFlyBtn = document.getElementById('resumeFlyBtn');
+
+    // 渲染飞行路径列表
+    renderFlyRouteList(flyRouteList);
+
+    // 飞行按钮点击
+    flyBtn.addEventListener('click', () => {
+        if (flyPanel.style.display === 'none') {
+            flyPanel.style.display = 'block';
+        } else {
+            flyPanel.style.display = 'none';
+        }
+    });
+
+    // 关闭面板
+    closeFlyBtn.addEventListener('click', () => {
+        flyPanel.style.display = 'none';
+    });
+
+    // 停止飞行
+    stopFlyBtn.addEventListener('click', () => {
+        stopFlight();
+    });
+
+    // 暂停飞行
+    pauseFlyBtn.addEventListener('click', () => {
+        pauseFlight();
+    });
+
+    // 继续飞行
+    resumeFlyBtn.addEventListener('click', () => {
+        resumeFlight();
+    });
+}
+
+// 渲染飞行路径列表
+function renderFlyRouteList(container) {
+    container.innerHTML = '';
+    flyRoutes.forEach(route => {
+        const item = document.createElement('div');
+        item.className = 'fly-route-item';
+        item.innerHTML = `
+            <div class="route-name">${route.name}</div>
+            <div class="route-info">${route.description} | 航点: ${route.waypoints.length} | 速度: ${route.speed}m/s</div>
+        `;
+        item.addEventListener('click', () => {
+            startFlight(route);
+        });
+        container.appendChild(item);
+    });
+}
+
+// 启动飞行
+function startFlight(route) {
+    // 如果之前有飞行，先停止
+    if (flyState.active) {
+        stopFlight();
+    }
+
+    flyState.route = route;
+    flyState.active = true;
+    flyState.paused = false;
+    flyState.currentSegment = 0;
+    flyState.segmentProgress = 0;
+    flyState.startTime = performance.now();
+    flyState.lastTime = performance.now();
+
+    // 计算各段距离和总距离
+    flyState.segmentDistances = [];
+    flyState.totalDistance = 0;
+    for (let i = 0; i < route.waypoints.length - 1; i++) {
+        const wp1 = route.waypoints[i];
+        const wp2 = route.waypoints[i + 1];
+        const dist = calculateDistance(wp1, wp2);
+        flyState.segmentDistances.push(dist);
+        flyState.totalDistance += dist;
+    }
+
+    // 创建路径线
+    createRouteLine(route);
+
+    // 创建航点实体
+    createWaypointEntities(route);
+
+    // 创建飞机实体
+    createPlaneEntity(route.waypoints[0]);
+
+    // 让相机跟随飞机
+    viewer.trackedEntity = flyState.planeEntity;
+    
+    // 设置相机视角参数
+    const planePos = flyState.planeEntity.position;
+    viewer.camera.lookAt(
+        planePos,
+        new Cesium.HeadingPitchRange(0, Cesium.Math.toRadians(-15), 400)
+    );
+
+    // 显示控制面板
+    document.getElementById('stopFlyBtn').style.display = 'block';
+    document.getElementById('pauseFlyBtn').style.display = 'block';
+    document.getElementById('resumeFlyBtn').style.display = 'none';
+    document.getElementById('flyStatus').textContent = `飞行中: ${route.name}`;
+    document.body.classList.add('flying');
+
+    // 显示第一个航点名称
+    showWaypointLabel(route.waypoints[0].name);
+
+    // 开始动画
+    animateFlight();
+}
+
+// 计算两个航点之间的距离（考虑地球曲率的近似计算）
+function calculateDistance(wp1, wp2) {
+    const pos1 = Cesium.Cartesian3.fromDegrees(wp1.lon, wp1.lat, wp1.height);
+    const pos2 = Cesium.Cartesian3.fromDegrees(wp2.lon, wp2.lat, wp2.height);
+    return Cesium.Cartesian3.distance(pos1, pos2);
+}
+
+// 创建路径线
+function createRouteLine(route) {
+    const positions = route.waypoints.map(wp =>
+        Cesium.Cartesian3.fromDegrees(wp.lon, wp.lat, wp.height)
+    );
+
+    flyState.routeLineEntity = viewer.entities.add({
+        polyline: {
+            positions: positions,
+            width: 3,
+            material: new Cesium.PolylineGlowMaterialProperty({
+                glowPower: 0.3,
+                color: Cesium.Color.CYAN
+            }),
+            clampToGround: false
+        }
+    });
+}
+
+// 创建航点实体
+function createWaypointEntities(route) {
+    flyState.waypointEntities = route.waypoints.map((wp, index) => {
+        return viewer.entities.add({
+            position: Cesium.Cartesian3.fromDegrees(wp.lon, wp.lat, wp.height),
+            point: {
+                pixelSize: 12,
+                color: Cesium.Color.YELLOW,
+                outlineColor: Cesium.Color.WHITE,
+                outlineWidth: 2,
+                heightReference: Cesium.HeightReference.NONE,
+                disableDepthTestDistance: Number.POSITIVE_INFINITY
+            },
+            label: {
+                text: wp.name,
+                font: '14px sans-serif',
+                fillColor: Cesium.Color.WHITE,
+                backgroundColor: Cesium.Color.fromCssColorString('rgba(0,100,200,0.8)'),
+                style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+                outlineWidth: 2,
+                outlineColor: Cesium.Color.BLACK,
+                pixelOffset: new Cesium.Cartesian2(0, -25),
+                show: false,
+                horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
+                verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+                heightReference: Cesium.HeightReference.NONE,
+                disableDepthTestDistance: Number.POSITIVE_INFINITY
+            }
+        });
+    });
+}
+
+// 创建飞机实体（使用点和标签表示）
+function createPlaneEntity(waypoint) {
+    const position = Cesium.Cartesian3.fromDegrees(waypoint.lon, waypoint.lat, waypoint.height);
+
+    flyState.planeEntity = viewer.entities.add({
+        position: position,
+        point: {
+            pixelSize: 16,
+            color: Cesium.Color.RED,
+            outlineColor: Cesium.Color.WHITE,
+            outlineWidth: 2,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+            heightReference: Cesium.HeightReference.NONE
+        },
+        label: {
+            text: '✈️',
+            font: '28px sans-serif',
+            pixelOffset: new Cesium.Cartesian2(0, -20),
+            show: true,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+            heightReference: Cesium.HeightReference.NONE,
+            scale: 1.0
+        }
+    });
+}
+
+// 显示航点标签（闪烁效果）
+function showWaypointLabel(name, duration = 2000) {
+    const route = flyState.route;
+    if (!route) return;
+
+    // 找到对应的航点实体
+    const index = route.waypoints.findIndex(wp => wp.name === name);
+    if (index === -1 || !flyState.waypointEntities[index]) return;
+
+    const entity = flyState.waypointEntities[index];
+
+    // 显示标签
+    entity.label.show = true;
+    entity.label.font = 'bold 18px sans-serif';
+    entity.label.fillColor = Cesium.Color.YELLOW;
+    entity.label.scale = 1.5;
+
+    // 重置标签样式
+    setTimeout(() => {
+        if (entity && entity.label) {
+            entity.label.font = '14px sans-serif';
+            entity.label.fillColor = Cesium.Color.WHITE;
+            entity.label.scale = 1.0;
+        }
+    }, duration);
+
+    // 节点闪烁动画 - 使用多个脉冲
+    let pulseCount = 0;
+    const pulseInterval = setInterval(() => {
+        if (!flyState.active || flyState.currentSegment <= index - 1) {
+            clearInterval(pulseInterval);
+            return;
+        }
+        entity.point.pixelSize = 16 + pulseCount * 4;
+        entity.point.color = Cesium.Color.RED;
+        setTimeout(() => {
+            if (entity && entity.point) {
+                entity.point.pixelSize = 12;
+                entity.point.color = Cesium.Color.YELLOW;
+            }
+        }, 150);
+        pulseCount++;
+        if (pulseCount >= 3) {
+            clearInterval(pulseInterval);
+        }
+    }, 300);
+}
+
+// 飞行动画循环
+function animateFlight() {
+    if (!flyState.active || flyState.paused) {
+        flyState.rafId = requestAnimationFrame(animateFlight);
+        return;
+    }
+
+    const now = performance.now();
+    const deltaTime = (now - flyState.lastTime) / 1000; // 转换为秒
+    flyState.lastTime = now;
+
+    const route = flyState.route;
+    const currentSpeed = route.speed; // 米/秒
+    const segmentDistance = flyState.segmentDistances[flyState.currentSegment];
+
+    // 计算当前段的进度
+    if (segmentDistance > 0) {
+        flyState.segmentProgress += (currentSpeed * deltaTime) / segmentDistance;
+    } else {
+        flyState.segmentProgress = 1;
+    }
+
+    // 如果完成当前段
+    if (flyState.segmentProgress >= 1) {
+        flyState.segmentProgress = 1;
+
+        // 显示下一个航点的标签
+        const nextIndex = flyState.currentSegment + 1;
+        if (nextIndex < route.waypoints.length) {
+            showWaypointLabel(route.waypoints[nextIndex].name);
+        }
+
+        // 移动到下一段
+        flyState.currentSegment++;
+        flyState.segmentProgress = 0;
+
+        // 如果完成所有段
+        if (flyState.currentSegment >= route.waypoints.length - 1) {
+            // 飞行完成
+            finishFlight();
+            return;
+        }
+    }
+
+    // 更新飞机位置
+    updatePlanePosition();
+
+    // 更新相机跟随
+    updateCameraFollow();
+
+    // 更新状态显示
+    updateFlyStatus();
+
+    flyState.rafId = requestAnimationFrame(animateFlight);
+}
+
+// 更新飞机位置（在当前段的两个航点之间插值）
+function updatePlanePosition() {
+    const route = flyState.route;
+    const segIdx = flyState.currentSegment;
+    const wp1 = route.waypoints[segIdx];
+    const wp2 = route.waypoints[segIdx + 1];
+    const t = flyState.segmentProgress;
+
+    // 计算插值位置（使用球面线性插值的近似）
+    const lon = wp1.lon + (wp2.lon - wp1.lon) * t;
+    const lat = wp1.lat + (wp2.lat - wp1.lat) * t;
+    const height = wp1.height + (wp2.height - wp1.height) * t;
+
+    const newPosition = Cesium.Cartesian3.fromDegrees(lon, lat, height);
+    flyState.planeEntity.position = newPosition;
+}
+
+// 更新相机跟随（使用 trackedEntity 自动跟随，这里只更新航向）
+function updateCameraFollow() {
+    const route = flyState.route;
+    const segIdx = flyState.currentSegment;
+    const wp1 = route.waypoints[segIdx];
+    const wp2 = route.waypoints[segIdx + 1];
+
+    // 计算航向角
+    const dirLon = wp2.lon - wp1.lon;
+    const dirLat = wp2.lat - wp1.lat;
+    const heading = Math.atan2(dirLat, dirLon);
+
+    // 如果使用 trackedEntity，不需要更新相机位置
+    // 但可以更新相机朝向
+    if (viewer.trackedEntity === flyState.planeEntity) {
+        const planePos = flyState.planeEntity.position;
+        viewer.camera.lookAt(
+            planePos,
+            new Cesium.HeadingPitchRange(heading, Cesium.Math.toRadians(-15), 400)
+        );
+    }
+}
+
+// 更新飞行状态显示
+function updateFlyStatus() {
+    const route = flyState.route;
+    const segIdx = flyState.currentSegment;
+    const progress = ((segIdx + flyState.segmentProgress) / (route.waypoints.length - 1) * 100).toFixed(0);
+    const currentWp = route.waypoints[segIdx];
+    const nextWp = route.waypoints[segIdx + 1];
+
+    document.getElementById('flyStatus').textContent =
+        `进度: ${progress}% | 当前: ${currentWp.name} → 下一: ${nextWp ? nextWp.name : '终点'}`;
+}
+
+// 暂停飞行
+function pauseFlight() {
+    if (!flyState.active) return;
+    flyState.paused = true;
+    document.getElementById('pauseFlyBtn').style.display = 'none';
+    document.getElementById('resumeFlyBtn').style.display = 'block';
+    document.getElementById('flyStatus').textContent += ' (已暂停)';
+}
+
+// 继续飞行
+function resumeFlight() {
+    if (!flyState.active || !flyState.paused) return;
+    flyState.paused = false;
+    flyState.lastTime = performance.now();
+    document.getElementById('pauseFlyBtn').style.display = 'block';
+    document.getElementById('resumeFlyBtn').style.display = 'none';
+}
+
+// 停止飞行
+function stopFlight() {
+    if (flyState.rafId) {
+        cancelAnimationFrame(flyState.rafId);
+        flyState.rafId = null;
+    }
+
+    // 取消相机跟踪
+    viewer.trackedEntity = null;
+
+    // 移除所有飞行实体
+    if (flyState.planeEntity) {
+        viewer.entities.remove(flyState.planeEntity);
+        flyState.planeEntity = null;
+    }
+    if (flyState.routeLineEntity) {
+        viewer.entities.remove(flyState.routeLineEntity);
+        flyState.routeLineEntity = null;
+    }
+    flyState.waypointEntities.forEach(e => viewer.entities.remove(e));
+    flyState.waypointEntities = [];
+
+    // 重置状态
+    flyState.active = false;
+    flyState.paused = false;
+    flyState.route = null;
+    flyState.currentSegment = 0;
+    flyState.segmentProgress = 0;
+
+    // 隐藏控制面板
+    document.getElementById('stopFlyBtn').style.display = 'none';
+    document.getElementById('pauseFlyBtn').style.display = 'none';
+    document.getElementById('resumeFlyBtn').style.display = 'none';
+    document.getElementById('flyStatus').textContent = '';
+    document.body.classList.remove('flying');
+}
+
+// 完成飞行
+function finishFlight() {
+    flyState.active = false;
+    if (flyState.rafId) {
+        cancelAnimationFrame(flyState.rafId);
+        flyState.rafId = null;
+    }
+
+    // 取消相机跟踪
+    viewer.trackedEntity = null;
+
+    document.getElementById('flyStatus').textContent = '✅ 飞行完成！';
+    document.getElementById('stopFlyBtn').style.display = 'none';
+    document.getElementById('pauseFlyBtn').style.display = 'none';
+    document.getElementById('resumeFlyBtn').style.display = 'none';
+    document.body.classList.remove('flying');
+
+    // 3秒后清除实体
+    setTimeout(() => {
+        if (flyState.planeEntity) viewer.entities.remove(flyState.planeEntity);
+        if (flyState.routeLineEntity) viewer.entities.remove(flyState.routeLineEntity);
+        flyState.waypointEntities.forEach(e => viewer.entities.remove(e));
+        flyState.planeEntity = null;
+        flyState.routeLineEntity = null;
+        flyState.waypointEntities = [];
+        flyState.route = null;
+
+        // 飞行完成后，用flyTo回到初始位置
+        if (initCenter && initCenter.length >= 4) {
+            const [lon, lat, height, pitch] = initCenter;
+            flyToLocation(lon, lat, height, pitch);
+        }
+    }, 3000);
+}
