@@ -130,15 +130,14 @@ function initViewer() {
 
         updateLoading(85, '正在加载地形...');
 
-        // 异步加载高精度地形（不阻塞初始化）
-        Cesium.Terrain.fromWorldTerrain({ maximumLevel: 8 })
-            .then(terrain => {
-                viewer.terrainProvider = terrain;
-                console.log('✅ 高精度地形加载完成');
-            })
-            .catch(err => {
-                console.warn('高精度地形加载失败:', err);
-            });
+        // 加载高精度地形（Cesium 1.233 版本同步返回）
+        try {
+            const terrain = Cesium.Terrain.fromWorldTerrain({ maximumLevel: 8 });
+            viewer.terrainProvider = terrain;
+            console.log('✅ 高精度地形加载完成');
+        } catch (err) {
+            console.warn('高精度地形加载失败:', err);
+        }
 
         updateLoading(95, '正在加载功能模块...');
 
@@ -1403,23 +1402,22 @@ async function parseKMLFile() {
         let terrainHeights = null;
         // 检查地形提供者是否支持采样
         const terrainProvider = viewer.terrainProvider;
-        const hasTerrainAvailability = terrainProvider && 
-            terrainProvider.availability && 
-            typeof terrainProvider.availability.computeMaximumLevelAtPosition === 'function';
         
-        if (hasTerrainAvailability) {
-            try {
-                terrainHeights = await Cesium.sampleTerrainMostDetailed(
-                    terrainProvider, 
+        try {
+            // Cesium 1.233 版本使用 Terrain.sampleHeightMostDetailed
+            if (terrainProvider && terrainProvider.availability) {
+                const sampled = await Cesium.Terrain.sampleHeightMostDetailed(
+                    terrainProvider,
                     cartographics
                 );
+                terrainHeights = sampled;
                 console.log(`✅ 地形采样成功: ${terrainHeights.length}个点`);
-            } catch (err) {
-                console.warn('地形采样失败，使用估算高度:', err.message);
-                terrainHeights = null;
+            } else {
+                console.warn('地形提供者不支持采样');
             }
-        } else {
-            console.warn('地形提供者未就绪，使用估算高度');
+        } catch (err) {
+            console.warn('地形采样失败，使用估算高度:', err.message);
+            terrainHeights = null;
         }
         
         // 如果采样失败，使用估算高度（起点5000m线性降至终点1800m）
