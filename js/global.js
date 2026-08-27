@@ -12,9 +12,11 @@ function hideLoading() {
     const screen = document.getElementById('loadingScreen');
     if (screen) {
         screen.classList.add('hidden');
+        // 动画结束后完全移除DOM
         setTimeout(() => {
-            screen.style.display = 'none';
-        }, 500);
+            screen.remove();
+            console.log('加载界面已移除');
+        }, 600);
     }
 }
 
@@ -47,30 +49,14 @@ Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOi
 let viewer = null;
 let annotationLayer = null;
 
-async function initViewer() {
+function initViewer() {
     try {
-        updateLoading(20, '正在加载地形数据...');
+        updateLoading(20, '正在创建地图视图...');
 
-        // 尝试加载地形（异步），失败则降级为椭球地形
-        let terrainProvider;
-        try {
-            terrainProvider = await Cesium.Terrain.fromWorldTerrain({
-                maximumLevel: 8  // 降低到8级，加快加载
-            });
-            updateLoading(50, '地形加载完成，正在初始化地图...');
-        } catch (terrainError) {
-            console.warn('地形加载失败，使用椭球地形:', terrainError);
-            updateLoading(30, '地形加载失败，使用简化地形...');
-            terrainProvider = new Cesium.EllipsoidTerrainProvider();
-        }
-
-        updateLoading(60, '正在创建地图视图...');
-
-        // 创建 Viewer
+        // 同步创建 Viewer（使用椭球地形，快速初始化）
         viewer = new Cesium.Viewer('cesiumContainer', {
             baseLayerPicker: false,
             imageryProvider: false,
-            terrainProvider: terrainProvider,  // 使用变量名，避免在构造函数中直接 await
             animation: false,
             timeline: false,
             infoBox: false,
@@ -82,41 +68,88 @@ async function initViewer() {
             skyAtmosphere: false
         });
 
-        updateLoading(80, '正在加载影像底图...');
+        updateLoading(50, '正在加载影像底图...');
 
-        // 添加 Esri World Imagery
-        const esriImagery = new Cesium.UrlTemplateImageryProvider({
-            url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-            maximumLevel: 19,
-            tilingScheme: new Cesium.WebMercatorTilingScheme()
-        });
-        viewer.imageryLayers.addImageryProvider(esriImagery);
+        // 添加天地图影像
+        let imageryOk = false;
+        try {
+            const tdtImg = new Cesium.UrlTemplateImageryProvider({
+                url: `https://t0.tianditu.gov.cn/img_w/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=img&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&TileMatrix={z}&TileCol={x}&TileRow={y}&tk=${TIANDITU_KEY}`,
+                subdomains: ['0', '1', '2', '3', '4', '5', '6', '7'],
+                maximumLevel: 18,
+                tilingScheme: new Cesium.WebMercatorTilingScheme()
+            });
+            const layer = viewer.imageryLayers.addImageryProvider(tdtImg);
+            layer.show = true;
+            imageryOk = true;
+            console.log('✅ 天地图影像已添加');
+        } catch (e1) {
+            console.warn('天地图影像失败:', e1);
+        }
 
-        updateLoading(90, '正在加载标注层...');
+        // 备用: Esri
+        if (!imageryOk) {
+            try {
+                const esri = new Cesium.UrlTemplateImageryProvider({
+                    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                    maximumLevel: 19,
+                    tilingScheme: new Cesium.WebMercatorTilingScheme()
+                });
+                const layer = viewer.imageryLayers.addImageryProvider(esri);
+                layer.show = true;
+                imageryOk = true;
+                console.log('✅ Esri影像已添加');
+            } catch (e2) {
+                console.warn('Esri影像也失败:', e2);
+            }
+        }
 
-        // 添加天地图注记层（默认隐藏）
-        const tiandituAnnotation = new Cesium.UrlTemplateImageryProvider({
-            url: `https://t0.tianditu.gov.cn/cva_w/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=cva&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&TileMatrix={z}&TileCol={x}&TileRow={y}&tk=${TIANDITU_KEY}`,
-            subdomains: ['0', '1', '2', '3', '4', '5', '6', '7'],
-            maximumLevel: 18,
-            tilingScheme: new Cesium.WebMercatorTilingScheme()
-        });
-        annotationLayer = viewer.imageryLayers.addImageryProvider(tiandituAnnotation);
-        annotationLayer.show = false;
+        // 兜底: 网格
+        if (!imageryOk) {
+            console.warn('使用网格底图作为兜底');
+            viewer.imageryLayers.addImageryProvider(
+                new Cesium.GridImageryProvider({ cells: 16, color: Cesium.Color.fromCssColorString('#444'), backgroundColor: Cesium.Color.fromCssColorString('#0a1628') })
+            );
+        }
+
+        updateLoading(70, '正在加载标注层...');
+
+        // 添加天地图注记层
+        try {
+            const tdtCva = new Cesium.UrlTemplateImageryProvider({
+                url: `https://t0.tianditu.gov.cn/cva_w/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=cva&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&TileMatrix={z}&TileCol={x}&TileRow={y}&tk=${TIANDITU_KEY}`,
+                subdomains: ['0', '1', '2', '3', '4', '5', '6', '7'],
+                maximumLevel: 18,
+                tilingScheme: new Cesium.WebMercatorTilingScheme()
+            });
+            annotationLayer = viewer.imageryLayers.addImageryProvider(tdtCva);
+            annotationLayer.show = false;
+        } catch (e) {
+            console.warn('注记层失败:', e);
+        }
+
+        updateLoading(85, '正在加载地形...');
+
+        // 异步加载高精度地形（不阻塞初始化）
+        Cesium.Terrain.fromWorldTerrain({ maximumLevel: 8 })
+            .then(terrain => {
+                viewer.terrainProvider = terrain;
+                console.log('✅ 高精度地形加载完成');
+            })
+            .catch(err => {
+                console.warn('高精度地形加载失败:', err);
+            });
 
         updateLoading(95, '正在加载功能模块...');
 
-        // 等待一帧让渲染完成
-        await new Promise(resolve => setTimeout(resolve, 100));
-
-        updateLoading(100, '加载完成！');
-
-        // 初始化完成后隐藏加载界面
+        // 等待渲染
         setTimeout(() => {
-            hideLoading();
-            // 启动后续初始化
-            postInit();
-        }, 300);
+            updateLoading(100, '加载完成！');
+            setTimeout(() => {
+                hideLoading();
+                postInit();
+            }, 200);
+        }, 100);
 
     } catch (error) {
         console.error('Cesium 初始化失败:', error);
@@ -126,25 +159,35 @@ async function initViewer() {
 
 // 初始化完成后的功能加载
 function postInit() {
-    try {
-        // 加载标记点等功能
-        loadPhotoPoints();
-        
-        // 初始化交互功能
-        initInteractions();
-        
-        // 定位到初始位置
-        if (initCenter && initCenter.length >= 4) {
-            const [lon, lat, height, pitch] = initCenter;
-            flyToLocation(lon, lat, height, pitch);
-        }
-        
-        // 加载KML路线
-        initKMLRoute();
-        
-    } catch (error) {
-        console.error('功能加载失败:', error);
+    // 加载标记点等功能
+    loadPhotoPoints();
+    
+    // 初始化交互功能
+    initInteractions();
+    
+    // 定位到初始位置
+    if (initCenter && initCenter.length >= 4) {
+        const [lon, lat, height, pitch] = initCenter;
+        flyToLocation(lon, lat, height, pitch);
     }
+    
+    // 加载KML路线（独立异步，不阻塞）
+    initKMLRoute().catch(err => {
+        console.error('KML路线加载失败:', err);
+        // 失败时更新UI
+        const routeList = document.getElementById('flyRouteList');
+        if (routeList) {
+            routeList.innerHTML = '<div class="fly-route-item" style="text-align:center;color:#ff4d4f;cursor:pointer;" id="retryLoadKML"><div class="route-name" style="font-size:12px;">❌ KML加载失败，点击重试</div></div>';
+            const retryBtn = document.getElementById('retryLoadKML');
+            if (retryBtn) {
+                retryBtn.addEventListener('click', () => {
+                    kmlLoadAttempted = false;
+                    kmlRoute = null;
+                    initKMLRoute().catch(console.error);
+                });
+            }
+        }
+    });
 }
 
 // 立即开始初始化
@@ -1357,15 +1400,30 @@ async function parseKMLFile() {
             Cesium.Cartographic.fromDegrees(c.lon, c.lat)
         );
         
-        let terrainHeights;
-        try {
-            terrainHeights = await Cesium.sampleTerrainMostDetailed(
-                viewer.terrainProvider, 
-                cartographics
-            );
-        } catch (err) {
-            console.warn('地形采样失败，使用估算高度:', err);
-            // 降级：使用估算高度（起点5000m线性降至终点1800m）
+        let terrainHeights = null;
+        // 检查地形提供者是否支持采样
+        const terrainProvider = viewer.terrainProvider;
+        const hasTerrainAvailability = terrainProvider && 
+            terrainProvider.availability && 
+            typeof terrainProvider.availability.computeMaximumLevelAtPosition === 'function';
+        
+        if (hasTerrainAvailability) {
+            try {
+                terrainHeights = await Cesium.sampleTerrainMostDetailed(
+                    terrainProvider, 
+                    cartographics
+                );
+                console.log(`✅ 地形采样成功: ${terrainHeights.length}个点`);
+            } catch (err) {
+                console.warn('地形采样失败，使用估算高度:', err.message);
+                terrainHeights = null;
+            }
+        } else {
+            console.warn('地形提供者未就绪，使用估算高度');
+        }
+        
+        // 如果采样失败，使用估算高度（起点5000m线性降至终点1800m）
+        if (!terrainHeights) {
             terrainHeights = cartographics.map((_, i) => {
                 const t = i / (cartographics.length - 1);
                 return 5000 + (1800 - 5000) * t;
