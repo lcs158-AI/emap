@@ -1,57 +1,154 @@
+// ==================== 加载进度管理 ====================
+function updateLoading(percent, text) {
+    const progress = document.getElementById('loadingProgress');
+    const textEl = document.getElementById('loadingText');
+    const percentEl = document.getElementById('loadingPercentage');
+    if (progress) progress.style.width = percent + '%';
+    if (textEl && text) textEl.textContent = text;
+    if (percentEl) percentEl.textContent = percent + '%';
+}
+
+function hideLoading() {
+    const screen = document.getElementById('loadingScreen');
+    if (screen) {
+        screen.classList.add('hidden');
+        setTimeout(() => {
+            screen.style.display = 'none';
+        }, 500);
+    }
+}
+
+function showLoadingError(message) {
+    const textEl = document.getElementById('loadingText');
+    const percentEl = document.getElementById('loadingPercentage');
+    const spinner = document.querySelector('.loading-spinner');
+    const progress = document.getElementById('loadingProgress');
+    if (textEl) {
+        textEl.textContent = '❌ ' + message;
+        textEl.style.color = '#ff4d4f';
+    }
+    if (percentEl) percentEl.style.display = 'none';
+    if (spinner) {
+        spinner.style.borderTopColor = '#ff4d4f';
+        spinner.style.animationPlayState = 'paused';
+    }
+    if (progress) {
+        progress.style.background = '#ff4d4f';
+        progress.style.width = '100%';
+    }
+}
+
 // ==================== 初始化 Cesium ====================
-// 设置 Cesium Ion 默认 token（已填回）
+updateLoading(10, '正在配置 Cesium...');
+
+// 设置 Cesium Ion 默认 token
 Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI3NzVhMzE5My0zNWU2LTQ1ZDYtYTI2MC05N2EzOTBhNDgxYzgiLCJpZCI6NDA3MDg1LCJpYXQiOjE3NzQxMDMyNjV9.PLB9fgVKv_MZLTFwzwMOea4W2uaAT8MT1w0pYcFuRZU';
 
-// 设置 Cesium Ion Token（仍用于地形等，但底图已禁用）
+let viewer = null;
+let annotationLayer = null;
 
+async function initViewer() {
+    try {
+        updateLoading(20, '正在加载地形数据...');
 
-// 创建 Viewer，完全禁用默认底图，仅使用自定义影像
-const viewer = new Cesium.Viewer('cesiumContainer', {
-    baseLayerPicker: false,          // 隐藏底图选择器
-    imageryProvider: false,          // 关键！禁用默认的 Cesium Ion 影像
-    //terrainProvider: new Cesium.EllipsoidTerrainProvider(), // 平面地形（可后续升级）
-    terrain: Cesium.Terrain.fromWorldTerrain({
-        maximumLevel: 12           // 限制最大级别为12（值越小加载越快，细节越少）
-        //terrainExaggeration: 0.3    // 降低地形夸张程度，让市区更平滑（默认1.0）
-    }),
-    animation: false,                // 隐藏动画控件
-    timeline: false,                 // 隐藏时间线
-    infoBox: false,                  // 隐藏信息框
-    selectionIndicator: false,       // 隐藏选中指示器
-    navigationHelpButton: false,     // 隐藏导航帮助按钮
-    homeButton: false,               // 隐藏主页按钮
-    fullscreenButton: false,         // 隐藏全屏按钮
-    skyBox: false,                   // 禁用星空背景
-    skyAtmosphere: false             // 禁用大气效果（减少请求）
-});
+        // 尝试加载地形（异步），失败则降级为椭球地形
+        let terrainProvider;
+        try {
+            terrainProvider = await Cesium.Terrain.fromWorldTerrain({
+                maximumLevel: 8  // 降低到8级，加快加载
+            });
+            updateLoading(50, '地形加载完成，正在初始化地图...');
+        } catch (terrainError) {
+            console.warn('地形加载失败，使用椭球地形:', terrainError);
+            updateLoading(30, '地形加载失败，使用简化地形...');
+            terrainProvider = new Cesium.EllipsoidTerrainProvider();
+        }
 
-// ==================== 添加影像底图 ====================
-// 使用 Esri World Imagery（与平面地图一致）
-const esriImagery = new Cesium.UrlTemplateImageryProvider({
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    maximumLevel: 19,
-    tilingScheme: new Cesium.WebMercatorTilingScheme()
-});
-viewer.imageryLayers.addImageryProvider(esriImagery);
+        updateLoading(60, '正在创建地图视图...');
 
+        // 创建 Viewer
+        viewer = new Cesium.Viewer('cesiumContainer', {
+            baseLayerPicker: false,
+            imageryProvider: false,
+            terrainProvider: terrainProvider,  // 使用变量名，避免在构造函数中直接 await
+            animation: false,
+            timeline: false,
+            infoBox: false,
+            selectionIndicator: false,
+            navigationHelpButton: false,
+            homeButton: false,
+            fullscreenButton: false,
+            skyBox: false,
+            skyAtmosphere: false
+        });
 
-// 切换标注按钮的事件（已在原有代码中定义，无需重复）
-// document.getElementById('toggleAnnotationBtn').addEventListener('click', () => {
-//     annotationLayer.show = !annotationLayer.show;
-//     document.getElementById('toggleAnnotationBtn').classList.toggle('active');
-// });
+        updateLoading(80, '正在加载影像底图...');
 
-let userLocationVisible = false;
-// 默认底图自动加载，不需要手动添加 IonImageryProvider
-// 直接叠加天地图注记层（默认隐藏）
-const tiandituAnnotation = new Cesium.UrlTemplateImageryProvider({
-    url: `https://t0.tianditu.gov.cn/cva_w/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=cva&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&TileMatrix={z}&TileCol={x}&TileRow={y}&tk=${TIANDITU_KEY}`,
-    subdomains: ['0', '1', '2', '3', '4', '5', '6', '7'],
-    maximumLevel: 18,
-    tilingScheme: new Cesium.WebMercatorTilingScheme()
-});
-const annotationLayer = viewer.imageryLayers.addImageryProvider(tiandituAnnotation);
-annotationLayer.show = false; // 默认隐藏
+        // 添加 Esri World Imagery
+        const esriImagery = new Cesium.UrlTemplateImageryProvider({
+            url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+            maximumLevel: 19,
+            tilingScheme: new Cesium.WebMercatorTilingScheme()
+        });
+        viewer.imageryLayers.addImageryProvider(esriImagery);
+
+        updateLoading(90, '正在加载标注层...');
+
+        // 添加天地图注记层（默认隐藏）
+        const tiandituAnnotation = new Cesium.UrlTemplateImageryProvider({
+            url: `https://t0.tianditu.gov.cn/cva_w/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=cva&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&TileMatrix={z}&TileCol={x}&TileRow={y}&tk=${TIANDITU_KEY}`,
+            subdomains: ['0', '1', '2', '3', '4', '5', '6', '7'],
+            maximumLevel: 18,
+            tilingScheme: new Cesium.WebMercatorTilingScheme()
+        });
+        annotationLayer = viewer.imageryLayers.addImageryProvider(tiandituAnnotation);
+        annotationLayer.show = false;
+
+        updateLoading(95, '正在加载功能模块...');
+
+        // 等待一帧让渲染完成
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        updateLoading(100, '加载完成！');
+
+        // 初始化完成后隐藏加载界面
+        setTimeout(() => {
+            hideLoading();
+            // 启动后续初始化
+            postInit();
+        }, 300);
+
+    } catch (error) {
+        console.error('Cesium 初始化失败:', error);
+        showLoadingError('地图初始化失败：' + error.message);
+    }
+}
+
+// 初始化完成后的功能加载
+function postInit() {
+    try {
+        // 加载标记点等功能
+        loadPhotoPoints();
+        
+        // 初始化交互功能
+        initInteractions();
+        
+        // 定位到初始位置
+        if (initCenter && initCenter.length >= 4) {
+            const [lon, lat, height, pitch] = initCenter;
+            flyToLocation(lon, lat, height, pitch);
+        }
+        
+        // 加载KML路线
+        initKMLRoute();
+        
+    } catch (error) {
+        console.error('功能加载失败:', error);
+    }
+}
+
+// 立即开始初始化
+initViewer();
 
 // 通用飞行函数：飞到 (lon, lat) 南方偏移后的位置
 // 偏移距离 = (高度 / tan(俯仰角)) * offsetK
@@ -72,160 +169,161 @@ function flyToLocation(lon, lat, height, pitchDeg) {
     });
 }
 
-// 添加或更新用户位置蓝点（永久显示）
-function updateUserLocation(lon, lat) {
-    const existing = viewer.entities.getById('userLocation');
-    if (existing) viewer.entities.remove(existing);
-    viewer.entities.add({
-        position: Cesium.Cartesian3.fromDegrees(lon, lat),
-        point: {
-            pixelSize: 14,
-            color: Cesium.Color.BLUE,
-            outlineColor: Cesium.Color.WHITE,
-            outlineWidth: 2
-        },
-        id: 'userLocation'
+// ==================== 加载照片点 ====================
+let entities = [];
+function loadPhotoPoints() {
+    photoPoints.features.forEach(feature => {
+        const [lon, lat] = feature.geometry.coordinates;
+        const props = feature.properties;
+        const entity = viewer.entities.add({
+            position: Cesium.Cartesian3.fromDegrees(lon, lat),
+            point: {
+                pixelSize: 10,
+                color: Cesium.Color.RED,
+                outlineColor: Cesium.Color.WHITE,
+                outlineWidth: 2
+            },
+            label: {
+                text: props.DD,
+                font: '14px sans-serif',
+                fillColor: Cesium.Color.WHITE,
+                backgroundColor: Cesium.Color.fromCssColorString('rgba(0,0,0,0.6)'),
+                style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+                outlineWidth: 1,
+                outlineColor: Cesium.Color.BLACK,
+                pixelOffset: new Cesium.Cartesian2(0, -20),
+                show: false,
+                horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
+                verticalOrigin: Cesium.VerticalOrigin.BOTTOM
+            },
+            properties: props
+        });
+        entities.push(entity);
     });
 }
 
-// 切换标注按钮
-document.getElementById('toggleAnnotationBtn').addEventListener('click', () => {
-    annotationLayer.show = !annotationLayer.show;
-    document.getElementById('toggleAnnotationBtn').classList.toggle('active');
-});
-
-// ==================== 启动后跳转到指定位置 ====================
-if (initCenter && initCenter.length >= 4) {
-    const [lon, lat, height, pitch] = initCenter;
-    flyToLocation(lon, lat, height, pitch);
-    //updateUserLocation(lon, lat);   // 可同时显示蓝点（可选）
-} else {
-    flyToLocation(113.5, 22.5, 20000, 45);
-}
-
-// ==================== 照片点实体 ====================
-const entities = [];
-photoPoints.features.forEach(feature => {
-    const [lon, lat] = feature.geometry.coordinates;
-    const props = feature.properties;
-    const entity = viewer.entities.add({
-        position: Cesium.Cartesian3.fromDegrees(lon, lat),
-        point: {
-            pixelSize: 10,
-            color: Cesium.Color.RED,
-            outlineColor: Cesium.Color.WHITE,
-            outlineWidth: 2
-        },
-        label: {
-            text: props.DD,
-            font: '14px sans-serif',
-            fillColor: Cesium.Color.WHITE,
-            backgroundColor: Cesium.Color.fromCssColorString('rgba(0,0,0,0.6)'),
-            style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-            outlineWidth: 1,
-            outlineColor: Cesium.Color.BLACK,
-            pixelOffset: new Cesium.Cartesian2(0, -20),
-            show: false,
-            horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
-            verticalOrigin: Cesium.VerticalOrigin.BOTTOM
-        },
-        properties: props
-    });
-    entities.push(entity);
-});
-
-// 悬浮提示
+// ==================== 初始化交互功能 ====================
+let userLocationVisible = false;
+let measureActive = false;
+let points = [];
+let tempEntities = [];
+let totalDistance = 0;
 let lastHighlighted = null;
-viewer.screenSpaceEventHandler.setInputAction(function (movement) {
-    const picked = viewer.scene.pick(movement.endPosition);
-    if (Cesium.defined(picked) && picked.id && picked.id.label) {
-        if (lastHighlighted !== picked.id) {
+
+function initInteractions() {
+    const measureResultDiv = document.getElementById('measureResult');
+
+    // 标注切换
+    document.getElementById('toggleAnnotationBtn').addEventListener('click', () => {
+        annotationLayer.show = !annotationLayer.show;
+        document.getElementById('toggleAnnotationBtn').classList.toggle('active');
+    });
+
+    // 悬浮提示
+    viewer.screenSpaceEventHandler.setInputAction(function (movement) {
+        const picked = viewer.scene.pick(movement.endPosition);
+        if (Cesium.defined(picked) && picked.id && picked.id.label) {
+            if (lastHighlighted !== picked.id) {
+                if (lastHighlighted) {
+                    lastHighlighted.label.show = false;
+                    lastHighlighted.point.pixelSize = 10;
+                }
+                picked.id.label.show = true;
+                picked.id.point.pixelSize = 12;
+                lastHighlighted = picked.id;
+            }
+        } else {
             if (lastHighlighted) {
                 lastHighlighted.label.show = false;
                 lastHighlighted.point.pixelSize = 10;
+                lastHighlighted = null;
             }
-            picked.id.label.show = true;
-            picked.id.point.pixelSize = 12;
-            lastHighlighted = picked.id;
         }
-    } else {
-        if (lastHighlighted) {
-            lastHighlighted.label.show = false;
-            lastHighlighted.point.pixelSize = 10;
-            lastHighlighted = null;
+    }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+
+    // 点击弹出照片
+    viewer.screenSpaceEventHandler.setInputAction(function (click) {
+        const picked = viewer.scene.pick(click.position);
+        if (Cesium.defined(picked) && picked.id && picked.id.properties) {
+            const props = picked.id.properties;
+            const imgSrc = `/pics/${props.MC}`;
+            alert(`${props.DD}\n图片路径: ${imgSrc}\n(请确保图片存在)`);
         }
-    }
-}, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+    }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
-// 点击弹出照片
-viewer.screenSpaceEventHandler.setInputAction(function (click) {
-    const picked = viewer.scene.pick(click.position);
-    if (Cesium.defined(picked) && picked.id && picked.id.properties) {
-        const props = picked.id.properties;
-        const imgSrc = `/pics/${props.MC}`;
-        alert(`${props.DD}\n图片路径: ${imgSrc}\n(请确保图片存在)`);
-    }
-}, Cesium.ScreenSpaceEventType.LEFT_CLICK);
-
-
-// ==================== 定位功能 ====================
-// 定位按钮点击事件
-document.getElementById('locateBtn').addEventListener('click', () => {
-    if (userLocationVisible) {
-        // 隐藏蓝点
-        const existing = viewer.entities.getById('userLocation');
-        if (existing) viewer.entities.remove(existing);
-        userLocationVisible = false;
-        document.getElementById('locateBtn').classList.remove('active');
-    } else {
-        // 显示蓝点并定位
-        if ('geolocation' in navigator) {
-            navigator.geolocation.getCurrentPosition(pos => {
-                const { longitude, latitude } = pos.coords;
-                flyToLocation(longitude, latitude, 5000, 45);
-                updateUserLocation(longitude, latitude);
-                userLocationVisible = true;
-                document.getElementById('locateBtn').classList.add('active');
-            }, err => alert('获取位置失败: ' + err.message));
+    // 定位按钮
+    document.getElementById('locateBtn').addEventListener('click', () => {
+        if (userLocationVisible) {
+            const existing = viewer.entities.getById('userLocation');
+            if (existing) viewer.entities.remove(existing);
+            userLocationVisible = false;
+            document.getElementById('locateBtn').classList.remove('active');
         } else {
-            alert('浏览器不支持地理定位');
+            if ('geolocation' in navigator) {
+                navigator.geolocation.getCurrentPosition(pos => {
+                    const { longitude, latitude } = pos.coords;
+                    flyToLocation(longitude, latitude, 5000, 45);
+                    updateUserLocation(longitude, latitude);
+                    userLocationVisible = true;
+                    document.getElementById('locateBtn').classList.add('active');
+                }, err => alert('获取位置失败: ' + err.message));
+            } else {
+                alert('浏览器不支持地理定位');
+            }
         }
-    }
-});
+    });
 
-// ==================== 测量功能 ====================
-let measureActive = false;
-let points = [];           // 存储点坐标及位置
-let tempEntities = [];     // 存储所有临时实体（点、线）
-let totalDistance = 0;     // 当前折线总长度（米）
-const measureResultDiv = document.getElementById('measureResult');
+    // 测量功能
+    document.getElementById('measureBtn').addEventListener('click', () => {
+        if (measureActive) {
+            tempEntities.forEach(e => viewer.entities.remove(e));
+            tempEntities = [];
+            points = [];
+            totalDistance = 0;
+            measureResultDiv.style.display = 'none';
+            document.getElementById('measureBtn').classList.remove('active');
+            measureActive = false;
+        } else {
+            measureActive = true;
+            measureResultDiv.style.display = 'block';
+            measureResultDiv.textContent = '单击添加点，双击结束当前线段';
+            document.getElementById('measureBtn').classList.add('active');
+            tempEntities.forEach(e => viewer.entities.remove(e));
+            tempEntities = [];
+            points = [];
+            totalDistance = 0;
+        }
+    });
 
-document.getElementById('measureBtn').addEventListener('click', () => {
-    if (measureActive) {
-        // 退出测量模式：清除所有临时实体，重置状态
-        tempEntities.forEach(e => viewer.entities.remove(e));
-        tempEntities = [];
-        points = [];
-        totalDistance = 0;
-        measureResultDiv.style.display = 'none';
-        document.getElementById('measureBtn').classList.remove('active');
-        measureActive = false;
-    } else {
-        // 进入测量模式
-        measureActive = true;
-        measureResultDiv.style.display = 'block';
-        measureResultDiv.textContent = '单击添加点，双击结束当前线段';
-        document.getElementById('measureBtn').classList.add('active');
-        // 清空旧数据（以防残留）
-        tempEntities.forEach(e => viewer.entities.remove(e));
-        tempEntities = [];
-        points = [];
-        totalDistance = 0;
-    }
-});
+    // 测量：单击添加点
+    viewer.screenSpaceEventHandler.setInputAction(function (click) {
+        if (!measureActive) return;
+        let cartesian = viewer.scene.pickPosition(click.position);
+        if (!Cesium.defined(cartesian)) {
+            cartesian = viewer.camera.pickEllipsoid(click.position);
+        }
+        if (!Cesium.defined(cartesian)) return;
+        const cartographic = Cesium.Cartographic.fromCartesian(cartesian);
+        const lon = Cesium.Math.toDegrees(cartographic.longitude);
+        const lat = Cesium.Math.toDegrees(cartographic.latitude);
+        addMeasurePoint(cartesian, lon, lat);
+    }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
-// 添加点并更新折线
+    // 测量：双击结束
+    viewer.screenSpaceEventHandler.setInputAction(function () {
+        if (measureActive) {
+            tempEntities.forEach(e => viewer.entities.remove(e));
+            tempEntities = [];
+            points = [];
+            totalDistance = 0;
+            measureResultDiv.textContent = '单击添加点，双击结束当前线段';
+        }
+    }, Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
+}
+
+// 添加测量点
 function addMeasurePoint(cartesian, lon, lat) {
+    const measureResultDiv = document.getElementById('measureResult');
     const pointEntity = viewer.entities.add({
         position: cartesian,
         point: {
@@ -247,7 +345,6 @@ function addMeasurePoint(cartesian, lon, lat) {
     });
     tempEntities.push(pointEntity);
 
-    // 如果已有前一个点，添加线段并累计长度
     if (points.length > 0) {
         const prev = points[points.length - 1];
         const lineEntity = viewer.entities.add({
@@ -259,7 +356,6 @@ function addMeasurePoint(cartesian, lon, lat) {
             }
         });
         tempEntities.push(lineEntity);
-        // 计算新线段长度并累加
         const segmentLength = Cesium.Cartesian3.distance(prev.cartesian, cartesian);
         totalDistance += segmentLength;
         measureResultDiv.textContent = `总长度: ${totalDistance.toFixed(1)} 米`;
@@ -268,30 +364,21 @@ function addMeasurePoint(cartesian, lon, lat) {
     points.push({ cartesian, lon, lat });
 }
 
-// 单击添加点
-viewer.screenSpaceEventHandler.setInputAction(function (click) {
-    if (!measureActive) return;
-    let cartesian = viewer.scene.pickPosition(click.position);
-    if (!Cesium.defined(cartesian)) {
-        cartesian = viewer.camera.pickEllipsoid(click.position);
-    }
-    if (!Cesium.defined(cartesian)) return;
-    const cartographic = Cesium.Cartographic.fromCartesian(cartesian);
-    const lon = Cesium.Math.toDegrees(cartographic.longitude);
-    const lat = Cesium.Math.toDegrees(cartographic.latitude);
-    addMeasurePoint(cartesian, lon, lat);
-}, Cesium.ScreenSpaceEventType.LEFT_CLICK);
-
-// 双击结束当前线段（清除点线，但保持测量模式）
-viewer.screenSpaceEventHandler.setInputAction(function () {
-    if (measureActive) {
-        tempEntities.forEach(e => viewer.entities.remove(e));
-        tempEntities = [];
-        points = [];
-        totalDistance = 0;
-        measureResultDiv.textContent = '单击添加点，双击结束当前线段';
-    }
-}, Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
+// 更新用户位置点
+function updateUserLocation(lon, lat) {
+    const existing = viewer.entities.getById('userLocation');
+    if (existing) viewer.entities.remove(existing);
+    viewer.entities.add({
+        position: Cesium.Cartesian3.fromDegrees(lon, lat),
+        point: {
+            pixelSize: 14,
+            color: Cesium.Color.BLUE,
+            outlineColor: Cesium.Color.WHITE,
+            outlineWidth: 2
+        },
+        id: 'userLocation'
+    });
+}
 
 // ==================== 潮汐功能 ====================
 function getCenterLonLat() {
@@ -460,7 +547,7 @@ function renderTideChart(tideHourly) {
 document.addEventListener('DOMContentLoaded', () => {
     initTideFunctionality();
     initFlyFunctionality();
-    initKMLRoute(); // 异步加载KML路线
+    // initKMLRoute() 在 postInit() 中调用，确保 viewer 已初始化
 });
 
 // ==================== 飞行功能 ====================
@@ -688,9 +775,16 @@ function startFlight(route) {
             viewer.trackedEntity = flyState.planeEntity;
             
             // 根据路线类型调整相机距离
-            const isHighAltitude = route.waypoints.some(wp => wp.height > 3000);
-            const cameraRange = isHighAltitude ? 800 : 500;
-            const cameraPitch = isHighAltitude ? Cesium.Math.toRadians(-20) : Cesium.Math.toRadians(-15);
+            let cameraRange, cameraPitch;
+            if (route.isKML) {
+                // KML高海拔路线：更大视野
+                cameraRange = 1500;
+                cameraPitch = Cesium.Math.toRadians(-25);
+            } else {
+                const isHighAltitude = route.waypoints.some(wp => wp.height > 3000);
+                cameraRange = isHighAltitude ? 800 : 500;
+                cameraPitch = isHighAltitude ? Cesium.Math.toRadians(-20) : Cesium.Math.toRadians(-15);
+            }
             
             // 设置相机视角参数
             const planePos = flyState.planeEntity.position;
@@ -722,21 +816,40 @@ function calculateDistance(wp1, wp2) {
 
 // 创建路径线
 function createRouteLine(route) {
-    const positions = route.waypoints.map(wp =>
-        Cesium.Cartesian3.fromDegrees(wp.lon, wp.lat, wp.height)
-    );
-
-    flyState.routeLineEntity = viewer.entities.add({
-        polyline: {
-            positions: positions,
-            width: 3,
-            material: new Cesium.PolylineGlowMaterialProperty({
-                glowPower: 0.3,
-                color: Cesium.Color.CYAN
-            }),
-            clampToGround: false
-        }
-    });
+    // KML路线贴地显示，其他路线按高度显示
+    if (route.isKML) {
+        // 贴地路径：只需要经纬度，高度设为0让Cesium贴地
+        const positions = route.waypoints.map(wp =>
+            Cesium.Cartesian3.fromDegrees(wp.lon, wp.lat, 0)
+        );
+        flyState.routeLineEntity = viewer.entities.add({
+            polyline: {
+                positions: positions,
+                width: 4,
+                material: new Cesium.PolylineGlowMaterialProperty({
+                    glowPower: 0.3,
+                    color: Cesium.Color.CYAN
+                }),
+                clampToGround: true
+            }
+        });
+    } else {
+        // 普通路线：按飞行高度显示
+        const positions = route.waypoints.map(wp =>
+            Cesium.Cartesian3.fromDegrees(wp.lon, wp.lat, wp.height)
+        );
+        flyState.routeLineEntity = viewer.entities.add({
+            polyline: {
+                positions: positions,
+                width: 3,
+                material: new Cesium.PolylineGlowMaterialProperty({
+                    glowPower: 0.3,
+                    color: Cesium.Color.CYAN
+                }),
+                clampToGround: false
+            }
+        });
+    }
 }
 
 // 创建航点实体
@@ -808,29 +921,44 @@ function createWaypointEntities(route) {
     }
 }
 
-// 创建飞机实体（使用点和标签表示）
+// 创建飞机实体（使用带朝向的箭头billboard）
 function createPlaneEntity(waypoint) {
     const position = Cesium.Cartesian3.fromDegrees(waypoint.lon, waypoint.lat, waypoint.height);
 
+    // 计算初始朝向
+    let heading = 0;
+    if (flyState.route && flyState.route.waypoints.length > 1) {
+        const wp2 = flyState.route.waypoints[1];
+        const dLon = wp2.lon - waypoint.lon;
+        const dLat = wp2.lat - waypoint.lat;
+        heading = Math.atan2(dLat, dLon);
+    }
+
+    // 飞机箭头SVG (三角形指向右边为机头方向)
+    const planeSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">' +
+        '<path d="M24 6 L38 30 L24 25 L10 30 Z" fill="#ff4444" stroke="#ffffff" stroke-width="2" stroke-linejoin="round"/>' +
+        '<path d="M24 12 L24 36" stroke="#ffffff" stroke-width="2"/>' +
+        '</svg>';
+    
+    const planeImage = 'data:image/svg+xml;base64,' + btoa(planeSvg);
+
+    const hpr = new Cesium.HeadingPitchRoll(heading, 0, 0);
+    const quaternion = Cesium.Transforms.headingPitchRollQuaternion(position, hpr);
+
     flyState.planeEntity = viewer.entities.add({
         position: position,
-        point: {
-            pixelSize: 16,
-            color: Cesium.Color.RED,
-            outlineColor: Cesium.Color.WHITE,
-            outlineWidth: 2,
-            disableDepthTestDistance: Number.POSITIVE_INFINITY,
-            heightReference: Cesium.HeightReference.NONE
-        },
-        label: {
-            text: '✈️',
-            font: '28px sans-serif',
-            pixelOffset: new Cesium.Cartesian2(0, -20),
-            show: true,
-            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+        billboard: {
+            image: planeImage,
+            width: 36,
+            height: 36,
+            verticalOrigin: Cesium.VerticalOrigin.CENTER,
             heightReference: Cesium.HeightReference.NONE,
-            scale: 1.0
-        }
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+            alignedAxis: Cesium.Cartesian3.UNIT_Z,
+            sizeInMeters: false
+        },
+        // 使用 orientation 属性让 billboard 跟随地球表面朝向
+        orientation: quaternion
     });
 }
 
@@ -962,7 +1090,7 @@ function animateFlight() {
     flyState.rafId = requestAnimationFrame(animateFlight);
 }
 
-// 更新飞机位置（在当前段的两个航点之间插值）
+// 更新飞机位置和朝向
 function updatePlanePosition() {
     const route = flyState.route;
     const segIdx = flyState.currentSegment;
@@ -970,13 +1098,23 @@ function updatePlanePosition() {
     const wp2 = route.waypoints[segIdx + 1];
     const t = flyState.segmentProgress;
 
-    // 计算插值位置（使用球面线性插值的近似）
+    // 计算插值位置
     const lon = wp1.lon + (wp2.lon - wp1.lon) * t;
     const lat = wp1.lat + (wp2.lat - wp1.lat) * t;
     const height = wp1.height + (wp2.height - wp1.height) * t;
 
     const newPosition = Cesium.Cartesian3.fromDegrees(lon, lat, height);
     flyState.planeEntity.position = newPosition;
+
+    // 计算朝向
+    const dLon = wp2.lon - wp1.lon;
+    const dLat = wp2.lat - wp1.lat;
+    const heading = Math.atan2(dLat, dLon);
+    const pitch = Math.atan2(wp2.height - wp1.height, Math.sqrt(dLon * dLon + dLat * dLat));
+    
+    // 更新飞机朝向（model使用orientation）
+    const hpr = new Cesium.HeadingPitchRoll(heading, pitch, 0);
+    flyState.planeEntity.orientation = Cesium.Transforms.headingPitchRollQuaternion(newPosition, hpr);
 }
 
 // 更新相机跟随（使用 trackedEntity 自动跟随，不需要每帧设置）
@@ -995,12 +1133,19 @@ function updateFlyStatus() {
     
     // 计算当前高度（线性插值）
     let currentHeight = 0;
+    let currentGroundHeight = 0;
     if (segIdx < route.waypoints.length - 1) {
         const wp1 = route.waypoints[segIdx];
         const wp2 = route.waypoints[segIdx + 1];
         currentHeight = Math.round(wp1.height + (wp2.height - wp1.height) * flyState.segmentProgress);
+        if (route.isKML && wp1.groundHeight !== undefined) {
+            currentGroundHeight = Math.round(wp1.groundHeight + (wp2.groundHeight - wp1.groundHeight) * flyState.segmentProgress);
+        }
     } else {
         currentHeight = Math.round(currentWp.height);
+        if (route.isKML && currentWp.groundHeight !== undefined) {
+            currentGroundHeight = Math.round(currentWp.groundHeight);
+        }
     }
 
     // 查找最近的命名点
@@ -1014,12 +1159,20 @@ function updateFlyStatus() {
         }
     }
 
+    // KML路线显示地形高度+飞行高度
+    let heightText;
+    if (route.isKML && currentGroundHeight > 0) {
+        heightText = `地形:${currentGroundHeight}m 飞行:${currentHeight}m`;
+    } else {
+        heightText = `高度:${currentHeight}m`;
+    }
+
     if (currentNamedPoint) {
         document.getElementById('flyStatus').textContent =
-            `进度: ${progress}% | 高度: ${currentHeight}m | 📍 ${currentNamedPoint}`;
+            `进度: ${progress}% | ${heightText} | 📍 ${currentNamedPoint}`;
     } else {
         document.getElementById('flyStatus').textContent =
-            `进度: ${progress}% | 高度: ${currentHeight}m | 飞行中...`;
+            `进度: ${progress}% | ${heightText} | 飞行中...`;
     }
 }
 
@@ -1121,6 +1274,7 @@ function finishFlight() {
 // 存储解析后的KML路线
 let kmlRoute = null;
 let kmlLoadAttempted = false;
+const FLIGHT_OFFSET = 200; // 飞行高度（离地200米，贴地飞行时保持的相对高度）
 
 // 解析KML文件
 async function parseKMLFile() {
@@ -1144,7 +1298,7 @@ async function parseKMLFile() {
             const pm = allPlacemarks[i];
             
             // 获取 Placemark 的直接子元素 name
-            const nameEl = pm.children[0]; // 第一个子元素通常是 <name>
+            const nameEl = pm.children[0];
             const pmName = nameEl ? nameEl.textContent.trim() : '';
             
             // 从 ExtendedData 中获取属性
@@ -1198,23 +1352,35 @@ async function parseKMLFile() {
             throw new Error('KML中未找到有效的路径线');
         }
         
-        // 为路径线添加高度 - 根据吉隆沟地形特点，从5000米平缓降至1800米
-        // 地形从起点约5000m降至终点约1800m，飞行高度在地形基础上保持约200m的飞行高度
-        const pointCount = linePlacemark.coords.length;
-        const startHeight = 5200;  // 起点飞行高度（地形5000m + 200m）
-        const endHeight = 2000;    // 终点飞行高度（地形1800m + 200m）
+        // 采样地形高度：为每个路径点获取实际地形高度
+        const cartographics = linePlacemark.coords.map(c => 
+            Cesium.Cartographic.fromDegrees(c.lon, c.lat)
+        );
         
+        let terrainHeights;
+        try {
+            terrainHeights = await Cesium.sampleTerrainMostDetailed(
+                viewer.terrainProvider, 
+                cartographics
+            );
+        } catch (err) {
+            console.warn('地形采样失败，使用估算高度:', err);
+            // 降级：使用估算高度（起点5000m线性降至终点1800m）
+            terrainHeights = cartographics.map((_, i) => {
+                const t = i / (cartographics.length - 1);
+                return 5000 + (1800 - 5000) * t;
+            });
+        }
+        
+        // 构建航点：地形高度 + 飞行偏移
         const lineWaypoints = linePlacemark.coords.map((c, i) => {
-            // 使用三次曲线平滑过渡，使飞行高度变化更自然
-            const t = i / (pointCount - 1);
-            // 使用 ease-in-out 曲线，使高度变化在两端平缓
-            const easeT = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-            const height = startHeight + (endHeight - startHeight) * easeT;
-            
+            const terrainHeight = terrainHeights[i] || 3000;
+            const flightHeight = terrainHeight + FLIGHT_OFFSET; // 离地200米
             return {
                 lon: c.lon,
                 lat: c.lat,
-                height: height,
+                height: flightHeight,
+                groundHeight: terrainHeight, // 保存地形高度用于显示
                 name: '',
                 index: i
             };
@@ -1251,10 +1417,11 @@ async function parseKMLFile() {
         kmlRoute = {
             id: 'kml_route',
             name: '🏔️ 吉隆沟泥石流路径',
-            description: 'KML导入路径 · 约20公里 · 7分钟冲击',
+            description: `KML导入路径 · 约20公里 · 离地${FLIGHT_OFFSET}m飞行`,
             speed: 50, // 约50m/s ≈ 180km/h，模拟泥石流冲击速度
             waypoints: lineWaypoints,
-            namedPoints: namedPoints
+            namedPoints: namedPoints,
+            isKML: true
         };
         
         return kmlRoute;

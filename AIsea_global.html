@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>跬步地球1.23</title>
+    <title>跬步地球1.231</title>
     <!-- Cesium 本地样式 -->
     <link rel="stylesheet" href="libs/cesium/Widgets/widgets.css">
     <!-- 自定义样式 -->
@@ -16,6 +16,19 @@
 </head>
 
 <body>
+    <!-- 全屏加载界面 -->
+    <div id="loadingScreen">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <div class="loading-title">跬步地球</div>
+            <div class="loading-progress-wrapper">
+                <div id="loadingProgress" class="loading-progress-bar"></div>
+            </div>
+            <div id="loadingText" class="loading-text">正在初始化...</div>
+            <div id="loadingPercentage" class="loading-percentage">0%</div>
+        </div>
+    </div>
+    
     <div id="cesiumContainer"></div>
     <div class="toolbar">
         <button id="locateBtn" data-tooltip="📍 定位">📍</button>
