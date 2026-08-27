@@ -1400,28 +1400,46 @@ async function parseKMLFile() {
         );
         
         let terrainHeights = null;
-        // 检查地形提供者是否支持采样
         const terrainProvider = viewer.terrainProvider;
         
+        // 调试: 输出地形提供者信息
+        console.log('地形提供者:', terrainProvider ? Object.getPrototypeOf(terrainProvider).constructor.name : 'null');
+        console.log('terrainProvider.sampleHeightMostDetailed:', typeof terrainProvider?.sampleHeightMostDetailed);
+        
         try {
-            // Cesium 1.233 版本使用 Terrain.sampleHeightMostDetailed
-            if (terrainProvider && terrainProvider.availability) {
-                const sampled = await Cesium.Terrain.sampleHeightMostDetailed(
-                    terrainProvider,
-                    cartographics
-                );
-                terrainHeights = sampled;
-                console.log(`✅ 地形采样成功: ${terrainHeights.length}个点`);
+            // 尝试多种采样方式
+            if (terrainProvider) {
+                let sampled = null;
+                
+                // 方式1: Cesium.sampleTerrainMostDetailed (旧版API)
+                if (typeof Cesium.sampleTerrainMostDetailed === 'function') {
+                    sampled = await Cesium.sampleTerrainMostDetailed(terrainProvider, cartographics);
+                }
+                // 方式2: Cesium.Terrain.sampleHeightMostDetailed
+                else if (typeof Cesium.Terrain?.sampleHeightMostDetailed === 'function') {
+                    sampled = await Cesium.Terrain.sampleHeightMostDetailed(terrainProvider, cartographics);
+                }
+                // 方式3: 直接使用 provider.sampleHeightMostDetailed
+                else if (typeof terrainProvider.sampleHeightMostDetailed === 'function') {
+                    sampled = await terrainProvider.sampleHeightMostDetailed(cartographics);
+                }
+                
+                if (sampled && sampled.length > 0) {
+                    terrainHeights = sampled.map(h => typeof h === 'number' ? h : h.height);
+                    console.log(`✅ 地形采样成功: ${terrainHeights.length}个点`);
+                } else {
+                    console.warn('采样返回空结果');
+                }
             } else {
-                console.warn('地形提供者不支持采样');
+                console.warn('地形提供者不存在');
             }
         } catch (err) {
-            console.warn('地形采样失败，使用估算高度:', err.message);
-            terrainHeights = null;
+            console.warn('地形采样失败:', err.message);
         }
         
         // 如果采样失败，使用估算高度（起点5000m线性降至终点1800m）
         if (!terrainHeights) {
+            console.log('使用估算高度: 5000m → 1800m 线性过渡');
             terrainHeights = cartographics.map((_, i) => {
                 const t = i / (cartographics.length - 1);
                 return 5000 + (1800 - 5000) * t;
