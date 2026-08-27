@@ -63,7 +63,11 @@ function initViewer() {
             selectionIndicator: false,
             navigationHelpButton: false,
             homeButton: false,
-            fullscreenButton: false
+            fullscreenButton: false,
+            skyBox: false,
+            skyAtmosphere: false,
+            // 初始地形设为椭球，后续再加载高精度地形
+            terrainProvider: new Cesium.EllipsoidTerrainProvider()
         });
 
         // 禁用默认的 Cesium Ion 欢迎提示
@@ -131,15 +135,13 @@ function initViewer() {
 
         updateLoading(80, '正在加载地形...');
 
-        // Cesium 1.233 使用 Cesium.Terrain.fromWorldTerrain
+        // 加载高精度地形（恢复原工作方式）
         try {
-            const worldTerrain = Cesium.Terrain.fromWorldTerrain({ maximumLevel: 8 });
-            if (worldTerrain) {
-                viewer.globe.terrainProvider = worldTerrain;
-                console.log('✅ 高精度地形加载完成');
-            }
+            const terrain = Cesium.Terrain.fromWorldTerrain({ maximumLevel: 8 });
+            viewer.terrainProvider = terrain;
+            console.log('✅ 高精度地形加载完成');
         } catch (err) {
-            console.warn('高精度地形加载失败，使用默认地形:', err.message);
+            console.warn('高精度地形加载失败:', err.message);
         }
 
         updateLoading(90, '正在加载功能模块...');
