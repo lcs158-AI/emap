@@ -53,7 +53,7 @@ function initViewer() {
     try {
         updateLoading(20, '正在创建地图视图...');
 
-        // 同步创建 Viewer（使用椭球地形，快速初始化）
+        // 先创建基础 Viewer（不加载地形）
         viewer = new Cesium.Viewer('cesiumContainer', {
             baseLayerPicker: false,
             imageryProvider: false,
@@ -63,12 +63,13 @@ function initViewer() {
             selectionIndicator: false,
             navigationHelpButton: false,
             homeButton: false,
-            fullscreenButton: false,
-            skyBox: false,
-            skyAtmosphere: false
+            fullscreenButton: false
         });
 
-        updateLoading(50, '正在加载影像底图...');
+        // 禁用默认的 Cesium Ion 欢迎提示
+        viewer._cesiumWidget._creditContainer.style.display = 'none';
+
+        updateLoading(40, '正在加载影像底图...');
 
         // 添加天地图影像
         let imageryOk = false;
@@ -112,7 +113,7 @@ function initViewer() {
             );
         }
 
-        updateLoading(70, '正在加载标注层...');
+        updateLoading(60, '正在加载标注层...');
 
         // 添加天地图注记层
         try {
@@ -128,18 +129,18 @@ function initViewer() {
             console.warn('注记层失败:', e);
         }
 
-        updateLoading(85, '正在加载地形...');
+        updateLoading(80, '正在加载地形...');
 
-        // 加载高精度地形（Cesium 1.233 版本同步返回）
+        // 使用 Globe 加载地形（更可靠的方式）
         try {
-            const terrain = Cesium.Terrain.fromWorldTerrain({ maximumLevel: 8 });
-            viewer.terrainProvider = terrain;
+            const worldTerrain = Cesium.createWorldTerrain({ maximumLevel: 8 });
+            viewer.globe.terrainProvider = worldTerrain;
             console.log('✅ 高精度地形加载完成');
         } catch (err) {
-            console.warn('高精度地形加载失败:', err);
+            console.warn('高精度地形加载失败，使用默认地形:', err.message);
         }
 
-        updateLoading(95, '正在加载功能模块...');
+        updateLoading(90, '正在加载功能模块...');
 
         // 等待渲染
         setTimeout(() => {
@@ -1400,7 +1401,7 @@ async function parseKMLFile() {
         );
         
         let terrainHeights = null;
-        const terrainProvider = viewer.terrainProvider;
+        const terrainProvider = viewer.globe ? viewer.globe.terrainProvider : viewer.terrainProvider;
         
         try {
             // Cesium 1.233: 确保availability已就绪后再采样
