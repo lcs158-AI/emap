@@ -131,11 +131,13 @@ function initViewer() {
 
         updateLoading(80, '正在加载地形...');
 
-        // 使用 Globe 加载地形（更可靠的方式）
+        // Cesium 1.233 使用 Cesium.Terrain.fromWorldTerrain
         try {
-            const worldTerrain = Cesium.createWorldTerrain({ maximumLevel: 8 });
-            viewer.globe.terrainProvider = worldTerrain;
-            console.log('✅ 高精度地形加载完成');
+            const worldTerrain = Cesium.Terrain.fromWorldTerrain({ maximumLevel: 8 });
+            if (worldTerrain) {
+                viewer.globe.terrainProvider = worldTerrain;
+                console.log('✅ 高精度地形加载完成');
+            }
         } catch (err) {
             console.warn('高精度地形加载失败，使用默认地形:', err.message);
         }
@@ -1395,6 +1397,15 @@ async function parseKMLFile() {
             throw new Error('KML中未找到有效的路径线');
         }
         
+        // 简化路径点（抽稀处理，避免渲染错误）
+        // 原始点太多（100+），需要简化到合理数量
+        const SIMPLIFY_DISTANCE = 0.0005; // 经纬度差阈值（约50米）
+        const simplifiedCoords = simplifyLine(linePlacemark.coords, SIMPLIFY_DISTANCE);
+        console.log(`路径简化: ${linePlacemark.coords.length} → ${simplifiedCoords.length} 个点`);
+        
+        // 使用简化后的坐标
+        linePlacemark.coords = simplifiedCoords;
+        
         // 采样地形高度：为每个路径点获取实际地形高度
         const cartographics = linePlacemark.coords.map(c => 
             Cesium.Cartographic.fromDegrees(c.lon, c.lat)
@@ -1508,6 +1519,33 @@ function pointToSegmentDistance(plon, plat, wp1, wp2) {
     const dlon = plon - projLon;
     const dlat = plat - projLat;
     return Math.sqrt(dlon * dlon + dlat * dlat);
+}
+
+// 简化线函数（距离阈值法）
+function simplifyLine(coords, minDistance) {
+    if (coords.length <= 2) return coords;
+    
+    const result = [coords[0]];
+    
+    for (let i = 1; i < coords.length; i++) {
+        const last = result[result.length - 1];
+        const curr = coords[i];
+        const dx = curr.lon - last.lon;
+        const dy = curr.lat - last.lat;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        // 保留距离大于阈值的点，或强制保留首尾点
+        if (dist >= minDistance || i === coords.length - 1) {
+            result.push(curr);
+        }
+    }
+    
+    // 确保至少有2个点
+    if (result.length < 2) {
+        result.push(coords[coords.length - 1]);
+    }
+    
+    return result;
 }
 
 // KML路线专用的飞行初始化
