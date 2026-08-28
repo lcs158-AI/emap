@@ -49,6 +49,33 @@ Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOi
 let viewer = null;
 let annotationLayer = null;
 
+// 飞行功能全局变量（提前声明，避免TDZ错误）
+const flyRoutes = [];
+let kmlLoading = false;
+let flyState = {
+    active: false,
+    preFlight: false,
+    paused: false,
+    route: null,
+    currentSegment: 0,
+    segmentProgress: 0,
+    startTime: 0,
+    lastTime: 0,
+    planeEntity: null,
+    routeLineEntity: null,
+    waypointEntities: [],
+    rafId: null,
+    totalDistance: 0,
+    segmentDistances: [],
+    speedMultiplier: 1,
+    preFlightComplete: false
+};
+
+// KML路线相关变量
+let kmlRoute = null;
+let kmlLoadAttempted = false;
+const FLIGHT_OFFSET = 200;
+
 function initViewer() {
     try {
         updateLoading(20, '正在创建地图视图...');
@@ -592,31 +619,6 @@ initTideFunctionality();
 initFlyFunctionality();
 
 // ==================== 飞行功能 ====================
-// 飞行路径数据存储（初始为空，KML路线通过异步加载）
-const flyRoutes = [];
-
-// 加载状态提示
-let kmlLoading = false;
-
-// 飞行状态变量
-let flyState = {
-    active: false,          // 是否正在飞行
-    preFlight: false,       // 是否处于预飞阶段（飞到起点）
-    paused: false,          // 是否暂停
-    route: null,            // 当前飞行路径
-    currentSegment: 0,      // 当前段索引
-    segmentProgress: 0,     // 当前段进度 (0-1)
-    startTime: 0,           // 动画起始时间
-    lastTime: 0,            // 上一帧时间
-    planeEntity: null,      // 飞机实体
-    routeLineEntity: null,  // 路径线实体
-    waypointEntities: [],   // 航点实体
-    rafId: null,            // requestAnimationFrame ID
-    totalDistance: 0,       // 路径总距离
-    segmentDistances: [],   // 各段距离
-    speedMultiplier: 1,     // 速度倍率
-    preFlightComplete: false // 预飞是否完成
-};
 
 // 初始化飞行功能
 function initFlyFunctionality() {
@@ -1312,10 +1314,6 @@ function finishFlight() {
 }
 
 // ==================== KML飞行路径解析 ====================
-// 存储解析后的KML路线
-let kmlRoute = null;
-let kmlLoadAttempted = false;
-const FLIGHT_OFFSET = 200; // 飞行高度（离地200米，贴地飞行时保持的相对高度）
 
 // 解析KML文件
 async function parseKMLFile() {
