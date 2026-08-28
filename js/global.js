@@ -80,7 +80,7 @@ function initViewer() {
     try {
         updateLoading(20, '正在创建地图视图...');
 
-        // 创建 Viewer，在构造参数中直接设置 terrain（Cesium 1.113 正确方式）
+        // 创建 Viewer，不设置 terrain（避免 Cesium Ion 连接挂起导致地图不显示）
         viewer = new Cesium.Viewer('cesiumContainer', {
             baseLayerPicker: false,
             imageryProvider: false,
@@ -92,8 +92,7 @@ function initViewer() {
             homeButton: false,
             fullscreenButton: false,
             skyBox: false,
-            skyAtmosphere: false,
-            terrain: Cesium.Terrain.fromWorldTerrain({ maximumLevel: 12 })
+            skyAtmosphere: false
         });
 
         // 禁用默认的 Cesium Ion 欢迎提示
@@ -157,6 +156,22 @@ function initViewer() {
             annotationLayer.show = false;
         } catch (e) {
             console.warn('注记层失败:', e);
+        }
+
+        updateLoading(80, '正在异步加载地形...');
+
+        // 异步加载高精度地形（不阻塞地图显示）
+        try {
+            Cesium.Terrain.fromWorldTerrain({ maximumLevel: 12 }).readyPromise
+                .then(t => {
+                    viewer.terrainProvider = t;
+                    console.log('✅ 高精度地形加载完成');
+                })
+                .catch(err => {
+                    console.warn('高精度地形加载失败（不影响地图使用）:', err.message || err);
+                });
+        } catch (terrErr) {
+            console.warn('地形初始化失败:', terrErr.message);
         }
 
         updateLoading(90, '正在加载功能模块...');
@@ -814,23 +829,17 @@ function startFlight(route) {
             flyState.preFlight = false;
             flyState.preFlightComplete = true;
             
-            // 让相机跟随飞机
-            viewer.trackedEntity = flyState.planeEntity;
+            // 不使用 trackedEntity（与 lookAt 冲突会导致卡顿）
+            // 改为在 updatePlanePosition 中手动控制相机跟随
             
-            // 根据路线类型调整相机距离
-            let cameraRange, cameraPitch;
-            if (route.isKML) {
-                // KML高海拔路线：更大视野
-                cameraRange = 1500;
-                cameraPitch = Cesium.Math.toRadians(-25);
-            } else {
-                const isHighAltitude = route.waypoints.some(wp => wp.height > 3000);
-                cameraRange = isHighAltitude ? 800 : 500;
-                cameraPitch = isHighAltitude ? Cesium.Math.toRadians(-20) : Cesium.Math.toRadians(-15);
-            }
-            
-            // 设置相机视角参数
-            const planePos = flyState.planeEntity.position;
+            // 初始相机定位：在飞机后上方
+            const planePos = Cesium.Cartesian3.fromDegrees(
+                route.waypoints[0].lon, 
+                route.waypoints[0].lat, 
+                route.waypoints[0].height
+            );
+            const cameraRange = route.isKML ? 1500 : 600;
+            const cameraPitch = Cesium.Math.toRadians(route.isKML ? -25 : -15);
             viewer.camera.lookAt(
                 planePos,
                 new Cesium.HeadingPitchRange(0, cameraPitch, cameraRange)
@@ -1158,6 +1167,14 @@ function updatePlanePosition() {
     // 更新飞机朝向（model使用orientation）
     const hpr = new Cesium.HeadingPitchRoll(heading, pitch, 0);
     flyState.planeEntity.orientation = Cesium.Transforms.headingPitchRollQuaternion(newPosition, hpr);
+
+    // 手动更新相机跟随（不使用 trackedEntity，避免与 lookAt 冲突）
+    const cameraRange = route.isKML ? 1500 : 600;
+    const cameraPitch = Cesium.Math.toRadians(route.isKML ? -25 : -15);
+    viewer.camera.lookAt(
+        newPosition,
+        new Cesium.HeadingPitchRange(heading, cameraPitch, cameraRange)
+    );
 }
 
 // 更新相机跟随（使用 trackedEntity 自动跟随，不需要每帧设置）
@@ -1246,8 +1263,7 @@ function stopFlight() {
 
     // 取消相机跟踪
     viewer.trackedEntity = null;
-
-    // 移除所有飞行实体
+    viewer.camera.lookAtReset(); // 解除 lookAt 锁定
     if (flyState.planeEntity) {
         viewer.entities.remove(flyState.planeEntity);
         flyState.planeEntity = null;
@@ -1287,8 +1303,7 @@ function finishFlight() {
 
     // 取消相机跟踪
     viewer.trackedEntity = null;
-
-    document.getElementById('flyStatus').textContent = '✅ 飞行完成！';
+    viewer.camera.lookAtReset(); // 解除 lookAt 锁定
     document.getElementById('stopFlyBtn').style.display = 'none';
     document.getElementById('pauseFlyBtn').style.display = 'none';
     document.getElementById('resumeFlyBtn').style.display = 'none';
