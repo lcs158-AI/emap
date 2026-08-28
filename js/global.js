@@ -53,7 +53,7 @@ function initViewer() {
     try {
         updateLoading(20, '正在创建地图视图...');
 
-        // 先创建基础 Viewer（不加载地形）
+        // 创建 Viewer，在构造参数中直接设置 terrain（Cesium 1.113 正确方式）
         viewer = new Cesium.Viewer('cesiumContainer', {
             baseLayerPicker: false,
             imageryProvider: false,
@@ -66,8 +66,7 @@ function initViewer() {
             fullscreenButton: false,
             skyBox: false,
             skyAtmosphere: false,
-            // 初始地形设为椭球，后续再加载高精度地形
-            terrainProvider: new Cesium.EllipsoidTerrainProvider()
+            terrain: Cesium.Terrain.fromWorldTerrain({ maximumLevel: 12 })
         });
 
         // 禁用默认的 Cesium Ion 欢迎提示
@@ -131,17 +130,6 @@ function initViewer() {
             annotationLayer.show = false;
         } catch (e) {
             console.warn('注记层失败:', e);
-        }
-
-        updateLoading(80, '正在加载地形...');
-
-        // 加载高精度地形（恢复原工作方式）
-        try {
-            const terrain = Cesium.Terrain.fromWorldTerrain({ maximumLevel: 8 });
-            viewer.terrainProvider = terrain;
-            console.log('✅ 高精度地形加载完成');
-        } catch (err) {
-            console.warn('高精度地形加载失败:', err.message);
         }
 
         updateLoading(90, '正在加载功能模块...');
@@ -288,14 +276,36 @@ function initInteractions() {
         }
     }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
 
-    // 点击弹出照片
+    // 左键单击：统一处理照片点击和测量加点（避免事件覆盖）
     viewer.screenSpaceEventHandler.setInputAction(function (click) {
+        // 优先检查是否点击了实体（照片点）
         const picked = viewer.scene.pick(click.position);
         if (Cesium.defined(picked) && picked.id && picked.id.properties) {
             const props = picked.id.properties;
-            const imgSrc = `/pics/${props.MC}`;
-            alert(`${props.DD}\n图片路径: ${imgSrc}\n(请确保图片存在)`);
+            const mcVal = props.MC.getValue ? props.MC.getValue() : props.MC;
+            const ddVal = props.DD.getValue ? props.DD.getValue() : props.DD;
+            // 如果正在测量，先结束当前测量线段
+            if (measureActive) {
+                tempEntities.forEach(e => viewer.entities.remove(e));
+                tempEntities = [];
+                points = [];
+                totalDistance = 0;
+                measureResultDiv.textContent = '单击添加点，双击结束当前线段';
+            }
+            alert(`${ddVal}\n图片路径: /pics/${mcVal}\n(请确保图片存在)`);
+            return;
         }
+        // 非照片点：如果正在测量，则添加测量点
+        if (!measureActive) return;
+        let cartesian = viewer.scene.pickPosition(click.position);
+        if (!Cesium.defined(cartesian)) {
+            cartesian = viewer.camera.pickEllipsoid(click.position);
+        }
+        if (!Cesium.defined(cartesian)) return;
+        const cartographic = Cesium.Cartographic.fromCartesian(cartesian);
+        const lon = Cesium.Math.toDegrees(cartographic.longitude);
+        const lat = Cesium.Math.toDegrees(cartographic.latitude);
+        addMeasurePoint(cartesian, lon, lat);
     }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
     // 定位按钮
@@ -341,20 +351,6 @@ function initInteractions() {
             totalDistance = 0;
         }
     });
-
-    // 测量：单击添加点
-    viewer.screenSpaceEventHandler.setInputAction(function (click) {
-        if (!measureActive) return;
-        let cartesian = viewer.scene.pickPosition(click.position);
-        if (!Cesium.defined(cartesian)) {
-            cartesian = viewer.camera.pickEllipsoid(click.position);
-        }
-        if (!Cesium.defined(cartesian)) return;
-        const cartographic = Cesium.Cartographic.fromCartesian(cartesian);
-        const lon = Cesium.Math.toDegrees(cartographic.longitude);
-        const lat = Cesium.Math.toDegrees(cartographic.latitude);
-        addMeasurePoint(cartesian, lon, lat);
-    }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
     // 测量：双击结束
     viewer.screenSpaceEventHandler.setInputAction(function () {
@@ -591,11 +587,9 @@ function renderTideChart(tideHourly) {
     });
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    initTideFunctionality();
-    initFlyFunctionality();
-    // initKMLRoute() 在 postInit() 中调用，确保 viewer 已初始化
-});
+// 初始化飞行和潮汐功能（直接调用，因为脚本在页面底部加载，DOM已就绪）
+initTideFunctionality();
+initFlyFunctionality();
 
 // ==================== 飞行功能 ====================
 // 飞行路径数据存储（初始为空，KML路线通过异步加载）
