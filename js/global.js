@@ -80,7 +80,7 @@ function initViewer() {
     try {
         updateLoading(20, '正在创建地图视图...');
 
-        // 创建 Viewer，不设置 terrain（避免 Cesium Ion 连接挂起导致地图不显示）
+        // 创建 Viewer，直接在构造参数中设置 terrain（Cesium 1.113 正确方式）
         viewer = new Cesium.Viewer('cesiumContainer', {
             baseLayerPicker: false,
             imageryProvider: false,
@@ -92,7 +92,8 @@ function initViewer() {
             homeButton: false,
             fullscreenButton: false,
             skyBox: false,
-            skyAtmosphere: false
+            skyAtmosphere: false,
+            terrain: Cesium.Terrain.fromWorldTerrain({ maximumLevel: 12 })
         });
 
         // 禁用默认的 Cesium Ion 欢迎提示
@@ -158,23 +159,7 @@ function initViewer() {
             console.warn('注记层失败:', e);
         }
 
-        updateLoading(80, '正在异步加载地形...');
-
-        // 异步加载高精度地形（不阻塞地图显示）
-        try {
-            Cesium.Terrain.fromWorldTerrain({ maximumLevel: 12 }).readyPromise
-                .then(t => {
-                    viewer.terrainProvider = t;
-                    console.log('✅ 高精度地形加载完成');
-                })
-                .catch(err => {
-                    console.warn('高精度地形加载失败（不影响地图使用）:', err.message || err);
-                });
-        } catch (terrErr) {
-            console.warn('地形初始化失败:', terrErr.message);
-        }
-
-        updateLoading(90, '正在加载功能模块...');
+        updateLoading(80, '正在加载功能模块...');
 
         // 等待渲染
         setTimeout(() => {
@@ -977,13 +962,16 @@ function createWaypointEntities(route) {
 function createPlaneEntity(waypoint) {
     const position = Cesium.Cartesian3.fromDegrees(waypoint.lon, waypoint.lat, waypoint.height);
 
-    // 计算初始朝向
+    // 计算初始朝向（使用真实地理方位角）
     let heading = 0;
     if (flyState.route && flyState.route.waypoints.length > 1) {
         const wp2 = flyState.route.waypoints[1];
-        const dLon = wp2.lon - waypoint.lon;
-        const dLat = wp2.lat - waypoint.lat;
-        heading = Math.atan2(dLat, dLon);
+        const dLonRad = (wp2.lon - waypoint.lon) * Math.PI / 180;
+        const lat1Rad = waypoint.lat * Math.PI / 180;
+        const lat2Rad = wp2.lat * Math.PI / 180;
+        const y = Math.sin(dLonRad) * Math.cos(lat2Rad);
+        const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) - Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLonRad);
+        heading = Math.atan2(y, x);
     }
 
     // 飞机箭头SVG (三角形指向右边为机头方向)
@@ -1158,17 +1146,27 @@ function updatePlanePosition() {
     const newPosition = Cesium.Cartesian3.fromDegrees(lon, lat, height);
     flyState.planeEntity.position = newPosition;
 
-    // 计算朝向
-    const dLon = wp2.lon - wp1.lon;
-    const dLat = wp2.lat - wp1.lat;
-    const heading = Math.atan2(dLat, dLon);
-    const pitch = Math.atan2(wp2.height - wp1.height, Math.sqrt(dLon * dLon + dLat * dLat));
-    
-    // 更新飞机朝向（model使用orientation）
+    // 计算航向（使用真实地理方位角，不是经纬度平面角）
+    // 方位角公式：bearing = atan2(sin(Δlon)·cos(lat2), cos(lat1)·sin(lat2) − sin(lat1)·cos(lat2)·cos(Δlon))
+    const dLon = (wp2.lon - wp1.lon) * Math.PI / 180;
+    const lat1Rad = wp1.lat * Math.PI / 180;
+    const lat2Rad = wp2.lat * Math.PI / 180;
+    const y = Math.sin(dLon) * Math.cos(lat2Rad);
+    const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) - Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLon);
+    const heading = Math.atan2(y, x);
+
+    // 俯仰角：根据高度变化
+    const dLat = (wp2.lat - wp1.lat) * 111000;
+    const dLonMeters = (wp2.lon - wp1.lon) * 111000 * Math.cos((wp1.lat + wp2.lat) / 2 * Math.PI / 180);
+    const dHeight = wp2.height - wp1.height;
+    const horizontalDist = Math.sqrt(dLonMeters * dLonMeters + dLat * dLat);
+    const pitch = Math.atan2(dHeight, horizontalDist || 1);
+
+    // 更新飞机朝向
     const hpr = new Cesium.HeadingPitchRoll(heading, pitch, 0);
     flyState.planeEntity.orientation = Cesium.Transforms.headingPitchRollQuaternion(newPosition, hpr);
 
-    // 手动更新相机跟随（不使用 trackedEntity，避免与 lookAt 冲突）
+    // 手动更新相机跟随（在飞机后上方）
     const cameraRange = route.isKML ? 1500 : 600;
     const cameraPitch = Cesium.Math.toRadians(route.isKML ? -25 : -15);
     viewer.camera.lookAt(
