@@ -1851,6 +1851,138 @@ function simplifyLine(coords, minDistance) {
     return result;
 }
 
+// 构造"智能航迹"路线（v1.26）——水平/垂直解耦：
+//   水平：按"点夹角+距离"从 KML 线中智能提取拐点（转角累计≥阈值才保留，段间直线走廊→航向恒定不摇摆）
+//   垂直：拐点间每~300m 采样地形高度（高度剖面贴地→与地形匹配）
+// 飞行插值用线性（pointMode）：直线段航向恒定，只在地形真拐弯处平滑转向
+function llDistM(a, b) {
+    const dLon = (b.lon - a.lon) * 111000 * Math.cos(a.lat * Math.PI / 180);
+    const dLat = (b.lat - a.lat) * 111000;
+    return Math.sqrt(dLon * dLon + dLat * dLat);
+}
+function llBearing(a, b) {
+    return Math.atan2((b.lon - a.lon) * Math.cos(a.lat * Math.PI / 180), b.lat - a.lat);
+}
+function angleDiffRad(a, b) {
+    let d = b - a;
+    while (d > Math.PI) d -= 2 * Math.PI;
+    while (d < -Math.PI) d += 2 * Math.PI;
+    return Math.abs(d);
+}
+// 拐点提取：转角累计≥angleThresholdDeg 且距上个保留点≥minDistM 才保留；距上个保留点≥maxDistM 强制保留（防长直线穿山）
+// forceIdx：强制保留的原始索引（命名关键点），首尾点必保留
+function extractTurningPoints(waypoints, angleThresholdDeg, minDistM, maxDistM, forceIdx) {
+    const keep = new Set([0, waypoints.length - 1]);
+    (forceIdx || []).forEach(i => { if (i > 0 && i < waypoints.length - 1) keep.add(i); });
+
+    let lastKept = 0;
+    let accAngle = 0;
+    const threshold = angleThresholdDeg * Math.PI / 180;
+    for (let i = 1; i < waypoints.length - 1; i++) {
+        const b = waypoints[i];
+        const c = waypoints[i + 1];
+        if (llDistM(b, c) < 1) continue; // 跳过重叠点
+
+        // 累计转角：上个保留点→当前点 与 当前点→下一点 的方位角差
+        accAngle += angleDiffRad(llBearing(waypoints[lastKept], b), llBearing(b, c));
+        const distFromLast = llDistM(waypoints[lastKept], b);
+
+        if ((accAngle >= threshold && distFromLast >= minDistM) || distFromLast >= maxDistM) {
+            keep.add(i);
+            lastKept = i;
+            accAngle = 0;
+        }
+    }
+    return Array.from(keep).sort((x, y) => x - y);
+}
+
+async function buildSmartRoute() {
+    if (!kmlRoute || !kmlRoute.waypoints || kmlRoute.waypoints.length < 3) return null;
+    const wps = kmlRoute.waypoints;
+
+    // 1) 智能提取拐点（命名点强制保留）
+    const forceIdx = (kmlRoute.namedPoints || []).map(np => np.segmentIndex).filter(i => i < wps.length);
+    const idxList = extractTurningPoints(wps, 25, 200, 2000, forceIdx);
+
+    // 2) 拐点间按 ~300m 细分水平点（高度采样网格）
+    const SUB_STEP = 300;
+    const rawPts = [];
+    const keyWpIdx = []; // 拐点（原idxList顺序）在新 rawPts 中的索引
+    for (let k = 0; k < idxList.length - 1; k++) {
+        const a = wps[idxList[k]];
+        const b = wps[idxList[k + 1]];
+        keyWpIdx.push(rawPts.length);
+        rawPts.push({ lon: a.lon, lat: a.lat });
+        const segLen = llDistM(a, b);
+        const nSub = Math.max(1, Math.round(segLen / SUB_STEP));
+        for (let s = 1; s < nSub; s++) {
+            rawPts.push({
+                lon: a.lon + (b.lon - a.lon) * s / nSub,
+                lat: a.lat + (b.lat - a.lat) * s / nSub
+            });
+        }
+    }
+    const lastIdx = idxList[idxList.length - 1];
+    keyWpIdx.push(rawPts.length);
+    rawPts.push({ lon: wps[lastIdx].lon, lat: wps[lastIdx].lat });
+
+    // 3) 全点贴地采样地形高度（一次批量）
+    const waypoints = rawPts.map(p => ({
+        lon: p.lon, lat: p.lat,
+        groundHeight: 0, height: 0,
+        name: '', index: 0
+    }));
+    try {
+        const carto = waypoints.map(w => Cesium.Cartographic.fromDegrees(w.lon, w.lat));
+        const sampled = await Cesium.sampleTerrainMostDetailed(terrainProvider, carto);
+        waypoints.forEach((w, i) => {
+            w.groundHeight = sampled[i].height;
+            w.height = w.groundHeight + FLIGHT_OFFSET;
+        });
+    } catch (e) {
+        console.log('智能航迹地形采样失败：', e);
+        return null;
+    }
+
+    // 4) 命名关键点映射到新航点索引（HUD 提示 + 航点标记复用）
+    const namedPoints = (kmlRoute.namedPoints || []).map(np => {
+        const orig = np.segmentIndex;
+        let nearest = 0, best = Infinity;
+        keyWpIdx.forEach((wi, k) => {
+            const d = Math.abs(idxList[k] - orig);
+            if (d < best) { best = d; nearest = k; }
+        });
+        const wpIdx = keyWpIdx[nearest];
+        if (wpIdx < waypoints.length) {
+            waypoints[wpIdx].name = np.name || waypoints[wpIdx].name;
+        }
+        return {
+            name: np.name,
+            lon: wps[orig] ? wps[orig].lon : np.lon,
+            lat: wps[orig] ? wps[orig].lat : np.lat,
+            originalName: np.originalName,
+            segmentIndex: wpIdx,
+            triggered: false
+        };
+    });
+
+    // 估算里程
+    let totalKm = 0;
+    for (let i = 0; i < waypoints.length - 1; i++) totalKm += llDistM(waypoints[i], waypoints[i + 1]);
+    totalKm = Math.round(totalKm / 100) / 10;
+
+    return {
+        id: 'kml_smart_route',
+        name: '🧭 吉隆沟智能航迹',
+        description: `智能提取${idxList.length}个地形拐点（${waypoints.length}个贴地航点·约${totalKm}公里）· 直线走廊+贴地高度 · 平稳`,
+        speed: 50,
+        waypoints: waypoints.map((w, i) => ({ ...w, index: i })),
+        namedPoints,
+        isKML: true,     // 贴地渲染与 KML 相机参数
+        pointMode: true  // 线性插值：直线段航向恒定
+    };
+}
+
 // 构造"按关键点飞行"路线（v1.249）
 // 用 KML 中的命名关键点（如6个）做点对点直飞：段间长直线、航向恒定，只过点时平滑转向，彻底避免沿线插值的摇摆
 function buildPointRoute() {
@@ -1913,6 +2045,15 @@ async function initKMLRoute() {
             const pointRoute = buildPointRoute();
             if (pointRoute) flyRoutes.push(pointRoute);
             renderFlyRouteList(routeList);
+
+            // 智能航迹（v1.26：拐点提取+贴地采样，异步构建完成后加入列表）
+            buildSmartRoute().then(smart => {
+                if (smart && !flyRoutes.find(r => r.id === 'kml_smart_route')) {
+                    flyRoutes.push(smart);
+                    renderFlyRouteList(routeList);
+                    console.log(`✅ 智能航迹构建完成: ${smart.description}`);
+                }
+            }).catch(e => console.log('智能航迹构建失败:', e));
 
             // 加载成功后自动定位到KML路径区域（吉隆沟）
             // 延时1秒等待初始加载的视角完成
