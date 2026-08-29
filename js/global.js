@@ -96,13 +96,39 @@ function normAngle(a) {
 function lerpAngle(a, b, alpha) {
     return a + normAngle(b - a) * alpha;
 }
-// Catmull-Rom 曲线插值：p0..p3 为四个控制点标量，t∈[0,1] 取 p1→p2 段
-// 消除线性插值折线感，转弯处位置/高度平滑连续
-function catmullRom(p0, p1, p2, p3, t) {
-    const t2 = t * t, t3 = t2 * t;
-    return 0.5 * ((2 * p1) + (-p0 + p2) * t +
-        (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 +
-        (-p0 + 3 * p1 - 3 * p2 + p3) * t3);
+// Catmull-Rom 向心参数化（centripetal, α=0.5，v1.248）
+// 均匀参数化在航点间距不均时会过冲→飞行摇摆；向心参数化数学上保证不过冲、无尖点
+// knots 基于水平距离（度）的累积开方，同一组 knots 供 lon/lat/height 三分量共用
+function crKnots(p0, p1, p2, p3) {
+    const d = (a, b) => Math.sqrt((a.lon - b.lon) * (a.lon - b.lon) + (a.lat - b.lat) * (a.lat - b.lat));
+    const k1 = Math.max(1e-6, Math.sqrt(d(p0, p1)));
+    const k2 = k1 + Math.max(1e-6, Math.sqrt(d(p1, p2)));
+    const k3 = k2 + Math.max(1e-6, Math.sqrt(d(p2, p3)));
+    return [0, k1, k2, k3];
+}
+// 向心 Catmull-Rom 标量分量求值：u∈[0,1] 为 p1→p2 段内归一化进度
+function crEval(knots, c0, c1, c2, c3, u) {
+    const t0 = knots[0], t1 = knots[1], t2 = knots[2], t3 = knots[3];
+    const t = t1 + (t2 - t1) * u;
+    const L = (a, b, ta, tb) => {
+        const d = Math.max(1e-10, tb - ta);
+        return a * ((tb - t) / d) + b * ((t - ta) / d);
+    };
+    const A1 = L(c0, c1, t0, t1);
+    const A2 = L(c1, c2, t1, t2);
+    const A3 = L(c2, c3, t2, t3);
+    const B1 = L(A1, A2, t0, t2);
+    const B2 = L(A2, A3, t1, t3);
+    return L(B1, B2, t1, t2);
+}
+
+// 解除相机 lookAt 变换锁定（v1.248 兼容：旧版 Cesium 无 lookAtReset，统一走 lookAtTransform(IDENTITY)）
+function resetCameraTransform() {
+    if (typeof viewer.camera.lookAtReset === 'function') {
+        viewer.camera.lookAtReset();
+    } else {
+        viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
+    }
 }
 
 function initViewer() {
@@ -760,7 +786,7 @@ function setViewMode(mode) {
             const pos = flyState.planeEntity.position.getValue(Cesium.JulianDate.now());
             if (pos) viewer.camera.setView({ destination: pos });
         }
-        viewer.camera.lookAtReset();
+        resetCameraTransform();
         flyState._lookAtLocked = false;
     }
 }
@@ -938,7 +964,7 @@ function startFlight(route) {
                 flyState._lookAtLocked = true;
             } else {
                 // 驾驶舱/自由视角：不锁定相机，由动画循环接管
-                viewer.camera.lookAtReset();
+                resetCameraTransform();
                 flyState._lookAtLocked = false;
             }
 
@@ -1238,34 +1264,37 @@ function animateFlight() {
     flyState.rafId = requestAnimationFrame(animateFlight);
 }
 
-// 计算曲线在某个全局进度位置的切线航向角（v1.247）
-// 直接对 Catmull-Rom 插值曲线求导：飞机图标指向与实际运动方向严格一致（折线版在急弯处有偏差）
+// 计算曲线在某个全局进度位置的切线航向角（v1.248：向心 Catmull-Rom 数值导数）
+// 与 updatePlanePosition 完全同一条曲线：飞机图标指向与实际运动方向严格一致
 function getCurveHeading(route, globalProgress) {
     const waypoints = route.waypoints;
     const n = waypoints.length;
     if (n < 2) return 0;
 
-    // 将全局进度（0~n-1）映射到段索引与段内 t
+    // 将全局进度（0~n-1）映射到段索引与段内 u
     const idx = Math.min(Math.floor(globalProgress), n - 2);
-    const t = Math.max(0, Math.min(1, globalProgress - idx));
-    const t2 = t * t;
+    const u = Math.max(0, Math.min(1, globalProgress - idx));
 
     // 与 updatePlanePosition 相同的四个控制点（端点钳制）
     const p0 = waypoints[Math.max(0, idx - 1)];
     const p1 = waypoints[idx];
     const p2 = waypoints[idx + 1];
     const p3 = waypoints[Math.min(n - 1, idx + 2)];
+    const knots = crKnots(p0, p1, p2, p3);
 
-    // Catmull-Rom 导数：C'(t) = 0.5[(-p0+p2) + 2(2p0-5p1+4p2-p3)t + 3(-p0+3p1-3p2+p3)t²]
-    const dLon = 0.5 * ((-p0.lon + p2.lon) +
-        2 * (2 * p0.lon - 5 * p1.lon + 4 * p2.lon - p3.lon) * t +
-        3 * (-p0.lon + 3 * p1.lon - 3 * p2.lon + p3.lon) * t2);
-    const dLat = 0.5 * ((-p0.lat + p2.lat) +
-        2 * (2 * p0.lat - 5 * p1.lat + 4 * p2.lat - p3.lat) * t +
-        3 * (-p0.lat + 3 * p1.lat - 3 * p2.lat + p3.lat) * t2);
+    // 数值导数：中心差分（ε 取段内归一化步长）
+    const eps = 0.02;
+    const uA = Math.max(0, u - eps), uB = Math.min(1, u + eps);
+    const lonA = crEval(knots, p0.lon, p1.lon, p2.lon, p3.lon, uA);
+    const lonB = crEval(knots, p0.lon, p1.lon, p2.lon, p3.lon, uB);
+    const latA = crEval(knots, p0.lat, p1.lat, p2.lat, p3.lat, uA);
+    const latB = crEval(knots, p0.lat, p1.lat, p2.lat, p3.lat, uB);
+    const dLon = (lonB - lonA) / (uB - uA);
+    const dLat = (latB - latA) / (uB - uA);
+    if (dLon === 0 && dLat === 0) return flyState.smoothHeading || 0;
 
     // 方位角 = atan2(东分量, 北分量)，东向需乘 cos(lat) 修正经度收敛
-    const curLat = waypoints[idx].lat + (waypoints[idx + 1].lat - waypoints[idx].lat) * t;
+    const curLat = crEval(knots, p0.lat, p1.lat, p2.lat, p3.lat, u);
     const east = dLon * Math.cos(curLat * Math.PI / 180);
     return Math.atan2(east, dLat);
 }
@@ -1297,13 +1326,14 @@ function updatePlanePosition(deltaTime) {
     const wp2 = route.waypoints[segIdx + 1];
     const t = flyState.segmentProgress;
 
-    // —— Catmull-Rom 曲线插值（消除折线感，转弯圆滑）——
+    // —— 向心 Catmull-Rom 曲线插值（v1.248：消除点距不均导致的过冲摇摆）——
     // 控制点取前后各 1 个航点，端点用重复值钳制
     const wp0 = route.waypoints[Math.max(0, segIdx - 1)];
     const wp3 = route.waypoints[Math.min(route.waypoints.length - 1, segIdx + 2)];
-    const lon = catmullRom(wp0.lon, wp1.lon, wp2.lon, wp3.lon, t);
-    const lat = catmullRom(wp0.lat, wp1.lat, wp2.lat, wp3.lat, t);
-    const height = catmullRom(wp0.height, wp1.height, wp2.height, wp3.height, t);
+    const knots = crKnots(wp0, wp1, wp2, wp3);
+    const lon = crEval(knots, wp0.lon, wp1.lon, wp2.lon, wp3.lon, t);
+    const lat = crEval(knots, wp0.lat, wp1.lat, wp2.lat, wp3.lat, t);
+    const height = crEval(knots, wp0.height, wp1.height, wp2.height, wp3.height, t);
 
     const newPosition = Cesium.Cartesian3.fromDegrees(lon, lat, height);
     flyState.planeEntity.position = newPosition;
@@ -1342,7 +1372,7 @@ function updatePlanePosition(deltaTime) {
     } else if (flyState.viewMode === 'cockpit') {
         // 驾驶舱第一视角：相机即飞机，沿机头方向前视（解除 lookAt 锁定后 setView）
         if (flyState._lookAtLocked) {
-            viewer.camera.lookAtReset();
+            resetCameraTransform();
             flyState._lookAtLocked = false;
         }
         viewer.camera.setView({
@@ -1356,7 +1386,7 @@ function updatePlanePosition(deltaTime) {
     } else {
         // 自由视角：不干预相机，用户自由拖动缩放查看飞行
         if (flyState._lookAtLocked) {
-            viewer.camera.lookAtReset();
+            resetCameraTransform();
             flyState._lookAtLocked = false;
         }
     }
@@ -1479,7 +1509,7 @@ function stopFlight() {
 
     // 取消相机跟踪
     viewer.trackedEntity = null;
-    viewer.camera.lookAtReset(); // 解除 lookAt 锁定
+    resetCameraTransform(); // 解除 lookAt 锁定（v1.248 兼容旧版 Cesium）
     flyState._lookAtLocked = false;
     if (flyState.planeEntity) {
         viewer.entities.remove(flyState.planeEntity);
@@ -1528,7 +1558,7 @@ function finishFlight() {
     }
 
     // 解除相机锁定，停留在终点上空，由用户自由浏览（v1.246：不再强制拉回初始位置）
-    viewer.camera.lookAtReset();
+    resetCameraTransform();
     flyState._lookAtLocked = false;
     flyState.retro = false;
     document.getElementById('stopFlyBtn').style.display = 'none';
