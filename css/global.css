@@ -306,6 +306,27 @@ body, html {
     color: white;
     border-color: #1890ff;
 }
+/* 视角模式按钮（v1.246：跟随/驾驶舱/自由，复用 speed-btn 视觉） */
+.view-btn {
+    flex: 1;
+    padding: 5px 8px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    background: white;
+    cursor: pointer;
+    font-size: 11px;
+    transition: all 0.2s;
+    min-width: 45px;
+}
+.view-btn:hover {
+    background: #f0f0f0;
+    border-color: #52c41a;
+}
+.view-btn.active {
+    background: #52c41a;
+    color: white;
+    border-color: #52c41a;
+}
 /* 节点闪烁标签效果 */
 .node-flash-label {
     animation: flashLabel 1.5s ease-out;
