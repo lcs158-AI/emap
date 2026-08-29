@@ -1264,21 +1264,29 @@ function animateFlight() {
     flyState.rafId = requestAnimationFrame(animateFlight);
 }
 
-// 计算曲线在某个全局进度位置的切线航向角（v1.248：向心 Catmull-Rom 数值导数）
-// 与 updatePlanePosition 完全同一条曲线：飞机图标指向与实际运动方向严格一致
+// 计算曲线在某个全局进度位置的切线航向角（v1.249）
+// pointMode：段内线性直飞 → 返回该段恒定方位角（稳定的关键）
+// 沿线模式：向心 Catmull-Rom 数值导数，与 updatePlanePosition 完全同一条曲线
 function getCurveHeading(route, globalProgress) {
     const waypoints = route.waypoints;
     const n = waypoints.length;
     if (n < 2) return 0;
 
-    // 将全局进度（0~n-1）映射到段索引与段内 u
     const idx = Math.min(Math.floor(globalProgress), n - 2);
     const u = Math.max(0, Math.min(1, globalProgress - idx));
-
-    // 与 updatePlanePosition 相同的四个控制点（端点钳制）
-    const p0 = waypoints[Math.max(0, idx - 1)];
     const p1 = waypoints[idx];
     const p2 = waypoints[idx + 1];
+
+    // 按关键点飞行：段内直线，方位角恒定（段间跳变由 smoothHeading 平滑过渡）
+    if (route.pointMode) {
+        const dLon = (p2.lon - p1.lon) * Math.cos(p1.lat * Math.PI / 180);
+        const dLat = p2.lat - p1.lat;
+        if (dLon === 0 && dLat === 0) return flyState.smoothHeading || 0;
+        return Math.atan2(dLon, dLat);
+    }
+
+    // 沿线模式：与插值相同的四个控制点（端点钳制）
+    const p0 = waypoints[Math.max(0, idx - 1)];
     const p3 = waypoints[Math.min(n - 1, idx + 2)];
     const knots = crKnots(p0, p1, p2, p3);
 
@@ -1326,14 +1334,22 @@ function updatePlanePosition(deltaTime) {
     const wp2 = route.waypoints[segIdx + 1];
     const t = flyState.segmentProgress;
 
-    // —— 向心 Catmull-Rom 曲线插值（v1.248：消除点距不均导致的过冲摇摆）——
-    // 控制点取前后各 1 个航点，端点用重复值钳制
+    // —— 位置插值 ——
+    // pointMode（按关键点飞行 v1.249）：线性插值精确过点，段间长直线航向恒定 → 最平稳
+    // 沿线模式：向心 Catmull-Rom 曲线（v1.248：消除点距不均导致的过冲摇摆）
     const wp0 = route.waypoints[Math.max(0, segIdx - 1)];
     const wp3 = route.waypoints[Math.min(route.waypoints.length - 1, segIdx + 2)];
-    const knots = crKnots(wp0, wp1, wp2, wp3);
-    const lon = crEval(knots, wp0.lon, wp1.lon, wp2.lon, wp3.lon, t);
-    const lat = crEval(knots, wp0.lat, wp1.lat, wp2.lat, wp3.lat, t);
-    const height = crEval(knots, wp0.height, wp1.height, wp2.height, wp3.height, t);
+    let lon, lat, height;
+    if (route.pointMode) {
+        lon = wp1.lon + (wp2.lon - wp1.lon) * t;
+        lat = wp1.lat + (wp2.lat - wp1.lat) * t;
+        height = wp1.height + (wp2.height - wp1.height) * t;
+    } else {
+        const knots = crKnots(wp0, wp1, wp2, wp3);
+        lon = crEval(knots, wp0.lon, wp1.lon, wp2.lon, wp3.lon, t);
+        lat = crEval(knots, wp0.lat, wp1.lat, wp2.lat, wp3.lat, t);
+        height = crEval(knots, wp0.height, wp1.height, wp2.height, wp3.height, t);
+    }
 
     const newPosition = Cesium.Cartesian3.fromDegrees(lon, lat, height);
     flyState.planeEntity.position = newPosition;
@@ -1743,6 +1759,24 @@ async function parseKMLFile() {
                 triggered: false
             };
         });
+
+        // 为命名点采样地形高度（v1.249 按点飞行模式使用）
+        try {
+            if (namedPoints.length && typeof Cesium.sampleTerrainMostDetailed === 'function' && terrainProvider) {
+                const npCarto = namedPoints.map(np => Cesium.Cartographic.fromDegrees(np.lon, np.lat));
+                const sampledNp = await Cesium.sampleTerrainMostDetailed(terrainProvider, npCarto);
+                namedPoints.forEach((np, i) => { np.groundHeight = sampledNp[i].height; });
+                console.log(`✅ 命名点地形采样成功: ${sampledNp.length}个点`);
+            }
+        } catch (err) {
+            console.log('命名点地形采样降级，使用邻近线段高度');
+        }
+        // 降级：未采样成功的点沿用其投影线段航点的地形高度
+        namedPoints.forEach(np => {
+            if (np.groundHeight === undefined && np.segmentIndex < lineWaypoints.length) {
+                np.groundHeight = lineWaypoints[np.segmentIndex].groundHeight;
+            }
+        });
         
         // 设置路径点的名称（仅在命名点所在位置标记）
         namedPoints.forEach(np => {
@@ -1817,23 +1851,69 @@ function simplifyLine(coords, minDistance) {
     return result;
 }
 
+// 构造"按关键点飞行"路线（v1.249）
+// 用 KML 中的命名关键点（如6个）做点对点直飞：段间长直线、航向恒定，只过点时平滑转向，彻底避免沿线插值的摇摆
+function buildPointRoute() {
+    if (!kmlRoute || !kmlRoute.namedPoints || kmlRoute.namedPoints.length < 2) return null;
+
+    const waypoints = kmlRoute.namedPoints.map((np, i) => ({
+        lon: np.lon,
+        lat: np.lat,
+        height: (np.groundHeight !== undefined ? np.groundHeight : 0) + FLIGHT_OFFSET,
+        groundHeight: np.groundHeight,
+        name: np.name || '',
+        index: i
+    }));
+
+    // 估算总里程用于描述
+    let totalKm = 0;
+    for (let i = 0; i < waypoints.length - 1; i++) {
+        const dLon = (waypoints[i + 1].lon - waypoints[i].lon) * 111000 * Math.cos(waypoints[i].lat * Math.PI / 180);
+        const dLat = (waypoints[i + 1].lat - waypoints[i].lat) * 111000;
+        totalKm += Math.sqrt(dLon * dLon + dLat * dLat);
+    }
+    totalKm = Math.round(totalKm / 100) / 10;
+
+    return {
+        id: 'kml_point_route',
+        name: '📍 吉隆沟关键点飞行',
+        description: `按KML关键点直飞（${waypoints.length}个点·约${totalKm}公里）· 点间直线 · 最平稳`,
+        speed: 50,
+        waypoints,
+        // 关键点即航点：namedPoints 供 HUD 提示与航点标记，segmentIndex=航点索引
+        namedPoints: kmlRoute.namedPoints.map((np, i) => ({
+            name: np.name,
+            lon: np.lon,
+            lat: np.lat,
+            originalName: np.originalName,
+            segmentIndex: i,
+            triggered: false
+        })),
+        isKML: true,     // 沿用贴地渲染与 KML 相机参数
+        pointMode: true  // 线性插值直飞标志（updatePlanePosition/getCurveHeading 分支）
+    };
+}
+
 // KML路线专用的飞行初始化
 async function initKMLRoute() {
     try {
         kmlLoading = true;
         const routeList = document.getElementById('flyRouteList');
-        
+
         // 先显示加载状态
         renderFlyRouteList(routeList);
-        
+
         // 解析KML文件
         await parseKMLFile();
-        
+
         // 添加到路线列表
         if (kmlRoute && !flyRoutes.find(r => r.id === 'kml_route')) {
             flyRoutes.push(kmlRoute);
+            // 同时提供"按关键点飞行"模式（v1.249：点对点直飞，更平稳）
+            const pointRoute = buildPointRoute();
+            if (pointRoute) flyRoutes.push(pointRoute);
             renderFlyRouteList(routeList);
-            
+
             // 加载成功后自动定位到KML路径区域（吉隆沟）
             // 延时1秒等待初始加载的视角完成
             setTimeout(() => {
