@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
@@ -3401,7 +3401,11 @@ function openLayerInfoEditor(item, index) {
             { value: '🎯', label: '🎯 目标', emoji: '🎯' },
             { value: '🌟', label: '🌟 星星', emoji: '🌟' },
             { value: '💎', label: '💎 钻石', emoji: '💎' },
-            { value: '🌲', label: '🌲 树木', emoji: '🌲' }
+            { value: '🌲', label: '🌲 树木', emoji: '🌲' },
+            { value: '👣', label: '👣 脚印', emoji: '👣' },
+            { value: '⛰️', label: '⛰️ 山峰', emoji: '⛰️' },
+            { value: '🌊', label: '🌊 河流', emoji: '🌊' },
+            { value: '🏞️', label: '🏞️ 山川河流', emoji: '🏞️' }
         ];
         
         const pointSymbolSelect = document.createElement('select');
@@ -3617,7 +3621,72 @@ function openLayerInfoEditor(item, index) {
         
         styleSection.appendChild(polygonStyleDiv);
     }
-    
+
+    // 文字标注设置
+    const labelStyleSection = document.createElement('div');
+    labelStyleSection.style.marginBottom = '10px';
+    labelStyleSection.style.padding = '10px';
+    labelStyleSection.style.backgroundColor = '#f8f9fa';
+    labelStyleSection.style.borderRadius = '4px';
+    labelStyleSection.style.border = '1px dashed #ccc';
+
+    const labelStyleTitle = document.createElement('div');
+    labelStyleTitle.textContent = '文字标注';
+    labelStyleTitle.style.fontWeight = 'bold';
+    labelStyleTitle.style.marginBottom = '8px';
+    labelStyleTitle.style.fontSize = '13px';
+    labelStyleSection.appendChild(labelStyleTitle);
+
+    // 标注可见开关
+    const labelVisibleLabel = document.createElement('label');
+    labelVisibleLabel.style.fontSize = '11px';
+    labelVisibleLabel.style.marginRight = '10px';
+    labelVisibleLabel.style.cursor = 'pointer';
+
+    const labelVisibleInput = document.createElement('input');
+    labelVisibleInput.type = 'checkbox';
+    labelVisibleInput.id = 'styleLabelVisible';
+    labelVisibleInput.checked = currentStyle.labelVisible !== false && !!currentStyle.labelField;
+    labelVisibleInput.style.verticalAlign = 'middle';
+    labelVisibleInput.style.marginRight = '4px';
+    labelVisibleLabel.appendChild(labelVisibleInput);
+    labelVisibleLabel.appendChild(document.createTextNode('显示标注'));
+    labelStyleSection.appendChild(labelVisibleLabel);
+
+    // 标注字段选择
+    const labelFieldLabel = document.createElement('label');
+    labelFieldLabel.textContent = '标注字段:';
+    labelFieldLabel.style.fontSize = '11px';
+    labelFieldLabel.style.marginRight = '5px';
+    labelStyleSection.appendChild(labelFieldLabel);
+
+    const labelFieldSelect = document.createElement('select');
+    labelFieldSelect.id = 'styleLabelField';
+    labelFieldSelect.style.width = '140px';
+    labelFieldSelect.style.padding = '3px';
+    labelFieldSelect.style.fontSize = '11px';
+    labelFieldSelect.style.border = '1px solid #ddd';
+    labelFieldSelect.style.borderRadius = '3px';
+
+    const emptyLabelOption = document.createElement('option');
+    emptyLabelOption.value = '';
+    emptyLabelOption.textContent = '-- 无 --';
+    labelFieldSelect.appendChild(emptyLabelOption);
+
+    fieldList.forEach(field => {
+        const option = document.createElement('option');
+        option.value = field;
+        option.textContent = field;
+        if (currentStyle.labelField === field) {
+            option.selected = true;
+        }
+        labelFieldSelect.appendChild(option);
+    });
+
+    labelStyleSection.appendChild(labelFieldSelect);
+
+    styleSection.appendChild(labelStyleSection);
+
     // 分类样式设置
     const categoryStyleSection = document.createElement('div');
     categoryStyleSection.style.marginBottom = '15px';
@@ -4076,6 +4145,10 @@ function openLayerInfoEditor(item, index) {
                         { value: '🚗', label: '🚗 汽车' },
                         { value: '🚲', label: '🚲 自行车' },
                         { value: '🚶', label: '🚶 行人' },
+                        { value: '👣', label: '👣 脚印' },
+                        { value: '⛰️', label: '⛰️ 山峰' },
+                        { value: '🌊', label: '🌊 河流' },
+                        { value: '🏞️', label: '🏞️ 山川河流' },
                         { value: '⚠️', label: '⚠️ 警告' },
                         { value: '❌', label: '❌ 禁止' },
                         { value: '✅', label: '✅ 确认' },
@@ -4572,6 +4645,10 @@ function openLayerInfoEditor(item, index) {
                         { value: '🚗', label: '🚗 汽车' },
                         { value: '🚲', label: '🚲 自行车' },
                         { value: '🚶', label: '🚶 行人' },
+                        { value: '👣', label: '👣 脚印' },
+                        { value: '⛰️', label: '⛰️ 山峰' },
+                        { value: '🌊', label: '🌊 河流' },
+                        { value: '🏞️', label: '🏞️ 山川河流' },
                         { value: '⚠️', label: '⚠️ 警告' },
                         { value: '❌', label: '❌ 禁止' },
                         { value: '✅', label: '✅ 确认' },
@@ -4746,7 +4823,13 @@ function openLayerInfoEditor(item, index) {
             if (strokeColorInput) newStyle.strokeColor = strokeColorInput.value;
             if (opacityInput) newStyle.opacity = parseInt(opacityInput.value) || 30;
         }
-        
+
+        // 文字标注
+        const labelVisibleInput = document.getElementById('styleLabelVisible');
+        const labelFieldSelect = document.getElementById('styleLabelField');
+        if (labelVisibleInput) newStyle.labelVisible = labelVisibleInput.checked;
+        if (labelFieldSelect) newStyle.labelField = labelFieldSelect.value;
+
         // 保存分类样式设置
         const categoryFieldSelect = document.getElementById('categoryField');
         if (categoryFieldSelect) {
@@ -5538,7 +5621,23 @@ function applyLayerStyle(layer, style, geometryType) {
                 })
             }));
         }
-        
+
+        // 文字标注
+        if (style.labelVisible !== false && style.labelField) {
+            const labelValue = feature.get(style.labelField);
+            if (labelValue !== undefined && labelValue !== null && String(labelValue).trim() !== '') {
+                styles.push(new ol.style.Style({
+                    text: new ol.style.Text({
+                        text: String(labelValue),
+                        font: '12px sans-serif',
+                        fill: new ol.style.Fill({ color: '#000' }),
+                        stroke: new ol.style.Stroke({ color: '#fff', width: 3 }),
+                        offsetY: (geomType === 'Point' || geomType === 'MultiPoint') ? -14 : 0
+                    })
+                }));
+            }
+        }
+
         return styles;
     };
     
