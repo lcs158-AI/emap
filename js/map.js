@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
@@ -2043,7 +2043,36 @@ function createLayerControl() {
                 createLayerControl();
             });
             
+            // 标注显示切换按钮（红=显示，灰=隐藏）
+            const labelBtn = document.createElement('button');
+            labelBtn.title = '显示/隐藏文字标注';
+            labelBtn.style.background = 'none';
+            labelBtn.style.border = 'none';
+            labelBtn.style.cursor = 'pointer';
+            labelBtn.style.padding = '2px 4px';
+            labelBtn.style.display = 'inline-flex';
+            labelBtn.style.alignItems = 'center';
+
+            const tagIconPath = 'M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z';
+            const tagIcon = (color) => `<svg width="14" height="14" viewBox="0 0 24 24"><path d="${tagIconPath}" fill="${color}"/></svg>`;
+            const isLabelOn = () => !!(item.style && item.style.labelField && item.style.labelVisible !== false);
+            const refreshLabelBtn = () => { labelBtn.innerHTML = tagIcon(isLabelOn() ? '#e74c3c' : '#bbb'); };
+            refreshLabelBtn();
+
+            labelBtn.addEventListener('click', () => {
+                if (!item.style) item.style = {};
+                if (!item.style.labelField) {
+                    alert('请先在图层设置中选择标注字段');
+                    openLayerInfoEditor(item, index);
+                    return;
+                }
+                item.style.labelVisible = !isLabelOn();
+                applyLayerStyle(item.layer, item.style);
+                refreshLabelBtn();
+            });
+
             layerHeader.appendChild(leftSection);
+            layerHeader.appendChild(labelBtn);
             layerHeader.appendChild(infoBtn);
             layerHeader.appendChild(removeBtn);
             div.appendChild(layerHeader);
@@ -2163,13 +2192,42 @@ function createLayerControl() {
                 createLayerControl();
             });
             
+            // 标注显示切换按钮（红=显示，灰=隐藏）
+            const labelBtn = document.createElement('button');
+            labelBtn.title = '显示/隐藏文字标注';
+            labelBtn.style.background = 'none';
+            labelBtn.style.border = 'none';
+            labelBtn.style.cursor = 'pointer';
+            labelBtn.style.padding = '2px 4px';
+            labelBtn.style.display = 'inline-flex';
+            labelBtn.style.alignItems = 'center';
+
+            const tagIconPath = 'M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z';
+            const tagIcon = (color) => `<svg width="14" height="14" viewBox="0 0 24 24"><path d="${tagIconPath}" fill="${color}"/></svg>`;
+            const isLabelOn = () => !!(item.style && item.style.labelField && item.style.labelVisible !== false);
+            const refreshLabelBtn = () => { labelBtn.innerHTML = tagIcon(isLabelOn() ? '#e74c3c' : '#bbb'); };
+            refreshLabelBtn();
+
+            labelBtn.addEventListener('click', () => {
+                if (!item.style) item.style = {};
+                if (!item.style.labelField) {
+                    alert('请先在图层设置中选择标注字段');
+                    openLayerInfoEditor(item, index);
+                    return;
+                }
+                item.style.labelVisible = !isLabelOn();
+                applyLayerStyle(item.layer, item.style);
+                refreshLabelBtn();
+            });
+
             layerHeader.appendChild(leftSection);
+            layerHeader.appendChild(labelBtn);
             layerHeader.appendChild(infoBtn);
             layerHeader.appendChild(removeBtn);
             div.appendChild(layerHeader);
-            
+
             panel.appendChild(div);
-            console.log(`图层 ${item.name} visible: ${item.visible}`);
+            console.log(`本地图层 ${item.name} visible: ${item.visible}`);
         });
         
         // 添加导出配置按钮（只有当有动态图层时显示）
