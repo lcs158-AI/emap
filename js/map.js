@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
@@ -5396,8 +5396,8 @@ function applyLayerStyle(layer, style, geometryType) {
             // 优先使用分类大小（数值型字段），否则使用默认大小
             const pointSize = categorySize || style.pointSize || 6;
             
-            // 优先使用分类符号，否则使用默认符号
-            const pointSymbol = categorySymbol || style.pointType || 'circle';
+            // 优先使用分类符号，否则使用默认符号（兼容 pointSymbol 与旧字段 pointType）
+            const pointSymbol = categorySymbol || style.pointSymbol || style.pointType || 'circle';
             
             // 转换颜色为 rgba
             const r = parseInt(pointColor.slice(1, 3), 16);
@@ -5406,8 +5406,9 @@ function applyLayerStyle(layer, style, geometryType) {
             const color = `rgba(${r}, ${g}, ${b}, 0.8)`;
             const strokeColor = '#fff';
             
-            // 根据符号类型创建不同的样式
-            if (pointSymbol.length === 2 && pointSymbol.charCodeAt(0) > 255) {
+            // 根据符号类型创建不同的样式（内建几何名之外的一律按 Emoji/文本渲染）
+            const builtinShapes = ['circle', 'square', 'triangle', 'star', 'diamond', 'cross', 'x'];
+            if (!builtinShapes.includes(pointSymbol)) {
                 // Emoji 符号 - 使用文本样式
                 styles.push(new ol.style.Style({
                     text: new ol.style.Text({
