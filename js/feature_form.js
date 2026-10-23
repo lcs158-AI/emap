@@ -216,14 +216,22 @@
         options = options || {};
         const features = options.features || [];
         const source = options.source;       // ol.source.Vector
-        const schema = options.schema;       // 可选的字段结构，用于生成更好的 UI
-        const container = options.container; // 面板容器（如果不传则自动创建）
+        const schema = options.schema;       // 可选的字段结构
+        const container = options.container; // 面板容器
         const position = options.position || { top: '60px', left: '20px' };
+        const commitMode = options.commitMode !== false; // 默认 true = 保存/取消模式
 
         if (!features || features.length === 0) {
             closePropertyPanel();
             return null;
         }
+
+        // 备份原始属性（用于取消）
+        const backups = features.map(f => {
+            const p = f.getProperties();
+            delete p.geometry;
+            return JSON.parse(JSON.stringify(p));
+        });
 
         // 面板容器
         let panel = container || document.getElementById('featureFormPanel');
@@ -246,6 +254,8 @@
         closeBtn.onclick = () => closePropertyPanel();
         title.appendChild(closeBtn);
         panel.appendChild(title);
+
+        const dirtyInputs = []; // 记录已修改的 input（commitMode 下）
 
         features.forEach((feature, fIdx) => {
             const featBox = document.createElement('div');
@@ -314,6 +324,38 @@
 
             panel.appendChild(featBox);
         });
+
+        // === 底部按钮区 ===
+        if (commitMode) {
+            const btnBar = document.createElement('div');
+            btnBar.style.cssText = 'margin-top:8px;padding-top:8px;border-top:1px solid #eee;display:flex;gap:8px;justify-content:flex-end;';
+
+            // 取消 → 从备份恢复属性
+            const cancelBtn = document.createElement('button');
+            cancelBtn.textContent = '取消';
+            cancelBtn.style.cssText = 'padding:5px 14px;border:1px solid #ddd;background:white;border-radius:4px;cursor:pointer;font-size:12px;color:#666;';
+            cancelBtn.onclick = () => {
+                features.forEach((f, i) => {
+                    // 清掉所有属性，恢复备份
+                    const current = f.getProperties();
+                    Object.keys(current).forEach(k => { if (k !== 'geometry') f.unset(k); });
+                    Object.keys(backups[i]).forEach(k => f.set(k, backups[i][k]));
+                });
+                closePropertyPanel();
+            };
+
+            // 保存 → 直接关闭（属性已实时写回）
+            const saveBtn = document.createElement('button');
+            saveBtn.textContent = '保存';
+            saveBtn.style.cssText = 'padding:5px 14px;border:none;background:#1890ff;color:white;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;';
+            saveBtn.onclick = () => {
+                closePropertyPanel();
+            };
+
+            btnBar.appendChild(cancelBtn);
+            btnBar.appendChild(saveBtn);
+            panel.appendChild(btnBar);
+        }
 
         return panel;
     }

@@ -84,15 +84,9 @@
 
         editCheck.addEventListener('change', (e) => {
             if (e.target.checked) {
-                // 先取消其他图层的编辑状态
-                localGeoJsonLayers.forEach((l, i) => {
-                    if (l !== layerItem && l.editable) {
-                        l.editable = false;
-                    }
-                });
-                layerItem.editable = true;
-                startEditLayer(layerItem);
+                startEditLayer(layerItem); // startEditLayer 内部会统一设置 editable
             } else {
+                // 只清这个图层
                 layerItem.editable = false;
                 stopEditLayer();
             }
@@ -113,8 +107,8 @@
     function startEditLayer(layerItem) {
         if (!map) return;
 
-        // 停止之前的编辑
-        stopEditLayer();
+        // 停止之前的编辑（保留当前目标图层的 editable 状态）
+        stopEditLayer(layerItem);
 
         const vectorLayer = layerItem.layer;
         let source = vectorLayer.getSource();
@@ -131,12 +125,16 @@
         editorState.originalFileInfo = layerItem.fileInfo;
         editorState.schema = layerItem.schema || null; // 恢复该图层的字段结构
 
-        // ====== Select 交互 ======
+        // 确保勾选状态一致
+        localGeoJsonLayers.forEach(l => { l.editable = (l === layerItem); });
+
+        // ====== Select 交互 (默认关闭 — 让地图可平移，点👆才激活) ======
         editorState.selectInteraction = new ol.interaction.Select({
             layers: [vectorLayer],
             toggleCondition: ol.events.condition.shiftKeyOnly,
             style: selectedFeatureStyle
         });
+        editorState.selectInteraction.setActive(false);
         map.addInteraction(editorState.selectInteraction);
 
         editorState.selectInteraction.on('select', (evt) => {
@@ -144,36 +142,43 @@
             showPropertyPanel(); // 调用共享模块
         });
 
-        // ====== Modify 交互 ======
+        // ====== Modify 交互 (整形，默认关闭) ======
         editorState.modifyInteraction = new ol.interaction.Modify({
             source: source,
             style: vertexStyle,
-            // 仅对选中的要素生效（通过 filter 限制）
-            // OpenLayers v7: features 参数接受 Collection
             features: editorState.selectInteraction.getFeatures()
         });
+        editorState.modifyInteraction.setActive(false);
         map.addInteraction(editorState.modifyInteraction);
 
-        // ====== Snap 交互 (辅助吸附) ======
+        // ====== Translate 交互 (整体移动，默认关闭) ======
+        editorState.translateInteraction = new ol.interaction.Translate({
+            features: editorState.selectInteraction.getFeatures()
+        });
+        editorState.translateInteraction.setActive(false);
+        map.addInteraction(editorState.translateInteraction);
+
+        // ====== Snap 交互 (按需挂载) ======
         editorState.snapInteraction = new ol.interaction.Snap({
             source: source
         });
-        map.addInteraction(editorState.snapInteraction);
+        // 不立即 add — 切换 Draw/Modify 时按需挂载
 
         // 创建编辑工具栏
         createEditorToolbar();
 
-        console.log('🖊️ 开始编辑图层:', layerItem.name);
+        console.log('🖊️ 开始编辑图层:', layerItem.name, '(所有交互默认关闭)');
     }
 
     // =====================================================
     // 4. 停止编辑
+    //    keepEditable: 传入图层对象则保留其 editable 状态，否则清全部
     // =====================================================
-    function stopEditLayer() {
+    function stopEditLayer(keepEditable) {
         if (!map) return;
 
         // 移除交互
-        ['selectInteraction', 'modifyInteraction', 'drawInteraction', 'snapInteraction'].forEach(key => {
+        ['selectInteraction', 'modifyInteraction', 'translateInteraction', 'drawInteraction', 'snapInteraction'].forEach(key => {
             if (editorState[key]) {
                 map.removeInteraction(editorState[key]);
                 editorState[key] = null;
@@ -237,8 +242,10 @@
         tb.appendChild(title);
 
         const tools = [
-            { key: 'select',     icon: '👆', label: '选择/移动' },
-            { key: 'schema',     icon: '🏷️', label: '字段结构' },
+            { key: 'select',     icon: '👆', label: '选择',       hint: '点击图斑选中' },
+            { key: 'translate',  icon: '✋', label: '移动',       hint: '拖动选中的图斑整体移动' },
+            { key: 'modify',     icon: '✏️', label: '整形',       hint: '拖动顶点改形状' },
+            { key: 'schema',     icon: '🏷️', label: '字段结构',   hint: '定义属性字段' },
             { key: 'drawPoint',  icon: '📍', label: '新建点' },
             { key: 'drawLine',   icon: '✏️', label: '新建线' },
             { key: 'drawPolygon',icon: '🔲', label: '新建面' },
@@ -249,10 +256,11 @@
             const btn = document.createElement('button');
             btn.dataset.tool = t.key;
             btn.innerHTML = `${t.icon} ${t.label}`;
+            if (t.hint) btn.title = t.hint;
             btn.style.cssText = 'padding:6px 10px;border:1px solid #ddd;background:white;border-radius:4px;cursor:pointer;font-size:12px;text-align:left;transition:all 0.15s;';
             btn.onmouseenter = () => { btn.style.background = '#e6f7ff'; btn.style.borderColor = '#1890ff'; };
             btn.onmouseleave = () => { btn.style.background = 'white'; btn.style.borderColor = '#ddd'; };
-            btn.onclick = () => switchTool(t.key, btn);
+            btn.onclick = () => switchTool(t.key);
             tb.appendChild(btn);
         });
 
@@ -298,30 +306,41 @@
     }
 
     // =====================================================
-    // 6. 切换工具
+    // 6. 切换工具 —— 每种工具独立激活自己的交互
     // =====================================================
-    function switchTool(toolKey, btn) {
+    function switchTool(toolKey) {
         editorState.tool = toolKey;
 
-        // 先移除之前的 Draw 交互
+        // === 0. 先关所有交互 ===
+        if (editorState.selectInteraction)  editorState.selectInteraction.setActive(false);
+        if (editorState.modifyInteraction)  editorState.modifyInteraction.setActive(false);
+        if (editorState.translateInteraction)editorState.translateInteraction.setActive(false);
+        if (editorState.snapInteraction) { map.removeInteraction(editorState.snapInteraction); }
+
+        // 移除 Draw（如果正在画）
         if (editorState.drawInteraction) {
             map.removeInteraction(editorState.drawInteraction);
             editorState.drawInteraction = null;
         }
 
-        // 根据工具调整 Modify 可用性
-        if (editorState.modifyInteraction) {
-            if (toolKey === 'select' || toolKey === 'modify') {
-                editorState.modifyInteraction.setActive(true);
-            } else {
-                editorState.modifyInteraction.setActive(false);
-            }
-        }
-
+        // === 1. 按工具激活对应交互 ===
         if (toolKey === 'select') {
-            // 什么都不用加，Select 已存在
+            // 👆 选择：只激活 Select，点中后自动弹属性面板
+            editorState.selectInteraction.setActive(true);
+
+        } else if (toolKey === 'translate') {
+            // ✋ 移动：Select + Translate 同时开 — 先选中再拖
+            editorState.selectInteraction.setActive(true);
+            editorState.translateInteraction.setActive(true);
+
+        } else if (toolKey === 'modify') {
+            // ✏️ 整形：Select + Modify 同时开
+            editorState.selectInteraction.setActive(true);
+            editorState.modifyInteraction.setActive(true);
+            map.addInteraction(editorState.snapInteraction);
+
         } else if (toolKey === 'schema') {
-            // 打开 Schema 设计器（共享模块）
+            // 打开 Schema 设计器（共享模块）— 不持久激活
             if (!FeatureForm || typeof FeatureForm.showSchemaDesigner !== 'function') {
                 alert('字段结构设计器未加载');
                 editorState.tool = 'select';
@@ -334,19 +353,22 @@
                 onConfirm: (schema) => {
                     editorState.schema = schema;
                     console.log('📐 字段结构已更新:', schema.fields.length, '个字段');
+                    // 保存到图层 item 上（下次编辑恢复）
+                    if (editorState.editingLayer) editorState.editingLayer.schema = schema;
                 }
             });
-            editorState.tool = 'select'; // schema 不是持久工具
+            // 设计器弹完后回到"空闲"态（地图可平移）
+            editorState.tool = null;
             updateToolButtons();
-            return; // schema 不参与后续逻辑
+            return;
+
         } else if (toolKey === 'delete') {
             deleteSelectedFeatures();
-        } else if (toolKey === 'drawPoint') {
-            addDrawInteraction('Point');
-        } else if (toolKey === 'drawLine') {
-            addDrawInteraction('LineString');
-        } else if (toolKey === 'drawPolygon') {
-            addDrawInteraction('Polygon');
+
+        } else if (toolKey === 'drawPoint' || toolKey === 'drawLine' || toolKey === 'drawPolygon') {
+            const typeMap = { drawPoint: 'Point', drawLine: 'LineString', drawPolygon: 'Polygon' };
+            addDrawInteraction(typeMap[toolKey]);
+            map.addInteraction(editorState.snapInteraction); // Draw 时开吸附
         }
 
         updateToolButtons();
@@ -396,41 +418,41 @@
             editorState.selectedFeatures = [feature];
             showPropertyPanel();
 
+            // Draw 完成 → 所有交互关闭（空闲态），地图可平移
+            map.removeInteraction(editorState.snapInteraction);
             editorState.drawInteraction = null;
-            editorState.tool = 'select';
-            if (editorState.modifyInteraction) editorState.modifyInteraction.setActive(true);
+            editorState.tool = null;
             updateToolButtons();
         });
 
         map.addInteraction(editorState.drawInteraction);
-
-        // 添加对应的 Snap 辅助
-        if (editorState.snapInteraction) {
-            map.removeInteraction(editorState.snapInteraction);
-        }
-        editorState.snapInteraction = new ol.interaction.Snap({ source: editorState.source });
-        map.addInteraction(editorState.snapInteraction);
+        // Snap 由 switchTool 统一管理，addDrawInteraction 不再自己处理
     }
 
     function deleteSelectedFeatures() {
         const select = editorState.selectInteraction;
-        if (!select) return;
+        const source = editorState.source;
+        if (!select || !source) return;
         const features = select.getFeatures().getArray();
         if (features.length === 0) {
             alert('请先选择要删除的要素（点击要素，按住 Shift 可多选）');
             return;
         }
-        if (!confirm(`确定删除选中的 ${features.length} 个要素吗？`)) return;
+        if (!confirm(`确定删除选中的 ${features.length} 个要素吗？\n\n此操作会同时从图层中移除。`)) return;
 
+        // 同时从 source 和 Select 中移除（防止选中状态残留）
         features.forEach(f => {
-            editorState.source.removeFeature(f);
+            if (source.hasFeature(f)) {
+                source.removeFeature(f);
+            }
         });
         select.getFeatures().clear();
-        showPropertyPanel();
+        editorState.selectedFeatures = [];
+        showPropertyPanel(); // 面板会检测 features.length===0 自动关闭
         console.log('🗑️ 已删除', features.length, '个要素');
 
-        // 删除完成后切回 select
-        editorState.tool = 'select';
+        // 删除完回到空闲态（地图可平移）
+        editorState.tool = null;
         updateToolButtons();
     }
 
@@ -530,10 +552,33 @@
         });
 
         // 生成时间戳
-        const ts = formatTimestamp(new Date());
+        const now = new Date();
+        const ts = formatTimestamp(now);
         const baseName = (layerItem.fileInfo && layerItem.fileInfo.fileName)
             ? stripExt(layerItem.fileInfo.fileName)
             : layerItem.name;
+
+        // 智能文件名：优先替换原文件名中已有的时间戳，否则追加
+        const [datePart, timePart] = ts.split('_');
+        let newBase = baseName;
+        let replaced = false;
+
+        // 替换日期部分: _YYYYMMDD 或 _20261023 格式
+        const dateRegex = /_(\d{8})(?=$|_\d{6}($|$))/;
+        if (dateRegex.test(newBase)) {
+            newBase = newBase.replace(dateRegex, `_${datePart}`);
+            replaced = true;
+        }
+        // 替换时间部分: _HHMMSS (6位连续数字，通常在日期之后)
+        const timeRegex = /(?<=_\d{8})_(\d{6})(?=$)/;
+        if (timeRegex.test(newBase)) {
+            newBase = newBase.replace(timeRegex, `_${timePart}`);
+            replaced = true;
+        }
+        // 如果原文件名根本没时间戳，追加
+        if (!replaced) {
+            newBase = `${baseName}_${ts}`;
+        }
 
         let outputContent, outputName, mimeType;
 
@@ -545,12 +590,12 @@
                 dataProjection: 'EPSG:4326'
             });
             outputContent = kmlText;
-            outputName = `${baseName}_${ts}.kml`;
+            outputName = `${newBase}.kml`;
             mimeType = 'application/vnd.google-earth.kml+xml';
         } else {
             // GeoJSON
             outputContent = JSON.stringify(JSON.parse(geoJson), null, 2);
-            outputName = `${baseName}_${ts}.geojson`;
+            outputName = `${newBase}.geojson`;
             mimeType = 'application/json';
         }
 

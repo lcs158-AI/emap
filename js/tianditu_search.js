@@ -107,14 +107,34 @@
                 start: 0
             });
 
-            const url = `https://api.tianditu.gov.cn/v2/search?postStr=${encodeURIComponent(postStr)}&type=queryPoi&tk=${TK}`;
+            const url = `https://api.tianditu.gov.cn/v2/search?postStr=${encodeURIComponent(postStr)}&type=query&tk=${TK}`;
 
             const resp = await fetch(url);
             if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
             const data = await resp.json();
 
-            if (data.status === '0' && data.pois && data.pois.length > 0) {
-                renderResults(data.pois, resultsEl);
+            if (data.status === '0' || data.status === 0 || data.infocode === 1000) {
+                if (data.pois && data.pois.length > 0) {
+                    renderResults(data.pois, resultsEl);
+                } else if (data.area && data.area.length > 0) {
+                    // 行政区结果 (resultType=3)
+                    renderResults(data.area.map(a => ({
+                        name: a.name,
+                        address: '',
+                        lonlat: a.lonlat,
+                        typeName: '行政区'
+                    })), resultsEl);
+                } else if (data.lineData && data.lineData.length > 0) {
+                    // 线路结果
+                    renderResults(data.lineData.map(l => ({
+                        name: l.name,
+                        address: `共${l.stationNum}站`,
+                        lonlat: l.uuid ? '' : '',
+                        typeName: '公交线路'
+                    })), resultsEl);
+                } else {
+                    resultsEl.innerHTML = `<div style="padding:14px;text-align:center;color:#999;font-size:12px;">😕 未找到 "${keyword}"<br>请换关键词试试</div>`;
+                }
             } else {
                 resultsEl.innerHTML = `<div style="padding:14px;text-align:center;color:#999;font-size:12px;">😕 未找到 "${keyword}"<br>请换关键词试试</div>`;
             }
