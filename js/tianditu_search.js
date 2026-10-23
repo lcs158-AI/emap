@@ -99,18 +99,9 @@
         resultsEl.innerHTML = `<div style="padding:14px;text-align:center;color:#999;font-size:12px;">🔍 搜索中...</div>`;
 
         try {
-            // 从地图视图取范围，反投影成 WGS84 作为 mapBound
-            let mapBound = '70.0,15.0,140.0,55.0'; // 默认覆盖中国
-            try {
-                const view = map.getView();
-                const ext = view.calculateExtent(map.getSize());
-                const [minLon, maxLat] = ol.proj.toLonLat([ext[0], ext[1]]);
-                const [maxLon, minLat] = ol.proj.toLonLat([ext[2], ext[3]]);
-                // 适当放大范围（让搜索结果更多）
-                const padLon = (maxLon - minLon) * 0.3;
-                const padLat = (maxLat - minLat) * 0.3;
-                mapBound = `${(minLon - padLon).toFixed(3)},${(minLat - padLat).toFixed(3)},${(maxLon + padLon).toFixed(3)},${(maxLat + padLat).toFixed(3)}`;
-            } catch (e) { /* 用默认范围 */ }
+            // mapBound 覆盖中国全境（天地图 search 强制只返回此范围内的 POI）
+            // 不要用当前视窗范围，否则搜外地地名会"未找到"
+            const mapBound = '70.0,15.0,140.0,55.0';
 
             const postStr = JSON.stringify({
                 keyWord: keyword,
@@ -127,7 +118,7 @@
             if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
             const data = await resp.json();
 
-            if (data.status === '0' || data.status === 0 || data.infocode === 1000) {
+            if ((data.status && data.status.infocode === 1000) || data.infocode === 1000) {
                 if (data.pois && data.pois.length > 0) {
                     renderResults(data.pois, resultsEl);
                 } else if (data.area && data.area.length > 0) {
