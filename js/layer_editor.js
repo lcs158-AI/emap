@@ -102,6 +102,58 @@
     window.addEditableCheckbox = addEditableCheckbox;
 
     // =====================================================
+    // =====================================================
+    // 2.5 自动推断字段 schema（从已有 features 提取公共属性）
+    // =====================================================
+    function inferSchemaFromSource(source) {
+        const features = source.getFeatures();
+        const fieldMap = {}; // name -> {count, sampleValues}
+        let geomSeen = false;
+
+        features.forEach(f => {
+            const props = f.getProperties();
+            Object.keys(props).forEach(k => {
+                if (k === 'geometry' || k === 'layer') return;
+                if (!fieldMap[k]) fieldMap[k] = { count: 0, samples: [] };
+                fieldMap[k].count++;
+                if (fieldMap[k].samples.length < 3) fieldMap[k].samples.push(props[k]);
+            });
+        });
+
+        const fields = Object.keys(fieldMap).map(name => {
+            const samples = fieldMap[name].samples;
+            let type = 'text';
+            if (samples.every(v => typeof v === 'number')) type = 'number';
+            else if (samples.every(v => v === 'true' || v === 'false' || typeof v === 'boolean')) type = 'boolean';
+            else if (samples.some(v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v))) type = 'datetime';
+            return {
+                name: name,
+                type: type,
+                default: '',
+                options: null
+            };
+        });
+
+        // 默认把 name/名称 放最前（如果存在）
+        const priority = ['name', '名称', 'NAME', 'Name', 'label', '标签'];
+        fields.sort((a, b) => {
+            const pa = priority.indexOf(a.name);
+            const pb = priority.indexOf(b.name);
+            if (pa === -1 && pb === -1) return 0;
+            if (pa === -1) return 1;
+            if (pb === -1) return -1;
+            return pa - pb;
+        });
+
+        if (fields.length === 0) {
+            // 兜底：给最基础的字段
+            fields.push({ name: 'name', type: 'text', default: '', options: null });
+            fields.push({ name: '编辑时间', type: 'datetime', default: '', options: null });
+        }
+
+        return { fields };
+    }
+
     // 3. 开始编辑某图层
     // =====================================================
     function startEditLayer(layerItem) {
@@ -123,7 +175,16 @@
         editorState.editingLayer = layerItem;
         editorState.source = source;
         editorState.originalFileInfo = layerItem.fileInfo;
-        editorState.schema = layerItem.schema || null; // 恢复该图层的字段结构
+
+        // === schema: 优先用已保存的，没有就自动推断 ===
+        if (layerItem.schema && layerItem.schema.fields && layerItem.schema.fields.length > 0) {
+            editorState.schema = layerItem.schema;
+        } else {
+            const inferred = inferSchemaFromSource(source);
+            editorState.schema = inferred;
+            layerItem.schema = inferred; // 持久化到图层对象
+            console.log('📐 自动推断字段结构:', inferred.fields.length, '个字段 →', inferred.fields.map(f => f.name).join(', '));
+        }
 
         // 确保勾选状态一致
         localGeoJsonLayers.forEach(l => { l.editable = (l === layerItem); });
@@ -395,19 +456,19 @@
             const feature = evt.feature;
             feature.setId('new_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7));
 
-            // 按 schema 默认值填充，没有则给默认
-            if (editorState.schema && editorState.schema.fields && editorState.schema.fields.length > 0) {
-                editorState.schema.fields.forEach(f => {
-                    if (feature.get(f.name) === undefined) {
-                        feature.set(f.name, f.default ?? '');
-                    }
-                });
-            } else {
-                feature.setProperties({
-                    '名称': '新要素',
-                    '编辑时间': new Date().toISOString()
-                }, true);
+            // 没有 schema 则临时推断一次（防御性兜底）
+            let schema = editorState.schema;
+            if (!schema || !schema.fields || schema.fields.length === 0) {
+                schema = inferSchemaFromSource(editorState.source);
+                editorState.schema = schema;
+                if (editorState.editingLayer) editorState.editingLayer.schema = schema;
             }
+            // 按 schema 默认值填充所有字段
+            schema.fields.forEach(f => {
+                if (feature.get(f.name) === undefined) {
+                    feature.set(f.name, f.default ?? '');
+                }
+            });
 
             editorState.source.addFeature(feature);
             console.log('✅ 新增要素:', geomType, feature.getId());

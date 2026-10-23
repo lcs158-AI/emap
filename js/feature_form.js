@@ -279,7 +279,7 @@
                 }));
                 const props = feature.getProperties();
                 Object.keys(props).forEach(key => {
-                    if (key === 'geometry') return;
+                    if (key === 'geometry' || key === 'layer') return; // 跳过内部脏字段
                     if (!schema.fields.some(sf => sf.name === key)) {
                         fieldList.push({ name: key, type: 'text', value: props[key] });
                     }
@@ -289,7 +289,7 @@
                 fieldList = [];
                 const props = feature.getProperties();
                 Object.keys(props).forEach(key => {
-                    if (key === 'geometry') return;
+                    if (key === 'geometry' || key === 'layer') return; // 跳过内部脏字段
                     fieldList.push({ name: key, type: 'text', value: props[key] });
                 });
             }
