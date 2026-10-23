@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
@@ -2311,6 +2311,9 @@ if (configUrl) {
 }
 console.log('地图加载完成');
 
+// 暴露到 window，供 layer_editor.js 打补丁
+window.createLayerControl = createLayerControl;
+
 // ==================== 加载本地 GeoJSON 文件 ====================
 // 加载 GeoJSON 文件按钮事件
 const loadGeoJsonBtn = document.getElementById('loadGeoJsonBtn');
@@ -2358,7 +2361,7 @@ if (geoJsonFileInput) {
             reader.onload = function(event) {
                 try {
                     console.log('KMZ 文件读取成功，准备解压');
-                    loadLocalKMZ(event.target.result, file.name.replace(/\.kmz$/i, ''), loadingPanel, loadingProgress);
+                    loadLocalKMZ(event.target.result, file.name.replace(/\.kmz$/i, ''), loadingPanel, loadingProgress, { fileName: file.name, format: 'kml' });
                 } catch (error) {
                     console.error('KMZ 处理失败:', error);
                     // 显示错误提示
@@ -2403,7 +2406,7 @@ if (geoJsonFileInput) {
                         try {
                             const geoJson = JSON.parse(event.target.result);
                             console.log('GeoJSON 解析成功，准备加载到地图');
-                            loadLocalGeoJSON(geoJson, file.name.replace(/\.(geojson|json)$/i, ''));
+                            loadLocalGeoJSON(geoJson, file.name.replace(/\.(geojson|json)$/i, ''), { fileName: file.name, format: 'geojson' });
                         } catch (parseError) {
                             console.error('GeoJSON 解析失败:', parseError);
                             throw new Error('GeoJSON 文件解析失败: ' + parseError.message);
@@ -2412,7 +2415,7 @@ if (geoJsonFileInput) {
                         // 加载 KML
                         try {
                             console.log('KML 文件读取成功，准备加载到地图');
-                            loadLocalKML(event.target.result, file.name.replace(/\.kml$/i, ''));
+                            loadLocalKML(event.target.result, file.name.replace(/\.kml$/i, ''), { fileName: file.name, format: 'kml' });
                         } catch (parseError) {
                             console.error('KML 解析失败:', parseError);
                             throw new Error('KML 文件解析失败: ' + parseError.message);
@@ -2482,13 +2485,16 @@ if (geoJsonFileInput) {
 
 // 存储本地加载的 GeoJSON 图层
 let localGeoJsonLayers = [];
+// 暴露到 window 供 layer_editor.js 访问
+window.localGeoJsonLayers = localGeoJsonLayers;
 
 /**
  * 加载本地 GeoJSON 数据到地图
  * @param {Object} geoJson - GeoJSON 对象
  * @param {string} name - 图层名称
+ * @param {Object} [fileInfo] - 可选的文件信息 {fileName, format}
  */
-function loadLocalGeoJSON(geoJson, name) {
+function loadLocalGeoJSON(geoJson, name, fileInfo) {
     try {
         // 将 GeoJSON 转换为 OpenLayers 要素
         const features = new ol.format.GeoJSON().readFeatures(geoJson, {
@@ -2550,7 +2556,9 @@ function loadLocalGeoJSON(geoJson, name) {
             layer: vectorLayer,
             name: name,
             visible: true,
-            style: {} // 初始化空样式对象
+            style: {}, // 初始化空样式对象
+            fileInfo: fileInfo || { fileName: name + '.geojson', format: 'geojson' },
+            editable: false
         });
         
         // 更新图层控制面板
@@ -2570,8 +2578,9 @@ function loadLocalGeoJSON(geoJson, name) {
  * 加载本地 KML 数据到地图
  * @param {string} kmlText - KML 文本内容
  * @param {string} name - 图层名称
+ * @param {Object} [fileInfo] - 可选的文件信息 {fileName, format}
  */
-function loadLocalKML(kmlText, name) {
+function loadLocalKML(kmlText, name, fileInfo) {
     try {
         // 使用 OpenLayers KML 解析器
         const kmlFormat = new ol.format.KML({
@@ -2658,7 +2667,9 @@ function loadLocalKML(kmlText, name) {
             name: name,
             visible: true,
             style: {}, // 初始化空样式对象
-            labelField: 'name' // 默认使用 name 字段作为标签
+            labelField: 'name', // 默认使用 name 字段作为标签
+            fileInfo: fileInfo || { fileName: name + '.kml', format: 'kml' },
+            editable: false
         });
         
         // 更新图层控制面板
@@ -2771,7 +2782,9 @@ function loadLocalGML(gmlText, name) {
             name: name,
             visible: true,
             style: {},
-            labelField: 'name'
+            labelField: 'name',
+            fileInfo: fileInfo || { fileName: name + '.kmz', format: 'kml' },
+            editable: false
         });
         
         // 更新图层控制面板
@@ -2795,7 +2808,7 @@ function loadLocalGML(gmlText, name) {
  * @param {HTMLElement} loadingPanel - 加载提示面板
  * @param {HTMLElement} loadingProgress - 加载进度元素
  */
-function loadLocalKMZ(kmzData, name, loadingPanel, loadingProgress) {
+function loadLocalKMZ(kmzData, name, loadingPanel, loadingProgress, fileInfo) {
     try {
         // 检查是否有解压库
         if (typeof JSZip === 'undefined') {
@@ -7509,7 +7522,8 @@ let drawLayer = null;
 let drawSource = null;
 let drawInteraction = null;
 let drawFeatures = [];
-let featureFields = null; // 存储字段结构（字段名称列表）
+let drawSchema = null; // 存储完整字段结构 {fields: [...]}，替换原来的 featureFields
+// 注意: FeatureForm 共享模块由 feature_form.js 提供，需要在运行时通过 window.FeatureForm 访问
 
 // 初始化绘制图层
 function initDrawLayer() {
@@ -7557,25 +7571,61 @@ function startDraw(mode) {
         type: mode
     });
     
-    // 绘制完成事件
+    // 绘制完成事件（改造：使用 drawSchema + 共享模块属性面板）
     drawInteraction.on('drawend', function(evt) {
         const feature = evt.feature;
         
-        // 添加属性
+        // 按 schema 默认值填充
         feature.set('id', Date.now());
         feature.set('type', mode);
-        feature.set('name', mode + '_' + drawFeatures.length);
-        
+
+        if (drawSchema && drawSchema.fields && drawSchema.fields.length > 0) {
+            drawSchema.fields.forEach(f => {
+                if (feature.get(f.name) === undefined) {
+                    feature.set(f.name, f.default ?? '');
+                }
+            });
+        } else {
+            feature.set('name', mode + '_' + drawFeatures.length);
+        }
+
         drawFeatures.push(feature);
-        
-        // 显示属性编辑对话框
-        showFeatureEditDialog(feature);
+
+        // 使用共享模块打开属性面板
+        if (FeatureForm && typeof window.FeatureForm.showPropertyPanel === 'function') {
+            window.FeatureForm.showPropertyPanel({
+                features: [feature],
+                source: drawSource,
+                schema: drawSchema,
+                position: { top: '60px', left: '20px' }
+            });
+        } else {
+            // 降级：使用原来的 prompt 对话框
+            showFeatureEditDialog(feature);
+        }
     });
     
     map.addInteraction(drawInteraction);
     
     // 更新按钮状态
     updateDrawButtons(mode);
+}
+
+// 打开字段结构设计器（用于原绘制图层）
+function openDrawSchemaDesigner() {
+    if (!FeatureForm || typeof window.FeatureForm.showSchemaDesigner !== 'function') {
+        // FeatureForm 未加载，走原有 featureFields 逻辑
+        showFeatureEditDialog(null, true); // 传 null + flag 表示只定义 schema
+        return;
+    }
+    window.FeatureForm.showSchemaDesigner({
+        title: '定义绘制图层字段结构',
+        initialSchema: drawSchema,
+        onConfirm: (schema) => {
+            drawSchema = schema;
+            console.log('📐 绘制图层字段结构已更新:', schema.fields.length, '个字段');
+        }
+    });
 }
 
 // 停止绘制
@@ -7607,8 +7657,15 @@ function updateDrawButtons(activeMode) {
     }
 }
 
-// 显示要素编辑对话框
-function showFeatureEditDialog(feature) {
+// 显示要素编辑对话框（降级：FeatureForm 未加载时使用 prompt）
+function showFeatureEditDialog(feature, onlyDefineSchema) {
+    // onlyDefineSchema = true 时只定义 schema（FeatureForm 未加载的降级）
+    if (onlyDefineSchema) {
+        // 让用户先画一个点来定义字段（太复杂，直接 return）
+        alert('请先在设置面板中打开"字段结构设计"按钮，功能已升级');
+        return;
+    }
+
     const geomType = feature.get('type');
     const currentName = feature.get('name') || '';
     
@@ -7623,21 +7680,22 @@ function showFeatureEditDialog(feature) {
         const addMore = confirm('是否添加自定义属性?');
         if (addMore) {
             addCustomProperties(feature);
-            // 存储字段结构（只存储字段名称）
+            // 存储字段结构（升级为完整 schema 对象）
             const properties = feature.getProperties();
-            featureFields = [];
+            const fields = [];
             Object.keys(properties).forEach(key => {
                 if (key !== 'geometry' && key !== 'id' && key !== 'type' && key !== 'name') {
-                    featureFields.push(key);
+                    fields.push({ name: key, type: 'text', default: properties[key], options: [] });
                 }
             });
+            drawSchema = { fields: fields };
         }
-    } else if (featureFields && featureFields.length > 0) {
+    } else if (drawSchema && drawSchema.fields && drawSchema.fields.length > 0) {
         // 不是第一个对象，根据字段结构提示用户输入值
-        featureFields.forEach(field => {
-            const value = prompt(`请输入 ${field} 的值:`, '');
+        drawSchema.fields.forEach(f => {
+            const value = prompt(`请输入 ${f.name} 的值:`, f.default ?? '');
             if (value !== null) {
-                feature.set(field, value);
+                feature.set(f.name, value);
             }
         });
     }
@@ -7675,7 +7733,7 @@ function clearDrawLayer() {
     if (confirm('确定要清空所有绘制的要素吗?')) {
         drawSource.clear();
         drawFeatures = [];
-        featureFields = null; // 重置字段结构
+        drawSchema = null; // 重置字段结构
     }
 }
 
@@ -7829,24 +7887,31 @@ function addDrawToolbar() {
     
     toolbar.appendChild(drawDiv);
     
-    // 绘制按钮事件
-    document.getElementById('drawPointBtn').onclick = () => {
-        if (drawMode === 'Point') stopDraw();
-        else startDraw('Point');
-        document.getElementById('drawDropdownMenu').style.display = 'none';
-    };
-    
-    document.getElementById('drawLineBtn').onclick = () => {
-        if (drawMode === 'LineString') stopDraw();
-        else startDraw('LineString');
-        document.getElementById('drawDropdownMenu').style.display = 'none';
-    };
-    
-    document.getElementById('drawPolygonBtn').onclick = () => {
-        if (drawMode === 'Polygon') stopDraw();
-        else startDraw('Polygon');
-        document.getElementById('drawDropdownMenu').style.display = 'none';
-    };
+    // 绘制按钮事件 — 没有 schema 时先弹设计器（异步）
+    ['drawPointBtn', 'drawLineBtn', 'drawPolygonBtn'].forEach((btnId, i) => {
+        const modes = ['Point', 'LineString', 'Polygon'];
+        document.getElementById(btnId).onclick = () => {
+            const mode = modes[i];
+            if (drawMode === mode) {
+                stopDraw();
+            } else if (!drawSchema && FeatureForm && typeof window.FeatureForm.showSchemaDesigner === 'function') {
+                // 先弹字段结构设计器，确认后再进入绘制
+                window.FeatureForm.showSchemaDesigner({
+                    title: '先定义字段结构（可跳过）',
+                    initialSchema: drawSchema,
+                    onConfirm: (schema) => {
+                        drawSchema = schema;
+                        startDraw(mode);
+                    }
+                });
+                // 注意：弹窗关闭后还需要手动进入绘制，因为没有 schema 就不知道 startDraw 会怎么处理
+                // 这里让用户自己点击绘制按钮进入
+            } else {
+                startDraw(mode);
+            }
+            document.getElementById('drawDropdownMenu').style.display = 'none';
+        };
+    });
     
     document.getElementById('drawStopBtn').onclick = () => {
         stopDraw();
