@@ -59,6 +59,11 @@
         // 如果已经加过，跳过
         if (containerDiv.querySelector('[data-editable-checkbox]')) return;
 
+        // 优先插到 layerHeader > leftSection 里（同一行显示）
+        const leftSection = containerDiv.querySelector(':scope > div:first-child > div:first-child')
+            || containerDiv.querySelector('div[style*="justifyContent"] > div:first-child');
+        const mountPoint = leftSection || containerDiv;
+
         const editWrap = document.createElement('div');
         editWrap.style.display = 'flex';
         editWrap.style.alignItems = 'center';
@@ -96,7 +101,7 @@
 
         editWrap.appendChild(editCheck);
         editWrap.appendChild(editLabel);
-        containerDiv.appendChild(editWrap);
+        mountPoint.appendChild(editWrap);
     }
 
     // 暴露
@@ -632,11 +637,116 @@
     }
 
     // =====================================================
-    // 12. 初始化：打补丁 + 监听
+    // 12. 初始化入口：绑定 HTML 里的 editLocalLayerBtn（方案A）
+    //     如果不存在，fallback 到在工具栏创建独立按钮
+    // =====================================================
+    function initEditorEntry() {
+        // 等待 DOM 就绪
+        const htmlBtn = document.getElementById('editLocalLayerBtn');
+        if (htmlBtn) {
+            // 方案 A：复用 HTML 里的按钮，弹出图层选择列表
+            console.log('✅ 绑定 HTML 按钮 #editLocalLayerBtn');
+            attachLayerListPopup(htmlBtn);
+        } else {
+            // 兼容：动态创建独立工具栏按钮
+            console.log('⚠️ HTML 按钮不存在，fallback 到独立工具栏按钮');
+            addStandaloneToolbarButton();
+        }
+    }
+
+    // 弹出"选择要编辑的本地图层"浮层（可复用，绑定到任意按钮）
+    function attachLayerListPopup(triggerBtn) {
+        let popup = null;
+
+        function close() { if (popup) { popup.remove(); popup = null; } }
+        function refresh() {
+            if (!popup) return;
+            popup.innerHTML = '';
+
+            if (editorState.active) {
+                const header = document.createElement('div');
+                header.style.cssText = 'padding:8px 12px;background:#e6f7ff;border-bottom:1px solid #91d5ff;font-size:12px;color:#1890ff;font-weight:bold;';
+                header.textContent = `🛠️ 正在编辑: ${editorState.editingLayer.name}`;
+                popup.appendChild(header);
+
+                const saveRow = document.createElement('button');
+                saveRow.className = 'dropdown-btn';
+                saveRow.style.cssText = 'display:block;width:100%;text-align:left;';
+                saveRow.textContent = '💾 保存当前编辑';
+                saveRow.onclick = () => { saveCurrentLayer(); };
+                popup.appendChild(saveRow);
+
+                const stopRow = document.createElement('button');
+                stopRow.className = 'dropdown-btn';
+                stopRow.style.cssText = 'display:block;width:100%;text-align:left;';
+                stopRow.textContent = '✕ 停止编辑';
+                stopRow.onclick = () => { stopEditLayer(); close(); };
+                popup.appendChild(stopRow);
+                return;
+            }
+
+            if (!localGeoJsonLayers || localGeoJsonLayers.length === 0) {
+                const empty = document.createElement('div');
+                empty.style.cssText = 'padding:14px;font-size:12px;color:#999;text-align:center;line-height:1.8;';
+                empty.innerHTML = '暂无本地图层<br>请从 🗂️ → 📁 本地图层 加载<br>或从 ✏️ 图形编辑 新建';
+                popup.appendChild(empty);
+                return;
+            }
+
+            const header = document.createElement('div');
+            header.style.cssText = 'padding:8px 12px;background:#fafafa;border-bottom:1px solid #eee;font-size:12px;color:#666;font-weight:bold;';
+            header.textContent = '选择要编辑的图层:';
+            popup.appendChild(header);
+
+            localGeoJsonLayers.forEach(item => {
+                const row = document.createElement('button');
+                row.className = 'dropdown-btn';
+                row.style.cssText = 'display:block;width:100%;text-align:left;';
+                row.innerHTML = `📄 ${item.name}`;
+                row.onclick = () => { startEditLayer(item); close(); };
+                popup.appendChild(row);
+            });
+        }
+
+        triggerBtn.onclick = (e) => {
+            e.stopPropagation();
+            if (popup) { close(); return; }
+            // 定位在 triggerBtn 下方
+            const rect = triggerBtn.getBoundingClientRect();
+            popup = document.createElement('div');
+            popup.style.cssText = `position:fixed;top:${rect.bottom + 4}px;left:${rect.left}px;min-width:200px;max-height:360px;overflow-y:auto;background:white;border:1px solid #ddd;border-radius:4px;box-shadow:0 2px 10px rgba(0,0,0,0.15);z-index:2000;display:block;`;
+            document.body.appendChild(popup);
+            refresh();
+        };
+
+        document.addEventListener('click', (e) => {
+            if (popup && !popup.contains(e.target) && e.target !== triggerBtn) close();
+        });
+    }
+
+    // 兼容 fallback：创建独立工具栏按钮（原来的 addEditorToolbarButton 简化版）
+    function addStandaloneToolbarButton() {
+        const toolbar = document.querySelector('.toolbar');
+        if (!toolbar) { setTimeout(addStandaloneToolbarButton, 300); return; }
+        if (document.getElementById('layerEditorToolbarBtn')) return;
+
+        const btn = document.createElement('button');
+        btn.id = 'layerEditorToolbarBtn';
+        btn.className = 'action-btn';
+        btn.dataset.title = '本地数据编辑';
+        btn.textContent = '🖊️';
+        toolbar.appendChild(btn);
+        attachLayerListPopup(btn);
+        console.log('⚠️ fallback: 已创建独立 🖊️ 按钮');
+    }
+
+    // =====================================================
+    // 13. 初始化
     // =====================================================
     function initLayerEditor() {
         patchLoaders();
         patchCreateLayerControl();
+        initEditorEntry();
         console.log('✅ layer_editor.js 已初始化');
     }
 
