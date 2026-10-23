@@ -251,22 +251,19 @@
             zIndex: 9999
         });
         map.addLayer(layer);
-
         activeMarker = { layer, source: vectorSrc };
 
-        // Popup 显示详情
-        showPopup(poi, lon, lat);
-
-        // flyTo
+        // 1. 先让地图平滑飞到 POI 正中心（popup 动画会干扰，所以先做）
         const view = map.getView();
         const center = ol.proj.fromLonLat([lon, lat]);
         view.animate({
             center: center,
             zoom: Math.max(view.getZoom() || 10, 13),
-            duration: 1000
+            duration: 800
+        }, () => {
+            // 2. 动画完成后再弹 popup（避免 autoPan 和 animate 打架）
+            showPopup(poi, lon, lat);
         });
-
-        // 搜索面板可以保留让用户继续搜，也可以收起
     }
 
     function showPopup(poi, lon, lat) {
@@ -292,7 +289,7 @@
             element: el,
             positioning: 'bottom-center',
             offset: [0, -32],
-            autoPan: true
+            autoPan: false    // 关掉，避免干扰 center 定位
         });
         overlay.setPosition(ol.proj.fromLonLat([lon, lat]));
         map.addOverlay(overlay);
