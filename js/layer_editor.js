@@ -686,17 +686,9 @@
     //     如果不存在，fallback 到在工具栏创建独立按钮
     // =====================================================
     function initEditorEntry() {
-        // 等待 DOM 就绪
-        const htmlBtn = document.getElementById('editLocalLayerBtn');
-        if (htmlBtn) {
-            // 方案 A：复用 HTML 里的按钮，弹出图层选择列表
-            console.log('✅ 绑定 HTML 按钮 #editLocalLayerBtn');
-            attachLayerListPopup(htmlBtn);
-        } else {
-            // 兼容：动态创建独立工具栏按钮
-            console.log('⚠️ HTML 按钮不存在，fallback 到独立工具栏按钮');
-            addStandaloneToolbarButton();
-        }
+        // 编辑入口已统一到图层管理面板的「编辑」复选框中（addEditableCheckboxToLayerItem）
+        // 此处不再需要独立按钮
+        console.log('🖊️ 本地图层编辑入口：图层管理面板 → 勾选「编辑」');
     }
 
     // 弹出"选择要编辑的本地图层"浮层（可复用，绑定到任意按钮）

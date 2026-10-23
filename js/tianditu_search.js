@@ -99,12 +99,26 @@
         resultsEl.innerHTML = `<div style="padding:14px;text-align:center;color:#999;font-size:12px;">🔍 搜索中...</div>`;
 
         try {
+            // 从地图视图取范围，反投影成 WGS84 作为 mapBound
+            let mapBound = '70.0,15.0,140.0,55.0'; // 默认覆盖中国
+            try {
+                const view = map.getView();
+                const ext = view.calculateExtent(map.getSize());
+                const [minLon, maxLat] = ol.proj.toLonLat([ext[0], ext[1]]);
+                const [maxLon, minLat] = ol.proj.toLonLat([ext[2], ext[3]]);
+                // 适当放大范围（让搜索结果更多）
+                const padLon = (maxLon - minLon) * 0.3;
+                const padLat = (maxLat - minLat) * 0.3;
+                mapBound = `${(minLon - padLon).toFixed(3)},${(minLat - padLat).toFixed(3)},${(maxLon + padLon).toFixed(3)},${(maxLat + padLat).toFixed(3)}`;
+            } catch (e) { /* 用默认范围 */ }
+
             const postStr = JSON.stringify({
                 keyWord: keyword,
                 level: 12,
-                queryType: 1,      // 1 = 普通搜索，返回城市/地名/POI
+                queryType: 1,
                 count: RESULTS_MAX,
-                start: 0
+                start: 0,
+                mapBound: mapBound
             });
 
             const url = `https://api.tianditu.gov.cn/v2/search?postStr=${encodeURIComponent(postStr)}&type=query&tk=${TK}`;
