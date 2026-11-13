@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
@@ -78,7 +78,7 @@ function getUsernameFromUrl() {
 window.addEventListener('load', function() {
     const urlParams = new URLSearchParams(window.location.search);
     const uploaded = urlParams.get('uploaded');
-    if (uploaded === '1') {
+    if (!window.XIAOLIU_EMBED && uploaded === '1') {
         setTimeout(() => {
             centerMapToUploadedData();
         }, 1000);
@@ -2497,7 +2497,8 @@ window.localGeoJsonLayers = localGeoJsonLayers;
  * 加载本地 GeoJSON 数据到地图
  * @param {Object} geoJson - GeoJSON 对象
  * @param {string} name - 图层名称
- * @param {Object} [fileInfo] - 可选的文件信息 {fileName, format}
+ * @param {Object} [fileInfo] - 可选的文件信息 {fileName, format, autoFit=true}
+ * @returns {ol.layer.Vector} 成功加载的矢量图层
  */
 function loadLocalGeoJSON(geoJson, name, fileInfo) {
     try {
@@ -2508,42 +2509,41 @@ function loadLocalGeoJSON(geoJson, name, fileInfo) {
         });
         
         console.log('成功加载本地 GeoJSON:', name, '要素数量:', features.length);
+
+        // 每个图层只创建一次默认样式，避免渲染时重复实例化
+        const pointStyle = new ol.style.Style({
+            image: new ol.style.Circle({
+                radius: 6,
+                fill: new ol.style.Fill({ color: 'rgba(24, 144, 255, 0.8)' }),
+                stroke: new ol.style.Stroke({ color: '#fff', width: 2 })
+            })
+        });
+        const lineStyle = new ol.style.Style({
+            stroke: new ol.style.Stroke({
+                color: 'rgba(82, 196, 26, 0.9)',
+                width: 3
+            })
+        });
+        const polygonStyle = new ol.style.Style({
+            fill: new ol.style.Fill({ color: 'rgba(255, 165, 0, 0.3)' }),
+            stroke: new ol.style.Stroke({ color: 'rgba(255, 165, 0, 0.9)', width: 2 })
+        });
+        const emptyStyle = new ol.style.Style();
+        const styleCache = {
+            Point: pointStyle,
+            MultiPoint: pointStyle,
+            LineString: lineStyle,
+            MultiLineString: lineStyle,
+            Polygon: polygonStyle,
+            MultiPolygon: polygonStyle
+        };
         
         // 创建矢量图层
         const vectorLayer = new ol.layer.Vector({
             source: new ol.source.Vector({ features }),
             style: function(feature) {
-                const geometryType = feature.getGeometry().getType();
-                
-                // 根据几何类型设置默认样式
-                if (geometryType === 'Point') {
-                    return new ol.style.Style({
-                        image: new ol.style.Circle({
-                            radius: 6,
-                            fill: new ol.style.Fill({ color: 'rgba(24, 144, 255, 0.8)' }),
-                            stroke: new ol.style.Stroke({ color: '#fff', width: 2 })
-                        })
-                    });
-                } else if (geometryType === 'LineString' || geometryType === 'MultiLineString') {
-                    return new ol.style.Style({
-                        stroke: new ol.style.Stroke({
-                            color: 'rgba(82, 196, 26, 0.9)',
-                            width: 3
-                        })
-                    });
-                } else if (geometryType === 'Polygon' || geometryType === 'MultiPolygon') {
-                    return new ol.style.Style({
-                        fill: new ol.style.Fill({
-                            color: 'rgba(255, 165, 0, 0.3)'
-                        }),
-                        stroke: new ol.style.Stroke({
-                            color: 'rgba(255, 165, 0, 0.9)',
-                            width: 2
-                        })
-                    });
-                }
-                
-                return new ol.style.Style();
+                const geometry = feature.getGeometry();
+                return geometry ? (styleCache[geometry.getType()] || emptyStyle) : emptyStyle;
             },
             visible: true,
             properties: {
@@ -2569,10 +2569,13 @@ function loadLocalGeoJSON(geoJson, name, fileInfo) {
         // 更新图层控制面板
         createLayerControl();
         
-        // 自动缩放到图层范围
-        zoomToLayerExtent(vectorLayer);
+        // 默认自动缩放，调用方可通过 autoFit=false 关闭
+        if (!fileInfo || fileInfo.autoFit !== false) {
+            zoomToLayerExtent(vectorLayer);
+        }
         
         console.log('本地 GeoJSON 图层已添加:', name);
+        return vectorLayer;
     } catch (error) {
         console.error('加载本地 GeoJSON 失败:', error);
         throw error;
@@ -2901,7 +2904,7 @@ function loadLocalKMZ(kmzData, name, loadingPanel, loadingProgress, fileInfo) {
  */
 function zoomToLayerExtent(layer) {
     const source = layer.getSource();
-    if (!source || source.getFeatures().length === 0) return;
+    if (!source || source.getFeatures().length === 0) return false;
     
     const extent = ol.extent.createEmpty();
     source.getFeatures().forEach(feature => {
@@ -2910,15 +2913,20 @@ function zoomToLayerExtent(layer) {
             ol.extent.extend(extent, geom.getExtent());
         }
     });
-    
-    if (ol.extent.getWidth(extent) > 0 && ol.extent.getHeight(extent) > 0) {
-        // 添加 10% 的边距
-        const bufferedExtent = ol.extent.buffer(extent, ol.extent.getWidth(extent) * 0.1);
-        map.getView().fit(bufferedExtent, {
-            padding: [50, 50, 50, 50],
-            duration: 500
-        });
-    }
+
+    if (ol.extent.isEmpty(extent)) return false;
+
+    const width = ol.extent.getWidth(extent);
+    const height = ol.extent.getHeight(extent);
+    const fitExtent = width > 0 && height > 0
+        ? ol.extent.buffer(extent, width * 0.1)
+        : extent;
+    map.getView().fit(fitExtent, {
+        padding: [50, 50, 50, 50],
+        duration: 500,
+        maxZoom: 18
+    });
+    return true;
 }
 
 /**
@@ -5456,7 +5464,9 @@ function openLayerStyleEditor(item, index) {
 function applyLayerStyle(layer, style, geometryType) {
     console.log('应用样式到图层:', style);
     const newStyleFunction = function(feature) {
-        const geomType = feature.getGeometry().getType();
+        const geometry = feature.getGeometry();
+        if (!geometry) return [];
+        const geomType = geometry.getType();
         const styles = [];
         
         // 检查是否有分类样式设置

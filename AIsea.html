@@ -4,6 +4,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes">
+    <script>
+        window.XIAOLIU_EMBED = new URLSearchParams(window.location.search).get('embed') === '1';
+        window.XiaoLiuMapReady = false;
+        if (window.XIAOLIU_EMBED) document.documentElement.classList.add('xiaoliu-embed');
+    </script>
     <title>跬步地图3.03</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.5.2/ol.css">
     <script src="/js/chart.umd.min.js"></script>
@@ -63,6 +68,14 @@
         </div>
     </div>
     <style>
+        .xiaoliu-embed .toolbar,
+        .xiaoliu-embed .layer-control,
+        .xiaoliu-embed #layerControl,
+        .xiaoliu-embed #uploadSidebar,
+        .xiaoliu-embed #sidebarOverlay {
+            display: none !important;
+        }
+
         /* Fix: Avoid overflow: visible on img, video, canvas for shared element transitions */
         img, video, canvas {
             overflow: hidden;
@@ -445,7 +458,9 @@
                     }
                     
                     // 页面加载时加载问题类型
-                    window.addEventListener('DOMContentLoaded', loadProblemTypes);
+                    window.addEventListener('DOMContentLoaded', () => {
+                        if (!window.XIAOLIU_EMBED) loadProblemTypes();
+                    });
                 </script>
                 
                 <button id="sidebarUploadBtn" style="width:100%; padding:10px; background:#1890ff; color:white; border:none; border-radius:4px; cursor:pointer;">开始上传</button>
@@ -471,6 +486,8 @@
     
     <!-- 地图核心 - 必须在依赖地图的脚本之前加载 -->
     <script src="js/map.js?v=20261023d"></script>
+    <!-- 小刘 Agent 地图桥 -->
+    <script src="js/xiaoliu_bridge.js"></script>
     <!-- 地名搜索模块（天地图 POI） -->
     <script src="js/tianditu_search.js?v=20261023"></script>
     <!-- 共享属性表单模块 - Schema 设计器 + 属性面板 -->
@@ -519,6 +536,8 @@
         
         // 初始化所有功能
         window.addEventListener('DOMContentLoaded', () => {
+            if (window.XIAOLIU_EMBED) return;
+
             // 初始化用户功能
             if (typeof initUserFunctions === 'function') {
                 initUserFunctions();
