@@ -68,9 +68,12 @@
         </div>
     </div>
     <style>
-        .xiaoliu-embed .toolbar,
-        .xiaoliu-embed .layer-control,
-        .xiaoliu-embed #layerControl,
+        /* 嵌入小刘：仅保留 切换底图/测量/绘制 三个功能（图层管理已融合进小刘面板），其余入口隐藏 */
+        .xiaoliu-embed #citySearchWrapper,
+        .xiaoliu-embed .toolbar > .dropdown:has(#myBtn),
+        .xiaoliu-embed .toolbar > .dropdown:has(#weatherMainBtn),
+        .xiaoliu-embed .toolbar > .dropdown:has(#thematicMapBtn),
+        .xiaoliu-embed .toolbar > .dropdown:has(#layerMainBtn),
         .xiaoliu-embed #uploadSidebar,
         .xiaoliu-embed #sidebarOverlay {
             display: none !important;
