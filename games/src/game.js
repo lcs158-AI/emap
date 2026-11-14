@@ -1,3 +1,8 @@
+/*
+ * 小刘游戏 · 空中打击（XiaoLiu Games）
+ * 开发人员：刘春杉、刘拙研、TRAE
+ * Copyright © 2026 刘春杉、刘拙研  All rights reserved.
+ */
 import { THREE, THREE_OK } from './three.js';
 import { CFG, MODES, getMode, getDiff } from './config.js';
 import { createTerrain } from './terrain.js';
@@ -269,12 +274,13 @@ function poseMoveX() {
 }
 
 window.addEventListener('keydown', (e) => {
-  if (['KeyA', 'KeyD', 'ArrowLeft', 'ArrowRight', 'KeyQ', 'KeyE', 'KeyF', 'KeyW', 'KeyS', 'ArrowUp', 'ArrowDown', 'KeyZ', 'KeyX'].includes(e.code)) e.preventDefault();
+  // 左手飞行：A/D/W/S/Z/X；右手射击：J 机炮、K 导弹、L 干扰弹；空格为机炮备用键
+  if (['KeyA', 'KeyD', 'ArrowLeft', 'ArrowRight', 'KeyJ', 'KeyK', 'KeyL', 'Space', 'KeyW', 'KeyS', 'ArrowUp', 'ArrowDown', 'KeyZ', 'KeyX'].includes(e.code)) e.preventDefault();
   if (e.repeat) return;
   keys[e.code] = true;
-  if (e.code === 'KeyQ') game.keyCannon = true;
-  if (e.code === 'KeyE') shootMissile(2);
-  if (e.code === 'KeyF') deployFlare(2);
+  if (e.code === 'KeyJ' || e.code === 'Space') game.keyCannon = true;
+  if (e.code === 'KeyK') shootMissile(2);
+  if (e.code === 'KeyL') deployFlare(2);
   if (e.code === 'KeyV') {
     // 视角开局选定后全程锁定（V2.6.0），战斗中不允许切换
     if (game.phase === 'playing' || game.phase === 'countdown') {
@@ -289,7 +295,7 @@ window.addEventListener('keydown', (e) => {
 });
 window.addEventListener('keyup', (e) => {
   keys[e.code] = false;
-  if (e.code === 'KeyQ') game.keyCannon = false;
+  if (e.code === 'KeyJ' || e.code === 'Space') game.keyCannon = false;
 });
 window.addEventListener('blur', () => {
   for (const k in keys) keys[k] = false;
@@ -512,7 +518,7 @@ function refreshPreflight() {
     }
   } else {
     hud.setCamFit(false);
-    note = '键盘模式：A/D 平移 · W/S 俯仰 · Z/X 机头 · Q 机炮 · E 双发导弹';
+    note = '键盘模式：左手 A/D 平移 · W/S 俯仰 · Z/X 机头；右手 J/空格 机炮 · K 双发导弹 · L 干扰弹';
   }
 
   if (game.controllers > 0) {
@@ -938,7 +944,7 @@ function shootMissile(n = 1) {
   return true;
 }
 
-/* 干扰弹：键盘 F 双发、手机单发，吸引来袭导弹；余量无限时仅受冷却限制 */
+/* 干扰弹：键盘 L 双发、手机单发，吸引来袭导弹；余量无限时仅受冷却限制 */
 function deployFlare(n = 1) {
   if (game.phase !== 'playing' || !player.alive) return false;
   if (game.flareCd > 0) {

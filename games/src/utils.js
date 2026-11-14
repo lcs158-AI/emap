@@ -1,3 +1,8 @@
+/*
+ * 小刘游戏 · 空中打击（XiaoLiu Games）
+ * 开发人员：刘春杉、刘拙研、TRAE
+ * Copyright © 2026 刘春杉、刘拙研  All rights reserved.
+ */
 export const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 export const lerp = (a, b, t) => a + (b - a) * t;
 export const rand = (a, b) => a + Math.random() * (b - a);

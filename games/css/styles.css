@@ -508,6 +508,29 @@ body {
 }
 .menu-head p { margin: 0; font-size: 13px; color: var(--muted); letter-spacing: .08em; }
 
+.privacy-notice {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px;
+  padding: 11px 14px;
+  border: 1px solid rgba(67, 224, 138, .48);
+  border-left: 3px solid var(--ok);
+  border-radius: 10px;
+  background: linear-gradient(90deg, rgba(67, 224, 138, .15), rgba(8, 22, 34, .92));
+  box-shadow: 0 0 20px rgba(67, 224, 138, .09);
+}
+.privacy-notice strong {
+  flex: none;
+  color: #82f2b6;
+  font-size: 13px; font-weight: 800; letter-spacing: .14em;
+  white-space: nowrap;
+}
+.privacy-notice span {
+  flex: 1 1 420px; min-width: 0;
+  color: #d9f4e7;
+  font-size: 12.5px; line-height: 1.65;
+}
+.privacy-notice b { color: #fff; font-weight: 800; }
+.privacy-notice.compact { margin-top: 12px; padding: 9px 12px; }
+
 .menu-main {
   display: grid;
   grid-template-columns: 300px minmax(0, 1fr);

@@ -1,3 +1,8 @@
+/*
+ * 小刘游戏 · 空中打击（XiaoLiu Games）
+ * 开发人员：刘春杉、刘拙研、TRAE
+ * Copyright © 2026 刘春杉、刘拙研  All rights reserved.
+ */
 /* 程序化音效引擎：全部用 Web Audio 合成，不依赖外部音频文件 */
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 

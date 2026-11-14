@@ -1,4 +1,9 @@
 <!DOCTYPE html>
+<!--
+  小刘游戏 · 空中打击（XiaoLiu Games）
+  开发人员：刘春杉、刘拙研、TRAE
+  Copyright © 2026 刘春杉、刘拙研  All rights reserved.
+-->
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8" />
@@ -97,11 +102,11 @@
 
   <canvas id="minimap" class="minimap hidden" width="200" height="150" aria-label="战场鸟瞰小地图"></canvas>
 
-  <div class="hud-hint">Q 机炮 · E/F 双发导弹/干扰弹 · A/D 平移 · W/S 俯仰 · Z/X 机头 · 体感：躯干扭转=机头扫射 身体左右平移=飞机左右移动 双手举高=爬升 放低=俯冲 快速下压=紧急规避</div>
+  <div class="hud-hint">左手 A/D 平移 · W/S 俯仰 · Z/X 机头 · 右手 J/空格 机炮 · K 双发导弹 · L 双发干扰弹 · 体感：躯干扭转=机头扫射 身体左右平移=飞机左右移动 双手举高=爬升 放低=俯冲 快速下压=紧急规避</div>
   <div class="train-hint hidden" id="trainHint">
     <b>训练场 · 操控练习</b>
     <span>键盘：A/D 平移 · W 抬升 · S 俯冲 · Z/X 机头左右</span>
-    <span>武器：Q 机炮 · E 双发导弹 · F 双发干扰弹（敌导弹逼近时自动释放）</span>
+    <span>武器（右手）：J/空格 机炮（按住连发） · K 双发导弹 · L 双发干扰弹（敌导弹逼近时自动释放）</span>
     <span>手机：横屏左拇指机炮 · 右拇指导弹 · 中条干扰弹（仅开火）</span>
     <span>电脑摄像头：躯干扭转=机头扫射 · 身体左右平移=飞机左右移动 · 双手举高=爬升 · 放低=俯冲 · 双手快速下压=紧急规避</span>
   </div>
@@ -114,6 +119,11 @@
       <div class="brand-line">XIAOLIU GAMES</div>
       <h1>小刘游戏 <span>xiaoliu games</span></h1>
       <p>体感飞行控制 · 手机双武器 · 四大战场 + 训练场</p>
+    </div>
+
+    <div class="privacy-notice" role="note" aria-label="摄像头隐私保护说明">
+      <strong>隐私保护</strong>
+      <span>摄像头影像仅在您的浏览器本地用于实时姿态识别，<b>不采集、不录制、不传输、不保存</b>，不会上传至任何服务器。</span>
     </div>
 
     <div class="menu-main">
@@ -209,6 +219,10 @@
     <div class="pf-kicker">PRE-FLIGHT CHECK</div>
     <div class="pf-title">出击前检查 <em id="pfMode">公路</em></div>
     <div class="pf-sub">确认摄像头、姿态识别与手机控制器已就绪，再正式开始任务</div>
+    <div class="privacy-notice compact" role="note" aria-label="摄像头隐私保护说明">
+      <strong>摄像头隐私承诺</strong>
+      <span>所有姿态计算均在本地浏览器完成；摄像头影像<b>不采集、不录制、不传输、不保存</b>，服务器不接收任何影像数据。</span>
+    </div>
 
     <div class="pf-body">
       <div class="pf-cam-col">

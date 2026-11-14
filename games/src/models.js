@@ -1,3 +1,8 @@
+/*
+ * 小刘游戏 · 空中打击（XiaoLiu Games）
+ * 开发人员：刘春杉、刘拙研、TRAE
+ * Copyright © 2026 刘春杉、刘拙研  All rights reserved.
+ */
 import { THREE } from './three.js';
 
 const MAT = (color, metalness = 0.45, roughness = 0.55, extra = {}) =>

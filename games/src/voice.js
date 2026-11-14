@@ -1,3 +1,8 @@
+/*
+ * 小刘游戏 · 空中打击（XiaoLiu Games）
+ * 开发人员：刘春杉、刘拙研、TRAE
+ * Copyright © 2026 刘春杉、刘拙研  All rights reserved.
+ */
 // 语音提示（V2.5）：支持用户/小孩自行录制的音频文件，缺失时回退浏览器 TTS。
 // 录音约定：把 <key>.mp3（或 .ogg/.wav）放入 assets/voice/ 目录，键名见 CATALOG。
 import { CFG } from './config.js';
