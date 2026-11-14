@@ -262,9 +262,11 @@
         editorState.tool = 'select';
         editorState.schema = null;
 
-        // 移除工具栏
+        // 移除工具栏与绘制提示条
         const toolbar = document.getElementById('layerEditorToolbar');
         if (toolbar) toolbar.remove();
+        const hintBar = document.getElementById('drawHintBar');
+        if (hintBar) hintBar.remove();
 
         // 移除属性面板（使用共享模块）
         if (FeatureForm && typeof FeatureForm.closePropertyPanel === 'function') {
@@ -370,6 +372,11 @@
     // 6. 切换工具 —— 每种工具独立激活自己的交互
     // =====================================================
     function switchTool(toolKey) {
+        // 再次点击当前绘制工具 = 退出绘制
+        if (isDrawTool(toolKey) && editorState.tool === toolKey) {
+            exitDrawMode();
+            return;
+        }
         editorState.tool = toolKey;
 
         // === 0. 先关所有交互 ===
@@ -421,6 +428,7 @@
             // 设计器弹完后回到"空闲"态（地图可平移）
             editorState.tool = null;
             updateToolButtons();
+            updateDrawHint();
             return;
 
         } else if (toolKey === 'delete') {
@@ -433,7 +441,68 @@
         }
 
         updateToolButtons();
+        updateDrawHint();
     }
+
+    // =====================================================
+    // 6.5 绘制退出机制：Esc / 提示条按钮 / 再点一次工具按钮
+    // =====================================================
+    function isDrawTool(key) {
+        return key === 'drawPoint' || key === 'drawLine' || key === 'drawPolygon';
+    }
+
+    function exitDrawMode() {
+        if (editorState.drawInteraction) {
+            // 丢弃未完成的草图，避免残留半截图形
+            try { editorState.drawInteraction.abortDrawing(); } catch (e) { /* 兼容旧版 OL */ }
+            map.removeInteraction(editorState.drawInteraction);
+            editorState.drawInteraction = null;
+        }
+        if (editorState.snapInteraction) {
+            map.removeInteraction(editorState.snapInteraction);
+        }
+        // 回到选择工具，地图恢复可平移
+        editorState.tool = 'select';
+        if (editorState.selectInteraction) editorState.selectInteraction.setActive(true);
+        updateToolButtons();
+        updateDrawHint();
+    }
+
+    function updateDrawHint() {
+        let bar = document.getElementById('drawHintBar');
+        if (!editorState.active || !isDrawTool(editorState.tool)) {
+            if (bar) bar.remove();
+            return;
+        }
+        if (!bar) {
+            bar = document.createElement('div');
+            bar.id = 'drawHintBar';
+            bar.style.cssText = 'position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:1100;background:rgba(24,144,255,0.95);color:white;padding:8px 14px;border-radius:6px;font-size:12px;display:flex;align-items:center;gap:12px;box-shadow:0 2px 10px rgba(0,0,0,0.25);pointer-events:auto;';
+            const text = document.createElement('span');
+            text.id = 'drawHintText';
+            const quit = document.createElement('button');
+            quit.textContent = '✕ 退出绘制';
+            quit.style.cssText = 'border:1px solid rgba(255,255,255,0.7);background:transparent;color:white;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:12px;';
+            quit.onclick = exitDrawMode;
+            bar.appendChild(text);
+            bar.appendChild(quit);
+            document.body.appendChild(bar);
+        }
+        const tips = {
+            drawPoint: '📍 正在绘点：单击地图放置',
+            drawLine: '✏️ 正在绘线：单击添加节点，双击结束',
+            drawPolygon: '🔲 正在绘面：单击添加节点，双击结束'
+        };
+        document.getElementById('drawHintText').textContent = tips[editorState.tool] + '（Esc 退出）';
+    }
+
+    // Esc 退出当前绘制（仅编辑态 + 绘制工具激活时响应，不影响其他弹窗）
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && editorState.active && isDrawTool(editorState.tool)) {
+            e.preventDefault();
+            exitDrawMode();
+        }
+    });
 
     function addDrawInteraction(geomType) {
         if (!editorState.source) return;
@@ -484,6 +553,7 @@
             editorState.drawInteraction = null;
             editorState.tool = null;
             updateToolButtons();
+            updateDrawHint();
         });
 
         map.addInteraction(editorState.drawInteraction);
