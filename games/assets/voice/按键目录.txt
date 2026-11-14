@@ -1,0 +1,31 @@
+语音提示录音目录
+================================
+
+把录制好的音频放到本目录，文件名为「键名 + 扩展名」，例如：
+
+    train.pitchUp.mp3
+    warn.missile.ogg
+
+支持扩展名：mp3 / ogg / wav（大小写不敏感）。
+
+未录制的键会自动回退到浏览器自带的文字朗读（TTS），不影响使用。
+想让「导弹来袭」等由孩子配音，录制后按下面键名命名放入即可。
+
+一、动作训练引导（训练屏出题与判定）
+    train.start        —— 开始训练
+    train.shiftLeft    —— 重心左移，战机左转
+    train.shiftRight   —— 重心右移，战机右转
+    train.dive         —— 躯干前俯，战机俯冲
+    train.climb        —— 躯干后仰，战机爬升
+    train.squat        —— 屈膝下蹲，紧急规避
+    train.good         —— 正确
+    train.retryDir     —— 方向反了
+    train.retryAmp     —— 幅度再大些
+    train.done         —— 训练结束
+
+二、对战预警
+    warn.missile       —— 导弹来袭
+    warn.shell         —— 炮弹来袭
+    warn.lock          —— 已锁定
+    warn.low           —— 高度过低（预留，暂未接入）
+    warn.evade         —— 紧急规避（下蹲触发时播报）

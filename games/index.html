@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>小刘游戏 xiaoliu games</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23050b14'/%3E%3Cpath d='M32 10 18 44l14-6 14 6z' fill='%2335e0ff'/%3E%3C/svg%3E" />
+<link rel="stylesheet" href="./css/styles.css" />
+</head>
+<body>
+<div id="scene"></div>
+<video id="cam" playsinline muted autoplay></video>
+
+<div id="hud" class="hud hidden">
+  <div class="hud-left">
+    <div class="panel mission-panel">
+      <div class="mission-head">
+        <span class="mission-mode" id="hudMode">公路</span>
+        <span class="mission-time" id="hudTime">02:00</span>
+      </div>
+      <div class="mission-row">
+        <span>剩余目标 <b id="hudRemain">0</b></span>
+        <span>得分 <b id="hudScore">0</b></span>
+      </div>
+    </div>
+
+    <div class="panel vital-panel">
+      <div class="vital-row">
+        <span class="vital-label">护甲</span>
+        <div class="pips" id="armorPips"></div>
+      </div>
+      <div class="vital-row">
+        <span class="vital-label">导弹</span>
+        <div class="pips" id="ammoPips"></div>
+      </div>
+      <div class="vital-row">
+        <span class="vital-label">干扰弹</span>
+        <b class="flare-count" id="flareCount">x∞</b>
+      </div>
+    </div>
+  </div>
+
+  <div class="hud-right">
+    <div class="panel status-panel">
+      <div class="status-row"><span class="led" id="ledCam"></span><span class="label">摄像头</span><b id="stCam">未启动</b></div>
+      <div class="status-row"><span class="led" id="ledPose"></span><span class="label">姿态识别</span><b id="stPose">未启动</b></div>
+      <div class="status-row"><span class="led" id="ledNet"></span><span class="label">手机控制器</span><b id="stNet">未连接</b></div>
+      <div class="status-row"><span class="led" id="ledFlight"></span><span class="label">手机体感</span><b id="stFlight">未启用</b></div>
+    </div>
+
+    <div class="panel qr-panel" id="qrPanel">
+      <div class="qr-head"><span>手机扫码控制</span><button id="qrToggle">收起</button></div>
+      <div class="qr-body">
+        <img class="qr-img" id="qrImg" alt="控制器二维码" />
+        <div class="qr-url" id="qrUrl">正在获取地址…</div>
+        <div class="qr-tip">手机与电脑需在同一 WiFi，横屏双手握持 · 手机仅用于开火，飞行姿态由电脑摄像头识别</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="crosshair" id="crosshair"><i class="ch-up"></i><i class="ch-down"></i><i class="ch-left"></i><i class="ch-right"></i><b class="ch-dot"></b></div>
+  <div class="lock-box hidden" id="lockBox"><span>锁定</span><b id="lockName">目标</b></div>
+
+  <div class="warn hidden" id="warn">
+    <i class="warn-arrow" id="warnArrow"></i>
+    <span class="warn-text" id="warnText">来袭</span>
+  </div>
+
+  <!-- 第一人称飞行仪表（V2.4.4） -->
+  <div class="fp-hud hidden" id="fpHud">
+    <div class="hdg-wrap">
+      <div class="hdg-tape" id="hdgTape"></div>
+      <i class="hdg-fix"></i>
+      <span class="hdg-read" id="hdgRead">HDG 000</span>
+    </div>
+
+    <div class="horizon" id="horizon">
+      <div class="horizon-bg" id="horizonBg"><i class="sky"></i><i class="ground"></i></div>
+      <div class="pitch-ladder" id="pitchLadder"></div>
+      <i class="horizon-fix"></i>
+    </div>
+
+    <div class="tape tape-ias">
+      <label>速度</label>
+      <div class="tape-track" id="iasTape"></div>
+      <div class="tape-read"><b id="iasRead">260</b><span>节</span></div>
+    </div>
+
+    <div class="tape tape-alt">
+      <label>高度</label>
+      <div class="tape-track" id="altTape"></div>
+      <div class="tape-read"><b id="altRead">024</b><span>米</span></div>
+    </div>
+
+    <div class="vs-read" id="vsRead">VS +0</div>
+  </div>
+
+  <canvas id="minimap" class="minimap hidden" width="200" height="150" aria-label="战场鸟瞰小地图"></canvas>
+
+  <div class="hud-hint">Q 机炮 · E/F 双发导弹/干扰弹 · A/D 平移 · W/S 俯仰 · Z/X 机头 · 体感：躯干扭转=机头扫射 身体左右平移=飞机左右移动 双手举高=爬升 放低=俯冲 快速下压=紧急规避</div>
+  <div class="train-hint hidden" id="trainHint">
+    <b>训练场 · 操控练习</b>
+    <span>键盘：A/D 平移 · W 抬升 · S 俯冲 · Z/X 机头左右</span>
+    <span>武器：Q 机炮 · E 双发导弹 · F 双发干扰弹（敌导弹逼近时自动释放）</span>
+    <span>手机：横屏左拇指机炮 · 右拇指导弹 · 中条干扰弹（仅开火）</span>
+    <span>电脑摄像头：躯干扭转=机头扫射 · 身体左右平移=飞机左右移动 · 双手举高=爬升 · 放低=俯冲 · 双手快速下压=紧急规避</span>
+  </div>
+  <div class="hit-overlay" id="hitOverlay"></div>
+</div>
+
+<div id="menu" class="overlay menu">
+  <div class="menu-inner">
+    <div class="menu-head">
+      <div class="brand-line">XIAOLIU GAMES</div>
+      <h1>小刘游戏 <span>xiaoliu games</span></h1>
+      <p>体感飞行控制 · 手机双武器 · 四大战场 + 训练场</p>
+    </div>
+
+    <div class="menu-main">
+      <div class="menu-left">
+        <div class="panel control-box">
+          <div class="box-title">控制方式</div>
+          <div class="seg">
+            <button class="seg-btn active" id="ctrlCam">体感飞行</button>
+            <button class="seg-btn" id="ctrlKeys">键盘 A/D</button>
+          </div>
+          <div class="box-hint">体感飞行（站到摄像头前，上半身入镜并套进取景框）：双手拿手机平举胸前作为零点，双脚站定扭转躯干=机头左右扫射，身体左右平移=飞机左右移动（躲避攻击），双手举高=爬升、放低=俯冲（可对地/水面/空中目标射击）；双手快速下压并保持 0.2 秒=紧急俯冲规避（2 秒冷却）。视角开局选定后锁定，战斗中不可切换。手机只负责开火（左机炮 / 右导弹 / 中条干扰弹）。</div>
+          <button class="train-btn" id="trainBtn" type="button">动作训练 · 规范操作要领</button>
+        </div>
+
+        <div class="panel qr-box">
+          <div class="box-title">手机控制器</div>
+          <div class="qr-row">
+            <img id="menuQrImg" class="qr-img" alt="控制器二维码" />
+            <div class="qr-meta">
+              <span class="qr-url" id="menuQrUrl">正在获取地址…</span>
+              <small>手机与电脑连接同一 WiFi，横屏双手握持；右拇指机炮按住连发，左拇指导弹点按发射，中间竖条干扰弹（手机只负责开火）。</small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mode-col">
+        <div class="panel diff-box">
+          <div class="box-title">难度选择</div>
+          <div class="seg" id="diffSeg"></div>
+        </div>
+        <div class="mode-grid" id="modeGrid"></div>
+      </div>
+    </div>
+
+    <div class="menu-foot">
+      <span>机炮无限 · 导弹 10 发 · 干扰弹无限（冷却 2.5s） · 被敌导弹命中即坠毁 · 3 发炮弹击毁</span>
+      <span>清空全部敌方目标即可获胜</span>
+    </div>
+  </div>
+</div>
+
+<div id="result" class="overlay result hidden">
+  <div class="result-card">
+    <div class="result-title" id="resTitle">任务成功</div>
+    <div class="result-reason" id="resReason"></div>
+    <div class="result-grid">
+      <div><span>得分</span><b id="resScore">0</b></div>
+      <div><span>击毁 / 目标</span><b id="resKills">0 / 0</b></div>
+      <div><span>机炮命中率</span><b id="resAcc">0%</b></div>
+      <div><span>导弹剩余</span><b id="resAmmo">0</b></div>
+      <div><span>用时</span><b id="resTime">0s</b></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn primary" id="btnReplay">重玩本模式</button>
+      <button class="btn ghost" id="btnMenu">返回模式选择</button>
+    </div>
+  </div>
+</div>
+
+<div id="train" class="overlay train hidden">
+  <div class="train-card">
+    <div class="train-head">
+      <div class="train-title">动作要领训练 <em>TRAIN</em></div>
+      <button class="train-exit" id="trainExit" type="button">退出</button>
+    </div>
+    <div class="train-sub">按要求在摄像头前做动作 · 保持达标 0.7 秒记一次通过 · 反复练习规范动作</div>
+
+    <div class="train-body">
+      <div class="train-prompt">
+        <div class="train-req" id="trainReq">重心左移 · 战机左转</div>
+        <div class="train-arrow" id="trainArrow">▲</div>
+        <div class="train-live" id="trainLive">信号 0.00</div>
+        <div class="train-bar"><i id="trainBarFill"></i><b id="trainBarMark"></b></div>
+        <div class="train-verdict" id="trainVerdict">等待动作…</div>
+      </div>
+
+      <div class="train-side">
+        <div class="train-progress">进度 <b id="trainDone">0</b> / <span id="trainTotal">0</span></div>
+        <div class="train-scores" id="trainScores"></div>
+      </div>
+    </div>
+
+    <div class="train-btn-row">
+      <button class="btn primary" id="trainStart">开始训练</button>
+      <button class="btn ghost" id="trainRestart">重新开始</button>
+    </div>
+  </div>
+</div>
+
+<div id="preflight" class="overlay preflight hidden">
+  <div class="preflight-card">
+    <div class="pf-kicker">PRE-FLIGHT CHECK</div>
+    <div class="pf-title">出击前检查 <em id="pfMode">公路</em></div>
+    <div class="pf-sub">确认摄像头、姿态识别与手机控制器已就绪，再正式开始任务</div>
+
+    <div class="pf-body">
+      <div class="pf-cam-col">
+        <div class="pf-cam-slot" id="pfCamSlot">
+          <span class="pf-cam-mask" id="pfCamMask">摄像头未启动</span>
+          <div class="pf-cam-guide" id="pfCamGuide" aria-hidden="true">
+            <svg viewBox="0 0 120 90" preserveAspectRatio="xMidYMid meet">
+              <rect x="20" y="4" width="80" height="84" rx="12"/>
+              <circle cx="60" cy="20" r="12"/>
+              <path d="M56 30 L56 40 M64 30 L64 40"/>
+              <path d="M26 46 Q60 30 94 46"/>
+              <path d="M26 46 L22 88 M94 46 L98 88"/>
+            </svg>
+          </div>
+        </div>
+        <div class="pf-cam-tip">站到摄像头前，把上半身套进蓝色取景框（双肩落进框内即可）；双手拿手机平举胸前作为零点，双脚站定扭转躯干=机头扫射、身体左右平移=飞机左右移动，举高=爬升、放低=俯冲，双手快速下压=紧急规避；预览画面左右镜像显示。</div>
+      </div>
+
+      <div class="pf-check-col">
+        <div class="pf-check">
+          <span class="pf-led" id="pfLedCam"></span>
+          <div class="pf-check-main"><b>摄像头</b><small id="pfTxtCam">未启动</small></div>
+        </div>
+        <div class="pf-check">
+          <span class="pf-led" id="pfLedPose"></span>
+          <div class="pf-check-main"><b>姿态识别</b><small id="pfTxtPose">未启动</small></div>
+        </div>
+        <div class="pf-check">
+          <span class="pf-led" id="pfLedNet"></span>
+          <div class="pf-check-main"><b>手机控制器</b><small id="pfTxtNet">未连接</small></div>
+        </div>
+        <div class="pf-qr">
+          <img id="pfQrImg" class="qr-img" alt="控制器二维码" />
+          <div class="pf-qr-meta">
+            <span id="pfQrUrl" class="qr-url">正在获取地址…</span>
+            <small>手机与电脑连接同一 WiFi · 横屏打开控制器后即可测试开火</small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pf-foot">
+      <div class="pf-note" id="pfNote">正在准备检查项…</div>
+      <div class="btn-row">
+        <button class="btn ghost" id="pfBack">返回</button>
+        <button class="btn primary" id="pfGo" disabled>确认出击</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="countdown" class="countdown hidden">3</div>
+<div id="toast" class="toast"></div>
+<button id="soundToggle" class="sound-chip" type="button">音效 开</button>
+<button id="voiceToggle" class="sound-chip voice-chip" type="button">语音 开</button>
+<div id="flash" class="flash"></div>
+<div id="loading" class="loading">正在加载 3D 引擎…</div>
+
+<script>window.GAME_SERVER = new URLSearchParams(location.search).get('server') || 'https://lzy-fastapi.onrender.com';</script>
+<script src="./lib/socket.io.min.js"></script>
+<script type="module" src="./src/game.js"></script>
+</body>
+</html>
