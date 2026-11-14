@@ -189,6 +189,25 @@
         }
     }
 
+    function setLabelVisible(id, visible) {
+        try {
+            const normalizedId = normalizeId(id);
+            const entry = requireEntry(normalizedId);
+            const labelField = entry.item.labelField || entry.layer.get('labelField') || '';
+            if (!labelField) {
+                throw new Error('请先设置标签字段');
+            }
+            const style = entry.item.style || (entry.item.style = {});
+            style.labelField = labelField;
+            style.labelVisible = Boolean(visible);
+            window.applyLayerStyle(entry.layer, style);
+            refreshLayerPanel();
+            return { ok: true, id: normalizedId, labelVisible: style.labelVisible };
+        } catch (error) {
+            return errorResult(error);
+        }
+    }
+
     function fit(id) {
         try {
             if (id !== undefined && id !== null) {
@@ -262,6 +281,7 @@
         toggleLayer: toggleLayer,
         setLayerColor: setLayerColor,
         setLabelField: setLabelField,
+        setLabelVisible: setLabelVisible,
         fit: fit,
         clear: clear,
         listLayers: listLayers
