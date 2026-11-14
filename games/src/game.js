@@ -9,7 +9,7 @@ import { PoseTracker } from './pose.js';
 import { Net } from './net.js';
 import { AudioEngine } from './audio.js';
 import { Voice } from './voice.js';
-import { clamp, deg2rad } from './utils.js';
+import { clamp, deg2rad, withTimeout } from './utils.js';
 
 const loading = document.getElementById('loading');
 
@@ -773,6 +773,32 @@ function releaseCamera() {
 window.addEventListener('pagehide', releaseCamera);
 window.addEventListener('beforeunload', releaseCamera);
 
+/** 切到后台（如拿手机扫码）时等待回到前台，避免 video.play() 被浏览器挂起 */
+function waitVisible(maxMs = 60000) {
+  if (document.visibilityState === 'visible') return Promise.resolve();
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      document.removeEventListener('visibilitychange', onChange);
+      clearTimeout(timer);
+      resolve();
+    };
+    const onChange = () => { if (document.visibilityState === 'visible') finish(); };
+    const timer = setTimeout(finish, maxMs);
+    document.addEventListener('visibilitychange', onChange);
+  });
+}
+
+// 回到前台时若摄像头尚未就绪（例如切去手机扫码导致被释放），自动重新启动
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  if (game.control === 'camera' && game.phase === 'preflight' && !cameraReady && !cameraStarting) {
+    startCamera();
+  }
+});
+
 async function startCamera() {
   if (cameraReady || cameraStarting) return cameraReady;
   cameraStarting = true;
@@ -783,11 +809,16 @@ async function startCamera() {
     }
     const video = document.getElementById('cam');
     releaseCamera();  // 先强制释放本页残留旧流
+    // 摄像头流无音轨，显式静音 + 行内播放，避免部分移动浏览器 play() 挂起
+    video.muted = true;
+    video.playsInline = true;
+    video.setAttribute('playsinline', '');
 
     let stream = null;
     for (let attempt = 0; attempt < 3 && !stream; attempt++) {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
+        // 加超时：权限弹窗被忽略或系统占用时，getUserMedia 可能永久不返回
+        stream = await withTimeout(navigator.mediaDevices.getUserMedia({
           video: {
             width: { ideal: 640 },
             height: { ideal: 480 },
@@ -795,7 +826,7 @@ async function startCamera() {
             facingMode: 'user'
           },
           audio: false
-        });
+        }), 20000, 'getUserMedia');
       } catch (err) {
         if (err && err.name === 'NotReadableError' && attempt < 2) {
           hud.setStatus('cam', 'warn', '被占用，重试中…');
@@ -806,7 +837,9 @@ async function startCamera() {
       }
     }
     video.srcObject = stream;
-    await video.play();
+    await waitVisible();  // 后台标签页中 play() 可能一直 pending
+    // play() 在标签页隐藏/部分移动浏览器上也可能一直 pending
+    await withTimeout(video.play(), 10000, 'video.play');
     hud.setStatus('cam', 'ok', '已开启');
 
     // 体感飞行：摄像头 + Pose 识别器
@@ -815,10 +848,11 @@ async function startCamera() {
     cameraReady = ok;
     if (!ok) {
       releaseCamera();  // 识别不可用时归还摄像头
-      hud.setStatus('pose', 'err', '加载失败');
+      hud.setStatus('cam', 'warn', '已关闭');
+      hud.setStatus('pose', 'err', '加载失败，可切换体感模式重试');
       game.control = 'keys';
       hud.setControl('keys');
-      hud.toast('姿态识别不可用，已切换为键盘操作（A/D 移动）', 3200);
+      hud.toast('姿态识别不可用，已切换为键盘操作（A/D 移动）；可稍后切回体感重试', 3600);
     }
     refreshPreflight();
     return cameraReady;
@@ -833,6 +867,8 @@ async function startCamera() {
       reason = '摄像头被其他应用占用，请关闭后刷新重试';
     } else if (err && err.message === '浏览器不支持 getUserMedia') {
       reason = '当前浏览器不支持摄像头';
+    } else if (err && String(err.message).startsWith('timeout')) {
+      reason = '摄像头启动超时，可能被其他应用占用或权限弹窗未确认';
     }
     hud.setStatus('cam', 'err', '不可用');
     hud.setStatus('pose', 'warn', '键盘模式');
@@ -840,10 +876,10 @@ async function startCamera() {
     hud.setControl('keys');
     hud.toast(reason + '，已切换为键盘操作', 3200);
     cameraReady = false;
-    refreshPreflight();
     return false;
   } finally {
     cameraStarting = false;
+    refreshPreflight();  // 无论成功/失败/超时都刷新界面，避免停在“启动中…”
   }
 }
 
@@ -1342,7 +1378,10 @@ hud.bindControl((mode) => {
   audio.ui();
   // 体感飞行：摄像头 + Pose 识别器
   pose.enabled = mode !== 'keys';
-  if (mode === 'camera') pose.resetBaseline();  // 重新校准重心/躯干零点
+  if (mode === 'camera') {
+    pose.resetBaseline();  // 重新校准重心/躯干零点
+    if (!cameraReady) startCamera();  // 之前失败/超时后可切回体感重试
+  }
   refreshPreflight();
 });
 hud.bindResult({

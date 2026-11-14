@@ -1,13 +1,18 @@
 import { CFG } from './config.js';
+import { withTimeout } from './utils.js';
 
 const POSE_CDNS = [
   './lib/mediapipe/pose/',
+  'https://fastly.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/',
   'https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/',
-  'https://unpkg.com/@mediapipe/pose@0.5.1675469404/',
-  'https://fastly.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/'
+  'https://unpkg.com/@mediapipe/pose@0.5.1675469404/'
 ];
 
-function addScript(src, timeout = 9000) {
+// 模型约 15MB（wasm + 资源 + tflite），网络差时单节点可能长时间无响应，
+// 超过该时间即放弃并切换下一节点，避免永久卡在“启动中”。
+const POSE_INIT_TIMEOUT = 30000;
+
+function addScript(src, timeout = 12000) {
   return new Promise((resolve, reject) => {
     const el = document.createElement('script');
     el.src = src;
@@ -62,6 +67,7 @@ export class PoseTracker {
     this.sending = false;
     this.loopStarted = false;
     this.starting = false;
+    this.initialized = false;
     this.enabled = true;   // 键盘模式下置 false，停止送帧省 CPU
   }
 
@@ -98,52 +104,56 @@ export class PoseTracker {
   }
 
   async start() {
-    if (this.pose) return true;
+    if (this.initialized && this.pose) return true;
     if (this.starting) return false;
     this.starting = true;
     try {
-      this.onStatus && this.onStatus('warn', '加载模型中…');
-      const ok = await this.loadLib();
-      if (!ok) {
-        this.onStatus && this.onStatus('err', '模型加载失败');
-        this.starting = false;
-        return false;
+      // 逐个节点尝试：加载脚本 → 创建识别器 → 初始化（带超时）
+      // 任一环节失败就换下一个节点，绝不让界面无限等待
+      for (let i = 0; i < POSE_CDNS.length; i++) {
+        const base = POSE_CDNS[i];
+        this.onStatus && this.onStatus('warn',
+          i === 0 ? '加载识别模型…（约15MB，首次较慢）' : '切换备用节点…（' + (i + 1) + '/' + POSE_CDNS.length + '）');
+        let pose = null;
+        try {
+          const ok = await this.loadLib(base);
+          if (!ok) continue;
+          this.base = base;
+          pose = new window.Pose({ locateFile: (file) => base + file });
+          pose.setOptions({
+            modelComplexity: 1,
+            smoothLandmarks: true,
+            enableSegmentation: false,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.4
+          });
+          pose.onResults((results) => this.onResults(results));
+          await withTimeout(pose.initialize(), POSE_INIT_TIMEOUT, 'pose-initialize');
+          this.pose = pose;
+          this.initialized = true;
+          this.startLoop();
+          this.onStatus && this.onStatus('warn', '识别中…');
+          return true;
+        } catch (err) {
+          console.warn('[pose] 节点初始化失败', base, err && err.message);
+          try { if (pose && pose.close) pose.close(); } catch (e) { /* ignore */ }
+        }
       }
-      this.pose = new window.Pose({ locateFile: (file) => this.base + file });
-      this.pose.setOptions({
-        modelComplexity: 1,
-        smoothLandmarks: true,
-        enableSegmentation: false,
-        minDetectionConfidence: 0.5,
-        minTrackingConfidence: 0.4
-      });
-      this.pose.onResults((results) => this.onResults(results));
-      await this.pose.initialize();
-      this.startLoop();
-      this.onStatus && this.onStatus('warn', '识别中…');
-      this.starting = false;
-      return true;
-    } catch (err) {
-      console.error('[pose] 初始化失败', err);
-      this.onStatus && this.onStatus('err', '初始化失败');
-      this.starting = false;
+      this.onStatus && this.onStatus('err', '模型加载失败，请刷新重试');
       return false;
+    } finally {
+      this.starting = false;
     }
   }
 
-  async loadLib() {
-    for (const base of POSE_CDNS) {
-      try {
-        await addScript(base + 'pose.js');
-        if (window.Pose) {
-          this.base = base;
-          return true;
-        }
-      } catch (err) {
-        console.warn('[pose] 加载失败', base, err && err.message);
-      }
+  async loadLib(base) {
+    try {
+      await addScript(base + 'pose.js');
+      return !!window.Pose;
+    } catch (err) {
+      console.warn('[pose] 加载失败', base, err && err.message);
+      return false;
     }
-    return false;
   }
 
   onResults(results) {

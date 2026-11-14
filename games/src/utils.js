@@ -4,6 +4,15 @@ export const rand = (a, b) => a + Math.random() * (b - a);
 export const deg2rad = (d) => (d * Math.PI) / 180;
 export const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
+/** 给可能永久挂起的异步操作加超时，避免界面一直停在“加载中” */
+export function withTimeout(promise, ms, label = '') {
+  let timer = null;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error('timeout' + (label ? ':' + label : ''))), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
 export function mulberry32(seed) {
   let a = seed >>> 0;
   return function () {
