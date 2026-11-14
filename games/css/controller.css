@@ -320,6 +320,57 @@
   }
   .b-act:active { transform: scale(.97); }
 
+  /* 出击准备（V2.7.1）：手机上直接确认出击 / 返回 */
+  .launch-panel {
+    position: fixed; inset: 0; z-index: 40;
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px;
+    background: rgba(2, 7, 12, .82);
+    backdrop-filter: blur(8px);
+  }
+  .launch-card {
+    width: min(420px, 92vw);
+    padding: 20px 22px 18px;
+    border-radius: 16px;
+    background: linear-gradient(170deg, rgba(10, 26, 40, .96), rgba(4, 12, 20, .98));
+    border: 1px solid rgba(90, 200, 255, .28);
+    box-shadow: 0 18px 50px rgba(0, 0, 0, .5);
+    text-align: center;
+  }
+  .launch-kicker { font-size: 10.5px; letter-spacing: .28em; color: var(--muted); }
+  .launch-title {
+    margin-top: 6px;
+    font-size: 20px; font-weight: 800; letter-spacing: .1em; color: #eaffff;
+  }
+  .launch-title em {
+    font-style: normal; font-size: 12px; font-weight: 600;
+    color: var(--cyan); letter-spacing: .08em; margin-left: 6px;
+  }
+  .launch-text {
+    margin-top: 8px;
+    font-size: 12px; line-height: 1.6; color: var(--muted);
+  }
+  .launch-actions { display: flex; gap: 10px; margin-top: 18px; }
+  .l-act {
+    flex: 1;
+    font-family: inherit; font-size: 13.5px; letter-spacing: .08em;
+    padding: 12px 14px; border-radius: 10px;
+    background: rgba(10, 24, 38, .92);
+    border: 1px solid rgba(90, 200, 255, .28);
+    color: var(--text); cursor: pointer;
+  }
+  .l-act.primary {
+    background: linear-gradient(160deg, rgba(53, 224, 255, .22), rgba(20, 120, 160, .22));
+    border-color: rgba(53, 224, 255, .6);
+    color: #eaffff; font-weight: 700;
+  }
+  .l-act:disabled {
+    opacity: .4; color: var(--muted);
+    border-color: rgba(120, 150, 170, .25);
+    background: rgba(10, 24, 38, .6);
+  }
+  .l-act:active:not(:disabled) { transform: scale(.97); }
+
   .mode-sheet {
     position: fixed; inset: 0; z-index: 70;
     display: flex; align-items: center; justify-content: center;

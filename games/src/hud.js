@@ -39,6 +39,7 @@ export class Hud {
       diffSeg: $('diffSeg'),
       flares: $('flareCount'),
       ctrlCam: $('ctrlCam'), ctrlKeys: $('ctrlKeys'),
+      viewFp: $('viewFp'), viewTp: $('viewTp'),
       hintCamera: $('hintCamera'), hintKeys: $('hintKeys'),
       resTitle: $('resTitle'), resReason: $('resReason'),
       resScore: $('resScore'), resKills: $('resKills'),
@@ -296,6 +297,18 @@ export class Hud {
     });
   }
 
+  bindView(cb) {
+    this.onView = cb;
+    this.el.viewFp.addEventListener('click', () => {
+      this.setView(true);
+      this.onView && this.onView(true);
+    });
+    this.el.viewTp.addEventListener('click', () => {
+      this.setView(false);
+      this.onView && this.onView(false);
+    });
+  }
+
   bindResult(cb) {
     this.el.btnReplay.addEventListener('click', () => cb.onReplay && cb.onReplay());
     this.el.btnMenu.addEventListener('click', () => cb.onMenu && cb.onMenu());
@@ -349,6 +362,11 @@ export class Hud {
     // 切换控制方式时同步说明文字，避免键盘模式仍显示体感要领
     if (this.el.hintCamera) this.el.hintCamera.classList.toggle('hidden', mode !== 'camera');
     if (this.el.hintKeys) this.el.hintKeys.classList.toggle('hidden', mode !== 'keys');
+  }
+
+  setView(fp) {
+    this.el.viewFp.classList.toggle('active', !!fp);
+    this.el.viewTp.classList.toggle('active', !fp);
   }
 
   showMenu(v) { this.el.menu.classList.toggle('hidden', !v); }

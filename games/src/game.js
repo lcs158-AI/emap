@@ -175,6 +175,7 @@ const game = {
   controllers: 0,
   elapsed: 0,
   pendingMode: null,
+  preflightReady: false,
   cdShown: 0,
   threatPrev: false,
   lockPrev: false,
@@ -289,6 +290,7 @@ window.addEventListener('keydown', (e) => {
     }
     game.fpView = !game.fpView;
     try { localStorage.setItem('mj.fp', game.fpView ? '1' : '0'); } catch (err) { /* ignore */ }
+    hud.setView(game.fpView);
     hud.toast(game.fpView ? '第一人称视角' : '第三人称视角', 900);
     audio.ui();
   }
@@ -529,6 +531,12 @@ function refreshPreflight() {
     tone = 'warn';
   }
   updatePhoneStatus(true);
+
+  // 就绪状态变化时立即同步手机端，便于手机直接确认出击
+  if (game.preflightReady !== can) {
+    game.preflightReady = can;
+    net.sendState(statePayload(), true);
+  }
 
   hud.setPreflightReady(can, note, tone);
 }
@@ -1068,6 +1076,9 @@ function statePayload() {
     result: game.phase === 'result' && game.result ? (game.result.win ? 'win' : 'lose') : '',
     pitch: setup ? 0 : Math.round((player.pitch * 180) / Math.PI),
     yaw: setup ? 0 : Math.round((player.yaw * 180) / Math.PI),
+    // 手机端出击准备页状态（V2.7.1）
+    ready: game.phase === 'preflight' ? !!game.preflightReady : false,
+    controllers: game.controllers,
     // 手机端选模式列表（V2.5.2）
     modes: MODES.map((m) => ({ id: m.id, name: m.name, tag: m.tag }))
   };
@@ -1129,6 +1140,16 @@ const net = new Net({
       const id = game.mode.id;
       closeTrainIfOpen();
       beginMode(id);
+      launchFromPreflight();
+      return;
+    }
+    // 手机端在出击准备页直接确认出击（V2.7.1）
+    if (m.action === 'launch') {
+      if (game.phase !== 'preflight') return;
+      if (!game.preflightReady) {
+        hud.toast('检查尚未完成，暂不能出击', 1600);
+        return;
+      }
       launchFromPreflight();
       return;
     }
@@ -1390,6 +1411,12 @@ hud.bindControl((mode) => {
   }
   refreshPreflight();
 });
+hud.bindView((fp) => {
+  game.fpView = fp;
+  try { localStorage.setItem('mj.fp', fp ? '1' : '0'); } catch (err) { /* ignore */ }
+  hud.toast(fp ? '第一人称视角' : '第三人称视角', 900);
+  audio.ui();
+});
 hud.bindResult({
   onReplay: () => beginMode(game.mode.id),
   onMenu: () => toMenu()
@@ -1410,6 +1437,7 @@ const syncVoiceBtn = () => {
 voiceBtn.addEventListener('click', () => { voice.toggle(); syncVoiceBtn(); });
 syncVoiceBtn();
 hud.setControl(savedControl);
+hud.setView(game.fpView);
 pose.enabled = savedControl !== 'keys';
 
 buildBackdrop();

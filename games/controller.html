@@ -9,9 +9,9 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
 <meta name="theme-color" content="#050b14" />
-<title>小刘游戏 · 手机控制器 V2.6.0</title>
+<title>小刘游戏 · 手机控制器 V2.7.1</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23050b14'/%3E%3Cpath d='M32 10 18 44l14-6 14 6z' fill='%2335e0ff'/%3E%3C/svg%3E" />
-<link rel="stylesheet" href="./css/controller.css" />
+<link rel="stylesheet" href="./css/controller.css?v=2.7.1" />
 </head>
 <body>
 
@@ -68,6 +68,18 @@
     <button class="b-act" id="btnMenuPhone" type="button">返回选模式</button>
   </div>
 </div>
+
+<div class="launch-panel hidden" id="launchPanel">
+  <div class="launch-card">
+    <div class="launch-kicker">PRE-FLIGHT CHECK</div>
+    <div class="launch-title">出击准备 <em id="launchMode"></em></div>
+    <div class="launch-text" id="launchText">等待电脑端检查摄像头与姿态识别…</div>
+    <div class="launch-actions">
+      <button class="l-act primary" id="btnLaunch" type="button" disabled>确认出击</button>
+      <button class="l-act" id="btnCancelLaunch" type="button">返回选模式</button>
+    </div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 
 <div class="mode-sheet hidden" id="modeSheet">
@@ -77,7 +89,7 @@
       <button class="sheet-close" id="sheetClose" type="button">×</button>
     </div>
     <div class="sheet-list" id="sheetList"></div>
-    <div class="sheet-note">选择后电脑端将直接出击（摄像头未就绪时停在检查页）</div>
+    <div class="sheet-note">选择后电脑端将直接出击；若停在检查页，就绪后可在本页点击「确认出击」</div>
   </div>
 </div>
 
@@ -112,6 +124,11 @@ const els = {
   banner: document.getElementById('banner'),
   bannerTitle: document.getElementById('bannerTitle'),
   bannerText: document.getElementById('bannerText'),
+  launchPanel: document.getElementById('launchPanel'),
+  launchMode: document.getElementById('launchMode'),
+  launchText: document.getElementById('launchText'),
+  btnLaunch: document.getElementById('btnLaunch'),
+  btnCancelLaunch: document.getElementById('btnCancelLaunch'),
   toast: document.getElementById('toast'),
   menuBtn: document.getElementById('menuBtn'),
   modeSheet: document.getElementById('modeSheet'),
@@ -137,7 +154,8 @@ const state = {
   cannonHeld: false,
   resultShown: false,
   modes: [],
-  menuOpen: false
+  menuOpen: false,
+  ready: false
 };
 
 /* ---------------- 基础 UI ---------------- */
@@ -316,8 +334,10 @@ function applyState(s) {
   state.connected = true;
   if (typeof s.phase === 'string') state.phase = s.phase;
   if (typeof s.mode === 'string' && s.mode) {
+    state.modeName = s.mode;
     els.modeName.textContent = s.mode + (typeof s.diff === 'string' && s.diff ? ' · ' + s.diff : '');
   }
+  state.ready = !!s.ready;
   if (typeof s.time === 'number') state.time = s.time;
   if (typeof s.score === 'number') state.score = s.score;
   if (typeof s.remain === 'number') state.remain = s.remain;
@@ -341,8 +361,21 @@ function applyState(s) {
   renderClock();
   renderZones();
   renderBanner();
+  renderLaunchPanel();
   refreshStatus();
   if (state.phase !== 'playing') releaseCannon();
+}
+
+/* ---------------- 出击准备页（V2.7.1）：手机上直接确认出击 / 返回选模式 ---------------- */
+function renderLaunchPanel() {
+  const show = state.phase === 'preflight';
+  els.launchPanel.classList.toggle('hidden', !show);
+  if (!show) return;
+  els.launchMode.textContent = state.modeName ? '· ' + state.modeName : '';
+  els.btnLaunch.disabled = !state.ready;
+  els.launchText.textContent = state.ready
+    ? '检查完成，可直接在手机上确认出击'
+    : '电脑端正在检查摄像头与姿态识别，请稍候…';
 }
 
 /* ---------------- 通信 ---------------- */
@@ -422,6 +455,19 @@ els.btnReplayPhone.addEventListener('click', () => {
 els.btnMenuPhone.addEventListener('click', () => {
   if (sendCommand('menu')) {
     openModeSheet();
+    toast('已返回选模式');
+  }
+});
+els.btnLaunch.addEventListener('click', () => {
+  if (els.btnLaunch.disabled) return;
+  if (sendCommand('launch')) {
+    buzz(20);
+    toast('已确认出击');
+  }
+});
+els.btnCancelLaunch.addEventListener('click', () => {
+  if (sendCommand('menu')) {
+    closeModeSheet();
     toast('已返回选模式');
   }
 });
@@ -595,6 +641,7 @@ renderAmmo();
 renderArmor();
 renderFlares();
 renderClock();
+renderLaunchPanel();
 refreshStatus();
 </script>
 </body>
