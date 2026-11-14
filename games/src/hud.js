@@ -39,6 +39,7 @@ export class Hud {
       diffSeg: $('diffSeg'),
       flares: $('flareCount'),
       ctrlCam: $('ctrlCam'), ctrlKeys: $('ctrlKeys'),
+      hintCamera: $('hintCamera'), hintKeys: $('hintKeys'),
       resTitle: $('resTitle'), resReason: $('resReason'),
       resScore: $('resScore'), resKills: $('resKills'),
       resAcc: $('resAcc'), resAmmo: $('resAmmo'), resTime: $('resTime'),
@@ -345,6 +346,9 @@ export class Hud {
   setControl(mode) {
     this.el.ctrlCam.classList.toggle('active', mode === 'camera');
     this.el.ctrlKeys.classList.toggle('active', mode === 'keys');
+    // 切换控制方式时同步说明文字，避免键盘模式仍显示体感要领
+    if (this.el.hintCamera) this.el.hintCamera.classList.toggle('hidden', mode !== 'camera');
+    if (this.el.hintKeys) this.el.hintKeys.classList.toggle('hidden', mode !== 'keys');
   }
 
   showMenu(v) { this.el.menu.classList.toggle('hidden', !v); }
