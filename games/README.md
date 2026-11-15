@@ -1,6 +1,6 @@
 # 小刘游戏 · 静态版（GitHub Pages + Render 中继）
 
-由 `D:\AIapp\游戏`（本地 Node 版）改造而来的纯静态前端，原目录保持不动。
+由 `D:\AIapp\游戏`（本地 Node 版）改造而来的纯静态前端，原目录保持不动；原中间副本 `D:\AIAPP\games` 已归档为 `games_old`（2026-11-15），本目录为唯一维护版本。
 手机扫码联动通过 **Render 上的 FastAPI Socket.IO 中继** 实现，手机与电脑**无需同一 WiFi**。
 
 ## 架构
@@ -11,7 +11,7 @@
 手机控制器 controller.html ┘        └─ /api/game/info 生成控制器地址与二维码
 ```
 
-- 前端：本目录为开发副本，纯静态；部署副本位于跬步地图仓库 `games/` 子目录（`emap/games/`），随地图 GitHub Pages 一起发布，地址 `https://lzywhy.com/games/`
+- 前端：本目录（`emap/games/`）即唯一源码目录，同时作为跬步地图仓库的 `games/` 子目录随 GitHub Pages 发布，地址 `https://lzywhy.com/games/`
 - 后端：`d:\AIapp\lzywhycom\fastapi`（跬步地图同一服务，新增 `app/api/game.py`，不影响地图功能）
 - three.js / MediaPipe Pose / socket.io 客户端全部自托管于 `lib/`，无 CDN 依赖
 
@@ -44,7 +44,7 @@ http://127.0.0.1:8090/?server=http://127.0.0.1:8000
 
 ### 2. 前端（随跬步地图 GitHub Pages 发布）
 
-1. 将本目录内容复制到跬步地图仓库的 `games/` 子目录（已复制至 `emap/games/`）
+1. 直接在本目录（`emap/games/`）修改，无需再复制粘贴；`D:\AIAPP\games` 已归档为 `games_old`，不再维护
 2. 提交并推送地图仓库，GitHub Pages 自动发布
 3. 访问 `https://lzywhy.com/games/`
 
