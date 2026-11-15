@@ -548,8 +548,9 @@
             editorState.selectedFeatures = [feature];
             showPropertyPanel();
 
-            // Draw 完成 → 所有交互关闭（空闲态），地图可平移
+            // Draw 完成 → 退出绘制交互（空闲态），地图可平移
             map.removeInteraction(editorState.snapInteraction);
+            if (editorState.drawInteraction) map.removeInteraction(editorState.drawInteraction);
             editorState.drawInteraction = null;
             editorState.tool = null;
             updateToolButtons();
