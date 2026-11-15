@@ -102,11 +102,11 @@
 
   <canvas id="minimap" class="minimap hidden" width="200" height="150" aria-label="战场鸟瞰小地图"></canvas>
 
-  <div class="hud-hint">左手 A/D 平移 · W/S 俯仰 · Z/X 机头 · 右手 J/空格 机炮 · K 双发导弹 · L 双发干扰弹 · 体感：躯干扭转=机头扫射 身体左右平移=飞机左右移动 双手举高=爬升 放低=俯冲 快速下压=紧急规避</div>
+  <div class="hud-hint">左手 A/D 平移 · W/S 俯仰 · Z/X 机头 · 右手 J/空格 机炮 · K 双发导弹 · I 单发导弹 · L 双发干扰弹 · 体感：躯干扭转=机头扫射 身体左右平移=飞机左右移动 双手举高=爬升 放低=俯冲 快速下压=紧急规避</div>
   <div class="train-hint hidden" id="trainHint">
     <b>训练场 · 操控练习</b>
     <span>键盘：W/S 俯仰 · A/D 平移 · Z/X 机头左右</span>
-    <span>武器（右手）：J/空格 机炮（按住连发） · K 双发导弹 · L 双发干扰弹（共享 2.5s 冷却）</span>
+    <span>武器（右手）：J/空格 机炮（按住连发） · K 双发导弹 · I 单发导弹 · L 双发干扰弹（共享 2.5s 冷却）</span>
     <span>手机：横屏左拇指机炮 · 右拇指导弹 · 中条干扰弹（仅开火）</span>
     <span>电脑摄像头：躯干扭转=机头扫射 · 身体左右平移=飞机左右移动 · 双手举高=爬升 · 放低=俯冲 · 双手快速下压=紧急规避</span>
   </div>
@@ -140,7 +140,7 @@
             <button class="seg-btn active" id="viewTp">第三人称</button>
           </div>
           <div class="box-hint" id="hintCamera">体感飞行（站到摄像头前，上半身入镜并套进取景框）：双手拿手机平举胸前作为零点，双脚站定扭转躯干=机头左右扫射，身体左右平移=飞机左右移动（躲避攻击），双手举高=爬升、放低=俯冲（可对地/水面/空中目标射击）；双手快速下压并保持 0.2 秒=紧急俯冲规避（2 秒冷却）。视角开局选定后锁定，战斗中不可切换。手机只负责开火（左机炮 / 右导弹 / 中条干扰弹）。</div>
-          <div class="box-hint hidden" id="hintKeys">键盘操控（无需摄像头与手机）：左手 A/D 左右平移 · W/S 俯仰（W 爬升 / S 俯冲）· Z/X 机头左右；右手 J 或空格按住机炮连发 · K 双发导弹 · L 双发干扰弹（两者共享 2.5 秒冷却）。视角开局选定后锁定，战斗中不可切换。</div>
+          <div class="box-hint hidden" id="hintKeys">键盘操控（无需摄像头与手机）：左手 A/D 左右平移 · W/S 俯仰（W 爬升 / S 俯冲）· Z/X 机头左右；右手 J 或空格按住机炮连发 · K 双发导弹 · I 单发导弹 · L 双发干扰弹（共享 2.5 秒冷却）。视角开局选定后锁定，战斗中不可切换。</div>
           <button class="train-btn" id="trainBtn" type="button">动作训练 · 规范操作要领</button>
         </div>
 
@@ -289,6 +289,6 @@
 
 <script>window.GAME_SERVER = new URLSearchParams(location.search).get('server') || 'https://lzy-fastapi.onrender.com';</script>
 <script src="./lib/socket.io.min.js"></script>
-<script type="module" src="./src/game.js?v=2.7.1"></script>
+<script type="module" src="./src/game.js?v=2.7.3"></script>
 </body>
 </html>

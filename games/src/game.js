@@ -41,11 +41,63 @@ scene.fog = new THREE.Fog(0xa8cfe6, 140, 520);
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 950);
 scene.add(camera);   // 相机入场景，便于挂载第一人称座舱模型
 
+/* HUD 玻璃纹理：用 canvas 画四角框、侧向刻度与机号，替代原来的整片半透明色块 */
+function makeHudTexture() {
+  const W = 1024, H = 768;
+  const cv = document.createElement('canvas');
+  cv.width = W;
+  cv.height = H;
+  const g = cv.getContext('2d');
+  g.clearRect(0, 0, W, H);
+  g.strokeStyle = 'rgba(53,224,255,1)';
+  g.fillStyle = 'rgba(53,224,255,1)';
+  g.lineWidth = 5;
+  g.shadowColor = 'rgba(4,18,26,0.75)';
+  g.shadowBlur = 16;
+
+  // 四角框
+  const m = 64, len = 108;
+  [[m, m, 1, 1], [W - m, m, -1, 1], [m, H - m, 1, -1], [W - m, H - m, -1, -1]].forEach((c) => {
+    g.beginPath();
+    g.moveTo(c[0] + c[2] * len, c[1]);
+    g.lineTo(c[0], c[1]);
+    g.lineTo(c[0], c[1] + c[3] * len);
+    g.stroke();
+  });
+
+  // 左右刻度（对称短刻线）
+  const cx = W / 2, cy = H / 2;
+  for (let i = -4; i <= 4; i++) {
+    const y = cy + i * 46;
+    const w = (i % 2 === 0) ? 28 : 15;
+    g.beginPath();
+    g.moveTo(cx - 296, y);
+    g.lineTo(cx - 296 + w, y);
+    g.stroke();
+    g.beginPath();
+    g.moveTo(cx + 296, y);
+    g.lineTo(cx + 296 - w, y);
+    g.stroke();
+  }
+
+  // 顶部机号 / 底部状态
+  g.textAlign = 'center';
+  g.font = '600 30px "Segoe UI", Arial, sans-serif';
+  g.fillText('XL-01  HUD', cx, m + 30);
+  g.font = '500 24px "Segoe UI", Arial, sans-serif';
+  g.fillText('AUTO / TRACK', cx, H - m - 12);
+
+  const tex = new THREE.CanvasTexture(cv);
+  if (THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  return tex;
+}
+
 /* 第一人称座舱（V2.4.2）：机头、舱框、仪表板与 HUD 玻璃，挂在相机上 */
 function buildCockpit() {
   const g = new THREE.Group();
-  const metal = new THREE.MeshStandardMaterial({ color: 0x39414a, metalness: 0.65, roughness: 0.45 });
-  const dark = new THREE.MeshStandardMaterial({ color: 0x141a20, metalness: 0.3, roughness: 0.8 });
+  const metal = new THREE.MeshStandardMaterial({ color: 0x5b6772, metalness: 0.25, roughness: 0.6 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x2b3540, metalness: 0.1, roughness: 0.85 });
 
   // 机头：锥形前伸
   const nose = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.30, 3.6, 12), metal);
@@ -65,12 +117,12 @@ function buildCockpit() {
   dash.rotation.x = 0.18;
   g.add(dash);
 
-  // HUD 玻璃：淡绿透明
+  // HUD 玻璃：canvas 纹理（角标 + 侧向刻度 + 机号），不再是一整片半透明色块
   const hudGlass = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.52, 0.36),
-    new THREE.MeshBasicMaterial({ color: 0x35e0ff, transparent: true, opacity: 0.10, side: THREE.DoubleSide, depthWrite: false })
+    new THREE.PlaneGeometry(0.72, 0.54),
+    new THREE.MeshBasicMaterial({ map: makeHudTexture(), transparent: true, opacity: 1, side: THREE.DoubleSide, depthWrite: false })
   );
-  hudGlass.position.set(0, -0.30, -0.92);
+  hudGlass.position.set(0, -0.26, -0.92);
   hudGlass.rotation.x = -0.12;
   g.add(hudGlass);
 
@@ -91,6 +143,11 @@ function buildCockpit() {
 }
 const cockpit = buildCockpit();
 camera.add(cockpit);
+
+// 座舱随相机转动，世界主光照射方向会随姿态变化，这里补一盏跟随相机的柔光灯稳定舱内亮度
+const cockpitLight = new THREE.PointLight(0xd8efff, 18, 6.5, 2);
+cockpitLight.position.set(0.2, 0.6, 0.45);
+camera.add(cockpitLight);
 
 const hemi = new THREE.HemisphereLight(0xd6ecff, 0x4a4a30, 0.8);
 scene.add(hemi);
@@ -275,12 +332,13 @@ function poseMoveX() {
 }
 
 window.addEventListener('keydown', (e) => {
-  // 左手飞行：A/D/W/S/Z/X；右手射击：J 机炮、K 导弹、L 干扰弹；空格为机炮备用键
-  if (['KeyA', 'KeyD', 'ArrowLeft', 'ArrowRight', 'KeyJ', 'KeyK', 'KeyL', 'Space', 'KeyW', 'KeyS', 'ArrowUp', 'ArrowDown', 'KeyZ', 'KeyX'].includes(e.code)) e.preventDefault();
+  // 左手飞行：A/D/W/S/Z/X；右手射击：J 机炮、K 双发导弹、I 单发导弹、L 干扰弹；空格为机炮备用键
+  if (['KeyA', 'KeyD', 'ArrowLeft', 'ArrowRight', 'KeyJ', 'KeyK', 'KeyI', 'KeyL', 'Space', 'KeyW', 'KeyS', 'ArrowUp', 'ArrowDown', 'KeyZ', 'KeyX'].includes(e.code)) e.preventDefault();
   if (e.repeat) return;
   keys[e.code] = true;
   if (e.code === 'KeyJ' || e.code === 'Space') game.keyCannon = true;
   if (e.code === 'KeyK') shootMissile(2);
+  if (e.code === 'KeyI') shootMissile(1);
   if (e.code === 'KeyL') deployFlare(2);
   if (e.code === 'KeyV') {
     // 视角开局选定后全程锁定（V2.6.0），战斗中不允许切换
@@ -520,7 +578,7 @@ function refreshPreflight() {
     }
   } else {
     hud.setCamFit(false);
-    note = '键盘模式：左手 A/D 平移 · W/S 俯仰 · Z/X 机头；右手 J/空格 机炮 · K 双发导弹 · L 干扰弹';
+    note = '键盘模式：左手 A/D 平移 · W/S 俯仰 · Z/X 机头；右手 J/空格 机炮 · K 双发导弹 · I 单发导弹 · L 干扰弹';
   }
 
   if (game.controllers > 0) {
