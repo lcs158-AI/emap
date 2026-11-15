@@ -246,11 +246,6 @@
             }
         });
 
-        // 清除选中
-        if (editorState.selectInteraction) {
-            editorState.selectInteraction.getFeatures().clear();
-        }
-
         editorState.active = false;
         // 保存 schema 到图层对象
         if (editorState.editingLayer) {
@@ -419,6 +414,16 @@
                 title: `定义「${editorState.editingLayer.name}」字段结构`,
                 initialSchema: editorState.schema,
                 onConfirm: (schema) => {
+                    // 被显式删除的字段：同步从要素属性中清除，否则保存导出时仍会带上
+                    const oldFields = (editorState.schema && editorState.schema.fields) || [];
+                    const newKeys = new Set(schema.fields.map(f => f.name));
+                    const removedKeys = oldFields.map(f => f.name).filter(k => k && !newKeys.has(k));
+                    if (removedKeys.length > 0 && editorState.source) {
+                        editorState.source.getFeatures().forEach(ft => {
+                            removedKeys.forEach(k => ft.unset(k, true));
+                        });
+                        console.log('🧹 已从要素属性中删除字段:', removedKeys.join(', '));
+                    }
                     editorState.schema = schema;
                     console.log('📐 字段结构已更新:', schema.fields.length, '个字段');
                     // 保存到图层 item 上（下次编辑恢复）
