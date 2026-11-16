@@ -29,6 +29,12 @@
         overflow: hidden;
     }
 
+    #myCanvas {
+        cursor: grab;
+        touch-action: none;
+        display: block;
+    }
+
     #big2map {
         position: absolute;
         left: 300px;
@@ -42,15 +48,17 @@
     <link rel="stylesheet" href="css/jquery-ui.css">
     <script src="js/jquery-3.6.0.js"></script>
     <script src="js/jquery-ui.js"></script>
-    <link rel="stylesheet" href="js/jsoncanvas.css">
     <script type="text/javascript" src="js/twlays2000.js" charset="utf-8"></script>
 
 
 
     <script type="text/javascript">
-        var k0 = 1;
+        var k0 = 1;                 // 数据单位↔屏幕像素的容差系数，值为 1/scale
         var wz = 0;   //1---提取信息   .
         var laydisps = new Array();
+        var view = { scale: 1, tx: 0, ty: 0 };   // 视图变换：屏幕坐标 = 数据坐标 * scale + t
+        var cssW = 0, cssH = 0, dpr = 1, fitScale = 1;
+        var panning = false, panStart = null, dragMoved = false;
         /*
     'Define OBJ_TYPE_ARC                             1
     'Define OBJ_TYPE_ELLIPSE                         2
@@ -69,10 +77,8 @@
 
         $(document).ready(function () {
 
-            var xstr = $("p");
             var c = document.getElementById("myCanvas");
             var cxt = c.getContext("2d");
-            xstr.html("地图图层：");
 
             for (var i = 0; i < canvasmap.length; i++) {     //历遍图层.
                 laydisps[i] = canvasmap[i].disp;
@@ -82,7 +88,7 @@
                 }
                 $("#listmap").before(radiolay);
             }
-            drawmap();
+            initView();
 
             //函数------------------------------------------------------------------------------------
 
@@ -182,8 +188,7 @@
                     }   //重合认定为0
                 }
                 else if (y0 == y1 || y0 == y2) {
-                    crsifno = 3;
-                    alert(crsinfo);
+                    crsinfo = 3;
                 }
                 else {
                     var crsx = (y1 - y0) * (x2 - x1) / (y1 - y2) + x1;
@@ -219,9 +224,8 @@
                                 //alert("2:"+crsn);
                                 continue;
                             case 4:
-                                crsn = 1;
-                                //alert("点在线上4:"+crsn);
-                                return;
+                                //点在线上，按位于区域内处理
+                                return true;
                             case 3:
                                 tchn += 1
                                 tchx *= (arrd[i][j][1] - arrd[i][j + 1][1]);   //得负则为同侧，不算穿越；得正则为异侧，算穿越。
@@ -255,7 +259,7 @@
             }
             function inbuff(mapx, mapy, xbox) {
                 //box":[xmin,ymax,xmax,ymin]
-                var s = 3;
+                var s = 3 * k0;
                 if ((mapx - xbox[0] + s) * (mapx - xbox[2]) <= 0 && (mapy - xbox[3] + s) * (mapy - xbox[1]) <= 0) {
                     return true;
                 } else {
@@ -288,7 +292,7 @@
                     case 5:         //obj-type-point
                         for (var k = 0; k < canvasmap[ilay].objs.length; k++) {
                             var l = (mapx - canvasmap[ilay].objs[k].cent[0]) * (mapx - canvasmap[ilay].objs[k].cent[0]) + (mapy - canvasmap[ilay].objs[k].cent[1]) * (mapy - canvasmap[ilay].objs[k].cent[1]);
-                            if (l <= 25) {
+                            if (l <= 25 * k0 * k0) {
                                 getobjinfo = canvasmap[ilay].objs[k].objnm + "," + canvasmap[ilay].objs[k].objid;
                                 break;
                             }
@@ -325,88 +329,168 @@
                 //alert(objtype);
                 return getobjinfo;
             };
+            // ================= 视图变换与缩放（重写） =================
+            function resizeCanvas() {
+                var box = document.getElementById("map");
+                cssW = box.clientWidth;
+                cssH = box.clientHeight;
+                dpr = window.devicePixelRatio || 1;
+                c.width = Math.round(cssW * dpr);
+                c.height = Math.round(cssH * dpr);
+                c.style.width = cssW + "px";
+                c.style.height = cssH + "px";
+                cxt.setTransform(dpr, 0, 0, dpr, 0, 0);
+            }
+
+            // 当前显示图层的坐标范围
+            function dataBounds() {
+                var xmin = Infinity, ymin = Infinity, xmax = -Infinity, ymax = -Infinity;
+                function addp(p) {
+                    if (p[0] < xmin) xmin = p[0];
+                    if (p[0] > xmax) xmax = p[0];
+                    if (p[1] < ymin) ymin = p[1];
+                    if (p[1] > ymax) ymax = p[1];
+                }
+                for (var i = 0; i < canvasmap.length; i++) {
+                    if (laydisps[i] <= 0) continue;
+                    var objs = canvasmap[i].objs;
+                    for (var j = 0; j < objs.length; j++) {
+                        if (objs[j].cent) addp(objs[j].cent);
+                        var rings = objs[j].obj || [];
+                        for (var k = 0; k < rings.length; k++) {
+                            for (var l = 0; l < rings[k].length; l++) addp(rings[k][l]);
+                        }
+                    }
+                }
+                if (!isFinite(xmin)) return { xmin: 0, ymin: 0, xmax: cssW || 1000, ymax: cssH || 660 };
+                return { xmin: xmin, ymin: ymin, xmax: xmax, ymax: ymax };
+            }
+
+            // 全图自适应
+            function fitView() {
+                resizeCanvas();
+                var b = dataBounds();
+                var pad = 20;
+                var bw = Math.max(b.xmax - b.xmin, 1);
+                var bh = Math.max(b.ymax - b.ymin, 1);
+                fitScale = Math.min((cssW - pad * 2) / bw, (cssH - pad * 2) / bh);
+                if (!isFinite(fitScale) || fitScale <= 0) fitScale = 1;
+                view.scale = fitScale;
+                view.tx = (cssW - bw * view.scale) / 2 - b.xmin * view.scale;
+                view.ty = (cssH - bh * view.scale) / 2 - b.ymin * view.scale;
+                k0 = 1 / view.scale;
+                drawmap();
+            }
+
+            // 平移限位：保证图形至少有一部分留在视口内
+            function clampView() {
+                var b = dataBounds();
+                var m = 40;
+                var l = b.xmin * view.scale + view.tx;
+                var r = b.xmax * view.scale + view.tx;
+                var t = b.ymin * view.scale + view.ty;
+                var bo = b.ymax * view.scale + view.ty;
+                if (l > cssW - m) view.tx += (cssW - m) - l;
+                if (r < m) view.tx += m - r;
+                if (t > cssH - m) view.ty += (cssH - m) - t;
+                if (bo < m) view.ty += m - bo;
+            }
+
+            // 以视口内任意点为锚点缩放
+            function zoomAt(factor, ax, ay) {
+                var ns = view.scale * factor;
+                var min = fitScale * 0.5, max = fitScale * 50;
+                ns = Math.min(max, Math.max(min, ns));
+                if (ns === view.scale) return;
+                var r = ns / view.scale;
+                view.tx = ax - (ax - view.tx) * r;
+                view.ty = ay - (ay - view.ty) * r;
+                view.scale = ns;
+                k0 = 1 / view.scale;
+                clampView();
+                drawmap();
+            }
+
+            function initView() {
+                fitView();
+                $(window).on("resize", function () {
+                    resizeCanvas();
+                    clampView();
+                    drawmap();
+                });
+                $("#fitmap").click(fitView);
+            }
+
             function drawmap() {
-                // alert(canvasmap.length);
+                if (!cssW || !cssH) resizeCanvas();
+                cxt.clearRect(0, 0, cssW, cssH);
+                var s = view.scale, tx = view.tx, ty = view.ty;
                 for (var i = canvasmap.length - 1; i >= 0; i--) {     //历遍图层
-                    if (laydisps[i] > 0) {
+                    if (laydisps[i] <= 0) continue;
+                    var lay = canvasmap[i];
+                    var layclr = "rgba(" + lay.layclr[0] + "," + lay.layclr[1] + "," + lay.layclr[2] + "," + lay.layclr[3] / 255 + ")";
+                    cxt.lineWidth = lay.laysiz;
+                    cxt.strokeStyle = layclr;
+                    cxt.fillStyle = layclr;
 
-                        for (var j = 0; j < canvasmap[i].objs.length; j++) {           //历遍图层内图斑
-                            //xstr.html(canvasmap[i].objs[j].objtype);
-                            switch (canvasmap[i].objs[j].objtype) {
-                                case 1:         //obj-type-arc
-                                    break;
-                                case 2:         //obj-type-ellipse
-                                    break;
-                                case 3:         //obj-type-line
-                                    break;
-                                case 4:         //obj-type-pline
-                                    cxt.lineWidth = canvasmap[i].laysiz;
-                                    cxt.strokeStyle = "rgba(" + canvasmap[i].layclr[0] + "," + canvasmap[i].layclr[1] + "," + canvasmap[i].layclr[2] + "," + canvasmap[i].layclr[3] / 255 + ")";
-                                    cxt.beginPath();
-                                    // cxt.moveTo(canvasmap[i].objs[j].obj[0][0][0],canvasmap[i].objs[j].obj[0][0][1]);
-                                    //for (var k=1; k<canvasmap[i].objs[j].obj[0].length; k++){          //历遍图斑中单元
-                                    // cxt.lineTo(canvasmap[i].objs[j].obj[0][k][0],canvasmap[i].objs[j].obj[0][k][1]);
-                                    //}
-
-                                    for (var k = 0; k < canvasmap[i].objs[j].obj.length; k++) {          //历遍图斑中单元
-                                        cxt.moveTo(canvasmap[i].objs[j].obj[k][0][0], canvasmap[i].objs[j].obj[k][0][1]);
-                                        for (var l = 1; l < canvasmap[i].objs[j].obj[k].length; l++) {	//历遍图斑单元中的节点
-                                            cxt.lineTo(canvasmap[i].objs[j].obj[k][l][0], canvasmap[i].objs[j].obj[k][l][1]);
-                                        }
+                    for (var j = 0; j < lay.objs.length; j++) {           //历遍图层内图斑
+                        var o = lay.objs[j];
+                        switch (o.objtype) {
+                            case 1:         //obj-type-arc
+                            case 2:         //obj-type-ellipse
+                            case 3:         //obj-type-line
+                            case 6:         //obj-type-frame
+                            case 8:         //obj-type-rect
+                            case 9:         //obj-type-roundrect
+                            case 11:        //obj-type-mpoint
+                            case 12:        //obj-type-collection
+                                break;
+                            case 4:         //obj-type-pline
+                                cxt.beginPath();
+                                for (var k = 0; k < o.obj.length; k++) {          //历遍图斑中单元
+                                    var ring = o.obj[k];
+                                    if (!ring.length) continue;
+                                    cxt.moveTo(ring[0][0] * s + tx, ring[0][1] * s + ty);
+                                    for (var l = 1; l < ring.length; l++) {	//历遍图斑单元中的节点
+                                        cxt.lineTo(ring[l][0] * s + tx, ring[l][1] * s + ty);
                                     }
-                                    cxt.stroke();
-                                    break;
-                                case 5:         //obj-type-point
-                                    //cxt.strokeStyle="black";
-
-                                    cxt.fillStyle = "rgba(" + canvasmap[i].layclr[0] + "," + canvasmap[i].layclr[1] + "," + canvasmap[i].layclr[2] + "," + canvasmap[i].layclr[3] / 255 + ")";
-                                    cxt.beginPath();
-                                    cxt.arc(canvasmap[i].objs[j].cent[0], canvasmap[i].objs[j].cent[1], 5, 0, Math.PI * 2, false);
-                                    cxt.closePath();
-                                    //cxt.stroke();
-                                    cxt.fill();
-                                    break;
-                                case 6:         //obj-type-frame
-                                    break;
-                                case 7:         //obj-type-region
-                                    cxt.linewidth = 0;
-                                    cxt.strokeStyle = "gray";
-                                    cxt.fillStyle = "rgba(" + canvasmap[i].layclr[0] + "," + canvasmap[i].layclr[1] + "," + canvasmap[i].layclr[2] + "," + canvasmap[i].layclr[3] / 255 + ")";
-                                    cxt.beginPath();
-                                    //cxt.moveTo(canvasmap[i].objs[j].obj[0][0][0],canvasmap[i].objs[j].obj[0][0][1]);
-                                    //for (var k=1; k<canvasmap[i].objs[j].obj[0].length; k++){          //历遍图斑中单元
-                                    // cxt.lineTo(canvasmap[i].objs[j].obj[0][k][0],canvasmap[i].objs[j].obj[0][k][1]);
-                                    //}
-                                    for (var k = 0; k < canvasmap[i].objs[j].obj.length; k++) {          //历遍图斑中单元
-                                        cxt.moveTo(canvasmap[i].objs[j].obj[k][0][0], canvasmap[i].objs[j].obj[k][0][1]);
-                                        for (var l = 1; l < canvasmap[i].objs[j].obj[k].length; l++) {	//历遍图斑单元中的节点
-                                            cxt.lineTo(canvasmap[i].objs[j].obj[k][l][0], canvasmap[i].objs[j].obj[k][l][1]);
-                                        }
+                                }
+                                cxt.stroke();
+                                break;
+                            case 5:         //obj-type-point
+                                cxt.beginPath();
+                                cxt.arc(o.cent[0] * s + tx, o.cent[1] * s + ty, 5, 0, Math.PI * 2, false);
+                                cxt.closePath();
+                                cxt.fill();
+                                break;
+                            case 7:         //obj-type-region
+                                cxt.lineWidth = 0.5;
+                                cxt.strokeStyle = "gray";
+                                cxt.beginPath();
+                                for (var k2 = 0; k2 < o.obj.length; k2++) {
+                                    var ring2 = o.obj[k2];
+                                    if (!ring2.length) continue;
+                                    cxt.moveTo(ring2[0][0] * s + tx, ring2[0][1] * s + ty);
+                                    for (var l2 = 1; l2 < ring2.length; l2++) {
+                                        cxt.lineTo(ring2[l2][0] * s + tx, ring2[l2][1] * s + ty);
                                     }
-                                    cxt.closePath();
-                                    cxt.stroke();
-                                    cxt.fill();
-
-                                    break;
-                                case 8:         //obj-type-rect
-                                    break;
-                                case 9:         //obj-type-roundrect
-                                    break;
-                                case 10:           //obj-type-text
-                                    cxt.font = "16px serif";
-                                    cxt.fillStyle = "black";
-                                    cxt.fillText(canvasmap[i].objs[j].objnm, canvasmap[i].objs[j].cent[0], canvasmap[i].objs[j].cent[1]);
-                                    break;
-                                case 11:            //obj-type-mpoint
-                                    break;
-                                case 12:            //obj-type-collection
-                                    break;
-                            };
-
-                        };
-                    };
-                };
-            };
+                                }
+                                cxt.closePath();
+                                cxt.stroke();
+                                cxt.fill();
+                                cxt.lineWidth = lay.laysiz;
+                                cxt.strokeStyle = layclr;
+                                break;
+                            case 10:           //obj-type-text
+                                cxt.font = "16px serif";
+                                cxt.fillStyle = "black";
+                                cxt.fillText(o.objnm, o.cent[0] * s + tx, o.cent[1] * s + ty);
+                                cxt.fillStyle = layclr;
+                                break;
+                        }
+                    }
+                }
+            }
             $("#getdata").click(function () {
 
                 drawmap();
@@ -433,110 +517,103 @@ function zoom(k:Number) {
    */
 
             $("#zoominmap").click(function () {
-                xstr.html("ZOOM IN");
-                var xw = $("canvas").width();
-                var tx = $("canvas").offset().left;
-                var ty = $("canvas").offset().top;
-                xw *= 1.2;
-                $("canvas").width(xw);
-                k0 *= 1.2;
-
-
-                var mx = tx * 1.2 - 1000 / 10;
-                var my = ty * 1.2 - 660 / 10;
-                $("canvas").offset({ left: mx, top: my });
-
-            });
-            $("#movemap").click(function () {
-                xstr.html("movemap");
-                $("canvas").offset({ left: 100, top: 100 });
-
+                zoomAt(1.2, cssW / 2, cssH / 2);
             });
             $("#zoomoutmap").click(function () {
-                xstr.html("zoomout map")
-                var xw = $("canvas").width();
-                var tx = $("canvas").offset().left;
-                var ty = $("canvas").offset().top;
-                xw /= 1.2;
-                $("canvas").width(xw);
-                k0 /= 1.2;
-                var mx = tx / 1.2 + 1000 / 12;
-                var my = ty / 1.2 + 660 / 12;
-                $("canvas").offset({ left: mx, top: my });
+                zoomAt(1 / 1.2, cssW / 2, cssH / 2);
             });
             $("#getinfo").click(function () {
-                xstr.html("get info of map");
                 wz = 1;
+                $("#movey").val("在地图上点击图形以提取信息");
+            });
+
+            // 滚轮缩放：以鼠标位置为锚点
+            c.addEventListener("wheel", function (e) {
+                e.preventDefault();
+                var r = c.getBoundingClientRect();
+                zoomAt(e.deltaY < 0 ? 1.15 : 1 / 1.15, e.clientX - r.left, e.clientY - r.top);
+            }, { passive: false });
+
+            // 拖拽平移
+            c.addEventListener("pointerdown", function (e) {
+                if (e.button !== 0) return;
+                panning = true;
+                dragMoved = false;
+                panStart = { x: e.clientX, y: e.clientY, tx: view.tx, ty: view.ty };
+                c.style.cursor = "grabbing";
+                if (c.setPointerCapture) c.setPointerCapture(e.pointerId);
+            });
+            c.addEventListener("pointermove", function (e) {
+                if (!panning) return;
+                var dx = e.clientX - panStart.x;
+                var dy = e.clientY - panStart.y;
+                if (Math.abs(dx) + Math.abs(dy) > 3) dragMoved = true;
+                view.tx = panStart.tx + dx;
+                view.ty = panStart.ty + dy;
+                drawmap();
+            });
+            c.addEventListener("pointerup", function (e) {
+                if (!panning) return;
+                panning = false;
+                c.style.cursor = "grab";
+                if (c.releasePointerCapture) {
+                    try { c.releasePointerCapture(e.pointerId); } catch (err) { }
+                }
+                clampView();
+                drawmap();
             });
             //cxt.fillStyle="black";
             //cxt.fillRect(0,0,400,300);
 
             $("canvas").click(function (e) {
+                if (dragMoved) {
+                    dragMoved = false;
+                    return;
+                }
+                if (wz != 1) return;
 
-                var offset = $(this).offset();
-                var X = e.pageX - offset.left;
-                var Y = e.pageY - offset.top;
+                var r = c.getBoundingClientRect();
+                var px = e.clientX - r.left;
+                var py = e.clientY - r.top;
+                // 屏幕坐标 -> 数据坐标
+                var X = (px - view.tx) / view.scale;
+                var Y = (py - view.ty) / view.scale;
 
+                var dpx = Math.round(px * dpr);
+                var dpy = Math.round(py * dpr);
+                if (dpx < 0 || dpy < 0 || dpx + 2 >= c.width || dpy + 2 >= c.height) return;
 
-                X = X / k0;
-                Y = Y / k0;
-
-                if (wz == 1) {
-                    var clrgrid = cxt.getImageData(X, Y, 3, 3);
-                    var pixclr = clrgrid.data;
-                    //alert(pixclr.length);
-                    for (var s = 0; s < 8; s++) {
-
-                        var cred = pixclr[4 * s + 0];
-                        var cgreen = pixclr[4 * s + 1];
-                        var cblue = pixclr[4 * s + 2];
-                        var calpha = pixclr[4 * s + 3];
-                        var geti = -1;
-                        for (var i = 0; i < canvasmap.length; i++) {     //历遍图层.
-                            //laydisps[i]=canvasmap[i].disp;
-                            if (canvasmap[i].layclr[0] == cred && canvasmap[i].layclr[1] == cgreen && canvasmap[i].layclr[2] == cblue && canvasmap[i].layclr[3] == calpha) {
-                                $("#movex").val(obj_type[canvasmap[i].laytype]);
-                                //$("#movey").val(canvasmap[i].name);
-                                geti = i;
-                                var getin = getobj(i, canvasmap[i].laytype, X, Y);
-                                $("#movey").val(getin);
-                                //alert(getobj(i,canvasmap[i].laytype,X,Y));
-                                break;
-                            }
-                        };
-                        if (geti == i) {
+                var pixclr = cxt.getImageData(dpx, dpy, 3, 3).data;
+                var cred = 0, cgreen = 0, cblue = 0, calpha = 0;
+                var geti = -1;
+                for (var s = 0; s < 8 && geti == -1; s++) {
+                    cred = pixclr[4 * s + 0];
+                    cgreen = pixclr[4 * s + 1];
+                    cblue = pixclr[4 * s + 2];
+                    calpha = pixclr[4 * s + 3];
+                    for (var i = 0; i < canvasmap.length; i++) {     //历遍图层.
+                        if (canvasmap[i].layclr[0] == cred && canvasmap[i].layclr[1] == cgreen && canvasmap[i].layclr[2] == cblue && canvasmap[i].layclr[3] == calpha) {
+                            geti = i;
                             break;
                         }
-
                     }
-
-
-
-
-                    if (geti == -1) {
-                        //alert("x:"+geti);
-                        $("#movex").val(cred + "," + cgreen + "," + cblue + "," + calpha);
-                        $("#movey").val("未提取信息");
-                    };
-
                 }
 
-
-
-
+                if (geti == -1) {
+                    $("#movex").val(cred + "," + cgreen + "," + cblue + "," + calpha);
+                    $("#movey").val("未提取信息");
+                } else {
+                    $("#movex").val(obj_type[canvasmap[geti].laytype]);
+                    $("#movey").val(getobj(geti, canvasmap[geti].laytype, X, Y));
+                }
             });
 
             $("#clearmap").click(function () {
-                xstr.html("clear map")
-                cxt.clearRect(-1000, -1000, 20000, 20000);
+                cxt.clearRect(0, 0, cssW, cssH);
                 cxt.beginPath();
             });
 
         })
-
-        $(function () {
-            $("#myCanvas").draggable();
-        });
 
         function changelay(checkbox) {
             var i = Number(checkbox.value);
@@ -560,11 +637,11 @@ function zoom(k:Number) {
     <button id="zoominmap">放大地图</button>
     <button id="zoomoutmap">缩小地图</button>
     <button id="getinfo">信息提取</button>
-    <button id="movemap">移动地图</button>
+    <button id="fitmap">全图显示</button>
     图形类型：<input id="movex" type="text" value="-100" name="tx" size="15" maxlength="6">
     图形名称：<input id="movey" type="text" value="100" name="ty" size="15" maxlength="6">
 
-    <p>map name:</p>
+    <p>地图图层：</p>
     <div id="list">
         <a id="listmap"></a>
     </div>

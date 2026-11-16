@@ -1,0 +1,6 @@
+# 本地开发不产生需忽略的运行文件；保留系统与编辑器杂项
+Thumbs.db
+.DS_Store
+*.log
+.screenshots/
+.trae/

@@ -68,13 +68,68 @@ let flyState = {
     totalDistance: 0,
     segmentDistances: [],
     speedMultiplier: 1,
-    preFlightComplete: false
+    preFlightComplete: false,
+    // —— v1.246 新增：相机平滑与视角模式 ——
+    smoothHeading: 0,      // 平滑后的航向（最短路径插值，防 ±180° 猛甩）
+    viewMode: 'follow',    // follow=跟随(后上方) | cockpit=驾驶舱(第一视角) | free=自由查看
+    _lookAtLocked: false,  // 相机是否处于 lookAt 锁定状态
+    // —— v1.247 新增：回看功能 ——
+    retro: false,          // 回看开关：相机移到机头前方朝后看
+    flownLineEntity: null, // 已飞轨迹高亮橙线
+    _flownPrefix: [],      // 已飞轨迹前缀缓存（整点）
+    _flownSegIdx: 0        // 前缀缓存对应的段索引
 };
 
 // KML路线相关变量
 let kmlRoute = null;
 let kmlLoadAttempted = false;
 const FLIGHT_OFFSET = 200;
+
+// ==================== 飞行平滑工具函数（v1.246） ====================
+// 角度归一化到 [-π, π]
+function normAngle(a) {
+    while (a > Math.PI) a -= 2 * Math.PI;
+    while (a < -Math.PI) a += 2 * Math.PI;
+    return a;
+}
+// 最短路径角度插值：从 a 向 b 平滑靠近（帧率无关的指数平滑系数 alpha）
+function lerpAngle(a, b, alpha) {
+    return a + normAngle(b - a) * alpha;
+}
+// Catmull-Rom 向心参数化（centripetal, α=0.5，v1.248）
+// 均匀参数化在航点间距不均时会过冲→飞行摇摆；向心参数化数学上保证不过冲、无尖点
+// knots 基于水平距离（度）的累积开方，同一组 knots 供 lon/lat/height 三分量共用
+function crKnots(p0, p1, p2, p3) {
+    const d = (a, b) => Math.sqrt((a.lon - b.lon) * (a.lon - b.lon) + (a.lat - b.lat) * (a.lat - b.lat));
+    const k1 = Math.max(1e-6, Math.sqrt(d(p0, p1)));
+    const k2 = k1 + Math.max(1e-6, Math.sqrt(d(p1, p2)));
+    const k3 = k2 + Math.max(1e-6, Math.sqrt(d(p2, p3)));
+    return [0, k1, k2, k3];
+}
+// 向心 Catmull-Rom 标量分量求值：u∈[0,1] 为 p1→p2 段内归一化进度
+function crEval(knots, c0, c1, c2, c3, u) {
+    const t0 = knots[0], t1 = knots[1], t2 = knots[2], t3 = knots[3];
+    const t = t1 + (t2 - t1) * u;
+    const L = (a, b, ta, tb) => {
+        const d = Math.max(1e-10, tb - ta);
+        return a * ((tb - t) / d) + b * ((t - ta) / d);
+    };
+    const A1 = L(c0, c1, t0, t1);
+    const A2 = L(c1, c2, t1, t2);
+    const A3 = L(c2, c3, t2, t3);
+    const B1 = L(A1, A2, t0, t2);
+    const B2 = L(A2, A3, t1, t3);
+    return L(B1, B2, t1, t2);
+}
+
+// 解除相机 lookAt 变换锁定（v1.248 兼容：旧版 Cesium 无 lookAtReset，统一走 lookAtTransform(IDENTITY)）
+function resetCameraTransform() {
+    if (typeof viewer.camera.lookAtReset === 'function') {
+        viewer.camera.lookAtReset();
+    } else {
+        viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
+    }
+}
 
 function initViewer() {
     try {
@@ -674,20 +729,74 @@ function initFlyFunctionality() {
             btn.classList.add('active');
         });
     });
+
+    // 视角模式按钮（v1.246：跟随/驾驶舱/自由；v1.247：回看开关）
+    const viewBtns = document.querySelectorAll('.view-btn');
+    viewBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            setViewMode(btn.dataset.view);
+            updateViewBtnActive();
+        });
+    });
+}
+
+// 同步视角/回看按钮高亮状态
+function updateViewBtnActive() {
+    document.querySelectorAll('.view-btn').forEach(b => {
+        const v = b.dataset.view;
+        if (v === 'retro') {
+            b.classList.toggle('active', flyState.retro);
+        } else {
+            b.classList.toggle('active', flyState.viewMode === v);
+        }
+    });
+}
+
+// 切换飞行视角模式（v1.246/v1.247）
+// follow=跟随（飞机后上方） | cockpit=驾驶舱第一视角 | free=自由查看 | retro=回看开关（仅跟随视角生效）
+function setViewMode(mode) {
+    if (mode === 'retro') {
+        // 回看是跟随视角下的相机方位开关，开启时强制回跟随
+        flyState.retro = !flyState.retro;
+        if (flyState.retro && flyState.viewMode !== 'follow') {
+            flyState.viewMode = 'follow';
+        }
+        return;
+    }
+    if (!['follow', 'cockpit', 'free'].includes(mode)) return;
+    flyState.viewMode = mode;
+    flyState.retro = false; // 切常规视角时取消回看
+
+    if (mode === 'follow' && flyState.active && flyState.planeEntity && !flyState.preFlight) {
+        // 立即把相机归位到飞机后上方（下一帧动画循环会持续锁定）
+        const pos = flyState.planeEntity.position.getValue(Cesium.JulianDate.now());
+        if (pos) {
+            const route = flyState.route;
+            const cameraRange = route && route.isKML ? 1500 : 600;
+            const cameraPitch = Cesium.Math.toRadians(route && route.isKML ? -25 : -15);
+            viewer.camera.lookAt(
+                pos,
+                new Cesium.HeadingPitchRange(flyState.smoothHeading, cameraPitch, cameraRange)
+            );
+            flyState._lookAtLocked = true;
+        }
+    } else if (mode !== 'follow' && flyState._lookAtLocked) {
+        // 切到驾驶舱/自由：解除锁定，把相机放到飞机当前位置避免视角跳变
+        if (flyState.planeEntity) {
+            const pos = flyState.planeEntity.position.getValue(Cesium.JulianDate.now());
+            if (pos) viewer.camera.setView({ destination: pos });
+        }
+        resetCameraTransform();
+        flyState._lookAtLocked = false;
+    }
 }
 
 // 设置飞行速度
 function setFlySpeed(multiplier) {
     flyState.speedMultiplier = multiplier;
-    // 更新状态显示
+    // 状态栏由 updateFlyStatus 统一刷新（含速度/剩余距离/剩余时间）
     if (flyState.active && flyState.route) {
-        const totalSeconds = flyState.totalDistance / (flyState.route.speed * multiplier);
-        const minutes = Math.floor(totalSeconds / 60);
-        const seconds = Math.round(totalSeconds % 60);
-        const progress = ((flyState.currentSegment + flyState.segmentProgress) / 
-            (flyState.route.waypoints.length - 1) * 100).toFixed(0);
-        document.getElementById('flyStatus').textContent = 
-            `进度: ${progress}% | 速度: ${multiplier}x | 预计剩余: ${minutes}分${seconds}秒`;
+        updateFlyStatus();
     }
 }
 
@@ -773,14 +882,39 @@ function startFlight(route) {
     // 创建飞机实体（起点位置）
     createPlaneEntity(route.waypoints[0]);
 
+    // 重置视角模式为跟随 + 平滑航向同步初始切线（v1.246）
+    flyState.viewMode = 'follow';
+    flyState._lookAtLocked = false;
+    flyState.smoothHeading = flyState._currentHeading || 0;
+    flyState.retro = false;
+
+    // 已飞轨迹橙线（v1.247 回看配套，初始仅起点）
+    const startWp0 = route.waypoints[0];
+    const startPos = route.isKML
+        ? Cesium.Cartesian3.fromDegrees(startWp0.lon, startWp0.lat, 0)
+        : Cesium.Cartesian3.fromDegrees(startWp0.lon, startWp0.lat, startWp0.height);
+    flyState._flownPrefix = [startPos];
+    flyState._flownSegIdx = 0;
+    flyState.flownLineEntity = viewer.entities.add({
+        polyline: {
+            positions: [startPos],
+            width: 5,
+            material: Cesium.Color.ORANGE,
+            clampToGround: !!route.isKML
+        }
+    });
+
     // 显示控制面板
     document.getElementById('stopFlyBtn').style.display = 'block';
     document.getElementById('pauseFlyBtn').style.display = 'block';
     document.getElementById('resumeFlyBtn').style.display = 'none';
     document.getElementById('speedControl').style.display = 'block';
+    document.getElementById('viewControl').style.display = 'block';
     // 重置速度按钮状态
     document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
     document.querySelector('.speed-btn[data-speed="1"]').classList.add('active');
+    // 重置视角/回看按钮状态
+    updateViewBtnActive();
     document.getElementById('flyStatus').textContent = `预飞中: ${route.name}`;
     document.body.classList.add('flying');
 
@@ -813,22 +947,26 @@ function startFlight(route) {
             // 预飞完成
             flyState.preFlight = false;
             flyState.preFlightComplete = true;
-            
-            // 不使用 trackedEntity（与 lookAt 冲突会导致卡顿）
-            // 改为在 updatePlanePosition 中手动控制相机跟随
-            
-            // 初始相机定位：在飞机后上方
-            const planePos = Cesium.Cartesian3.fromDegrees(
-                route.waypoints[0].lon, 
-                route.waypoints[0].lat, 
-                route.waypoints[0].height
-            );
-            const cameraRange = route.isKML ? 1500 : 600;
-            const cameraPitch = Cesium.Math.toRadians(route.isKML ? -25 : -15);
-            viewer.camera.lookAt(
-                planePos,
-                new Cesium.HeadingPitchRange(0, cameraPitch, cameraRange)
-            );
+
+            // 初始相机定位按视角模式处理（v1.246）
+            if (flyState.viewMode === 'follow') {
+                const planePos = Cesium.Cartesian3.fromDegrees(
+                    route.waypoints[0].lon,
+                    route.waypoints[0].lat,
+                    route.waypoints[0].height
+                );
+                const cameraRange = route.isKML ? 1500 : 600;
+                const cameraPitch = Cesium.Math.toRadians(route.isKML ? -25 : -15);
+                viewer.camera.lookAt(
+                    planePos,
+                    new Cesium.HeadingPitchRange(flyState.smoothHeading, cameraPitch, cameraRange)
+                );
+                flyState._lookAtLocked = true;
+            } else {
+                // 驾驶舱/自由视角：不锁定相机，由动画循环接管
+                resetCameraTransform();
+                flyState._lookAtLocked = false;
+            }
 
             // 显示第一个有名称的航点
             if (firstNamedWp) {
@@ -962,10 +1100,11 @@ function createWaypointEntities(route) {
 function createPlaneEntity(waypoint) {
     const position = Cesium.Cartesian3.fromDegrees(waypoint.lon, waypoint.lat, waypoint.height);
 
-    // 计算初始航向（使用真实地理方位角，全局路径切线方向）
+    // 计算初始航向（使用真实地理方位角，并与路径/曲线切线保持一致）
     let heading = 0;
     if (flyState.route && flyState.route.waypoints.length > 1) {
         heading = getPathHeading(flyState.route, 0);
+    }
     }
 
     // 飞机箭头SVG (三角形指向上方=北方，与Cesium heading 0=北方一致)
@@ -1064,19 +1203,22 @@ function showWaypointLabel(name, duration = 2000) {
 
 // 飞行动画循环
 function animateFlight() {
-    // 预飞阶段或暂停状态
+    const now = performance.now();
+
+    // 预飞阶段或暂停状态：只刷新时钟不推进，防止恢复瞬间 deltaTime 巨大导致飞机瞬移（回闪根因）
     if (flyState.preFlight || flyState.paused) {
+        flyState.lastTime = now;
         flyState.rafId = requestAnimationFrame(animateFlight);
         return;
     }
-    
+
     // 非飞行状态，停止动画
     if (!flyState.active && !flyState.preFlight) {
         return;
     }
 
-    const now = performance.now();
-    const deltaTime = (now - flyState.lastTime) / 1000; // 转换为秒
+    // deltaTime 上限 0.1s：标签页切回/卡顿后不会大步跳变
+    const deltaTime = Math.min((now - flyState.lastTime) / 1000, 0.1);
     flyState.lastTime = now;
 
     const route = flyState.route;
@@ -1114,10 +1256,8 @@ function animateFlight() {
         }
     }
 
-    // 更新飞机位置
-    updatePlanePosition();
-
-    // 更新相机跟随（使用 trackedEntity，无需额外操作）
+    // 更新飞机位置（传入 deltaTime 用于航向帧率无关平滑）
+    updatePlanePosition(deltaTime);
 
     // 更新状态显示
     updateFlyStatus();
@@ -1126,30 +1266,44 @@ function animateFlight() {
 }
 
 // 计算路径在某个全局进度位置的切线航向角
+// pointMode：段内线性直飞 → 返回该段恒定方位角（稳定的关键）
+// 沿线模式：向心 Catmull-Rom 数值导数，与 updatePlanePosition 完全同一条曲线
 function getPathHeading(route, globalProgress) {
     const waypoints = route.waypoints;
     const n = waypoints.length;
     if (n < 2) return 0;
 
-    // 将全局进度（0~n-1）映射到 waypoint 索引
     const idx = Math.min(Math.floor(globalProgress), n - 2);
-    const frac = globalProgress - idx;
+    const u = Math.max(0, Math.min(1, globalProgress - idx));
+    const p1 = waypoints[idx];
+    const p2 = waypoints[idx + 1];
 
-    // 取前后各1个点计算切线（平滑航向，避免段切换突变）
-    const lookAhead = 0.5; // 向前看半个段
-    const beforeIdx = Math.max(0, idx - 1);
-    const afterIdx = Math.min(n - 1, idx + 1);
+    // pointMode：段内直线，方位角恒定（段间跳变由 smoothHeading 平滑过渡）
+    if (route.pointMode) {
+        const dLon = (p2.lon - p1.lon) * Math.cos(p1.lat * Math.PI / 180);
+        const dLat = p2.lat - p1.lat;
+        if (dLon === 0 && dLat === 0) return flyState.smoothHeading || 0;
+        return Math.atan2(dLon, dLat);
+    }
 
-    const p1 = waypoints[beforeIdx];
-    const p2 = waypoints[afterIdx];
+    // 沿线模式：在局部四点上做 Catmull-Rom 数值导数，保持与 updatePlanePosition 完全一致
+    const p0 = waypoints[Math.max(0, idx - 1)];
+    const p3 = waypoints[Math.min(n - 1, idx + 2)];
+    const knots = crKnots(p0, p1, p2, p3);
 
-    // 地理方位角
-    const dLonRad = (p2.lon - p1.lon) * Math.PI / 180;
-    const lat1Rad = p1.lat * Math.PI / 180;
-    const lat2Rad = p2.lat * Math.PI / 180;
-    const y = Math.sin(dLonRad) * Math.cos(lat2Rad);
-    const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) - Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLonRad);
-    return Math.atan2(y, x);
+    const eps = 0.02;
+    const uA = Math.max(0, u - eps), uB = Math.min(1, u + eps);
+    const lonA = crEval(knots, p0.lon, p1.lon, p2.lon, p3.lon, uA);
+    const lonB = crEval(knots, p0.lon, p1.lon, p2.lon, p3.lon, uB);
+    const latA = crEval(knots, p0.lat, p1.lat, p2.lat, p3.lat, uA);
+    const latB = crEval(knots, p0.lat, p1.lat, p2.lat, p3.lat, uB);
+    const dLon = (lonB - lonA) / (uB - uA);
+    const dLat = (latB - latA) / (uB - uA);
+    if (dLon === 0 && dLat === 0) return flyState.smoothHeading || 0;
+
+    const curLat = crEval(knots, p0.lat, p1.lat, p2.lat, p3.lat, u);
+    const east = dLon * Math.cos(curLat * Math.PI / 180);
+    return Math.atan2(east, dLat);
 }
 
 // 计算路径在某个全局进度位置的俯仰角
@@ -1171,26 +1325,40 @@ function getPathPitch(route, globalProgress) {
     return Math.atan2(dH, horiz || 1);
 }
 
-// 更新飞机位置和朝向
-function updatePlanePosition() {
+// 更新飞机位置和朝向（Catmull-Rom 曲线插值 + 航向最短路径平滑 + 三视角相机）
+function updatePlanePosition(deltaTime) {
     const route = flyState.route;
     const segIdx = flyState.currentSegment;
     const wp1 = route.waypoints[segIdx];
     const wp2 = route.waypoints[segIdx + 1];
     const t = flyState.segmentProgress;
 
-    // 计算插值位置（路径线上方，伴随高程变化）
-    const lon = wp1.lon + (wp2.lon - wp1.lon) * t;
-    const lat = wp1.lat + (wp2.lat - wp1.lat) * t;
-    const height = wp1.height + (wp2.height - wp1.height) * t;
+    // —— 位置插值 ——
+    // pointMode（按关键点飞行 v1.249）：线性插值精确过点，段间长直线航向恒定 → 最平稳
+    // 沿线模式：向心 Catmull-Rom 曲线（v1.248：消除点距不均导致的过冲摇摆）
+    const wp0 = route.waypoints[Math.max(0, segIdx - 1)];
+    const wp3 = route.waypoints[Math.min(route.waypoints.length - 1, segIdx + 2)];
+    let lon, lat, height;
+    if (route.pointMode) {
+        lon = wp1.lon + (wp2.lon - wp1.lon) * t;
+        lat = wp1.lat + (wp2.lat - wp1.lat) * t;
+        height = wp1.height + (wp2.height - wp1.height) * t;
+    } else {
+        const knots = crKnots(wp0, wp1, wp2, wp3);
+        lon = crEval(knots, wp0.lon, wp1.lon, wp2.lon, wp3.lon, t);
+        lat = crEval(knots, wp0.lat, wp1.lat, wp2.lat, wp3.lat, t);
+        height = crEval(knots, wp0.height, wp1.height, wp2.height, wp3.height, t);
+    }
 
     const newPosition = Cesium.Cartesian3.fromDegrees(lon, lat, height);
     flyState.planeEntity.position = newPosition;
 
-    // 使用全局路径切线方向计算航向（避免段切换时航向突变）
+    // 使用全局路径切线方向计算航向，并做无抖动平滑（避免段切换时航向突变）
     const globalProgress = segIdx + t;
-    const heading = getPathHeading(route, globalProgress);
-    const pitch = getPathPitch(route, globalProgress);
+    const targetHeading = getPathHeading(route, globalProgress);
+    const alpha = 1 - Math.exp(-(deltaTime || 0.016) * 4);
+    flyState.smoothHeading = lerpAngle(flyState.smoothHeading, targetHeading, alpha);
+    const heading = flyState.smoothHeading;
 
     // 更新飞机朝向：使用 billboard.rotation 控制方向（弧度）
     if (flyState.planeEntity && flyState.planeEntity.billboard) {
@@ -1198,13 +1366,62 @@ function updatePlanePosition() {
     }
     flyState._currentHeading = heading;
 
-    // 手动更新相机跟随（在飞机后上方，沿路径切线方向）
-    const cameraRange = route.isKML ? 1500 : 600;
-    const cameraPitch = Cesium.Math.toRadians(route.isKML ? -25 : -15);
-    viewer.camera.lookAt(
-        newPosition,
-        new Cesium.HeadingPitchRange(heading, cameraPitch, cameraRange)
-    );
+    flyState._currentHeading = heading;
+
+    // —— 三视角相机 ——
+    if (flyState.viewMode === 'follow') {
+        // 跟随视角：飞机后上方，用平滑航向避免相机猛甩；lookAt 允许用户拖动微调角度
+        let cameraRange = route.isKML ? 1500 : 600;
+        let cameraPitch = Cesium.Math.toRadians(route.isKML ? -25 : -15);
+        let lookHeading = heading;
+        if (flyState.retro) {
+            // 回看（v1.247）：相机移到机头前方，朝后看飞机与已飞橙线轨迹
+            lookHeading = normAngle(heading + Math.PI);
+            cameraPitch = Cesium.Math.toRadians(-12);
+            cameraRange = route.isKML ? 2500 : 900;
+        }
+        viewer.camera.lookAt(
+            newPosition,
+            new Cesium.HeadingPitchRange(lookHeading, cameraPitch, cameraRange)
+        );
+        flyState._lookAtLocked = true;
+    } else if (flyState.viewMode === 'cockpit') {
+        // 驾驶舱第一视角：相机即飞机，沿机头方向前视（解除 lookAt 锁定后 setView）
+        if (flyState._lookAtLocked) {
+            resetCameraTransform();
+            flyState._lookAtLocked = false;
+        }
+        viewer.camera.setView({
+            destination: newPosition,
+            orientation: {
+                heading: heading,
+                pitch: Cesium.Math.toRadians(-8),
+                roll: 0
+            }
+        });
+    } else {
+        // 自由视角：不干预相机，用户自由拖动缩放查看飞行
+        if (flyState._lookAtLocked) {
+            resetCameraTransform();
+            flyState._lookAtLocked = false;
+        }
+    }
+
+    // —— 已飞轨迹橙线实时延长（v1.247 回看配套）——
+    if (flyState.flownLineEntity) {
+        // 段索引前进时，把整航点追加进前缀缓存（避免每帧全量重建）
+        if (flyState._flownSegIdx !== segIdx) {
+            for (let i = flyState._flownSegIdx + 1; i <= segIdx; i++) {
+                const wp = route.waypoints[i];
+                flyState._flownPrefix.push(route.isKML
+                    ? Cesium.Cartesian3.fromDegrees(wp.lon, wp.lat, 0)
+                    : Cesium.Cartesian3.fromDegrees(wp.lon, wp.lat, wp.height));
+            }
+            flyState._flownSegIdx = segIdx;
+        }
+        flyState.flownLineEntity.polyline.positions =
+            flyState._flownPrefix.concat(newPosition);
+    }
 }
 
 // 更新相机跟随（使用 trackedEntity 自动跟随，不需要每帧设置）
@@ -1214,13 +1431,27 @@ function updateCameraFollow() {
     // 如果需要，可以添加平滑的视角过渡
 }
 
-// 更新飞行状态显示
+// 更新飞行状态显示（v1.246：进度按距离加权 + 速度/剩余距离/剩余时间 HUD）
 function updateFlyStatus() {
     const route = flyState.route;
     const segIdx = flyState.currentSegment;
-    const progress = ((segIdx + flyState.segmentProgress) / (route.waypoints.length - 1) * 100).toFixed(0);
+    const segDists = flyState.segmentDistances;
+
+    // 已飞距离 = 前面整段之和 + 当前段部分（按距离加权，比按段数平均准确）
+    let flown = 0;
+    for (let i = 0; i < segIdx && i < segDists.length; i++) flown += segDists[i];
+    if (segIdx < segDists.length) flown += segDists[segIdx] * flyState.segmentProgress;
+    const remainDist = Math.max(0, flyState.totalDistance - flown);
+    const progressPct = flyState.totalDistance > 0 ? (flown / flyState.totalDistance * 100) : 0;
+
+    // 当前速度与剩余时间
+    const speedNow = route.speed * flyState.speedMultiplier;
+    const remainSec = speedNow > 0 ? remainDist / speedNow : 0;
+    const rMin = Math.floor(remainSec / 60);
+    const rSec = Math.round(remainSec % 60);
+
     const currentWp = route.waypoints[segIdx];
-    
+
     // 计算当前高度（线性插值）
     let currentHeight = 0;
     let currentGroundHeight = 0;
@@ -1257,12 +1488,13 @@ function updateFlyStatus() {
         heightText = `高度:${currentHeight}m`;
     }
 
+    const remainText = rMin > 0 ? `${rMin}分${rSec}秒` : `${rSec}秒`;
     if (currentNamedPoint) {
         document.getElementById('flyStatus').textContent =
-            `进度: ${progress}% | ${heightText} | 📍 ${currentNamedPoint}`;
+            `进度: ${progressPct.toFixed(0)}% | ${Math.round(speedNow * 3.6)}km/h | 剩余${(remainDist/1000).toFixed(1)}km/${remainText} | ${heightText} | 📍 ${currentNamedPoint}`;
     } else {
         document.getElementById('flyStatus').textContent =
-            `进度: ${progress}% | ${heightText} | 飞行中...`;
+            `进度: ${progressPct.toFixed(0)}% | ${Math.round(speedNow * 3.6)}km/h | 剩余${(remainDist/1000).toFixed(1)}km/${remainText} | ${heightText}`;
     }
 }
 
@@ -1293,7 +1525,8 @@ function stopFlight() {
 
     // 取消相机跟踪
     viewer.trackedEntity = null;
-    viewer.camera.lookAtReset(); // 解除 lookAt 锁定
+    resetCameraTransform(); // 解除 lookAt 锁定（v1.248 兼容旧版 Cesium）
+    flyState._lookAtLocked = false;
     if (flyState.planeEntity) {
         viewer.entities.remove(flyState.planeEntity);
         flyState.planeEntity = null;
@@ -1302,6 +1535,12 @@ function stopFlight() {
         viewer.entities.remove(flyState.routeLineEntity);
         flyState.routeLineEntity = null;
     }
+    if (flyState.flownLineEntity) {
+        viewer.entities.remove(flyState.flownLineEntity);
+        flyState.flownLineEntity = null;
+    }
+    flyState._flownPrefix = [];
+    flyState._flownSegIdx = 0;
     flyState.waypointEntities.forEach(e => viewer.entities.remove(e));
     flyState.waypointEntities = [];
 
@@ -1313,12 +1552,15 @@ function stopFlight() {
     flyState.route = null;
     flyState.currentSegment = 0;
     flyState.segmentProgress = 0;
+    flyState.viewMode = 'follow';
+    flyState.retro = false;
 
     // 隐藏控制面板
     document.getElementById('stopFlyBtn').style.display = 'none';
     document.getElementById('pauseFlyBtn').style.display = 'none';
     document.getElementById('resumeFlyBtn').style.display = 'none';
     document.getElementById('speedControl').style.display = 'none';
+    document.getElementById('viewControl').style.display = 'none';
     document.getElementById('flyStatus').textContent = '';
     document.body.classList.remove('flying');
 }
@@ -1331,30 +1573,34 @@ function finishFlight() {
         flyState.rafId = null;
     }
 
-    // 取消相机跟踪
-    viewer.trackedEntity = null;
-    viewer.camera.lookAtReset(); // 解除 lookAt 锁定
+    // 解除相机锁定，停留在终点上空，由用户自由浏览（v1.246：不再强制拉回初始位置）
+    resetCameraTransform();
+    flyState._lookAtLocked = false;
+    flyState.retro = false;
     document.getElementById('stopFlyBtn').style.display = 'none';
     document.getElementById('pauseFlyBtn').style.display = 'none';
     document.getElementById('resumeFlyBtn').style.display = 'none';
     document.getElementById('speedControl').style.display = 'none';
+    document.getElementById('viewControl').style.display = 'none';
+    const routeName = flyState.route ? flyState.route.name : '';
+    document.getElementById('flyStatus').textContent =
+        `✅ 飞行完成: ${routeName}（3秒后清理画面，可自由浏览）`;
     document.body.classList.remove('flying');
 
-    // 3秒后清除实体
+    // 3秒后清除实体（视角保持当前位置，不拉回初始位置）
     setTimeout(() => {
         if (flyState.planeEntity) viewer.entities.remove(flyState.planeEntity);
         if (flyState.routeLineEntity) viewer.entities.remove(flyState.routeLineEntity);
+        if (flyState.flownLineEntity) viewer.entities.remove(flyState.flownLineEntity);
         flyState.waypointEntities.forEach(e => viewer.entities.remove(e));
         flyState.planeEntity = null;
         flyState.routeLineEntity = null;
+        flyState.flownLineEntity = null;
+        flyState._flownPrefix = [];
+        flyState._flownSegIdx = 0;
         flyState.waypointEntities = [];
         flyState.route = null;
-
-        // 飞行完成后，用flyTo回到初始位置
-        if (initCenter && initCenter.length >= 4) {
-            const [lon, lat, height, pitch] = initCenter;
-            flyToLocation(lon, lat, height, pitch);
-        }
+        document.getElementById('flyStatus').textContent = '';
     }, 3000);
 }
 
@@ -1513,6 +1759,24 @@ async function parseKMLFile() {
                 triggered: false
             };
         });
+
+        // 为命名点采样地形高度（v1.249 按点飞行模式使用）
+        try {
+            if (namedPoints.length && typeof Cesium.sampleTerrainMostDetailed === 'function' && terrainProvider) {
+                const npCarto = namedPoints.map(np => Cesium.Cartographic.fromDegrees(np.lon, np.lat));
+                const sampledNp = await Cesium.sampleTerrainMostDetailed(terrainProvider, npCarto);
+                namedPoints.forEach((np, i) => { np.groundHeight = sampledNp[i].height; });
+                console.log(`✅ 命名点地形采样成功: ${sampledNp.length}个点`);
+            }
+        } catch (err) {
+            console.log('命名点地形采样降级，使用邻近线段高度');
+        }
+        // 降级：未采样成功的点沿用其投影线段航点的地形高度
+        namedPoints.forEach(np => {
+            if (np.groundHeight === undefined && np.segmentIndex < lineWaypoints.length) {
+                np.groundHeight = lineWaypoints[np.segmentIndex].groundHeight;
+            }
+        });
         
         // 设置路径点的名称（仅在命名点所在位置标记）
         namedPoints.forEach(np => {
@@ -1587,23 +1851,210 @@ function simplifyLine(coords, minDistance) {
     return result;
 }
 
+// 构造"智能航迹"路线（v1.26）——水平/垂直解耦：
+//   水平：按"点夹角+距离"从 KML 线中智能提取拐点（转角累计≥阈值才保留，段间直线走廊→航向恒定不摇摆）
+//   垂直：拐点间每~300m 采样地形高度（高度剖面贴地→与地形匹配）
+// 飞行插值用线性（pointMode）：直线段航向恒定，只在地形真拐弯处平滑转向
+function llDistM(a, b) {
+    const dLon = (b.lon - a.lon) * 111000 * Math.cos(a.lat * Math.PI / 180);
+    const dLat = (b.lat - a.lat) * 111000;
+    return Math.sqrt(dLon * dLon + dLat * dLat);
+}
+function llBearing(a, b) {
+    return Math.atan2((b.lon - a.lon) * Math.cos(a.lat * Math.PI / 180), b.lat - a.lat);
+}
+function angleDiffRad(a, b) {
+    let d = b - a;
+    while (d > Math.PI) d -= 2 * Math.PI;
+    while (d < -Math.PI) d += 2 * Math.PI;
+    return Math.abs(d);
+}
+// 拐点提取：转角累计≥angleThresholdDeg 且距上个保留点≥minDistM 才保留；距上个保留点≥maxDistM 强制保留（防长直线穿山）
+// forceIdx：强制保留的原始索引（命名关键点），首尾点必保留
+function extractTurningPoints(waypoints, angleThresholdDeg, minDistM, maxDistM, forceIdx) {
+    const keep = new Set([0, waypoints.length - 1]);
+    (forceIdx || []).forEach(i => { if (i > 0 && i < waypoints.length - 1) keep.add(i); });
+
+    let lastKept = 0;
+    let accAngle = 0;
+    const threshold = angleThresholdDeg * Math.PI / 180;
+    for (let i = 1; i < waypoints.length - 1; i++) {
+        const b = waypoints[i];
+        const c = waypoints[i + 1];
+        if (llDistM(b, c) < 1) continue; // 跳过重叠点
+
+        // 累计转角：上个保留点→当前点 与 当前点→下一点 的方位角差
+        accAngle += angleDiffRad(llBearing(waypoints[lastKept], b), llBearing(b, c));
+        const distFromLast = llDistM(waypoints[lastKept], b);
+
+        if ((accAngle >= threshold && distFromLast >= minDistM) || distFromLast >= maxDistM) {
+            keep.add(i);
+            lastKept = i;
+            accAngle = 0;
+        }
+    }
+    return Array.from(keep).sort((x, y) => x - y);
+}
+
+async function buildSmartRoute() {
+    if (!kmlRoute || !kmlRoute.waypoints || kmlRoute.waypoints.length < 3) return null;
+    const wps = kmlRoute.waypoints;
+
+    // 1) 智能提取拐点（命名点强制保留）
+    const forceIdx = (kmlRoute.namedPoints || []).map(np => np.segmentIndex).filter(i => i < wps.length);
+    const idxList = extractTurningPoints(wps, 25, 200, 2000, forceIdx);
+
+    // 2) 拐点间按 ~300m 细分水平点（高度采样网格）
+    const SUB_STEP = 300;
+    const rawPts = [];
+    const keyWpIdx = []; // 拐点（原idxList顺序）在新 rawPts 中的索引
+    for (let k = 0; k < idxList.length - 1; k++) {
+        const a = wps[idxList[k]];
+        const b = wps[idxList[k + 1]];
+        keyWpIdx.push(rawPts.length);
+        rawPts.push({ lon: a.lon, lat: a.lat });
+        const segLen = llDistM(a, b);
+        const nSub = Math.max(1, Math.round(segLen / SUB_STEP));
+        for (let s = 1; s < nSub; s++) {
+            rawPts.push({
+                lon: a.lon + (b.lon - a.lon) * s / nSub,
+                lat: a.lat + (b.lat - a.lat) * s / nSub
+            });
+        }
+    }
+    const lastIdx = idxList[idxList.length - 1];
+    keyWpIdx.push(rawPts.length);
+    rawPts.push({ lon: wps[lastIdx].lon, lat: wps[lastIdx].lat });
+
+    // 3) 全点贴地采样地形高度（一次批量）
+    const waypoints = rawPts.map(p => ({
+        lon: p.lon, lat: p.lat,
+        groundHeight: 0, height: 0,
+        name: '', index: 0
+    }));
+    try {
+        const carto = waypoints.map(w => Cesium.Cartographic.fromDegrees(w.lon, w.lat));
+        const sampled = await Cesium.sampleTerrainMostDetailed(terrainProvider, carto);
+        waypoints.forEach((w, i) => {
+            w.groundHeight = sampled[i].height;
+            w.height = w.groundHeight + FLIGHT_OFFSET;
+        });
+    } catch (e) {
+        console.log('智能航迹地形采样失败：', e);
+        return null;
+    }
+
+    // 4) 命名关键点映射到新航点索引（HUD 提示 + 航点标记复用）
+    const namedPoints = (kmlRoute.namedPoints || []).map(np => {
+        const orig = np.segmentIndex;
+        let nearest = 0, best = Infinity;
+        keyWpIdx.forEach((wi, k) => {
+            const d = Math.abs(idxList[k] - orig);
+            if (d < best) { best = d; nearest = k; }
+        });
+        const wpIdx = keyWpIdx[nearest];
+        if (wpIdx < waypoints.length) {
+            waypoints[wpIdx].name = np.name || waypoints[wpIdx].name;
+        }
+        return {
+            name: np.name,
+            lon: wps[orig] ? wps[orig].lon : np.lon,
+            lat: wps[orig] ? wps[orig].lat : np.lat,
+            originalName: np.originalName,
+            segmentIndex: wpIdx,
+            triggered: false
+        };
+    });
+
+    // 估算里程
+    let totalKm = 0;
+    for (let i = 0; i < waypoints.length - 1; i++) totalKm += llDistM(waypoints[i], waypoints[i + 1]);
+    totalKm = Math.round(totalKm / 100) / 10;
+
+    return {
+        id: 'kml_smart_route',
+        name: '🧭 吉隆沟智能航迹',
+        description: `智能提取${idxList.length}个地形拐点（${waypoints.length}个贴地航点·约${totalKm}公里）· 直线走廊+贴地高度 · 平稳`,
+        speed: 50,
+        waypoints: waypoints.map((w, i) => ({ ...w, index: i })),
+        namedPoints,
+        isKML: true,     // 贴地渲染与 KML 相机参数
+        pointMode: true  // 线性插值：直线段航向恒定
+    };
+}
+
+// 构造"按关键点飞行"路线（v1.249）
+// 用 KML 中的命名关键点（如6个）做点对点直飞：段间长直线、航向恒定，只过点时平滑转向，彻底避免沿线插值的摇摆
+function buildPointRoute() {
+    if (!kmlRoute || !kmlRoute.namedPoints || kmlRoute.namedPoints.length < 2) return null;
+
+    const waypoints = kmlRoute.namedPoints.map((np, i) => ({
+        lon: np.lon,
+        lat: np.lat,
+        height: (np.groundHeight !== undefined ? np.groundHeight : 0) + FLIGHT_OFFSET,
+        groundHeight: np.groundHeight,
+        name: np.name || '',
+        index: i
+    }));
+
+    // 估算总里程用于描述
+    let totalKm = 0;
+    for (let i = 0; i < waypoints.length - 1; i++) {
+        const dLon = (waypoints[i + 1].lon - waypoints[i].lon) * 111000 * Math.cos(waypoints[i].lat * Math.PI / 180);
+        const dLat = (waypoints[i + 1].lat - waypoints[i].lat) * 111000;
+        totalKm += Math.sqrt(dLon * dLon + dLat * dLat);
+    }
+    totalKm = Math.round(totalKm / 100) / 10;
+
+    return {
+        id: 'kml_point_route',
+        name: '📍 吉隆沟关键点飞行',
+        description: `按KML关键点直飞（${waypoints.length}个点·约${totalKm}公里）· 点间直线 · 最平稳`,
+        speed: 50,
+        waypoints,
+        // 关键点即航点：namedPoints 供 HUD 提示与航点标记，segmentIndex=航点索引
+        namedPoints: kmlRoute.namedPoints.map((np, i) => ({
+            name: np.name,
+            lon: np.lon,
+            lat: np.lat,
+            originalName: np.originalName,
+            segmentIndex: i,
+            triggered: false
+        })),
+        isKML: true,     // 沿用贴地渲染与 KML 相机参数
+        pointMode: true  // 线性插值直飞标志（updatePlanePosition/getCurveHeading 分支）
+    };
+}
+
 // KML路线专用的飞行初始化
 async function initKMLRoute() {
     try {
         kmlLoading = true;
         const routeList = document.getElementById('flyRouteList');
-        
+
         // 先显示加载状态
         renderFlyRouteList(routeList);
-        
+
         // 解析KML文件
         await parseKMLFile();
-        
+
         // 添加到路线列表
         if (kmlRoute && !flyRoutes.find(r => r.id === 'kml_route')) {
             flyRoutes.push(kmlRoute);
+            // 同时提供"按关键点飞行"模式（v1.249：点对点直飞，更平稳）
+            const pointRoute = buildPointRoute();
+            if (pointRoute) flyRoutes.push(pointRoute);
             renderFlyRouteList(routeList);
-            
+
+            // 智能航迹（v1.26：拐点提取+贴地采样，异步构建完成后加入列表）
+            buildSmartRoute().then(smart => {
+                if (smart && !flyRoutes.find(r => r.id === 'kml_smart_route')) {
+                    flyRoutes.push(smart);
+                    renderFlyRouteList(routeList);
+                    console.log(`✅ 智能航迹构建完成: ${smart.description}`);
+                }
+            }).catch(e => console.log('智能航迹构建失败:', e));
+
             // 加载成功后自动定位到KML路径区域（吉隆沟）
             // 延时1秒等待初始加载的视角完成
             setTimeout(() => {

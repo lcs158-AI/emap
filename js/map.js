@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
@@ -78,7 +78,7 @@ function getUsernameFromUrl() {
 window.addEventListener('load', function() {
     const urlParams = new URLSearchParams(window.location.search);
     const uploaded = urlParams.get('uploaded');
-    if (uploaded === '1') {
+    if (!window.XIAOLIU_EMBED && uploaded === '1') {
         setTimeout(() => {
             centerMapToUploadedData();
         }, 1000);
@@ -2043,7 +2043,36 @@ function createLayerControl() {
                 createLayerControl();
             });
             
+            // 标注显示切换按钮（红=显示，灰=隐藏）
+            const labelBtn = document.createElement('button');
+            labelBtn.title = '显示/隐藏文字标注';
+            labelBtn.style.background = 'none';
+            labelBtn.style.border = 'none';
+            labelBtn.style.cursor = 'pointer';
+            labelBtn.style.padding = '2px 4px';
+            labelBtn.style.display = 'inline-flex';
+            labelBtn.style.alignItems = 'center';
+
+            const tagIconPath = 'M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z';
+            const tagIcon = (color) => `<svg width="14" height="14" viewBox="0 0 24 24"><path d="${tagIconPath}" fill="${color}"/></svg>`;
+            const isLabelOn = () => !!(item.style && item.style.labelField && item.style.labelVisible !== false);
+            const refreshLabelBtn = () => { labelBtn.innerHTML = tagIcon(isLabelOn() ? '#e74c3c' : '#bbb'); };
+            refreshLabelBtn();
+
+            labelBtn.addEventListener('click', () => {
+                if (!item.style) item.style = {};
+                if (!item.style.labelField) {
+                    alert('请先在图层设置中选择标注字段');
+                    openLayerInfoEditor(item, index);
+                    return;
+                }
+                item.style.labelVisible = !isLabelOn();
+                applyLayerStyle(item.layer, item.style);
+                refreshLabelBtn();
+            });
+
             layerHeader.appendChild(leftSection);
+            layerHeader.appendChild(labelBtn);
             layerHeader.appendChild(infoBtn);
             layerHeader.appendChild(removeBtn);
             div.appendChild(layerHeader);
@@ -2077,6 +2106,11 @@ function createLayerControl() {
                     pathInfo.textContent = `路径: ${item.linkPathPrefix}`;
                     div.appendChild(pathInfo);
                 }
+            }
+            
+            // 如果编辑模块已加载，追加"编辑"勾选框
+            if (typeof window.addEditableCheckbox === 'function') {
+                window.addEditableCheckbox(div, item, index);
             }
             
             panel.appendChild(div);
@@ -2163,13 +2197,42 @@ function createLayerControl() {
                 createLayerControl();
             });
             
+            // 标注显示切换按钮（红=显示，灰=隐藏）
+            const labelBtn = document.createElement('button');
+            labelBtn.title = '显示/隐藏文字标注';
+            labelBtn.style.background = 'none';
+            labelBtn.style.border = 'none';
+            labelBtn.style.cursor = 'pointer';
+            labelBtn.style.padding = '2px 4px';
+            labelBtn.style.display = 'inline-flex';
+            labelBtn.style.alignItems = 'center';
+
+            const tagIconPath = 'M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z';
+            const tagIcon = (color) => `<svg width="14" height="14" viewBox="0 0 24 24"><path d="${tagIconPath}" fill="${color}"/></svg>`;
+            const isLabelOn = () => !!(item.style && item.style.labelField && item.style.labelVisible !== false);
+            const refreshLabelBtn = () => { labelBtn.innerHTML = tagIcon(isLabelOn() ? '#e74c3c' : '#bbb'); };
+            refreshLabelBtn();
+
+            labelBtn.addEventListener('click', () => {
+                if (!item.style) item.style = {};
+                if (!item.style.labelField) {
+                    alert('请先在图层设置中选择标注字段');
+                    openLayerInfoEditor(item, index);
+                    return;
+                }
+                item.style.labelVisible = !isLabelOn();
+                applyLayerStyle(item.layer, item.style);
+                refreshLabelBtn();
+            });
+
             layerHeader.appendChild(leftSection);
+            layerHeader.appendChild(labelBtn);
             layerHeader.appendChild(infoBtn);
             layerHeader.appendChild(removeBtn);
             div.appendChild(layerHeader);
-            
+
             panel.appendChild(div);
-            console.log(`图层 ${item.name} visible: ${item.visible}`);
+            console.log(`本地图层 ${item.name} visible: ${item.visible}`);
         });
         
         // 添加导出配置按钮（只有当有动态图层时显示）
@@ -2253,6 +2316,9 @@ if (configUrl) {
 }
 console.log('地图加载完成');
 
+// 暴露到 window，供 layer_editor.js 打补丁
+window.createLayerControl = createLayerControl;
+
 // ==================== 加载本地 GeoJSON 文件 ====================
 // 加载 GeoJSON 文件按钮事件
 const loadGeoJsonBtn = document.getElementById('loadGeoJsonBtn');
@@ -2300,7 +2366,7 @@ if (geoJsonFileInput) {
             reader.onload = function(event) {
                 try {
                     console.log('KMZ 文件读取成功，准备解压');
-                    loadLocalKMZ(event.target.result, file.name.replace(/\.kmz$/i, ''), loadingPanel, loadingProgress);
+                    loadLocalKMZ(event.target.result, file.name.replace(/\.kmz$/i, ''), loadingPanel, loadingProgress, { fileName: file.name, format: 'kml' });
                 } catch (error) {
                     console.error('KMZ 处理失败:', error);
                     // 显示错误提示
@@ -2345,7 +2411,7 @@ if (geoJsonFileInput) {
                         try {
                             const geoJson = JSON.parse(event.target.result);
                             console.log('GeoJSON 解析成功，准备加载到地图');
-                            loadLocalGeoJSON(geoJson, file.name.replace(/\.(geojson|json)$/i, ''));
+                            loadLocalGeoJSON(geoJson, file.name.replace(/\.(geojson|json)$/i, ''), { fileName: file.name, format: 'geojson' });
                         } catch (parseError) {
                             console.error('GeoJSON 解析失败:', parseError);
                             throw new Error('GeoJSON 文件解析失败: ' + parseError.message);
@@ -2354,7 +2420,7 @@ if (geoJsonFileInput) {
                         // 加载 KML
                         try {
                             console.log('KML 文件读取成功，准备加载到地图');
-                            loadLocalKML(event.target.result, file.name.replace(/\.kml$/i, ''));
+                            loadLocalKML(event.target.result, file.name.replace(/\.kml$/i, ''), { fileName: file.name, format: 'kml' });
                         } catch (parseError) {
                             console.error('KML 解析失败:', parseError);
                             throw new Error('KML 文件解析失败: ' + parseError.message);
@@ -2424,13 +2490,17 @@ if (geoJsonFileInput) {
 
 // 存储本地加载的 GeoJSON 图层
 let localGeoJsonLayers = [];
+// 暴露到 window 供 layer_editor.js 访问
+window.localGeoJsonLayers = localGeoJsonLayers;
 
 /**
  * 加载本地 GeoJSON 数据到地图
  * @param {Object} geoJson - GeoJSON 对象
  * @param {string} name - 图层名称
+ * @param {Object} [fileInfo] - 可选的文件信息 {fileName, format, autoFit=true}
+ * @returns {ol.layer.Vector} 成功加载的矢量图层
  */
-function loadLocalGeoJSON(geoJson, name) {
+function loadLocalGeoJSON(geoJson, name, fileInfo) {
     try {
         // 将 GeoJSON 转换为 OpenLayers 要素
         const features = new ol.format.GeoJSON().readFeatures(geoJson, {
@@ -2439,42 +2509,41 @@ function loadLocalGeoJSON(geoJson, name) {
         });
         
         console.log('成功加载本地 GeoJSON:', name, '要素数量:', features.length);
+
+        // 每个图层只创建一次默认样式，避免渲染时重复实例化
+        const pointStyle = new ol.style.Style({
+            image: new ol.style.Circle({
+                radius: 6,
+                fill: new ol.style.Fill({ color: 'rgba(24, 144, 255, 0.8)' }),
+                stroke: new ol.style.Stroke({ color: '#fff', width: 2 })
+            })
+        });
+        const lineStyle = new ol.style.Style({
+            stroke: new ol.style.Stroke({
+                color: 'rgba(82, 196, 26, 0.9)',
+                width: 3
+            })
+        });
+        const polygonStyle = new ol.style.Style({
+            fill: new ol.style.Fill({ color: 'rgba(255, 165, 0, 0.3)' }),
+            stroke: new ol.style.Stroke({ color: 'rgba(255, 165, 0, 0.9)', width: 2 })
+        });
+        const emptyStyle = new ol.style.Style();
+        const styleCache = {
+            Point: pointStyle,
+            MultiPoint: pointStyle,
+            LineString: lineStyle,
+            MultiLineString: lineStyle,
+            Polygon: polygonStyle,
+            MultiPolygon: polygonStyle
+        };
         
         // 创建矢量图层
         const vectorLayer = new ol.layer.Vector({
             source: new ol.source.Vector({ features }),
             style: function(feature) {
-                const geometryType = feature.getGeometry().getType();
-                
-                // 根据几何类型设置默认样式
-                if (geometryType === 'Point') {
-                    return new ol.style.Style({
-                        image: new ol.style.Circle({
-                            radius: 6,
-                            fill: new ol.style.Fill({ color: 'rgba(24, 144, 255, 0.8)' }),
-                            stroke: new ol.style.Stroke({ color: '#fff', width: 2 })
-                        })
-                    });
-                } else if (geometryType === 'LineString' || geometryType === 'MultiLineString') {
-                    return new ol.style.Style({
-                        stroke: new ol.style.Stroke({
-                            color: 'rgba(82, 196, 26, 0.9)',
-                            width: 3
-                        })
-                    });
-                } else if (geometryType === 'Polygon' || geometryType === 'MultiPolygon') {
-                    return new ol.style.Style({
-                        fill: new ol.style.Fill({
-                            color: 'rgba(255, 165, 0, 0.3)'
-                        }),
-                        stroke: new ol.style.Stroke({
-                            color: 'rgba(255, 165, 0, 0.9)',
-                            width: 2
-                        })
-                    });
-                }
-                
-                return new ol.style.Style();
+                const geometry = feature.getGeometry();
+                return geometry ? (styleCache[geometry.getType()] || emptyStyle) : emptyStyle;
             },
             visible: true,
             properties: {
@@ -2492,16 +2561,21 @@ function loadLocalGeoJSON(geoJson, name) {
             layer: vectorLayer,
             name: name,
             visible: true,
-            style: {} // 初始化空样式对象
+            style: {}, // 初始化空样式对象
+            fileInfo: fileInfo || { fileName: name + '.geojson', format: 'geojson' },
+            editable: false
         });
         
         // 更新图层控制面板
         createLayerControl();
         
-        // 自动缩放到图层范围
-        zoomToLayerExtent(vectorLayer);
+        // 默认自动缩放，调用方可通过 autoFit=false 关闭
+        if (!fileInfo || fileInfo.autoFit !== false) {
+            zoomToLayerExtent(vectorLayer);
+        }
         
         console.log('本地 GeoJSON 图层已添加:', name);
+        return vectorLayer;
     } catch (error) {
         console.error('加载本地 GeoJSON 失败:', error);
         throw error;
@@ -2512,8 +2586,9 @@ function loadLocalGeoJSON(geoJson, name) {
  * 加载本地 KML 数据到地图
  * @param {string} kmlText - KML 文本内容
  * @param {string} name - 图层名称
+ * @param {Object} [fileInfo] - 可选的文件信息 {fileName, format}
  */
-function loadLocalKML(kmlText, name) {
+function loadLocalKML(kmlText, name, fileInfo) {
     try {
         // 使用 OpenLayers KML 解析器
         const kmlFormat = new ol.format.KML({
@@ -2600,7 +2675,9 @@ function loadLocalKML(kmlText, name) {
             name: name,
             visible: true,
             style: {}, // 初始化空样式对象
-            labelField: 'name' // 默认使用 name 字段作为标签
+            labelField: 'name', // 默认使用 name 字段作为标签
+            fileInfo: fileInfo || { fileName: name + '.kml', format: 'kml' },
+            editable: false
         });
         
         // 更新图层控制面板
@@ -2713,7 +2790,9 @@ function loadLocalGML(gmlText, name) {
             name: name,
             visible: true,
             style: {},
-            labelField: 'name'
+            labelField: 'name',
+            fileInfo: fileInfo || { fileName: name + '.kmz', format: 'kml' },
+            editable: false
         });
         
         // 更新图层控制面板
@@ -2737,7 +2816,7 @@ function loadLocalGML(gmlText, name) {
  * @param {HTMLElement} loadingPanel - 加载提示面板
  * @param {HTMLElement} loadingProgress - 加载进度元素
  */
-function loadLocalKMZ(kmzData, name, loadingPanel, loadingProgress) {
+function loadLocalKMZ(kmzData, name, loadingPanel, loadingProgress, fileInfo) {
     try {
         // 检查是否有解压库
         if (typeof JSZip === 'undefined') {
@@ -2825,7 +2904,7 @@ function loadLocalKMZ(kmzData, name, loadingPanel, loadingProgress) {
  */
 function zoomToLayerExtent(layer) {
     const source = layer.getSource();
-    if (!source || source.getFeatures().length === 0) return;
+    if (!source || source.getFeatures().length === 0) return false;
     
     const extent = ol.extent.createEmpty();
     source.getFeatures().forEach(feature => {
@@ -2834,15 +2913,20 @@ function zoomToLayerExtent(layer) {
             ol.extent.extend(extent, geom.getExtent());
         }
     });
-    
-    if (ol.extent.getWidth(extent) > 0 && ol.extent.getHeight(extent) > 0) {
-        // 添加 10% 的边距
-        const bufferedExtent = ol.extent.buffer(extent, ol.extent.getWidth(extent) * 0.1);
-        map.getView().fit(bufferedExtent, {
-            padding: [50, 50, 50, 50],
-            duration: 500
-        });
-    }
+
+    if (ol.extent.isEmpty(extent)) return false;
+
+    const width = ol.extent.getWidth(extent);
+    const height = ol.extent.getHeight(extent);
+    const fitExtent = width > 0 && height > 0
+        ? ol.extent.buffer(extent, width * 0.1)
+        : extent;
+    map.getView().fit(fitExtent, {
+        padding: [50, 50, 50, 50],
+        duration: 500,
+        maxZoom: 18
+    });
+    return true;
 }
 
 /**
@@ -3401,7 +3485,11 @@ function openLayerInfoEditor(item, index) {
             { value: '🎯', label: '🎯 目标', emoji: '🎯' },
             { value: '🌟', label: '🌟 星星', emoji: '🌟' },
             { value: '💎', label: '💎 钻石', emoji: '💎' },
-            { value: '🌲', label: '🌲 树木', emoji: '🌲' }
+            { value: '🌲', label: '🌲 树木', emoji: '🌲' },
+            { value: '👣', label: '👣 脚印', emoji: '👣' },
+            { value: '⛰️', label: '⛰️ 山峰', emoji: '⛰️' },
+            { value: '🌊', label: '🌊 河流', emoji: '🌊' },
+            { value: '🏞️', label: '🏞️ 山川河流', emoji: '🏞️' }
         ];
         
         const pointSymbolSelect = document.createElement('select');
@@ -3617,7 +3705,72 @@ function openLayerInfoEditor(item, index) {
         
         styleSection.appendChild(polygonStyleDiv);
     }
-    
+
+    // 文字标注设置
+    const labelStyleSection = document.createElement('div');
+    labelStyleSection.style.marginBottom = '10px';
+    labelStyleSection.style.padding = '10px';
+    labelStyleSection.style.backgroundColor = '#f8f9fa';
+    labelStyleSection.style.borderRadius = '4px';
+    labelStyleSection.style.border = '1px dashed #ccc';
+
+    const labelStyleTitle = document.createElement('div');
+    labelStyleTitle.textContent = '文字标注';
+    labelStyleTitle.style.fontWeight = 'bold';
+    labelStyleTitle.style.marginBottom = '8px';
+    labelStyleTitle.style.fontSize = '13px';
+    labelStyleSection.appendChild(labelStyleTitle);
+
+    // 标注可见开关
+    const labelVisibleLabel = document.createElement('label');
+    labelVisibleLabel.style.fontSize = '11px';
+    labelVisibleLabel.style.marginRight = '10px';
+    labelVisibleLabel.style.cursor = 'pointer';
+
+    const labelVisibleInput = document.createElement('input');
+    labelVisibleInput.type = 'checkbox';
+    labelVisibleInput.id = 'styleLabelVisible';
+    labelVisibleInput.checked = currentStyle.labelVisible !== false && !!currentStyle.labelField;
+    labelVisibleInput.style.verticalAlign = 'middle';
+    labelVisibleInput.style.marginRight = '4px';
+    labelVisibleLabel.appendChild(labelVisibleInput);
+    labelVisibleLabel.appendChild(document.createTextNode('显示标注'));
+    labelStyleSection.appendChild(labelVisibleLabel);
+
+    // 标注字段选择
+    const labelFieldLabel = document.createElement('label');
+    labelFieldLabel.textContent = '标注字段:';
+    labelFieldLabel.style.fontSize = '11px';
+    labelFieldLabel.style.marginRight = '5px';
+    labelStyleSection.appendChild(labelFieldLabel);
+
+    const labelFieldSelect = document.createElement('select');
+    labelFieldSelect.id = 'styleLabelField';
+    labelFieldSelect.style.width = '140px';
+    labelFieldSelect.style.padding = '3px';
+    labelFieldSelect.style.fontSize = '11px';
+    labelFieldSelect.style.border = '1px solid #ddd';
+    labelFieldSelect.style.borderRadius = '3px';
+
+    const emptyLabelOption = document.createElement('option');
+    emptyLabelOption.value = '';
+    emptyLabelOption.textContent = '-- 无 --';
+    labelFieldSelect.appendChild(emptyLabelOption);
+
+    fieldList.forEach(field => {
+        const option = document.createElement('option');
+        option.value = field;
+        option.textContent = field;
+        if (currentStyle.labelField === field) {
+            option.selected = true;
+        }
+        labelFieldSelect.appendChild(option);
+    });
+
+    labelStyleSection.appendChild(labelFieldSelect);
+
+    styleSection.appendChild(labelStyleSection);
+
     // 分类样式设置
     const categoryStyleSection = document.createElement('div');
     categoryStyleSection.style.marginBottom = '15px';
@@ -4076,6 +4229,10 @@ function openLayerInfoEditor(item, index) {
                         { value: '🚗', label: '🚗 汽车' },
                         { value: '🚲', label: '🚲 自行车' },
                         { value: '🚶', label: '🚶 行人' },
+                        { value: '👣', label: '👣 脚印' },
+                        { value: '⛰️', label: '⛰️ 山峰' },
+                        { value: '🌊', label: '🌊 河流' },
+                        { value: '🏞️', label: '🏞️ 山川河流' },
                         { value: '⚠️', label: '⚠️ 警告' },
                         { value: '❌', label: '❌ 禁止' },
                         { value: '✅', label: '✅ 确认' },
@@ -4572,6 +4729,10 @@ function openLayerInfoEditor(item, index) {
                         { value: '🚗', label: '🚗 汽车' },
                         { value: '🚲', label: '🚲 自行车' },
                         { value: '🚶', label: '🚶 行人' },
+                        { value: '👣', label: '👣 脚印' },
+                        { value: '⛰️', label: '⛰️ 山峰' },
+                        { value: '🌊', label: '🌊 河流' },
+                        { value: '🏞️', label: '🏞️ 山川河流' },
                         { value: '⚠️', label: '⚠️ 警告' },
                         { value: '❌', label: '❌ 禁止' },
                         { value: '✅', label: '✅ 确认' },
@@ -4746,7 +4907,13 @@ function openLayerInfoEditor(item, index) {
             if (strokeColorInput) newStyle.strokeColor = strokeColorInput.value;
             if (opacityInput) newStyle.opacity = parseInt(opacityInput.value) || 30;
         }
-        
+
+        // 文字标注
+        const labelVisibleInput = document.getElementById('styleLabelVisible');
+        const labelFieldSelect = document.getElementById('styleLabelField');
+        if (labelVisibleInput) newStyle.labelVisible = labelVisibleInput.checked;
+        if (labelFieldSelect) newStyle.labelField = labelFieldSelect.value;
+
         // 保存分类样式设置
         const categoryFieldSelect = document.getElementById('categoryField');
         if (categoryFieldSelect) {
@@ -5297,7 +5464,9 @@ function openLayerStyleEditor(item, index) {
 function applyLayerStyle(layer, style, geometryType) {
     console.log('应用样式到图层:', style);
     const newStyleFunction = function(feature) {
-        const geomType = feature.getGeometry().getType();
+        const geometry = feature.getGeometry();
+        if (!geometry) return [];
+        const geomType = geometry.getType();
         const styles = [];
         
         // 检查是否有分类样式设置
@@ -5396,8 +5565,8 @@ function applyLayerStyle(layer, style, geometryType) {
             // 优先使用分类大小（数值型字段），否则使用默认大小
             const pointSize = categorySize || style.pointSize || 6;
             
-            // 优先使用分类符号，否则使用默认符号
-            const pointSymbol = categorySymbol || style.pointType || 'circle';
+            // 优先使用分类符号，否则使用默认符号（兼容 pointSymbol 与旧字段 pointType）
+            const pointSymbol = categorySymbol || style.pointSymbol || style.pointType || 'circle';
             
             // 转换颜色为 rgba
             const r = parseInt(pointColor.slice(1, 3), 16);
@@ -5406,8 +5575,9 @@ function applyLayerStyle(layer, style, geometryType) {
             const color = `rgba(${r}, ${g}, ${b}, 0.8)`;
             const strokeColor = '#fff';
             
-            // 根据符号类型创建不同的样式
-            if (pointSymbol.length === 2 && pointSymbol.charCodeAt(0) > 255) {
+            // 根据符号类型创建不同的样式（内建几何名之外的一律按 Emoji/文本渲染）
+            const builtinShapes = ['circle', 'square', 'triangle', 'star', 'diamond', 'cross', 'x'];
+            if (!builtinShapes.includes(pointSymbol)) {
                 // Emoji 符号 - 使用文本样式
                 styles.push(new ol.style.Style({
                     text: new ol.style.Text({
@@ -5537,7 +5707,23 @@ function applyLayerStyle(layer, style, geometryType) {
                 })
             }));
         }
-        
+
+        // 文字标注
+        if (style.labelVisible !== false && style.labelField) {
+            const labelValue = feature.get(style.labelField);
+            if (labelValue !== undefined && labelValue !== null && String(labelValue).trim() !== '') {
+                styles.push(new ol.style.Style({
+                    text: new ol.style.Text({
+                        text: String(labelValue),
+                        font: '12px sans-serif',
+                        fill: new ol.style.Fill({ color: '#000' }),
+                        stroke: new ol.style.Stroke({ color: '#fff', width: 3 }),
+                        offsetY: (geomType === 'Point' || geomType === 'MultiPoint') ? -14 : 0
+                    })
+                }));
+            }
+        }
+
         return styles;
     };
     
@@ -7351,7 +7537,8 @@ let drawLayer = null;
 let drawSource = null;
 let drawInteraction = null;
 let drawFeatures = [];
-let featureFields = null; // 存储字段结构（字段名称列表）
+let drawSchema = null; // 存储完整字段结构 {fields: [...]}，替换原来的 featureFields
+// 注意: FeatureForm 共享模块由 feature_form.js 提供，需要在运行时通过 window.FeatureForm 访问
 
 // 初始化绘制图层
 function initDrawLayer() {
@@ -7399,25 +7586,61 @@ function startDraw(mode) {
         type: mode
     });
     
-    // 绘制完成事件
+    // 绘制完成事件（改造：使用 drawSchema + 共享模块属性面板）
     drawInteraction.on('drawend', function(evt) {
         const feature = evt.feature;
         
-        // 添加属性
+        // 按 schema 默认值填充
         feature.set('id', Date.now());
         feature.set('type', mode);
-        feature.set('name', mode + '_' + drawFeatures.length);
-        
+
+        if (drawSchema && drawSchema.fields && drawSchema.fields.length > 0) {
+            drawSchema.fields.forEach(f => {
+                if (feature.get(f.name) === undefined) {
+                    feature.set(f.name, f.default ?? '');
+                }
+            });
+        } else {
+            feature.set('name', mode + '_' + drawFeatures.length);
+        }
+
         drawFeatures.push(feature);
-        
-        // 显示属性编辑对话框
-        showFeatureEditDialog(feature);
+
+        // 使用共享模块打开属性面板
+        if (FeatureForm && typeof window.FeatureForm.showPropertyPanel === 'function') {
+            window.FeatureForm.showPropertyPanel({
+                features: [feature],
+                source: drawSource,
+                schema: drawSchema,
+                position: { top: '60px', left: '20px' }
+            });
+        } else {
+            // 降级：使用原来的 prompt 对话框
+            showFeatureEditDialog(feature);
+        }
     });
     
     map.addInteraction(drawInteraction);
     
     // 更新按钮状态
     updateDrawButtons(mode);
+}
+
+// 打开字段结构设计器（用于原绘制图层）
+function openDrawSchemaDesigner() {
+    if (!FeatureForm || typeof window.FeatureForm.showSchemaDesigner !== 'function') {
+        // FeatureForm 未加载，走原有 featureFields 逻辑
+        showFeatureEditDialog(null, true); // 传 null + flag 表示只定义 schema
+        return;
+    }
+    window.FeatureForm.showSchemaDesigner({
+        title: '定义绘制图层字段结构',
+        initialSchema: drawSchema,
+        onConfirm: (schema) => {
+            drawSchema = schema;
+            console.log('📐 绘制图层字段结构已更新:', schema.fields.length, '个字段');
+        }
+    });
 }
 
 // 停止绘制
@@ -7449,8 +7672,15 @@ function updateDrawButtons(activeMode) {
     }
 }
 
-// 显示要素编辑对话框
-function showFeatureEditDialog(feature) {
+// 显示要素编辑对话框（降级：FeatureForm 未加载时使用 prompt）
+function showFeatureEditDialog(feature, onlyDefineSchema) {
+    // onlyDefineSchema = true 时只定义 schema（FeatureForm 未加载的降级）
+    if (onlyDefineSchema) {
+        // 让用户先画一个点来定义字段（太复杂，直接 return）
+        alert('请先在设置面板中打开"字段结构设计"按钮，功能已升级');
+        return;
+    }
+
     const geomType = feature.get('type');
     const currentName = feature.get('name') || '';
     
@@ -7465,21 +7695,22 @@ function showFeatureEditDialog(feature) {
         const addMore = confirm('是否添加自定义属性?');
         if (addMore) {
             addCustomProperties(feature);
-            // 存储字段结构（只存储字段名称）
+            // 存储字段结构（升级为完整 schema 对象）
             const properties = feature.getProperties();
-            featureFields = [];
+            const fields = [];
             Object.keys(properties).forEach(key => {
                 if (key !== 'geometry' && key !== 'id' && key !== 'type' && key !== 'name') {
-                    featureFields.push(key);
+                    fields.push({ name: key, type: 'text', default: properties[key], options: [] });
                 }
             });
+            drawSchema = { fields: fields };
         }
-    } else if (featureFields && featureFields.length > 0) {
+    } else if (drawSchema && drawSchema.fields && drawSchema.fields.length > 0) {
         // 不是第一个对象，根据字段结构提示用户输入值
-        featureFields.forEach(field => {
-            const value = prompt(`请输入 ${field} 的值:`, '');
+        drawSchema.fields.forEach(f => {
+            const value = prompt(`请输入 ${f.name} 的值:`, f.default ?? '');
             if (value !== null) {
-                feature.set(field, value);
+                feature.set(f.name, value);
             }
         });
     }
@@ -7517,7 +7748,7 @@ function clearDrawLayer() {
     if (confirm('确定要清空所有绘制的要素吗?')) {
         drawSource.clear();
         drawFeatures = [];
-        featureFields = null; // 重置字段结构
+        drawSchema = null; // 重置字段结构
     }
 }
 
@@ -7671,24 +7902,31 @@ function addDrawToolbar() {
     
     toolbar.appendChild(drawDiv);
     
-    // 绘制按钮事件
-    document.getElementById('drawPointBtn').onclick = () => {
-        if (drawMode === 'Point') stopDraw();
-        else startDraw('Point');
-        document.getElementById('drawDropdownMenu').style.display = 'none';
-    };
-    
-    document.getElementById('drawLineBtn').onclick = () => {
-        if (drawMode === 'LineString') stopDraw();
-        else startDraw('LineString');
-        document.getElementById('drawDropdownMenu').style.display = 'none';
-    };
-    
-    document.getElementById('drawPolygonBtn').onclick = () => {
-        if (drawMode === 'Polygon') stopDraw();
-        else startDraw('Polygon');
-        document.getElementById('drawDropdownMenu').style.display = 'none';
-    };
+    // 绘制按钮事件 — 没有 schema 时先弹设计器（异步）
+    ['drawPointBtn', 'drawLineBtn', 'drawPolygonBtn'].forEach((btnId, i) => {
+        const modes = ['Point', 'LineString', 'Polygon'];
+        document.getElementById(btnId).onclick = () => {
+            const mode = modes[i];
+            if (drawMode === mode) {
+                stopDraw();
+            } else if (!drawSchema && FeatureForm && typeof window.FeatureForm.showSchemaDesigner === 'function') {
+                // 先弹字段结构设计器，确认后再进入绘制
+                window.FeatureForm.showSchemaDesigner({
+                    title: '先定义字段结构（可跳过）',
+                    initialSchema: drawSchema,
+                    onConfirm: (schema) => {
+                        drawSchema = schema;
+                        startDraw(mode);
+                    }
+                });
+                // 注意：弹窗关闭后还需要手动进入绘制，因为没有 schema 就不知道 startDraw 会怎么处理
+                // 这里让用户自己点击绘制按钮进入
+            } else {
+                startDraw(mode);
+            }
+            document.getElementById('drawDropdownMenu').style.display = 'none';
+        };
+    });
     
     document.getElementById('drawStopBtn').onclick = () => {
         stopDraw();

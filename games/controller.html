@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<!--
+  小刘游戏 · 空中打击（XiaoLiu Games）· 手机控制器
+  开发人员：刘春杉、刘拙研、TRAE
+  Copyright © 2026 刘春杉、刘拙研  All rights reserved.
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#050b14" />
+<title>小刘游戏 · 手机控制器 V2.7.1</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23050b14'/%3E%3Cpath d='M32 10 18 44l14-6 14 6z' fill='%2335e0ff'/%3E%3C/svg%3E" />
+<link rel="stylesheet" href="./css/controller.css?v=2.7.1" />
+</head>
+<body>
+
+<header class="bar">
+  <div class="bar-left">
+    <span class="mode" id="modeName">未开始</span>
+    <span class="clock" id="clock">--:--</span>
+  </div>
+  <div class="bar-mid">
+    <span class="stat">得分<b id="score">0</b></span>
+    <span class="stat">剩余目标<b id="remain">0</b></span>
+  </div>
+  <div class="bar-right">
+    <span class="stat armor">护甲<span class="pips" id="armorPips"></span></span>
+    <span class="stat ammo">导弹<b id="ammo">10</b></span>
+    <button class="menu-chip" id="menuBtn" type="button">菜单</button>
+    <span class="status" id="status"><span class="led"></span><span id="statusText">连接中…</span></span>
+  </div>
+</header>
+
+<main>
+  <section class="zone cannon disabled" id="zoneCannon">
+    <div class="zone-top">
+      <span class="zone-name">机炮</span>
+      <span class="zone-note">左拇指按住连射 · 无限弹药</span>
+    </div>
+    <div class="cannon-ring"><i></i><b>按住</b></div>
+    <div class="zone-foot" id="cannonFoot">等待开始</div>
+  </section>
+
+  <section class="flare-bar disabled" id="zoneFlare">
+    <span class="flare-name">干扰弹</span>
+    <b id="flareCount">∞</b>
+    <span class="flare-note" id="flareFoot">点按释放 · 诱爆来袭导弹</span>
+  </section>
+
+  <section class="zone missile disabled" id="zoneMissile">
+    <div class="zone-top">
+      <span class="zone-name">导弹</span>
+      <span class="zone-note">右拇指点按 · 弱制导</span>
+    </div>
+    <div class="missile-ring" id="missileRing"><b id="missileCount">10</b><span class="unit">剩余</span></div>
+    <div class="ammo-dots" id="ammoDots"></div>
+    <div class="zone-foot" id="missileFoot">剩余 10 发</div>
+  </section>
+</main>
+
+<div class="rotate-hint" id="rotateHint">建议横屏双手握持 · 左拇指机炮 / 右拇指导弹 · 中条干扰弹</div>
+
+<div class="banner hidden" id="banner">
+  <b id="bannerTitle"></b><span id="bannerText"></span>
+  <div class="banner-actions">
+    <button class="b-act primary" id="btnReplayPhone" type="button">重玩本局</button>
+    <button class="b-act" id="btnMenuPhone" type="button">返回选模式</button>
+  </div>
+</div>
+
+<div class="launch-panel hidden" id="launchPanel">
+  <div class="launch-card">
+    <div class="launch-kicker">PRE-FLIGHT CHECK</div>
+    <div class="launch-title">出击准备 <em id="launchMode"></em></div>
+    <div class="launch-text" id="launchText">等待电脑端检查摄像头与姿态识别…</div>
+    <div class="launch-actions">
+      <button class="l-act primary" id="btnLaunch" type="button" disabled>确认出击</button>
+      <button class="l-act" id="btnCancelLaunch" type="button">返回选模式</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<div class="mode-sheet hidden" id="modeSheet">
+  <div class="sheet-card">
+    <div class="sheet-head">
+      <span>选择战场</span>
+      <button class="sheet-close" id="sheetClose" type="button">×</button>
+    </div>
+    <div class="sheet-list" id="sheetList"></div>
+    <div class="sheet-note">选择后电脑端将直接出击；若停在检查页，就绪后可在本页点击「确认出击」</div>
+  </div>
+</div>
+
+<script>window.GAME_SERVER = new URLSearchParams(location.search).get('server') || 'https://lzy-fastapi.onrender.com';</script>
+<script src="./lib/socket.io.min.js"></script>
+<script>
+const MAX_AMMO = 10;
+const ARMOR = 3;
+const MISSILE_CD = 1.5;       // 秒，与电脑端 CFG.missile.cooldown 一致
+const FLARE_CD = 2.5;         // 秒，与电脑端 CFG.flare.cooldown 一致
+const CANNON_RELEASE_MS = 0;  // 松开立即停止
+
+const els = {
+  modeName: document.getElementById('modeName'),
+  clock: document.getElementById('clock'),
+  score: document.getElementById('score'),
+  remain: document.getElementById('remain'),
+  armorPips: document.getElementById('armorPips'),
+  ammo: document.getElementById('ammo'),
+  status: document.getElementById('status'),
+  statusText: document.getElementById('statusText'),
+  zoneCannon: document.getElementById('zoneCannon'),
+  zoneFlare: document.getElementById('zoneFlare'),
+  flareCount: document.getElementById('flareCount'),
+  flareFoot: document.getElementById('flareFoot'),
+  zoneMissile: document.getElementById('zoneMissile'),
+  cannonFoot: document.getElementById('cannonFoot'),
+  missileRing: document.getElementById('missileRing'),
+  missileCount: document.getElementById('missileCount'),
+  missileFoot: document.getElementById('missileFoot'),
+  ammoDots: document.getElementById('ammoDots'),
+  banner: document.getElementById('banner'),
+  bannerTitle: document.getElementById('bannerTitle'),
+  bannerText: document.getElementById('bannerText'),
+  launchPanel: document.getElementById('launchPanel'),
+  launchMode: document.getElementById('launchMode'),
+  launchText: document.getElementById('launchText'),
+  btnLaunch: document.getElementById('btnLaunch'),
+  btnCancelLaunch: document.getElementById('btnCancelLaunch'),
+  toast: document.getElementById('toast'),
+  menuBtn: document.getElementById('menuBtn'),
+  modeSheet: document.getElementById('modeSheet'),
+  sheetList: document.getElementById('sheetList'),
+  sheetClose: document.getElementById('sheetClose'),
+  btnReplayPhone: document.getElementById('btnReplayPhone'),
+  btnMenuPhone: document.getElementById('btnMenuPhone')
+};
+
+const state = {
+  connected: false,
+  host: false,
+  phase: 'menu',
+  time: 0,
+  score: 0,
+  remain: 0,
+  total: 0,
+  armor: ARMOR,
+  ammo: MAX_AMMO,
+  flares: Infinity,
+  cd: 0,
+  flareCd: 0,
+  cannonHeld: false,
+  resultShown: false,
+  modes: [],
+  menuOpen: false,
+  ready: false
+};
+
+/* ---------------- 基础 UI ---------------- */
+for (let i = 0; i < ARMOR; i++) {
+  const p = document.createElement('i');
+  p.className = 'pip';
+  els.armorPips.appendChild(p);
+}
+const armorPips = Array.from(els.armorPips.children);
+
+for (let i = 0; i < MAX_AMMO; i++) {
+  const d = document.createElement('i');
+  d.className = 'ammo-dot';
+  els.ammoDots.appendChild(d);
+}
+const ammoDots = Array.from(els.ammoDots.children);
+
+let toastTimer = 0;
+function toast(text, ms = 1800) {
+  els.toast.textContent = text;
+  els.toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => els.toast.classList.remove('show'), ms);
+}
+
+function setStatus(kind, text) {
+  els.status.className = 'status' + (kind ? ' ' + kind : '');
+  els.statusText.textContent = text;
+}
+
+function refreshStatus() {
+  if (!state.connected) { setStatus('err', '连接断开'); return; }
+  if (state.host) { setStatus('ok', '已连接电脑'); return; }
+  setStatus('warn', '等待电脑端…');
+}
+
+function buzz(ms) {
+  if (navigator.vibrate) navigator.vibrate(ms);
+}
+
+/* ---------------- 输入兼容（微信 X5 / 部分国产浏览器 Pointer Events 不完整） ---------------- */
+const HAS_POINTER = typeof window.PointerEvent === 'function';
+const HAS_TOUCH = 'ontouchstart' in window || (navigator.maxTouchPoints || 0) > 0;
+
+/**
+ * 按压绑定：优先触摸事件，Pointer Events 作为另一来源；
+ * 用时间戳对同一手势的跨事件源重复触发去重（Chrome 会先派发 pointerdown 再派发 touchstart）。
+ */
+function onPress(el, down, up) {
+  let touchTime = 0;
+  let ptrTime = 0;
+
+  if (HAS_TOUCH) {
+    el.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      if (Date.now() - ptrTime < 600) return;
+      touchTime = Date.now();
+      down(e);
+    }, { passive: false });
+    if (up) {
+      const end = (e) => {
+        if (e.cancelable) e.preventDefault();
+        if (Date.now() - ptrTime < 600) return;
+        touchTime = Date.now();
+        up(e);
+      };
+      el.addEventListener('touchend', end, { passive: false });
+      el.addEventListener('touchcancel', end);
+    }
+  }
+
+  if (HAS_POINTER) {
+    el.addEventListener('pointerdown', (e) => {
+      if (Date.now() - touchTime < 600) return;
+      ptrTime = Date.now();
+      down(e);
+    });
+    if (up) {
+      const pUp = (e) => {
+        if (Date.now() - touchTime < 600) return;
+        ptrTime = Date.now();
+        up(e);
+      };
+      el.addEventListener('pointerup', pUp);
+      el.addEventListener('pointercancel', pUp);
+      el.addEventListener('lostpointercapture', pUp);
+    }
+  }
+
+  if (!HAS_TOUCH && !HAS_POINTER) {
+    el.addEventListener('mousedown', down);
+    if (up) {
+      el.addEventListener('mouseup', up);
+      el.addEventListener('mouseleave', up);
+    }
+  }
+}
+
+/* ---------------- 状态渲染 ---------------- */
+function isPlaying() { return state.phase === 'playing'; }
+
+function renderZones() {
+  const playing = isPlaying();
+  els.zoneCannon.classList.toggle('disabled', !playing);
+  els.zoneMissile.classList.toggle('disabled', !playing);
+  els.zoneFlare.classList.toggle('disabled', !playing);
+
+  if (state.phase === 'menu') {
+    els.cannonFoot.textContent = '等待电脑端选择模式';
+  } else if (state.phase === 'preflight') {
+    els.cannonFoot.textContent = '电脑端出击检查中…';
+  } else if (state.phase === 'countdown') {
+    els.cannonFoot.textContent = '准备起飞…';
+  } else if (playing) {
+    els.cannonFoot.textContent = state.remain > 0 ? '目标 ' + state.remain + ' · 按住持续开火' : '目标已清空';
+  } else if (state.phase === 'result') {
+    els.cannonFoot.textContent = '本局结束 · 可在手机端重玩或返回';
+  }
+}
+
+function renderAmmo() {
+  els.ammo.textContent = state.ammo;
+  els.missileCount.textContent = state.ammo;
+  ammoDots.forEach((d, i) => d.classList.toggle('empty', i >= state.ammo));
+  els.missileFoot.textContent = state.ammo > 0
+    ? '剩余 ' + state.ammo + ' 发'
+    : '导弹已耗尽 · 使用机炮';
+}
+
+function renderArmor() {
+  armorPips.forEach((p, i) => p.classList.toggle('empty', i >= state.armor));
+}
+
+function renderFlares() {
+  const unlimited = !Number.isFinite(state.flares);
+  els.flareCount.textContent = unlimited ? '∞' : state.flares;
+  els.zoneFlare.classList.toggle('empty', !unlimited && state.flares <= 0);
+  if (state.flareCd > 0) {
+    els.flareFoot.textContent = '冷却 ' + state.flareCd.toFixed(1) + 's';
+  } else if (!unlimited && state.flares <= 0) {
+    els.flareFoot.textContent = '干扰弹已耗尽';
+  } else {
+    els.flareFoot.textContent = '点按释放 · 诱爆来袭导弹';
+  }
+}
+
+function renderClock() {
+  const t = Math.max(0, Math.ceil(state.time));
+  const mm = String(Math.floor(t / 60)).padStart(2, '0');
+  const ss = String(t % 60).padStart(2, '0');
+  els.clock.textContent = mm + ':' + ss;
+  els.clock.classList.toggle('urgent', isPlaying() && t <= 20);
+}
+
+function renderBanner() {
+  if (state.phase === 'result') {
+    if (!state.resultShown) {
+      state.resultShown = true;
+      const win = state.win;
+      els.banner.classList.remove('hidden', 'lose');
+      if (!win) els.banner.classList.add('lose');
+      els.bannerTitle.textContent = win ? '任务成功' : '任务失败';
+      els.bannerText.textContent =
+        '得分 ' + state.score + ' · 剩余目标 ' + state.remain + ' / ' + state.total;
+      releaseCannon();
+    }
+  } else {
+    state.resultShown = false;
+    els.banner.classList.add('hidden');
+  }
+}
+
+function applyState(s) {
+  if (!s) return;
+  state.host = true;
+  state.connected = true;
+  if (typeof s.phase === 'string') state.phase = s.phase;
+  if (typeof s.mode === 'string' && s.mode) {
+    state.modeName = s.mode;
+    els.modeName.textContent = s.mode + (typeof s.diff === 'string' && s.diff ? ' · ' + s.diff : '');
+  }
+  state.ready = !!s.ready;
+  if (typeof s.time === 'number') state.time = s.time;
+  if (typeof s.score === 'number') state.score = s.score;
+  if (typeof s.remain === 'number') state.remain = s.remain;
+  if (typeof s.remaining === 'number') state.remain = s.remaining;
+  if (typeof s.total === 'number') state.total = s.total;
+  if (typeof s.armor === 'number') state.armor = s.armor;
+  if (typeof s.ammo === 'number') state.ammo = s.ammo;
+  if (typeof s.flares === 'number') state.flares = s.flares;
+  else if (s.flares === null) state.flares = Infinity;   // null 表示无限
+  state.win = s.result === 'win';
+  if (Array.isArray(s.modes)) {
+    state.modes = s.modes;
+    if (state.menuOpen) renderModeSheet();
+  }
+
+  els.score.textContent = state.score;
+  els.remain.textContent = state.remain;
+  renderAmmo();
+  renderArmor();
+  renderFlares();
+  renderClock();
+  renderZones();
+  renderBanner();
+  renderLaunchPanel();
+  refreshStatus();
+  if (state.phase !== 'playing') releaseCannon();
+}
+
+/* ---------------- 出击准备页（V2.7.1）：手机上直接确认出击 / 返回选模式 ---------------- */
+function renderLaunchPanel() {
+  const show = state.phase === 'preflight';
+  els.launchPanel.classList.toggle('hidden', !show);
+  if (!show) return;
+  els.launchMode.textContent = state.modeName ? '· ' + state.modeName : '';
+  els.btnLaunch.disabled = !state.ready;
+  els.launchText.textContent = state.ready
+    ? '检查完成，可直接在手机上确认出击'
+    : '电脑端正在检查摄像头与姿态识别，请稍候…';
+}
+
+/* ---------------- 通信 ---------------- */
+function canFire() {
+  if (!state.connected) { toast('尚未连接服务'); return false; }
+  if (!state.host) { toast('电脑游戏页尚未打开'); return false; }
+  return true;
+}
+
+function sendWeapon(payload) {
+  if (!socket || !socket.connected) { toast('连接已断开'); return false; }
+  socket.emit('weapon', payload);
+  return true;
+}
+
+/* ---------------- 手机端菜单 / 选模式（V2.5.2） ---------------- */
+function sendCommand(action, mode) {
+  if (!state.connected || !socket || !socket.connected) { toast('连接已断开'); return false; }
+  if (!state.host) { toast('电脑游戏页尚未打开'); return false; }
+  socket.emit('command', { action, mode });
+  return true;
+}
+
+function renderModeSheet() {
+  if (!els.sheetList) return;
+  els.sheetList.innerHTML = '';
+  if (!state.modes.length) {
+    const d = document.createElement('div');
+    d.className = 'sheet-empty';
+    d.textContent = '电脑端暂未上报战场列表';
+    els.sheetList.appendChild(d);
+    return;
+  }
+  for (const m of state.modes) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'sheet-item';
+    b.innerHTML = '<b>' + m.name + '</b><span>' + (m.tag || '') + '</span>';
+    b.addEventListener('click', () => {
+      if (sendCommand('mode', m.id)) {
+        closeModeSheet();
+        toast('已选择 ' + m.name + ' · 电脑端出击');
+      }
+    });
+    els.sheetList.appendChild(b);
+  }
+}
+
+function openModeSheet() {
+  if (!state.connected) { toast('尚未连接服务'); return; }
+  if (!state.host) { toast('电脑游戏页尚未打开'); return; }
+  if (state.phase === 'playing' || state.phase === 'countdown') {
+    toast('战斗中，结束后再选模式');
+    return;
+  }
+  state.menuOpen = true;
+  renderModeSheet();
+  els.modeSheet.classList.remove('hidden');
+}
+
+function closeModeSheet() {
+  state.menuOpen = false;
+  els.modeSheet.classList.add('hidden');
+}
+
+els.menuBtn.addEventListener('click', () => {
+  if (state.menuOpen) closeModeSheet();
+  else openModeSheet();
+});
+els.sheetClose.addEventListener('click', () => closeModeSheet());
+els.modeSheet.addEventListener('click', (e) => {
+  if (e.target === els.modeSheet) closeModeSheet();
+});
+els.btnReplayPhone.addEventListener('click', () => {
+  if (sendCommand('replay')) toast('重玩本局');
+});
+els.btnMenuPhone.addEventListener('click', () => {
+  if (sendCommand('menu')) {
+    openModeSheet();
+    toast('已返回选模式');
+  }
+});
+els.btnLaunch.addEventListener('click', () => {
+  if (els.btnLaunch.disabled) return;
+  if (sendCommand('launch')) {
+    buzz(20);
+    toast('已确认出击');
+  }
+});
+els.btnCancelLaunch.addEventListener('click', () => {
+  if (sendCommand('menu')) {
+    closeModeSheet();
+    toast('已返回选模式');
+  }
+});
+
+let socket = null;
+const hasIO = typeof io === 'function';
+
+if (hasIO) {
+  socket = io(window.GAME_SERVER, { transports: ['websocket', 'polling'] });
+
+  socket.on('connect', () => {
+    state.connected = true;
+    socket.emit('join', 'controller');
+    refreshStatus();
+  });
+
+  socket.on('presence', (p) => {
+    state.host = !!(p && p.host);
+    refreshStatus();
+  });
+
+  socket.on('state', (s) => applyState(s));
+
+  socket.on('weaponResult', (r) => {
+    if (r && !r.ok) toast(r.reason === 'host-offline' ? '电脑端未连接' : '指令未送达');
+  });
+
+  socket.on('fireResult', (r) => {
+    if (r && !r.ok) toast('电脑端未连接，发射失败');
+  });
+
+  socket.on('commandResult', (r) => {
+    if (r && !r.ok) toast(r.reason === 'host-offline' ? '电脑端未连接' : '指令未送达');
+  });
+
+  socket.on('disconnect', () => {
+    state.connected = false;
+    state.host = false;
+    releaseCannon();
+    refreshStatus();
+  });
+
+  socket.on('connect_error', () => {
+    state.connected = false;
+    releaseCannon();
+    refreshStatus();
+  });
+} else {
+  setStatus('err', '无法加载通信库');
+}
+
+/* ---------------- 供自动化测试访问内部状态 ---------------- */
+window.__ctl = {
+  state,
+  get socket() { return socket; }
+};
+
+/* ---------------- 机炮：按住 ---------------- */
+function pressCannon(e) {
+  if (e) e.preventDefault();
+  if (!isPlaying()) { toast('尚未开始战斗'); return; }
+  if (state.cannonHeld) return;
+  if (!canFire()) return;
+  if (!sendWeapon({ type: 'cannon', action: 'down' })) return;
+  state.cannonHeld = true;
+  els.zoneCannon.classList.add('pressed');
+  buzz(18);
+  if (els.zoneCannon.setPointerCapture && e && typeof e.pointerId === 'number') {
+    try { els.zoneCannon.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+  }
+}
+
+function releaseCannon() {
+  if (!state.cannonHeld) return;
+  state.cannonHeld = false;
+  els.zoneCannon.classList.remove('pressed');
+  if (socket && socket.connected) socket.emit('weapon', { type: 'cannon', action: 'up' });
+}
+
+onPress(els.zoneCannon, pressCannon, releaseCannon);
+els.zoneCannon.addEventListener('contextmenu', (e) => e.preventDefault());
+
+/* ---------------- 导弹：单击 ---------------- */
+function fireMissile(e) {
+  if (e) e.preventDefault();
+  if (!isPlaying()) { toast('尚未开始战斗'); return; }
+  if (state.cd > 0) { toast('导弹冷却 ' + state.cd.toFixed(1) + 's'); return; }
+  if (state.ammo <= 0) { toast('导弹已耗尽，使用机炮'); return; }
+  if (!canFire()) return;
+  if (!sendWeapon({ type: 'missile', action: 'fire' })) return;
+
+  state.cd = MISSILE_CD;
+  state.ammo = Math.max(0, state.ammo - 1);
+  renderAmmo();
+  buzz(35);
+  els.zoneMissile.classList.add('pressed');
+  setTimeout(() => els.zoneMissile.classList.remove('pressed'), 150);
+}
+
+onPress(els.zoneMissile, fireMissile, null);
+els.zoneMissile.addEventListener('contextmenu', (e) => e.preventDefault());
+
+/* ---------------- 干扰弹：点按 ---------------- */
+function fireFlare(e) {
+  if (e) e.preventDefault();
+  if (!isPlaying()) { toast('尚未开始战斗'); return; }
+  if (state.flareCd > 0) { toast('干扰弹冷却 ' + state.flareCd.toFixed(1) + 's'); return; }
+  if (Number.isFinite(state.flares) && state.flares <= 0) { toast('干扰弹已耗尽'); return; }
+  if (!canFire()) return;
+  if (!sendWeapon({ type: 'flare', action: 'fire' })) return;
+
+  state.flareCd = FLARE_CD;
+  if (Number.isFinite(state.flares)) state.flares = Math.max(0, state.flares - 1);
+  renderFlares();
+  buzz(25);
+  els.zoneFlare.classList.add('pressed');
+  setTimeout(() => els.zoneFlare.classList.remove('pressed'), 150);
+}
+
+onPress(els.zoneFlare, fireFlare, null);
+els.zoneFlare.addEventListener('contextmenu', (e) => e.preventDefault());
+
+/* ---------------- 全局兜底释放 ---------------- */
+window.addEventListener('pointerup', releaseCannon);
+window.addEventListener('pointercancel', releaseCannon);
+window.addEventListener('touchend', releaseCannon);
+window.addEventListener('touchcancel', releaseCannon);
+window.addEventListener('mouseup', releaseCannon);
+window.addEventListener('blur', releaseCannon);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) releaseCannon();
+});
+
+/* ---------------- 本地冷却动画 ---------------- */
+let lastFrame = performance.now();
+function loop(now) {
+  const dt = Math.min(now - lastFrame, 120);
+  lastFrame = now;
+
+  if (state.cd > 0) {
+    state.cd = Math.max(0, state.cd - dt / 1000);
+    if (state.cd === 0 && isPlaying()) buzz(15);
+  }
+
+  if (state.flareCd > 0) {
+    state.flareCd = Math.max(0, state.flareCd - dt / 1000);
+    renderFlares();
+  }
+
+  const p = state.cd > 0 ? state.cd / MISSILE_CD : 0;
+  els.missileRing.style.setProperty('--p', p.toFixed(3));
+  els.missileRing.style.opacity = state.ammo <= 0 ? '.45' : '1';
+
+  if (state.cd > 0 && isPlaying()) {
+    els.missileFoot.textContent = '冷却 ' + state.cd.toFixed(1) + 's';
+  } else if (state.ammo <= 0) {
+    els.missileFoot.textContent = '导弹已耗尽 · 使用机炮';
+  } else if (!isPlaying()) {
+    els.missileFoot.textContent = '剩余 ' + state.ammo + ' 发';
+  } else {
+    els.missileFoot.textContent = '剩余 ' + state.ammo + ' 发';
+  }
+
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+/* 首次若未收到状态，默认按菜单态渲染 */
+renderZones();
+renderAmmo();
+renderArmor();
+renderFlares();
+renderClock();
+renderLaunchPanel();
+refreshStatus();
+</script>
+</body>
+</html>
