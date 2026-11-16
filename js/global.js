@@ -962,28 +962,19 @@ function createWaypointEntities(route) {
 function createPlaneEntity(waypoint) {
     const position = Cesium.Cartesian3.fromDegrees(waypoint.lon, waypoint.lat, waypoint.height);
 
-    // 计算初始朝向（使用真实地理方位角）
+    // 计算初始航向（使用真实地理方位角，全局路径切线方向）
     let heading = 0;
     if (flyState.route && flyState.route.waypoints.length > 1) {
-        const wp2 = flyState.route.waypoints[1];
-        const dLonRad = (wp2.lon - waypoint.lon) * Math.PI / 180;
-        const lat1Rad = waypoint.lat * Math.PI / 180;
-        const lat2Rad = wp2.lat * Math.PI / 180;
-        const y = Math.sin(dLonRad) * Math.cos(lat2Rad);
-        const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) - Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLonRad);
-        heading = Math.atan2(y, x);
+        heading = getPathHeading(flyState.route, 0);
     }
 
-    // 飞机箭头SVG (三角形指向右边为机头方向)
+    // 飞机箭头SVG (三角形指向上方=北方，与Cesium heading 0=北方一致)
     const planeSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">' +
-        '<path d="M24 6 L38 30 L24 25 L10 30 Z" fill="#ff4444" stroke="#ffffff" stroke-width="2" stroke-linejoin="round"/>' +
-        '<path d="M24 12 L24 36" stroke="#ffffff" stroke-width="2"/>' +
+        '<path d="M24 4 L36 34 L24 27 L12 34 Z" fill="#ff4444" stroke="#ffffff" stroke-width="2" stroke-linejoin="round"/>' +
+        '<path d="M12 34 L36 34" stroke="#ffffff" stroke-width="2"/>' +
         '</svg>';
     
     const planeImage = 'data:image/svg+xml;base64,' + btoa(planeSvg);
-
-    const hpr = new Cesium.HeadingPitchRoll(heading, 0, 0);
-    const quaternion = Cesium.Transforms.headingPitchRollQuaternion(position, hpr);
 
     flyState.planeEntity = viewer.entities.add({
         position: position,
@@ -994,12 +985,16 @@ function createPlaneEntity(waypoint) {
             verticalOrigin: Cesium.VerticalOrigin.CENTER,
             heightReference: Cesium.HeightReference.NONE,
             disableDepthTestDistance: Number.POSITIVE_INFINITY,
+            // 使用 rotation 控制朝向（弧度），Cesium heading 0=北，SVG机头朝北
+            rotation: heading,
+            // alignedAxis=UNIT_Z 让 billboard 在地图平面内旋转
             alignedAxis: Cesium.Cartesian3.UNIT_Z,
             sizeInMeters: false
-        },
-        // 使用 orientation 属性让 billboard 跟随地球表面朝向
-        orientation: quaternion
+        }
     });
+
+    // 保存初始航向，updatePlanePosition 中通过 rotation 属性更新
+    flyState._currentHeading = heading;
 }
 
 // 显示航点标签（闪烁效果）
@@ -1130,6 +1125,52 @@ function animateFlight() {
     flyState.rafId = requestAnimationFrame(animateFlight);
 }
 
+// 计算路径在某个全局进度位置的切线航向角
+function getPathHeading(route, globalProgress) {
+    const waypoints = route.waypoints;
+    const n = waypoints.length;
+    if (n < 2) return 0;
+
+    // 将全局进度（0~n-1）映射到 waypoint 索引
+    const idx = Math.min(Math.floor(globalProgress), n - 2);
+    const frac = globalProgress - idx;
+
+    // 取前后各1个点计算切线（平滑航向，避免段切换突变）
+    const lookAhead = 0.5; // 向前看半个段
+    const beforeIdx = Math.max(0, idx - 1);
+    const afterIdx = Math.min(n - 1, idx + 1);
+
+    const p1 = waypoints[beforeIdx];
+    const p2 = waypoints[afterIdx];
+
+    // 地理方位角
+    const dLonRad = (p2.lon - p1.lon) * Math.PI / 180;
+    const lat1Rad = p1.lat * Math.PI / 180;
+    const lat2Rad = p2.lat * Math.PI / 180;
+    const y = Math.sin(dLonRad) * Math.cos(lat2Rad);
+    const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) - Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLonRad);
+    return Math.atan2(y, x);
+}
+
+// 计算路径在某个全局进度位置的俯仰角
+function getPathPitch(route, globalProgress) {
+    const waypoints = route.waypoints;
+    const n = waypoints.length;
+    if (n < 2) return 0;
+
+    const idx = Math.min(Math.floor(globalProgress), n - 2);
+    const beforeIdx = Math.max(0, idx - 1);
+    const afterIdx = Math.min(n - 1, idx + 1);
+
+    const p1 = waypoints[beforeIdx];
+    const p2 = waypoints[afterIdx];
+    const dLat = (p2.lat - p1.lat) * 111000;
+    const dLonM = (p2.lon - p1.lon) * 111000 * Math.cos((p1.lat + p2.lat) / 2 * Math.PI / 180);
+    const dH = p2.height - p1.height;
+    const horiz = Math.sqrt(dLonM * dLonM + dLat * dLat);
+    return Math.atan2(dH, horiz || 1);
+}
+
 // 更新飞机位置和朝向
 function updatePlanePosition() {
     const route = flyState.route;
@@ -1138,7 +1179,7 @@ function updatePlanePosition() {
     const wp2 = route.waypoints[segIdx + 1];
     const t = flyState.segmentProgress;
 
-    // 计算插值位置
+    // 计算插值位置（路径线上方，伴随高程变化）
     const lon = wp1.lon + (wp2.lon - wp1.lon) * t;
     const lat = wp1.lat + (wp2.lat - wp1.lat) * t;
     const height = wp1.height + (wp2.height - wp1.height) * t;
@@ -1146,27 +1187,18 @@ function updatePlanePosition() {
     const newPosition = Cesium.Cartesian3.fromDegrees(lon, lat, height);
     flyState.planeEntity.position = newPosition;
 
-    // 计算航向（使用真实地理方位角，不是经纬度平面角）
-    // 方位角公式：bearing = atan2(sin(Δlon)·cos(lat2), cos(lat1)·sin(lat2) − sin(lat1)·cos(lat2)·cos(Δlon))
-    const dLon = (wp2.lon - wp1.lon) * Math.PI / 180;
-    const lat1Rad = wp1.lat * Math.PI / 180;
-    const lat2Rad = wp2.lat * Math.PI / 180;
-    const y = Math.sin(dLon) * Math.cos(lat2Rad);
-    const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) - Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLon);
-    const heading = Math.atan2(y, x);
+    // 使用全局路径切线方向计算航向（避免段切换时航向突变）
+    const globalProgress = segIdx + t;
+    const heading = getPathHeading(route, globalProgress);
+    const pitch = getPathPitch(route, globalProgress);
 
-    // 俯仰角：根据高度变化
-    const dLat = (wp2.lat - wp1.lat) * 111000;
-    const dLonMeters = (wp2.lon - wp1.lon) * 111000 * Math.cos((wp1.lat + wp2.lat) / 2 * Math.PI / 180);
-    const dHeight = wp2.height - wp1.height;
-    const horizontalDist = Math.sqrt(dLonMeters * dLonMeters + dLat * dLat);
-    const pitch = Math.atan2(dHeight, horizontalDist || 1);
+    // 更新飞机朝向：使用 billboard.rotation 控制方向（弧度）
+    if (flyState.planeEntity && flyState.planeEntity.billboard) {
+        flyState.planeEntity.billboard.rotation = heading;
+    }
+    flyState._currentHeading = heading;
 
-    // 更新飞机朝向
-    const hpr = new Cesium.HeadingPitchRoll(heading, pitch, 0);
-    flyState.planeEntity.orientation = Cesium.Transforms.headingPitchRollQuaternion(newPosition, hpr);
-
-    // 手动更新相机跟随（在飞机后上方）
+    // 手动更新相机跟随（在飞机后上方，沿路径切线方向）
     const cameraRange = route.isKML ? 1500 : 600;
     const cameraPitch = Cesium.Math.toRadians(route.isKML ? -25 : -15);
     viewer.camera.lookAt(
