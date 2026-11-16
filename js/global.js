@@ -1105,7 +1105,6 @@ function createPlaneEntity(waypoint) {
     if (flyState.route && flyState.route.waypoints.length > 1) {
         heading = getPathHeading(flyState.route, 0);
     }
-    }
 
     // 飞机箭头SVG (三角形指向上方=北方，与Cesium heading 0=北方一致)
     const planeSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">' +
@@ -1934,6 +1933,7 @@ async function buildSmartRoute() {
     }));
     try {
         const carto = waypoints.map(w => Cesium.Cartographic.fromDegrees(w.lon, w.lat));
+        const terrainProvider = viewer.globe ? viewer.globe.terrainProvider : viewer.terrainProvider;
         const sampled = await Cesium.sampleTerrainMostDetailed(terrainProvider, carto);
         waypoints.forEach((w, i) => {
             w.groundHeight = sampled[i].height;
