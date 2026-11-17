@@ -298,6 +298,10 @@ function updatePhoneStatus(force = false) {
     hud.setStatus('flight', '', '无手机连接');
   } else if (game.phoneSeenAt === 0) {
     hud.setStatus('flight', '', '未启用');
+  } else if (touchFresh()) {
+    hud.setStatus('flight', 'ok', '摇杆 ' + Math.round(game.touchPitch * 100) + '/' + Math.round(game.touchYaw * 100));
+  } else if (game.control === 'touch') {
+    hud.setStatus('flight', '', '摇杆静止');
   } else if (phoneFresh()) {
     hud.setStatus('flight', 'ok', '体感 ' + Math.round(game.phonePitch) + '/' + Math.round(game.phoneRoll) + '°');
   } else {
@@ -1203,12 +1207,15 @@ const net = new Net({
   },
   onFlight: (m) => {
     if (!m) return;
-    const first = game.phoneSeenAt === 0 || performance.now() - game.phoneSeenAt > 3000;
-    game.phoneSeenAt = performance.now();
+    const now = performance.now();
+    const first = game.phoneSeenAt === 0 || now - game.phoneSeenAt > 3000;
+    game.phoneSeenAt = now;
     game.phoneCount += 1;
 
-    if (m.source === 'touch') {
-      // V2.8.0 手机摇杆：优先取归一化字段，兼容角度制字段
+    // V2.8.3：中继可能只转发 pitch/roll（丢弃 source 与 pitchN），按字段特征识别摇杆
+    const looksTouch = m.source === 'touch' || Number.isFinite(m.pitchN) || Number.isFinite(m.yawN);
+    if (looksTouch) {
+      // 优先取归一化字段，缺失时兼容角度制字段
       const np = Number.isFinite(m.pitchN) ? m.pitchN
         : (Number.isFinite(m.pitch) ? (Math.abs(m.pitch) <= 1 ? m.pitch : m.pitch / 40) : 0);
       const ny = Number.isFinite(m.yawN) ? m.yawN
@@ -1217,7 +1224,16 @@ const net = new Net({
       game.touchPitch = clamp(np, -1, 1);
       game.touchYaw = clamp(ny, -1, 1);
       if (Number.isFinite(m.dirX))  game.touchDirX  = clamp(m.dirX,  -1, 1);
-      game.touchSeenAt = performance.now();
+      game.touchSeenAt = now;
+      if (first) hud.toast('手机摇杆已接收', 1500);
+    } else if (game.control === 'touch' && Number.isFinite(m.pitch) && Number.isFinite(m.roll)) {
+      // 触屏模式下只剩角度制字段：按 ±40° 满舵还原成摇杆量
+      game.touchPitch = clamp(Math.abs(m.pitch) <= 1 ? m.pitch : m.pitch / 40, -1, 1);
+      game.touchYaw = clamp(
+        Number.isFinite(m.yaw) ? m.yaw : -(Math.abs(m.roll) <= 1 ? m.roll : m.roll / 40),
+        -1, 1
+      );
+      game.touchSeenAt = now;
       if (first) hud.toast('手机摇杆已接收', 1500);
     } else if (Number.isFinite(m.pitch) && Number.isFinite(m.roll)) {
       // 旧手机陀螺仪：角度制，存进 phonePitch/phoneRoll
