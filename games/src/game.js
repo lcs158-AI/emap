@@ -279,6 +279,13 @@ function analog(v, dead, full) {
   return s * Math.min(1, (a - dead) / (full - dead));
 }
 
+/* V2.8.6 手机摇杆灵敏度曲线：小幅度更细腻，满舵仍可达 1 */
+const JOY_EXPO = 1.7;
+function joyCurve(v) {
+  const a = Math.min(1, Math.abs(v));
+  return (v < 0 ? -1 : 1) * Math.pow(a, JOY_EXPO);
+}
+
 /* 手机陀螺仪数据是否新鲜（<1.2s） */
 function phoneFresh() {
   return game.phoneSeenAt > 0 && performance.now() - game.phoneSeenAt < 1200;
@@ -1221,18 +1228,17 @@ const net = new Net({
       const ny = Number.isFinite(m.yawN) ? m.yawN
         : (Number.isFinite(m.yaw) ? m.yaw
           : (Number.isFinite(m.roll) ? -m.roll / 40 : 0));
-      game.touchPitch = clamp(np, -1, 1);
-      game.touchYaw = clamp(ny, -1, 1);
+      game.touchPitch = joyCurve(clamp(np, -1, 1));
+      game.touchYaw = joyCurve(clamp(ny, -1, 1));
       if (Number.isFinite(m.dirX))  game.touchDirX  = clamp(m.dirX,  -1, 1);
       game.touchSeenAt = now;
       if (first) hud.toast('手机摇杆已接收', 1500);
     } else if (Number.isFinite(m.pitch) && Number.isFinite(m.roll)) {
       // 中继只保留了 pitch/roll（实测：source/pitchN/yawN/yaw/dirX 全部被丢弃）
       // 手机端已无陀螺仪，凡此类包都按摇杆角度制解析：±40° 视为满舵
-      game.touchPitch = clamp(Math.abs(m.pitch) <= 1 ? m.pitch : m.pitch / 40, -1, 1);
-      game.touchYaw = clamp(
-        Number.isFinite(m.yaw) ? m.yaw : -(Math.abs(m.roll) <= 1 ? m.roll : m.roll / 40),
-        -1, 1
+      game.touchPitch = joyCurve(Math.abs(m.pitch) <= 1 ? m.pitch : m.pitch / 40);
+      game.touchYaw = joyCurve(
+        Number.isFinite(m.yaw) ? m.yaw : -(Math.abs(m.roll) <= 1 ? m.roll : m.roll / 40)
       );
       game.touchSeenAt = now;
       // 同时保留旧字段，便于状态条/旧逻辑读取
