@@ -289,8 +289,18 @@
 <div id="flash" class="flash"></div>
 <div id="loading" class="loading">正在加载 3D 引擎…</div>
 
-<script>window.GAME_SERVER = new URLSearchParams(location.search).get('server') || 'https://lzy-fastapi.onrender.com';</script>
+<script>
+window.GAME_SERVER = (function () {
+  var q = new URLSearchParams(location.search).get('server');
+  if (q) return q;
+  try {
+    var s = localStorage.getItem('mj.server');
+    if (s) return s;
+  } catch (e) { /* ignore */ }
+  return 'https://lzy-fastapi.onrender.com';
+})();
+</script>
 <script src="./lib/socket.io.min.js"></script>
-<script type="module" src="./src/game.js?v=2.7.3"></script>
+<script type="module" src="./src/game.js?v=2.8.0"></script>
 </body>
 </html>

@@ -107,7 +107,17 @@
   </div>
 </div>
 
-<script>window.GAME_SERVER = new URLSearchParams(location.search).get('server') || 'https://lzy-fastapi.onrender.com';</script>
+<script>
+window.GAME_SERVER = (function () {
+  var q = new URLSearchParams(location.search).get('server');
+  if (q) return q;
+  try {
+    var s = localStorage.getItem('mj.server');
+    if (s) return s;
+  } catch (e) { /* ignore */ }
+  return 'https://lzy-fastapi.onrender.com';
+})();
+</script>
 <script src="./lib/socket.io.min.js"></script>
 <script>
 const MAX_AMMO = 10;
@@ -210,10 +220,20 @@ function setStatus(kind, text) {
   els.statusText.textContent = text;
 }
 
+let connError = '';
+let connAttempts = 0;
+
 function refreshStatus() {
-  if (!state.connected) { setStatus('err', '连接断开'); return; }
-  if (state.host) { setStatus('ok', '已连接电脑'); return; }
-  setStatus('warn', '等待电脑端…');
+  if (state.connected) {
+    if (state.host) { setStatus('ok', '已连接电脑'); return; }
+    setStatus('warn', '等待电脑端…');
+    return;
+  }
+  if (connAttempts > 0) {
+    setStatus('err', '连接失败 ' + connAttempts + ' 次' + (connError ? ' · ' + connError : ''));
+  } else {
+    setStatus('warn', '连接中…');
+  }
 }
 
 function buzz(ms) {
@@ -510,10 +530,19 @@ let socket = null;
 const hasIO = typeof io === 'function';
 
 if (hasIO) {
-  socket = io(window.GAME_SERVER, { transports: ['websocket', 'polling'] });
+  // 不强制 transports：默认先 polling 再升级 websocket，移动网络下更稳
+  socket = io(window.GAME_SERVER, {
+    reconnection: true,
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 800,
+    reconnectionDelayMax: 4000,
+    timeout: 12000
+  });
 
   socket.on('connect', () => {
     state.connected = true;
+    connAttempts = 0;
+    connError = '';
     socket.emit('join', 'controller');
     refreshStatus();
   });
@@ -544,14 +573,39 @@ if (hasIO) {
     refreshStatus();
   });
 
-  socket.on('connect_error', () => {
+  socket.on('connect_error', (err) => {
     state.connected = false;
     releaseCannon();
+    connAttempts += 1;
+    connError = (err && (err.message || err.type)) || '网络不可达';
     refreshStatus();
+    if (connAttempts === 1) toast('连不上中继服务器：' + connError, 3000);
   });
 } else {
   setStatus('err', '无法加载通信库');
 }
+
+// 长按状态条：修改中继服务器地址（需与电脑端一致），便于移动网络访问不到默认服务器时切换
+(function bindServerSwitch() {
+  if (!els.status) return;
+  let t = 0;
+  const open = () => {
+    const cur = window.GAME_SERVER;
+    const v = window.prompt('中继服务器地址（手机与电脑必须填同一个）', cur);
+    if (v && v.trim() && v.trim() !== cur) {
+      try { localStorage.setItem('mj.server', v.trim()); } catch (e) { /* ignore */ }
+      location.reload();
+    }
+  };
+  const start = () => { t = setTimeout(open, 700); };
+  const cancel = () => clearTimeout(t);
+  els.status.addEventListener('touchstart', start, { passive: true });
+  els.status.addEventListener('touchend', cancel);
+  els.status.addEventListener('touchmove', cancel, { passive: true });
+  els.status.addEventListener('mousedown', start);
+  els.status.addEventListener('mouseup', cancel);
+  els.status.addEventListener('mouseleave', cancel);
+})();
 
 /* ---------------- 供自动化测试访问内部状态 ---------------- */
 window.__ctl = {
