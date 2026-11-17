@@ -1208,9 +1208,14 @@ const net = new Net({
     game.phoneCount += 1;
 
     if (m.source === 'touch') {
-      // V2.8.0 手机摇杆：pitch/yaw 已归一化 -1 ~ +1，直接存
-      if (Number.isFinite(m.pitch)) game.touchPitch = clamp(m.pitch, -1, 1);
-      if (Number.isFinite(m.yaw))   game.touchYaw   = clamp(m.yaw,   -1, 1);
+      // V2.8.0 手机摇杆：优先取归一化字段，兼容角度制字段
+      const np = Number.isFinite(m.pitchN) ? m.pitchN
+        : (Number.isFinite(m.pitch) ? (Math.abs(m.pitch) <= 1 ? m.pitch : m.pitch / 40) : 0);
+      const ny = Number.isFinite(m.yawN) ? m.yawN
+        : (Number.isFinite(m.yaw) ? m.yaw
+          : (Number.isFinite(m.roll) ? -m.roll / 40 : 0));
+      game.touchPitch = clamp(np, -1, 1);
+      game.touchYaw = clamp(ny, -1, 1);
       if (Number.isFinite(m.dirX))  game.touchDirX  = clamp(m.dirX,  -1, 1);
       game.touchSeenAt = performance.now();
       if (first) hud.toast('手机摇杆已接收', 1500);

@@ -9,9 +9,9 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
 <meta name="theme-color" content="#050b14" />
-<title>小刘游戏 · 手机控制器 V2.8.2</title>
+<title>小刘游戏 · 手机控制器 V2.8.3</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23050b14'/%3E%3Cpath d='M32 10 18 44l14-6 14 6z' fill='%2335e0ff'/%3E%3C/svg%3E" />
-<link rel="stylesheet" href="./css/controller.css?v=2.8.2" />
+<link rel="stylesheet" href="./css/controller.css?v=2.8.3" />
 </head>
 <body>
 
@@ -71,6 +71,32 @@
         <b>⚡ 紧急规避</b><i id="btnEvadeNote">按住触发 · 2.5s CD</i>
       </button>
     </div>
+  </section>
+
+  <!-- 体感 / 键盘模式：旧版武器面板（V2.8.3 恢复） -->
+  <section class="zone cannon disabled" id="zoneCannon">
+    <div class="zone-top">
+      <span class="zone-name">机炮</span>
+      <span class="zone-note">左拇指按住连射 · 无限弹药</span>
+    </div>
+    <div class="cannon-ring"><i></i><b>按住</b></div>
+    <div class="zone-foot" id="cannonFoot">等待开始</div>
+  </section>
+
+  <section class="flare-bar disabled" id="zoneFlare">
+    <span class="flare-name">干扰弹</span>
+    <b id="flareCount">∞</b>
+    <span class="flare-note" id="flareFoot">点按释放 · 诱爆来袭导弹</span>
+  </section>
+
+  <section class="zone missile disabled" id="zoneMissile">
+    <div class="zone-top">
+      <span class="zone-name">导弹</span>
+      <span class="zone-note">右拇指点按 · 弱制导</span>
+    </div>
+    <div class="missile-ring" id="missileRing"><b id="missileCount">10</b><span class="unit">剩余</span></div>
+    <div class="ammo-dots" id="ammoDots"></div>
+    <div class="zone-foot" id="missileFoot">剩余 10 发</div>
   </section>
 </main>
 
@@ -155,6 +181,14 @@ const els = {
   // 旧渲染元素（保留引用避免空指针）
   missileFoot: document.getElementById('missileFoot'),
   ammoDots: document.getElementById('ammoDots'),
+  zoneCannon: document.getElementById('zoneCannon'),
+  cannonFoot: document.getElementById('cannonFoot'),
+  zoneFlare: document.getElementById('zoneFlare'),
+  flareCount: document.getElementById('flareCount'),
+  flareFoot: document.getElementById('flareFoot'),
+  zoneMissile: document.getElementById('zoneMissile'),
+  missileRing: document.getElementById('missileRing'),
+  missileCount: document.getElementById('missileCount'),
   // 结算 / 菜单
   banner: document.getElementById('banner'),
   bannerTitle: document.getElementById('bannerTitle'),
@@ -205,8 +239,16 @@ for (let i = 0; i < ARMOR; i++) {
 }
 const armorPips = Array.from(els.armorPips.children);
 
-// V2.8.0 新版界面不再有导弹弹药点阵（旧 #ammoDots 已移除）
+// V2.8.3 体感模式恢复旧弹药点阵（#ammoDots 已回到 DOM）
 const ammoDots = [];
+if (els.ammoDots) {
+  for (let i = 0; i < MAX_AMMO; i++) {
+    const d = document.createElement('i');
+    d.className = 'ammo-dot';
+    els.ammoDots.appendChild(d);
+    ammoDots.push(d);
+  }
+}
 
 let toastTimer = 0;
 function toast(text, ms = 1800) {
@@ -307,6 +349,11 @@ function renderZones() {
   els.zoneStick.classList.toggle('disabled', !playing);
   const allBtns = document.querySelectorAll('.weapon-zone .wbtn');
   allBtns.forEach(b => b.classList.toggle('disabled', !playing));
+  // 旧版体感面板同步启用/禁用
+  [els.zoneCannon, els.zoneFlare, els.zoneMissile].forEach(z => {
+    if (z) z.classList.toggle('disabled', !playing);
+  });
+  if (els.cannonFoot) els.cannonFoot.textContent = playing ? '按住连发中' : '等待开始';
 }
 
 function renderAmmo() {
@@ -331,6 +378,10 @@ function renderAmmo() {
     single.textContent = 'I 单发导弹（已耗尽）';
     dbl.classList.add('empty'); single.classList.add('empty');
   }
+  // 旧版体感面板同步导弹数量
+  if (els.missileCount) els.missileCount.textContent = state.ammo;
+  if (els.missileFoot) els.missileFoot.textContent = state.ammo ? ('剩余 ' + state.ammo + ' 发') : '已耗尽';
+  if (els.missileRing) els.missileRing.style.setProperty('--p', String(state.ammo / MAX_AMMO));
 }
 
 function renderArmor() {
@@ -341,10 +392,13 @@ function renderFlares() {
   if (state.flareCd > 0) {
     els.btnFlareNote.textContent = '冷却 ' + state.flareCd.toFixed(1) + 's';
     els.btnFlare.classList.add('cooling');
+    if (els.flareFoot) els.flareFoot.textContent = '冷却 ' + state.flareCd.toFixed(1) + 's';
   } else {
     els.btnFlareNote.textContent = '点按释放';
     els.btnFlare.classList.remove('cooling');
+    if (els.flareFoot) els.flareFoot.textContent = '点按释放 · 诱爆来袭导弹';
   }
+  if (els.flareCount && Number.isFinite(state.flares)) els.flareCount.textContent = state.flares;
 }
 
 function renderEvade() {
@@ -407,6 +461,12 @@ function applyLayout() {
       : (hostControl === 'camera' || hostControl === 'keys');
   document.body.classList.toggle('ctl-nostick', weaponOnly);
   if (btnLayout) btnLayout.textContent = layoutLabel();
+  const hint = document.getElementById('rotateHint');
+  if (hint) {
+    hint.textContent = weaponOnly
+      ? '建议横屏双手握持 · 左拇指机炮 / 中条干扰弹 / 右拇指导弹'
+      : '建议横屏双手握持 · 左拇指飞行摇杆 / 右手武器按钮';
+  }
 }
 
 if (btnLayout) {
@@ -673,15 +733,18 @@ function pressCannon(e) {
   if (!sendWeapon({ type: 'cannon', action: 'down' })) return;
   state.cannonHeld = true;
   els.btnCannon.classList.add('pressed');
+  if (els.zoneCannon) els.zoneCannon.classList.add('pressed');
   buzz(18);
 }
 function releaseCannon() {
   if (!state.cannonHeld) return;
   state.cannonHeld = false;
   if (els.btnCannon) els.btnCannon.classList.remove('pressed');
+  if (els.zoneCannon) els.zoneCannon.classList.remove('pressed');
   if (socket && socket.connected) socket.emit('weapon', { type: 'cannon', action: 'up' });
 }
 onPress(els.btnCannon, pressCannon, releaseCannon);
+onPress(els.zoneCannon, pressCannon, releaseCannon);
 
 // ---- 导弹（单发 I / 双发 K） ----
 function fireMissile(e, double = false) {
@@ -697,10 +760,15 @@ function fireMissile(e, double = false) {
   renderAmmo();
   buzz(35);
   (double ? els.btnMissileDbl : els.btnMissileSingle).classList.add('pressed');
+  if (els.zoneMissile) {
+    els.zoneMissile.classList.add('pressed');
+    setTimeout(() => els.zoneMissile.classList.remove('pressed'), 150);
+  }
   setTimeout(() => (double ? els.btnMissileDbl : els.btnMissileSingle).classList.remove('pressed'), 150);
 }
 onPress(els.btnMissileSingle, (e) => fireMissile(e, false), null);
 onPress(els.btnMissileDbl,    (e) => fireMissile(e, true),  null);
+onPress(els.zoneMissile,      (e) => fireMissile(e, false), null);
 
 // ---- 干扰弹 L ----
 function fireFlare(e) {
@@ -715,9 +783,14 @@ function fireFlare(e) {
   renderFlares();
   buzz(25);
   els.btnFlare.classList.add('pressed');
+  if (els.zoneFlare) {
+    els.zoneFlare.classList.add('pressed');
+    setTimeout(() => els.zoneFlare.classList.remove('pressed'), 150);
+  }
   setTimeout(() => els.btnFlare.classList.remove('pressed'), 150);
 }
 onPress(els.btnFlare, fireFlare, null);
+onPress(els.zoneFlare, fireFlare, null);
 
 // ---- 紧急规避 ----
 function pressEvade(e) {
@@ -823,12 +896,19 @@ function endJoystick(touchId) {
 }
 
 function sendJoystickFlight() {
-  if (!state.connected || !socket || !socket.connected) return;
-  if (state.phase !== 'playing') return;
+  if (!socket || !socket.connected) return;
+  if (state.phase === 'menu' || state.phase === 'result') return;
+  const p = state.stick.pitch;
+  const y = state.stick.yaw;
   socket.emit('flight', {
-    pitch: state.stick.pitch,
-    yaw:   state.stick.yaw,
-    dirX:  0,   // 暂不提供横移（通过压坡度+航向间接实现）
+    // 旧协议字段（角度制，兼容只转发 pitch/roll 的中继）
+    pitch: p * 40,
+    roll: -y * 40,
+    // 新协议字段（归一化 -1~+1）
+    pitchN: p,
+    yawN: y,
+    yaw: y,
+    dirX: 0,   // 暂不提供横移（通过压坡度+航向间接实现）
     source: 'touch',
     ts: performance.now()
   });
@@ -918,8 +998,8 @@ function loop(now) {
     renderEvade();
   }
 
-  // 摇杆在 playing 态下每帧确保同步（防止手指不动时 socket 丢包）
-  if (state.phase === 'playing' && state.stick.active) sendJoystickFlight();
+  // 摇杆按住期间每帧同步（手指不动时不触发 pointermove，避免电脑端 400ms 超时归零）
+  if (state.stick.active) sendJoystickFlight();
 
   requestAnimationFrame(loop);
 }

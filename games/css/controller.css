@@ -97,25 +97,160 @@
     padding-top: 10px;
   }
 
-  /* V2.8.1 非触屏模式（体感/键盘）：手机不显示摇杆，只做武器面板 */
+  /* V2.8.3 非触屏模式（体感/键盘）：恢复旧版三区武器面板（左机炮 / 中干扰弹条 / 右导弹） */
   .weapon-title { display: none; }
-  body.ctl-nostick main { grid-template-columns: 1fr; }
-  body.ctl-nostick .stick-zone { display: none; }
-  body.ctl-nostick .weapon-title {
-    display: block;
-    font-size: 12px; letter-spacing: .06em;
-    color: #9fd8ff;
-    text-align: center;
-    padding: 2px 0 6px;
-    opacity: .85;
+  main > .zone, main > .flare-bar { display: none; }
+  body.ctl-nostick main {
+    display: flex; flex-direction: row; gap: 10px;
   }
-  body.ctl-nostick .weapon-bottom { grid-template-columns: 1fr; }
-  body.ctl-nostick .wbtn.evade { display: none; }
+  body.ctl-nostick .stick-zone { display: none; }
+  body.ctl-nostick .weapon-zone { display: none; }
+  body.ctl-nostick main > .zone,
+  body.ctl-nostick main > .flare-bar { display: flex; }
 
-  /* 体感单列：按钮加大，填满摇杆让出的空间（V2.8.2） */
-  body.ctl-nostick .weapon-zone { padding: 14px 18px; gap: 12px; }
-  body.ctl-nostick .wbtn.cannon-big { padding: 28px 16px; min-height: 32vh; }
-  body.ctl-nostick .weapon-top .wbtn { padding: 14px 12px; min-height: 13vh; }
+  /* ============ 旧版体感武器区（V2.6.0 视觉，V2.8.3 恢复） ============ */
+  .zone {
+    position: relative; flex: 1;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 8px;
+    border-radius: 18px;
+    border: 1px solid rgba(90, 200, 255, .2);
+    background: linear-gradient(170deg, rgba(12, 32, 50, .9), rgba(6, 15, 24, .94));
+    overflow: hidden;
+    touch-action: none;
+    transition: transform .1s ease, box-shadow .12s ease, border-color .2s, opacity .2s;
+  }
+  .zone::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(circle at 50% 34%, rgba(53, 224, 255, .16), transparent 62%);
+    pointer-events: none;
+  }
+  .zone.missile::before {
+    background: radial-gradient(circle at 50% 34%, rgba(255, 155, 61, .16), transparent 62%);
+  }
+  .zone.disabled { opacity: .45; }
+  .zone.cannon.pressed {
+    transform: scale(.985);
+    border-color: rgba(53, 224, 255, .6);
+    box-shadow: 0 0 30px rgba(53, 224, 255, .3), inset 0 0 40px rgba(53, 224, 255, .16);
+  }
+  .zone.missile.pressed {
+    transform: scale(.985);
+    border-color: rgba(255, 155, 61, .6);
+    box-shadow: 0 0 30px rgba(255, 155, 61, .3), inset 0 0 40px rgba(255, 155, 61, .16);
+  }
+  .zone-top {
+    position: absolute; top: 10px; left: 16px; right: 16px;
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 8px;
+  }
+  .zone-name {
+    font-size: clamp(15px, 2.4vh, 20px); font-weight: 800; letter-spacing: .18em;
+  }
+  .zone.cannon .zone-name { color: #cff7ff; }
+  .zone.missile .zone-name { color: #ffe0bf; }
+  .zone-note { font-size: 10.5px; color: var(--muted); letter-spacing: .04em; }
+  .cannon-ring {
+    position: relative;
+    width: clamp(88px, 34vmin, 150px); height: clamp(88px, 34vmin, 150px);
+    border-radius: 50%;
+    border: 2px solid rgba(53, 224, 255, .55);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 2px; color: var(--cyan);
+    box-shadow: 0 0 26px rgba(53, 224, 255, .18), inset 0 0 26px rgba(53, 224, 255, .1);
+  }
+  .cannon-ring::before,
+  .cannon-ring::after {
+    content: ''; position: absolute; background: rgba(53, 224, 255, .85);
+  }
+  .cannon-ring::before { left: 50%; top: -10px; bottom: -10px; width: 2px; margin-left: -1px; }
+  .cannon-ring::after { top: 50%; left: -10px; right: -10px; height: 2px; margin-top: -1px; }
+  .cannon-ring i {
+    position: relative; z-index: 2;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: radial-gradient(circle, #eaffff, rgba(53, 224, 255, .5) 60%, transparent 70%);
+    box-shadow: 0 0 14px var(--cyan);
+  }
+  .cannon-ring b {
+    position: relative; z-index: 2;
+    font-size: 11px; font-weight: 600; letter-spacing: .1em;
+    background: rgba(5, 14, 22, .8); padding: 0 6px;
+  }
+  .missile-ring {
+    --p: 0;
+    position: relative;
+    width: clamp(92px, 36vmin, 156px); height: clamp(92px, 36vmin, 156px);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background:
+      conic-gradient(rgba(255, 60, 40, .55) calc(var(--p) * 360deg), rgba(255, 155, 61, .16) 0);
+    border: 2px solid rgba(255, 155, 61, .55);
+    box-shadow: 0 0 26px rgba(255, 155, 61, .16), inset 0 0 26px rgba(255, 155, 61, .08);
+  }
+  .missile-ring::after {
+    content: '';
+    position: absolute; inset: 7px;
+    border-radius: 50%;
+    background: rgba(5, 14, 22, .9);
+  }
+  .missile-ring b {
+    position: relative; z-index: 2;
+    font-family: var(--num);
+    font-size: clamp(24px, 6vh, 44px); font-weight: 800;
+    color: var(--orange);
+    text-shadow: 0 0 18px rgba(255, 155, 61, .45);
+  }
+  .missile-ring .unit {
+    position: absolute; z-index: 2; bottom: 22%; left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px; color: var(--muted); letter-spacing: .08em;
+  }
+  .ammo-dots {
+    display: flex; gap: 5px; flex-wrap: wrap; justify-content: center;
+    max-width: 88%;
+  }
+  .ammo-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--orange);
+    box-shadow: 0 0 7px rgba(255, 155, 61, .55);
+    transition: opacity .18s, background .18s;
+  }
+  .ammo-dot.empty { background: rgba(255, 255, 255, .07); box-shadow: none; opacity: .5; }
+  .zone-foot {
+    position: absolute; bottom: 10px; left: 16px; right: 16px;
+    text-align: center;
+    font-size: 11px; color: var(--muted); letter-spacing: .04em;
+  }
+  .flare-bar {
+    flex: none; width: 62px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 190, 90, .32);
+    background: linear-gradient(170deg, rgba(40, 26, 8, .85), rgba(14, 10, 4, .9));
+    color: #ffd9a8;
+    touch-action: none;
+    transition: transform .1s ease, box-shadow .12s ease, opacity .2s;
+  }
+  .flare-bar .flare-name {
+    font-size: 12.5px; font-weight: 700; letter-spacing: .18em;
+    writing-mode: vertical-rl;
+  }
+  .flare-bar b {
+    font-family: var(--num); font-size: 17px; font-weight: 800; color: var(--orange);
+    text-shadow: 0 0 12px rgba(255, 155, 61, .5);
+  }
+  .flare-bar .flare-note {
+    font-size: 10px; color: var(--muted); letter-spacing: .04em;
+    writing-mode: vertical-rl;
+    max-height: 42%;
+  }
+  .flare-bar.pressed {
+    transform: scale(.97);
+    box-shadow: 0 0 22px rgba(255, 170, 70, .35), inset 0 0 24px rgba(255, 170, 70, .18);
+  }
+  .flare-bar.disabled { opacity: .45; }
+  .flare-bar.empty .flare-note { color: var(--err); }
 
   /* 控制面板布局切换（V2.8.2） */
   .sheet-layout {
