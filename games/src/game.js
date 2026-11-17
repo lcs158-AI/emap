@@ -1226,20 +1226,19 @@ const net = new Net({
       if (Number.isFinite(m.dirX))  game.touchDirX  = clamp(m.dirX,  -1, 1);
       game.touchSeenAt = now;
       if (first) hud.toast('手机摇杆已接收', 1500);
-    } else if (game.control === 'touch' && Number.isFinite(m.pitch) && Number.isFinite(m.roll)) {
-      // 触屏模式下只剩角度制字段：按 ±40° 满舵还原成摇杆量
+    } else if (Number.isFinite(m.pitch) && Number.isFinite(m.roll)) {
+      // 中继只保留了 pitch/roll（实测：source/pitchN/yawN/yaw/dirX 全部被丢弃）
+      // 手机端已无陀螺仪，凡此类包都按摇杆角度制解析：±40° 视为满舵
       game.touchPitch = clamp(Math.abs(m.pitch) <= 1 ? m.pitch : m.pitch / 40, -1, 1);
       game.touchYaw = clamp(
         Number.isFinite(m.yaw) ? m.yaw : -(Math.abs(m.roll) <= 1 ? m.roll : m.roll / 40),
         -1, 1
       );
       game.touchSeenAt = now;
-      if (first) hud.toast('手机摇杆已接收', 1500);
-    } else if (Number.isFinite(m.pitch) && Number.isFinite(m.roll)) {
-      // 旧手机陀螺仪：角度制，存进 phonePitch/phoneRoll
+      // 同时保留旧字段，便于状态条/旧逻辑读取
       game.phonePitch = clamp(m.pitch, -90, 90);
       game.phoneRoll = clamp(m.roll, -90, 90);
-      if (first) hud.toast('手机体感已接收 · 抬起/压下控制俯仰，左右翻转控制机头', 2200);
+      if (first) hud.toast('手机摇杆已接收', 1500);
     }
     updatePhoneStatus(true);
   },
