@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes">
+    <script>
+        window.XIAOLIU_EMBED = new URLSearchParams(window.location.search).get('embed') === '1';
+        window.XiaoLiuMapReady = false;
+        if (window.XIAOLIU_EMBED) document.documentElement.classList.add('xiaoliu-embed');
+    </script>
+    <title>跬步地图3.03</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.5.2/ol.css">
+    <script src="/js/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <link rel="stylesheet" href="css/map.css">
+</head>
+
+<body>
+    <div id="map"></div>
+    <div class="toolbar">
+        <div id="citySearchWrapper" style="display: none;">
+            <input type="text" id="citySearchInput" placeholder="搜索城市..." style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 20px; font-size: 14px; width: 180px; outline: none;">
+            <div id="citySearchResults" style="display: none; position: absolute; top: 100%; left: 0; margin-top: 5px; background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); min-width: 200px; max-height: 300px; overflow-y: auto; z-index: 1001;"></div>
+        </div>
+        <div class="dropdown">
+            <button id="myBtn" class="action-btn" data-title="我的">👤</button>
+            <div id="myDropdown" class="dropdown-menu" style="display: none;">
+                <button id="locateBtn" class="dropdown-btn" data-title="显示我的位置">📍 定位</button>
+                <button id="loginUploadBtn" class="dropdown-btn" data-title="登录后上传图片">🔐 登录</button>
+                <button id="logoutBtn" class="dropdown-btn" data-title="退出登录" style="display:none;">🚪 退出</button>
+            </div>
+        </div>
+        <button id="switchBaseMapBtn" class="action-btn" data-title="切换底图">🗺️</button>
+        <div class="dropdown">
+            <button id="measureMainBtn" class="action-btn" data-title="测量工具">📐</button>
+            <div id="measureDropdown" class="dropdown-menu" style="display: none;">
+                <button id="measureLengthBtn" class="dropdown-btn" data-title="测量长度">📏 测量长度</button>
+                <button id="measureAreaBtn" class="dropdown-btn" data-title="测量面积">🔲 测量面积</button>
+                <button id="footprintGenBtn" class="dropdown-btn" data-title="视域生成">🎯 视域生成</button>
+                <button id="clearFootprintBtn" class="dropdown-btn" data-title="清除视域">🧹 清除视域</button>
+            </div>
+        </div>
+        <div class="dropdown">
+            <button id="weatherMainBtn" class="action-btn" data-title="天气工具">🌤️</button>
+            <div id="weatherDropdown" class="dropdown-menu" style="display: none;">
+                <button id="tiandituSearchBtn" class="dropdown-btn" data-title="地名搜索">🗺️ 地名搜索</button>
+                <button id="cityWeatherBtn" class="dropdown-btn" data-title="城市天气">🔍 城市天气</button>
+                <button id="clickWeatherBtn" class="dropdown-btn" data-title="点击查天气">📍 点击查天气</button>
+                <button id="tideBtn" class="dropdown-btn" data-title="查潮汐">🌊 查潮汐</button>
+                <button id="toggleWindBtn" class="dropdown-btn" data-title="海洋风场">🌀 海洋风场</button>
+                <button id="satelliteCloudBtn" class="dropdown-btn" data-title="卫星云图">🛰️ 卫星云图</button>
+            </div>
+        </div>
+        <div class="dropdown">
+            <button id="layerMainBtn" class="action-btn" data-title="图层工具">🗂️</button>
+            <div id="layerDropdown" class="dropdown-menu" style="display: none;">
+                <button id="loadGeoJsonBtn" class="dropdown-btn" data-title="打开本地图层">📂 打开本地图层</button>
+                <button id="toggleLayerPanelBtn" class="dropdown-btn" data-title="图层管理">📋 图层管理</button>
+            </div>
+        </div>
+        <div class="dropdown">
+            <button id="thematicMapBtn" class="action-btn" data-title="专题地图">📊</button>
+            <div id="thematicDropdown" class="dropdown-menu" style="display: none;">
+                <button id="socioeconomicBtn" class="dropdown-btn" data-title="社会经济" onclick="window.location.href='ThematicMap.html'">📊 社会经济</button>
+                <button id="worldCupBtn" class="dropdown-btn" data-title="2026世界杯">⚽ 2026世界杯</button>
+            </div>
+        </div>
+    </div>
+    <style>
+        /* 嵌入小刘：仅保留 切换底图/测量/绘制 三个功能（图层管理已融合进小刘面板），其余入口隐藏 */
+        .xiaoliu-embed #citySearchWrapper,
+        .xiaoliu-embed .toolbar > .dropdown:has(#myBtn),
+        .xiaoliu-embed .toolbar > .dropdown:has(#weatherMainBtn),
+        .xiaoliu-embed .toolbar > .dropdown:has(#thematicMapBtn),
+        .xiaoliu-embed .toolbar > .dropdown:has(#layerMainBtn),
+        .xiaoliu-embed #layerControl,
+        .xiaoliu-embed .layer-control,
+        .xiaoliu-embed #uploadSidebar,
+        .xiaoliu-embed #sidebarOverlay {
+            display: none !important;
+        }
+
+        /* Fix: Avoid overflow: visible on img, video, canvas for shared element transitions */
+        img, video, canvas {
+            overflow: hidden;
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+        
+        .dropdown {
+            position: relative;
+            display: inline-block;
+        }
+        .dropdown-menu {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            z-index: 1000;
+            min-width: 120px;
+            margin-top: 5px;
+        }
+        .dropdown-btn {
+            display: block;
+            width: 100%;
+            padding: 8px 12px;
+            text-align: left;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 14px;
+            color: #333;
+        }
+        .dropdown-btn:hover {
+            background-color: #f0f0f0;
+        }
+        .dropdown-btn.active {
+            background-color: #096dd9;
+            color: white;
+        }
+        .dropdown-btn.active:hover {
+            background-color: #0050b3;
+        }
+        /* ========== 卫星云图下拉框样式：强制白底黑字 ========== */
+        #cloudModeSelect {
+            background: white !important;
+            color: #111 !important;
+        }
+        #cloudModeSelect option {
+            background: white;
+            color: #111;
+            font-size: 12px;
+        }
+        #cloudModeSelect optgroup {
+            background: white;
+            color: #111;
+        }
+        #cloudModeSelect optgroup[label^="⭐"] option {
+            background: #f0f8ff; /* 主星源选项带一点浅蓝底，易于区分 */
+            color: #111;
+        }
+    </style>
+    <!-- 隐藏的 GeoJSON、KML、KMZ 和 GML 文件上传输入框 -->
+    <input type="file" id="geoJsonFileInput" accept=".geojson,.json,.kml,.kmz,.gml,application/json,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz,application/gml+xml" style="display: none;" />
+    <div class="layer-control">
+        <button id="toggleLayerPanel" class="action-btn" data-title="图层管理">📋</button>
+        <div id="layerPanel"
+            style="display: none; position: absolute; top: 60px; left: 10px; background: white; border-radius: 8px; padding: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); min-width: 200px;">
+            <h4>图层列表</h4>
+            <div id="layerList"></div>
+        </div>
+    </div>
+    <div id="measureResult">0 米</div>
+    <!-- 加载提示 -->
+    <div id="loadingPanel" style="display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 2000; background: rgba(255,255,255,0.9); border-radius: 8px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); text-align: center;">
+        <div style="font-size: 32px; margin-bottom: 10px;">⏳</div>
+        <div style="font-size: 16px; color: #333;">数据加载中...</div>
+        <div id="loadingProgress" style="font-size: 14px; color: #666; margin-top: 10px;"></div>
+    </div>
+    <!-- 天地图地名搜索面板 -->
+    <div id="tiandituSearchPanel"
+        style="position: absolute; top: 60px; right: 20px; z-index: 1000; background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); width: 320px; display: none;">
+        <div style="padding: 10px 12px; border-bottom: 1px solid #eee;">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+                <span style="font-size:14px;font-weight:bold;color:#333;">🗺️ 地名搜索</span>
+                <button id="closeTiandituSearchBtn" style="margin-left:auto;background:none;border:none;font-size:16px;cursor:pointer;color:#999;">✕</button>
+            </div>
+            <div style="position:relative;">
+                <input id="tiandituSearchInput" type="text" placeholder="输入地名、地标、城市..."
+                    style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;outline:none;box-sizing:border-box;" />
+            </div>
+        </div>
+        <div id="tiandituSearchResults" style="max-height: 380px; overflow-y: auto; padding: 4px 0;"></div>
+        <div style="padding:6px 12px;border-top:1px solid #eee;font-size:10px;color:#bbb;text-align:right;">数据: 天地图</div>
+    </div>
+
+    <!-- 城市天气信息面板 -->
+    <div id="cityWeatherPanel"
+        style="position: absolute; bottom: 20px; left: 20px; z-index: 1000; background: white; border-radius: 8px; padding: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); min-width: 280px; max-width: 340px; display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <div>
+                <h4 id="cityWeatherTitle" style="margin: 0; color: #333; font-size: 16px;"></h4>
+                <div id="cityWeatherCoords" style="font-size: 12px; color: #999;"></div>
+            </div>
+            <button id="closeCityWeatherBtn"
+                style="background: none; border: none; font-size: 16px; cursor: pointer; color: #999;">✕</button>
+        </div>
+        
+        <div style="display: flex; align-items: center; margin-bottom: 15px;">
+            <div id="cityWeatherIcon" style="font-size: 48px; margin-right: 15px;"></div>
+            <div>
+                <div id="cityWeatherTemp" style="font-size: 36px; font-weight: bold; color: #333;"></div>
+                <div id="cityWeatherTempRange" style="font-size: 12px; color: #999; margin-top: 2px;"></div>
+                <div id="cityWeatherDesc" style="font-size: 14px; color: #666;"></div>
+            </div>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 15px;">
+            <div style="text-align: center; padding: 8px; background: #f5f5f5; border-radius: 6px;">
+                <div style="font-size: 16px; font-weight: bold; color: #333;" id="cityWeatherHumidity"></div>
+                <div style="font-size: 11px; color: #999;">湿度</div>
+            </div>
+            <div style="text-align: center; padding: 8px; background: #f5f5f5; border-radius: 6px;">
+                <div style="font-size: 16px; font-weight: bold; color: #333;" id="cityWeatherWind"></div>
+                <div style="font-size: 11px; color: #999;">风速</div>
+            </div>
+            <div style="text-align: center; padding: 8px; background: #f5f5f5; border-radius: 6px;">
+                <div style="font-size: 16px; font-weight: bold; color: #333;" id="cityWeatherPressure"></div>
+                <div style="font-size: 11px; color: #999;">气压</div>
+            </div>
+        </div>
+        
+        <div id="cityAirQualitySection" style="display: none; border-top: 1px solid #eee; padding-top: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <div style="font-size: 14px; font-weight: bold; color: #333;">🌫️ 空气质量</div>
+                <div id="cityAirQualityLevel" style="font-size: 14px; font-weight: bold; padding: 2px 8px; border-radius: 4px;"></div>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;">
+                <div style="text-align: center;">
+                    <div style="font-size: 13px; font-weight: bold;" id="cityAQIPM25"></div>
+                    <div style="font-size: 10px; color: #999;">PM2.5 (μg/m³)</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 13px; font-weight: bold;" id="cityAQIPM10"></div>
+                    <div style="font-size: 10px; color: #999;">PM10 (μg/m³)</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 13px; font-weight: bold;" id="cityAQICO"></div>
+                    <div style="font-size: 10px; color: #999;">CO (μg/m³)</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 13px; font-weight: bold;" id="cityAQISO2"></div>
+                    <div style="font-size: 10px; color: #999;">SO₂ (μg/m³)</div>
+                </div>
+            </div>
+        </div>
+        
+        <div style="margin-top: 10px; font-size: 11px; color: #aaa; text-align: right;">🌡️ 天气: Open-Meteo | 🌫️ 空气质量: Open-Meteo</div>
+    </div>
+    
+    <!-- 潮汐信息面板 -->
+    <div id="tidePanel"
+        style="position: absolute; bottom: 20px; left: 20px; z-index: 1000; background: white; border-radius: 8px; padding: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); min-width: 260px; display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <h4 style="margin: 0; color: #1890ff;">🌊 潮汐信息</h4>
+            <button id="closeTideBtn"
+                style="background: none; border: none; font-size: 16px; cursor: pointer; color: #999;">✕</button>
+        </div>
+        <div id="tideLocation" style="font-size: 13px; color: #666; margin-bottom: 5px;"></div>
+        <div id="tideCurrent" style="font-size: 28px; font-weight: bold; color: #0066cc; text-align: center;"></div>
+        <div id="tideTime" style="font-size: 12px; color: #999; text-align: center; margin-bottom: 8px;"></div>
+        <div id="tideDetail"
+            style="font-size: 13px; color: #333; margin-top: 5px; border-top: 1px solid #eee; padding-top: 8px;"></div>
+        <div id="tideChartContainer" style="height: 150px; width: 100%; margin-top: 10px;">
+            <canvas id="tideChart"></canvas>
+        </div>
+        <div style="margin-top: 8px; font-size: 11px; color: #aaa; text-align: right;">⏱️ 数据：和风天气</div>
+    </div>
+
+    <!-- 卫星云图时间轴面板 -->
+    <div id="satellitePanel"
+        style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 1000; background: rgba(20, 25, 40, 0.92); border-radius: 8px; padding: 12px 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.4); min-width: 560px; max-width: 760px; display: none; color: white;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <h4 style="margin: 0; color: #69c0ff; font-size: 14px;">🛰️ 卫星云图 &nbsp;·&nbsp;
+                <span id="cloudModeLabel" style="color:#91d5ff;font-weight:normal;font-size:12px;">全球观测（MODIS 每日）</span>
+            </h4>
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <span id="cloudTimeLabel" style="font-size: 13px; color: #b3d4ff; min-width: 180px; text-align: center; font-family: monospace;">--</span>
+                <button id="closeSatelliteBtn" style="background: none; border: none; font-size: 16px; cursor: pointer; color: #888;">✕</button>
+            </div>
+        </div>
+        <!-- 模式切换：只展示 1 个主星源 + 【高级/备选】按钮展开隐藏的 3 个备选 -->
+        <div style="display:flex;gap:6px;margin-bottom:10px;align-items:center;flex-wrap:wrap;">
+            <label style="font-size:12px;color:#aabbdd;min-width:60px;">🛰️ 星源：</label>
+            <select id="cloudModeSelect" style="flex:1;min-width:220px;padding:5px 8px;background:white;border:1px solid #1890ff;border-radius:4px;color:#111;font-size:12px;appearance:auto;-webkit-appearance:none;background-image:linear-gradient(45deg,transparent 50%,#1890ff 50%),linear-gradient(135deg,#1890ff 50%,transparent 50%);background-position:calc(100% - 14px) 50%,calc(100% - 9px) 50%;background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:26px;">
+                <optgroup label="⭐ 默认主星源（无缝·日更新·推荐）">
+                    <option value="daily" selected>⭐ VIIRS SNPP（全球每日 · 完全无缝 · 延迟5天）</option>
+                </optgroup>
+                <optgroup label="🔧 备选星源（点击展开“更多模式”按钮切换）">
+                    <option value="daily_modis_8day" class="cloud-mode-advanced">🌍 MODIS Aqua 8天合成（全球·完全无缝·192天跨度）</option>
+                    <option value="daily_modis_aqua" class="cloud-mode-advanced">🌍 MODIS Aqua 每日（下午过境·有轨道色差缝）</option>
+                    <option value="hourly" class="cloud-mode-advanced">🌏 Himawari 葵花8号（亚太·每小时·-3h延迟）</option>
+                </optgroup>
+            </select>
+            <button id="cloudAdvancedToggle" type="button" title="显示/隐藏备选星源"
+                style="padding:5px 10px;background:rgba(24,144,255,0.12);border:1px solid #1890ff;color:#69c0ff;font-size:11px;border-radius:4px;cursor:pointer;white-space:nowrap;">
+                ⚙️ 更多模式
+            </button>
+        </div>
+        <!-- 高级模式提示（默认隐藏，点击“更多模式”显示） -->
+        <div id="cloudAdvancedHint" style="display:none;margin:-6px 0 10px 60px;padding:6px 10px;background:rgba(255,193,7,0.1);border-left:3px solid #faad14;border-radius:0 4px 4px 0;font-size:11px;color:#ffd591;">
+            🔧 备选说明：日级组=全球覆盖真彩色；每小时组=静止卫星·-3h延迟；GeoColor=真彩色，Band3=单通道红光灰度，Band13=红外亮温看云顶强对流。
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <button id="cloudPrevBtn" style="background: rgba(255,255,255,0.15); border: none; color: white; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center;">◀</button>
+            <div style="flex: 1; display: flex; flex-direction: column; align-items: center;">
+                <input type="range" id="cloudTimeSlider" min="0" max="23" value="23" step="1"
+                    style="width: 100%; accent-color: #1890ff; height: 6px; cursor: pointer;">
+                <div id="cloudTimeMarks" style="display: flex; justify-content: space-between; width: 100%; margin-top: 4px; font-size: 10px; color: #666;">
+                    <span>-24天</span><span>-18天</span><span>-12天</span><span>-6天</span><span>最新</span>
+                </div>
+            </div>
+            <button id="cloudNextBtn" style="background: rgba(255,255,255,0.15); border: none; color: white; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center;">▶</button>
+            <button id="cloudPlayBtn" style="background: #1890ff; border: none; color: white; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; margin-left: 4px;" title="播放/暂停">▶</button>
+        </div>
+        <div style="margin-top: 6px; font-size: 11px; color: #555; text-align: center;">数据来源：NASA GIBS · 瓦片透明度 50%</div>
+    </div>
+
+    <!-- ==================== 集成上传/认证侧边栏 ==================== -->
+    <div id="sidebarOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.3); z-index:1999;"></div>
+    
+    <div id="uploadSidebar" style="position:fixed; top:0; right:-90%; width:80%; max-width:400px; height:100%; background:white; box-shadow:-2px 0 10px rgba(0,0,0,0.1); z-index:2000; transition:right 0.3s ease; display:flex; flex-direction:column;">
+        <!-- 侧边栏头部 -->
+        <div style="padding:15px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center; background:#f9f9f9;">
+            <h3 style="margin:0; font-size:16px;">用户中心 & 上传</h3>
+            <button id="closeSidebarBtn" style="background:none; border:none; font-size:20px; cursor:pointer; color:#666;">×</button>
+        </div>
+        
+        <!-- 侧边栏内容区 (这里放置原本 upload.html 的核心表单) -->
+        <div style="flex:1; overflow-y:auto; padding:20px;">
+            
+            <!-- 1. 用户状态显示 -->
+            <div id="sidebarUserStatus" style="margin-bottom:20px; padding:10px; background:#f0f9ff; border-radius:4px; display:none;">
+                <p style="margin:0; color:#0066cc;">当前用户: <span id="sidebarUsername">--</span></p>
+                <button id="sidebarLogoutBtn" style="margin-top:5px; padding:5px 10px; background:#ff4d4f; color:white; border:none; border-radius:4px; cursor:pointer;">退出登录</button>
+            </div>
+
+            <!-- 2. 登录/注册表单 (未登录时显示) -->
+            <div id="sidebarAuthForm">
+                <h4 style="margin-top:0;">登录 / 注册</h4>
+                <input type="text" id="sidebarUsernameInput" placeholder="用户名" style="width:100%; padding:8px; margin-bottom:10px; box-sizing:border-box; border:1px solid #ddd; border-radius:4px;">
+                <input type="password" id="sidebarPasswordInput" placeholder="密码" style="width:100%; padding:8px; margin-bottom:10px; box-sizing:border-box; border:1px solid #ddd; border-radius:4px;">
+    
+                <div style="display:flex; gap:10px;">
+                    <button id="sidebarLoginBtn" style="flex:1; padding:10px; background:#1890ff; color:white; border:none; border-radius:4px; cursor:pointer;">登录</button>
+                    <button id="sidebarRegisterBtn" style="flex:1; padding:10px; background:#52c41a; color:white; border:none; border-radius:4px; cursor:pointer;">注册</button>
+                </div>
+                <div style="color:#666; font-size:11px; margin-top:5px; text-align:center;">注册后请联系轻浮忆年少激活！</div>
+                <div id="sidebarAuthMsg" style="color:red; font-size:12px; margin-top:5px; text-align:center;"></div>
+            </div>
+
+            <!-- 3. 拍照上传功能 (登录后显示) -->
+            <div id="sidebarCameraPanel" style="display:none; margin-top:20px; border-top:1px solid #eee; padding-top:20px;">
+                <h4 style="margin-top:0;">📷 拍照上传</h4>
+                
+                <!-- 摄像头预览 -->
+                <video id="cameraPreview" autoplay playsinline style="width:100%; border-radius:12px; background:#000; margin-bottom:10px; display:none;"></video>
+                
+                <!-- 拍照后照片预览 -->
+                <img id="capturedPhotoPreview" style="width:100%; border-radius:12px; background:#000; margin-bottom:10px; display:none;" />
+                
+                <!-- 拍照参数显示 -->
+                <div id="capturedParams" style="margin-top:15px; padding:10px; background:#e6f7ff; border-radius:8px; display:none; border:1px solid #91d5ff;">
+                </div>
+                
+                <div class="flex-row" style="display:flex; gap:10px;">
+                    <button id="startCameraBtn" style="flex:1; padding:10px; background:#1890ff; color:white; border:none; border-radius:4px; cursor:pointer;">启动摄像头</button>
+                    <button id="capturePhotoBtn" style="flex:1; padding:10px; background:#52c41a; color:white; border:none; border-radius:4px; cursor:pointer; display:none;">拍照</button>
+                    <button id="uploadPhotoBtn" style="flex:1; padding:10px; background:#fa8c16; color:white; border:none; border-radius:4px; cursor:pointer; display:none;">上传</button>
+                </div>
+                
+                <!-- 传感器数据显示 -->
+                <div id="sensorData" style="margin-top:15px; padding:10px; background:#f5f7fa; border-radius:8px; display:none;">
+                    <div style="font-size:12px; color:#666; margin-bottom:5px;">📊 实时传感器数据</div>
+                    <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:3px;">
+                        <span>方位角:</span>
+                        <span id="compassValue" style="color:#1890ff; font-weight:bold;">--°</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:3px;">
+                        <span>俯仰角:</span>
+                        <span id="pitchValue" style="color:#1890ff; font-weight:bold;">--°</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; font-size:13px;">
+                        <span>相对高度:</span>
+                        <span id="heightValue" style="color:#1890ff; font-weight:bold;">--m</span>
+                    </div>
+                </div>
+                
+                <!-- 视域参数设置 -->
+                <div id="footprintSettings" style="margin-top:15px; padding:10px; background:#f5f7fa; border-radius:8px; display:none;">
+                    <div style="font-size:12px; color:#666; margin-bottom:8px;">⚙️ 视域参数</div>
+                    <div style="margin-bottom:8px;">
+                        <label style="font-size:12px;">相对高度 (米):</label>
+                        <input type="number" id="relativeHeightInput" step="0.1" value="1.6" style="width:80px; margin-left:10px; padding:4px;">
+                    </div>
+                    <div style="margin-bottom:8px;">
+                        <label style="font-size:12px;">平地模式:</label>
+                        <input type="checkbox" id="flatModeCheck" style="margin-left:10px;">
+                    </div>
+                    <div style="margin-bottom:8px;">
+                        <label style="font-size:12px;">自动计算距离:</label>
+                        <input type="checkbox" id="autoDistanceCheck" checked style="margin-left:10px;">
+                    </div>
+                    <div style="font-size:12px; color:#666;">
+                        视域范围: <span id="footprintSize" style="color:#1890ff;">-- × --</span>
+                    </div>
+                </div>
+                
+                <!-- 正北归零按钮 -->
+                <button id="northZeroBtn" style="width:100%; margin-top:10px; padding:8px; background:#1890ff; color:white; border:none; border-radius:4px; cursor:pointer; display:none; font-size:12px;">🧭 正北归零</button>
+            </div>
+            
+            <!-- 隐藏字段 -->
+            <input type="hidden" id="latitude" name="latitude" value="">
+            <input type="hidden" id="longitude" name="longitude" value="">
+            
+            <!-- 4. 上传表单 (登录后显示) -->
+            <div id="sidebarUploadForm" style="display:none; margin-top:20px; border-top:1px solid #eee; padding-top:20px;">
+                <h4 style="margin-top:0;">📁 上传选项</h4>
+                
+                <!-- 上传本地图片选项 -->
+                <div style="margin-bottom:10px;">
+                    <label style="display:block; margin-bottom:5px; font-weight:bold;">📁 上传本地图片</label>
+                    <input type="file" id="localImageInput" multiple accept=".jpg,.jpeg,.png,.tif" style="width:100%; margin-bottom:5px;">
+                    <div style="font-size:12px; color:#666;">选择本地图片文件上传</div>
+                </div>
+                
+                <!-- 问题类型选择 -->
+                <div style="margin-bottom:10px;">
+                    <label style="display:block; margin-bottom:5px; font-weight:bold;">🔍 问题类型</label>
+                    <select id="problemTypeSelect" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px;">
+                        <option value="">加载中...</option>
+                    </select>
+                </div>
+                <script>
+                    // 加载问题类型
+                    async function loadProblemTypes() {
+                        const select = document.getElementById('problemTypeSelect');
+                        try {
+                            const response = await fetch('problems.json');
+                            if (response.ok) {
+                                const data = await response.json();
+                                if (data.problems && Array.isArray(data.problems)) {
+                                    // 清空现有选项
+                                    select.innerHTML = '<option value="">请选择问题类型</option>';
+                                    // 添加问题类型选项
+                                    data.problems.forEach(problem => {
+                                        const option = document.createElement('option');
+                                        option.value = problem.name;
+                                        option.textContent = problem.name;
+                                        select.appendChild(option);
+                                    });
+                                }
+                            } else {
+                                throw new Error('加载问题类型失败');
+                            }
+                        } catch (error) {
+                            console.error('加载问题类型失败:', error);
+                            // 加载失败时使用默认选项
+                            select.innerHTML = `
+                                <option value="">请选择问题类型</option>
+                                <option value="排水口">排水口</option>
+                                <option value="取排水管">取排水管</option>
+                                <option value="抽水井">抽水井</option>
+                                <option value="冲沟">冲沟</option>
+                                <option value="污水坑">污水坑</option>
+                            `;
+                        }
+                    }
+                    
+                    // 页面加载时加载问题类型
+                    window.addEventListener('DOMContentLoaded', () => {
+                        if (!window.XIAOLIU_EMBED) loadProblemTypes();
+                    });
+                </script>
+                
+                <button id="sidebarUploadBtn" style="width:100%; padding:10px; background:#1890ff; color:white; border:none; border-radius:4px; cursor:pointer;">开始上传</button>
+                <div id="sidebarUploadProgress" style="margin-top:10px; font-size:12px; color:#666;"></div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- 配置变量（全局）- 必须在 map.js 之前定义 -->
+    <script>
+        const TIANDITU_KEY = '4110bba1f23cd04ed33e43ab12a291fc';
+        const initCenter = [111.18, 21.48];
+        const initZoom = 10;
+
+    </script>
+    
+    <!-- 先加载 OpenLayers 库 -->
+    <script src="https://cdn.jsdelivr.net/npm/ol@v7.5.2/dist/ol.js"></script>
+    
+    <!-- 工具函数 -->
+    <script src="js/utils.js"></script>
+    
+    <!-- 地图核心 - 必须在依赖地图的脚本之前加载 -->
+    <script src="js/map.js?v=20261023d"></script>
+    <!-- 小刘 Agent 地图桥 -->
+    <script src="js/xiaoliu_bridge.js"></script>
+    <!-- 地名搜索模块（天地图 POI） -->
+    <script src="js/tianditu_search.js?v=20261023"></script>
+    <!-- 共享属性表单模块 - Schema 设计器 + 属性面板 -->
+    <script src="js/feature_form.js?v=20261023"></script>
+    <!-- 本地图层编辑功能 -->
+    <script src="js/layer_editor.js?v=20261115d"></script>
+    
+    <script src="js/config.js"></script>
+    <script src="js/user.js"></script>
+    <script src="js/upload.js"></script>
+    
+    <!-- 拍照视域功能脚本 -->
+    <script src="js/camera_footprint.js"></script>
+    
+    <!-- 世界杯功能脚本 -->
+    <script src="js/worldcup.js"></script>
+
+    <!-- Mock 测试数据（测试完毕后删除此行） -->
+    <script src="mock_footprint_data.js"></script>
+    
+    <script>
+        // --- 侧边栏控制逻辑 ---
+        const sidebar = document.getElementById('uploadSidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        const closeSidebarBtn = document.getElementById('closeSidebarBtn');
+
+        function openUploadSidebar() {
+            sidebar.style.right = '0';
+            overlay.style.display = 'block';
+            if (typeof updateSidebarUI === 'function') {
+                updateSidebarUI(); // 打开时刷新状态
+            }
+        }
+
+        function closeUploadSidebar() {
+            sidebar.style.right = '-90%';
+            overlay.style.display = 'none';
+        }
+
+        closeSidebarBtn.addEventListener('click', closeUploadSidebar);
+        overlay.addEventListener('click', closeUploadSidebar);
+
+        // 暴露给全局，供 map.js 调用
+        window.openUploadSidebar = openUploadSidebar;
+        window.closeUploadSidebar = closeUploadSidebar;
+        
+        // 初始化所有功能
+        window.addEventListener('DOMContentLoaded', () => {
+            if (window.XIAOLIU_EMBED) return;
+
+            // 初始化用户功能
+            if (typeof initUserFunctions === 'function') {
+                initUserFunctions();
+            }
+            
+            // 初始化上传功能
+            if (typeof initUpload === 'function') {
+                initUpload();
+            }
+            
+            // 初始化拍照视域功能
+            if (typeof initCameraFootprint === 'function') {
+                initCameraFootprint();
+            }
+            
+            // 初始化世界杯功能
+            if (typeof initWorldCup === 'function') {
+                initWorldCup();
+            }
+            
+            // 世界杯按钮点击事件
+            const worldCupBtn = document.getElementById('worldCupBtn');
+            if (worldCupBtn) {
+                worldCupBtn.addEventListener('click', () => {
+                    if (typeof toggleWorldCupLayer === 'function') {
+                        toggleWorldCupLayer();
+                    }
+                });
+            }
+        });
+    </script>
+    <script>
+    window.addEventListener('load', function () {
+        var btn = document.createElement('button');
+        btn.id = 'testSchemaBtn';
+        btn.textContent = '测试字段结构设计器';
+        btn.style.cssText = 'position:fixed;top:10px;left:10px;z-index:99999;padding:8px 12px;background:#1890ff;color:#fff;border:none;border-radius:4px;';
+        btn.onclick = function () {
+            FeatureForm.showSchemaDesigner({
+                title: '定义字段结构',
+                initialSchema: { fields: [{ name: 'name', type: 'text', default: '' }, { name: 'height', type: 'number', default: 0 }] },
+                onConfirm: function (s) { console.log('schema confirmed', s); }
+            });
+        };
+        document.body.appendChild(btn);
+    });
+    </script>
+</body>
+
+</html>
