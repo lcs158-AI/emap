@@ -1,8 +1,8 @@
-# emap · 小刘智能空间矩阵
+# 跬步 · 小刘智能空间矩阵
 
 用于开展在线空间信息技术研发和展示的 Web 项目（纯前端静态站点，可部署到任意静态托管平台）。
 
-线上站点：`lzywhy.com`（见 `CNAME`）。
+线上站点：`lzywhy.com`。
 
 ## 项目定位
 
@@ -45,7 +45,7 @@ emap/
 | 跬步地图 | `AIsea.html` | OpenLayers 7.5.2 | 平面地图，支持定位、测量、实时潮汐、图层管理、本地图层编辑，及本地/上传数据可视化 |
 | 跬步地球 | `global/index.html` | Cesium | 3D 地球，支持定位、测量、实时潮汐 |
 | CANVAS 地图 | `jsoncanvas/index.html` | 原生 Canvas + GeoJSON + jQuery UI | WebGIS 研发示例，支持放大/缩小/平移/全图 |
-| COVID-19 | `covid19/index.html` | echarts 4.9.0 | 2020 年全球疫情扩散与输入性风险分析（研学作品） |
+| COVID-19 | `covid19/index.html` | 2020 年全球疫情扩散与输入性风险分析（研学作品） |
 | 小刘游戏 | `games/index.html` | Three.js | 3D 体感空战游戏，支持键盘操作、手机扫码遥控、姿态体感、语音控制 |
 
 > 说明：`covid19` 使用本地 echarts（jsdelivr CDN 在国内访问不稳定，已下载嵌入）。
@@ -76,5 +76,5 @@ npx serve
 
 ## 部署
 
-- 直接部署到静态托管平台（如 GitHub Pages / Render / 对象存储），`CNAME` 配置了 `lzywhy.com` 域名。
+- 直接部署到静态托管平台（如 GitHub Pages / Render / 数据本地存储），`CNAME` 配置了 `lzywhy.com` 域名。
 - 全站无构建步骤，上传仓库内容即可。
