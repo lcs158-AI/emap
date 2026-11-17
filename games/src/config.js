@@ -21,9 +21,9 @@ export const CFG = {
     // 飞行姿态（V2.3.0）
     pitchMaxUp: 0.42,    // 机头最大上仰（约 +24°）
     pitchMaxDown: 0.55,  // 机头最大下俯（约 -31°）
-    pitchGain: 5.0,      // 俯仰平滑逼近系数（时间常数约 0.2s，避免上下窜）
+    pitchGain: 7.5,      // 俯仰平滑逼近系数（V2.8.7 5.0→7.5，时间常数约 0.13s，跟随更快）
     yawMax: 0.70,        // 机头最大方位角（约 ±40°）
-    yawSpeed: 1.0,       // 方位角转动速度（rad/s）
+    yawSpeed: 1.6,       // 方位角转动速度（V2.8.7 1.0→1.6，rad/s，幅度上限不变）
     climbSpeed: 20,      // 俯仰引起的高度变化速度（降低后上下更稳）
     cameraYawFollow: 70, // 摄像机画面中心随机头方位偏移
     phonePitchDead: 6,   // 手机俯仰死区（度）

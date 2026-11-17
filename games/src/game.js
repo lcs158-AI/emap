@@ -237,7 +237,8 @@ const game = {
   threatPrev: false,
   lockPrev: false,
   squatHold: 0,      // 下蹲持续时间（秒）
-  evadeT: 0,         // 紧急规避剩余时间（秒）
+  dodgeT: 0,         // V2.8.8 侧向闪避剩余时间（秒）
+  dodgeDir: 1,       // V2.8.8 侧闪方向（-1 左 / +1 右）
   evadeCd: 0,        // 规避冷却剩余时间（秒）
   evadeBtnPressed: false,  // 手机规避按钮按下一次，单次触发后自动复位
   phonePitch: 0,     // 手机体感俯仰（度，已相对校准）
@@ -496,6 +497,8 @@ function startRound(mode) {
   game.result = null;
   game.threatPrev = false;
   game.lockPrev = false;
+  game.dodgeT = 0;
+  game.evadeCd = 0;
   game.cdShown = 3;
   game.phase = 'countdown';
 
@@ -1346,30 +1349,25 @@ function updatePlaying(dt) {
     pitchIn = 0;
   }
 
-  // 紧急规避（先保留摄像头双手下压 / 手机规避按钮两条触发链路，touch 模式下只有按钮）
+  // 紧急规避（摄像头双手下压 / 手机规避按钮）：改为 0.9s 侧向闪避，朝远离最近来袭弹药的一侧横移
   if (game.evadeCd > 0) game.evadeCd = Math.max(0, game.evadeCd - dt);
+  if (game.dodgeT > 0) game.dodgeT = Math.max(0, game.dodgeT - dt);
   const evadeSig = game.evadeBtnPressed || pose.press >= 1 || pose.squat >= CFG.pose.squatStart;
   if (evadeSig && game.evadeCd <= 0) {
     game.squatHold = (game.squatHold || 0) + dt;
     if (game.squatHold >= CFG.pose.squatHoldMs / 1000) {
       game.squatHold = 0;
-      game.evadeT = CFG.pose.evadeMs / 1000;
+      const th = game.weapons.nearestThreat(player.group.position);
+      game.dodgeDir = th ? (th.dx >= 0 ? -1 : 1) : (player.x > 0 ? -1 : 1);
+      game.dodgeT = 0.9;
       game.evadeCd = CFG.pose.evadeCdMs / 1000;
       audio.ui();
       voice.play('warn.evade');
-      hud.toast('紧急规避！', 700);
+      hud.toast('侧向规避！', 700);
     }
   } else {
     game.squatHold = 0;
     game.evadeBtnPressed = false;  // 单次触发
-  }
-  if (game.evadeT > 0) {
-    game.evadeT = Math.max(0, game.evadeT - dt);
-    const base = pitchAbs !== null
-      ? pitchAbs
-      : clamp(pitchIn, -1, 1) * (pitchIn >= 0 ? CFG.player.pitchMaxUp : CFG.player.pitchMaxDown);
-    pitchAbs = clamp(base - CFG.player.pitchMaxDown * 0.9,
-      -CFG.player.pitchMaxDown, CFG.player.pitchMaxUp);
   }
 
   // yawIn: 键盘 > 手机摇杆 > 手机陀螺仪
@@ -1384,11 +1382,13 @@ function updatePlaying(dt) {
     yawIn = 0;
   }
 
-  // dirX（飞机左右平移躲避）：键盘 > 手机摇杆 > 摄像头身体平移
-  const dirX = kd !== 0
-    ? kd
-    : ((game.control === 'touch' || touchOk) ? game.touchDirX :
-      (poseReady ? poseMoveX() : 0));
+  // dirX（飞机左右平移躲避）：侧闪 > 键盘 > 手机摇杆 > 摄像头身体平移
+  const dirX = game.dodgeT > 0
+    ? game.dodgeDir
+    : (kd !== 0
+      ? kd
+      : ((game.control === 'touch' || touchOk) ? game.touchDirX :
+        (poseReady ? poseMoveX() : 0)));
 
   // speed: 体感模式下飞机移动速度放慢；其他模式用 moveSpeed
   player.update(dt, {
