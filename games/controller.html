@@ -9,9 +9,9 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
 <meta name="theme-color" content="#050b14" />
-<title>小刘游戏 · 手机控制器 V2.7.1</title>
+<title>小刘游戏 · 手机控制器 V2.8.2</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23050b14'/%3E%3Cpath d='M32 10 18 44l14-6 14 6z' fill='%2335e0ff'/%3E%3C/svg%3E" />
-<link rel="stylesheet" href="./css/controller.css?v=2.7.1" />
+<link rel="stylesheet" href="./css/controller.css?v=2.8.2" />
 </head>
 <body>
 
@@ -53,6 +53,7 @@
 
   <!-- 右区：武器按钮组 -->
   <section class="weapon-zone" aria-label="武器（右手）">
+    <div class="weapon-title">电脑端操控中 · 手机只负责开火</div>
     <div class="weapon-top">
       <button class="wbtn missile" id="btnMissileDbl" type="button">K 双发导弹</button>
       <button class="wbtn missile" id="btnMissileSingle" type="button">I 单发导弹</button>
@@ -103,6 +104,10 @@
       <button class="sheet-close" id="sheetClose" type="button">×</button>
     </div>
     <div class="sheet-list" id="sheetList"></div>
+    <div class="sheet-layout">
+      <span>控制面板</span>
+      <button class="layout-chip" id="btnLayout" type="button">自动</button>
+    </div>
     <div class="sheet-note">选择后电脑端将直接出击；若停在检查页，就绪后可在本页点击「确认出击」</div>
   </div>
 </div>
@@ -200,12 +205,8 @@ for (let i = 0; i < ARMOR; i++) {
 }
 const armorPips = Array.from(els.armorPips.children);
 
-for (let i = 0; i < MAX_AMMO; i++) {
-  const d = document.createElement('i');
-  d.className = 'ammo-dot';
-  els.ammoDots.appendChild(d);
-}
-const ammoDots = Array.from(els.ammoDots.children);
+// V2.8.0 新版界面不再有导弹弹药点阵（旧 #ammoDots 已移除）
+const ammoDots = [];
 
 let toastTimer = 0;
 function toast(text, ms = 1800) {
@@ -382,10 +383,52 @@ function renderBanner() {
   }
 }
 
+/* ---------------- 控制面板布局（V2.8.2） ---------------- */
+// auto：跟随电脑端模式（体感/键盘 → 仅武器；触屏 → 摇杆）
+// weapon：强制仅武器；stick：强制显示摇杆
+let layoutMode = 'auto';
+let hostControl = '';
+try {
+  layoutMode = localStorage.getItem('mj.layout') || 'auto';
+  hostControl = localStorage.getItem('mj.control') || '';
+} catch (e) { /* ignore */ }
+
+const btnLayout = document.getElementById('btnLayout');
+
+function layoutLabel() {
+  return layoutMode === 'weapon' ? '仅武器' : (layoutMode === 'stick' ? '摇杆' : '自动');
+}
+
+function applyLayout() {
+  const weaponOnly = layoutMode === 'weapon'
+    ? true
+    : layoutMode === 'stick'
+      ? false
+      : (hostControl === 'camera' || hostControl === 'keys');
+  document.body.classList.toggle('ctl-nostick', weaponOnly);
+  if (btnLayout) btnLayout.textContent = layoutLabel();
+}
+
+if (btnLayout) {
+  btnLayout.addEventListener('click', () => {
+    layoutMode = layoutMode === 'auto' ? 'weapon' : (layoutMode === 'weapon' ? 'stick' : 'auto');
+    try { localStorage.setItem('mj.layout', layoutMode); } catch (e) { /* ignore */ }
+    applyLayout();
+    buzz(12);
+    toast('控制面板：' + layoutLabel() + (layoutMode === 'auto' ? '（跟随电脑端模式）' : ''));
+  });
+}
+
 function applyState(s) {
   if (!s) return;
   state.host = true;
   state.connected = true;
+  // V2.8.2 电脑端控制模式同步：非触屏模式（体感/键盘）隐藏摇杆，手机只当武器面板
+  if (typeof s.control === 'string') {
+    hostControl = s.control;
+    try { localStorage.setItem('mj.control', s.control); } catch (e) { /* ignore */ }
+    applyLayout();
+  }
   if (typeof s.phase === 'string') state.phase = s.phase;
   if (typeof s.mode === 'string' && s.mode) {
     state.modeName = s.mode;
@@ -883,6 +926,7 @@ function loop(now) {
 requestAnimationFrame(loop);
 
 /* 首次若未收到状态，默认按菜单态渲染 */
+applyLayout();
 renderZones();
 renderAmmo();
 renderArmor();

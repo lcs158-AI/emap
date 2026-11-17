@@ -203,8 +203,8 @@ try {
   savedControl = localStorage.getItem('mj.control') || 'camera';
   savedFp = localStorage.getItem('mj.fp');
 } catch (err) { /* ignore */ }
-// V2.5.4：人体姿态与手臂操纵杆合并为单一「体感飞行」，旧值 stick 归入 camera
-if (!['camera', 'keys'].includes(savedControl)) savedControl = 'camera';
+// V2.8.0：新增 touch（手机触屏）；旧值 stick 归入 camera
+if (!['camera', 'keys', 'touch'].includes(savedControl)) savedControl = 'camera';
 
 let savedDiff = 'normal';
 try { savedDiff = localStorage.getItem('mj.diff') || 'normal'; } catch (err) { /* ignore */ }
@@ -1161,6 +1161,8 @@ function statePayload() {
     // 手机端出击准备页状态（V2.7.1）
     ready: game.phase === 'preflight' ? !!game.preflightReady : false,
     controllers: game.controllers,
+    // 当前控制模式（V2.8.1）：手机据此决定是否显示摇杆
+    control: game.control,
     // 手机端选模式列表（V2.5.2）
     modes: MODES.map((m) => ({ id: m.id, name: m.name, tag: m.tag }))
   };
@@ -1526,6 +1528,7 @@ hud.bindControl((mode) => {
     releaseCamera();
   }
   refreshPreflight();
+  net.sendState(statePayload(), true);  // 立即把控制模式同步给手机
 });
 hud.bindView((fp) => {
   game.fpView = fp;
@@ -1554,7 +1557,7 @@ voiceBtn.addEventListener('click', () => { voice.toggle(); syncVoiceBtn(); });
 syncVoiceBtn();
 hud.setControl(savedControl);
 hud.setView(game.fpView);
-pose.enabled = savedControl !== 'keys';
+pose.enabled = savedControl === 'camera';
 
 buildBackdrop();
 loading.classList.add('hidden');

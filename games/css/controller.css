@@ -97,6 +97,44 @@
     padding-top: 10px;
   }
 
+  /* V2.8.1 非触屏模式（体感/键盘）：手机不显示摇杆，只做武器面板 */
+  .weapon-title { display: none; }
+  body.ctl-nostick main { grid-template-columns: 1fr; }
+  body.ctl-nostick .stick-zone { display: none; }
+  body.ctl-nostick .weapon-title {
+    display: block;
+    font-size: 12px; letter-spacing: .06em;
+    color: #9fd8ff;
+    text-align: center;
+    padding: 2px 0 6px;
+    opacity: .85;
+  }
+  body.ctl-nostick .weapon-bottom { grid-template-columns: 1fr; }
+  body.ctl-nostick .wbtn.evade { display: none; }
+
+  /* 体感单列：按钮加大，填满摇杆让出的空间（V2.8.2） */
+  body.ctl-nostick .weapon-zone { padding: 14px 18px; gap: 12px; }
+  body.ctl-nostick .wbtn.cannon-big { padding: 28px 16px; min-height: 32vh; }
+  body.ctl-nostick .weapon-top .wbtn { padding: 14px 12px; min-height: 13vh; }
+
+  /* 控制面板布局切换（V2.8.2） */
+  .sheet-layout {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px; margin-top: 10px; padding: 8px 10px;
+    border-radius: 10px;
+    border: 1px solid rgba(90, 200, 255, .18);
+    background: rgba(8, 20, 30, .62);
+    font-size: 13px; color: #9fd8ff;
+  }
+  .layout-chip {
+    font-family: inherit; font-size: 13px;
+    padding: 6px 14px; border-radius: 999px;
+    border: 1px solid rgba(53, 224, 255, .45);
+    background: rgba(10, 30, 46, .9);
+    color: #eaffff;
+  }
+  .layout-chip:active { background: rgba(53, 224, 255, .22); }
+
   /* ============ 左区：飞行摇杆 ============ */
   .stick-zone {
     position: relative;
