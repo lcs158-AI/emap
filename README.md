@@ -45,7 +45,7 @@ emap/
 | 跬步地图 | `AIsea.html` | OpenLayers 7.5.2 | 平面地图，支持定位、测量、实时潮汐、图层管理、本地图层编辑，及本地/上传数据可视化 |
 | 跬步地球 | `global/index.html` | Cesium | 3D 地球，支持定位、测量、实时潮汐 |
 | CANVAS 地图 | `jsoncanvas/index.html` | 原生 Canvas + GeoJSON + jQuery UI | WebGIS 研发示例，支持放大/缩小/平移/全图 |
-| COVID-19 | `covid19/index.html` | 2020 年全球疫情扩散与输入性风险分析（研学作品） |
+| COVID-19 | `covid19/index.html` | echarts 4.9.0 | 2020 年全球疫情扩散与输入性风险分析（研学作品） |
 | 小刘游戏 | `games/index.html` | Three.js | 3D 体感空战游戏，支持键盘操作、手机扫码遥控、姿态体感、语音控制 |
 
 > 说明：`covid19` 使用本地 echarts（jsdelivr CDN 在国内访问不稳定，已下载嵌入）。
