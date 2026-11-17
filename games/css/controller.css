@@ -89,161 +89,190 @@
   .status.err { color: #ffc0ba; border-color: rgba(255, 107, 94, .35); }
   .status.err .led { background: var(--err); box-shadow: 0 0 8px var(--err); }
 
-  /* 左右武器区（横屏双拇指：左机炮 / 中干扰弹条 / 右导弹，V2.6.0） */
+  /* 左右武器区（横屏双拇指：左摇杆 / 右武器按钮组，V2.8.0） */
   main {
     flex: 1; min-height: 0;
-    display: flex; flex-direction: row; gap: 10px;
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 12px;
     padding-top: 10px;
   }
-  .zone {
-    position: relative; flex: 1;
+
+  /* ============ 左区：飞行摇杆 ============ */
+  .stick-zone {
+    position: relative;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 8px;
     border-radius: 18px;
     border: 1px solid rgba(90, 200, 255, .2);
     background: linear-gradient(170deg, rgba(12, 32, 50, .9), rgba(6, 15, 24, .94));
     overflow: hidden;
     touch-action: none;
-    transition: transform .1s ease, box-shadow .12s ease, border-color .2s, opacity .2s;
+    transition: opacity .2s;
   }
-  .zone::before {
+  .stick-zone::before {
     content: '';
     position: absolute; inset: 0;
-    background: radial-gradient(circle at 50% 34%, rgba(53, 224, 255, .16), transparent 62%);
+    background: radial-gradient(circle at 50% 50%, rgba(53, 224, 255, .12), transparent 60%);
     pointer-events: none;
   }
-  .zone.missile::before {
-    background: radial-gradient(circle at 50% 34%, rgba(255, 155, 61, .16), transparent 62%);
-  }
-  .zone.disabled { opacity: .45; }
-  .zone.cannon.pressed {
-    transform: scale(.985);
-    border-color: rgba(53, 224, 255, .6);
-    box-shadow: 0 0 30px rgba(53, 224, 255, .3), inset 0 0 40px rgba(53, 224, 255, .16);
-  }
-  .zone.missile.pressed {
-    transform: scale(.985);
-    border-color: rgba(255, 155, 61, .6);
-    box-shadow: 0 0 30px rgba(255, 155, 61, .3), inset 0 0 40px rgba(255, 155, 61, .16);
-  }
+  .stick-zone.disabled { opacity: .45; }
 
-  .zone-top {
-    position: absolute; top: 10px; left: 16px; right: 16px;
-    display: flex; align-items: baseline; justify-content: space-between;
+  .stick-title {
+    position: absolute; top: 10px; left: 14px; right: 14px;
+    display: flex; justify-content: space-between; align-items: center;
     gap: 8px;
   }
-  .zone-name {
-    font-size: clamp(15px, 2.4vh, 20px); font-weight: 800; letter-spacing: .18em;
+  .stick-name {
+    font-size: clamp(14px, 2.2vh, 18px); font-weight: 800; letter-spacing: .14em; color: #cff7ff;
   }
-  .zone.cannon .zone-name { color: #cff7ff; }
-  .zone.missile .zone-name { color: #ffe0bf; }
-  .zone-note { font-size: 10.5px; color: var(--muted); letter-spacing: .04em; }
+  .stick-hint { font-size: 10.5px; color: var(--muted); letter-spacing: .04em; }
 
-  .cannon-ring {
-    position: relative;
-    width: clamp(88px, 34vmin, 150px); height: clamp(88px, 34vmin, 150px);
-    border-radius: 50%;
-    border: 2px solid rgba(53, 224, 255, .55);
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 2px; color: var(--cyan);
-    box-shadow: 0 0 26px rgba(53, 224, 255, .18), inset 0 0 26px rgba(53, 224, 255, .1);
-  }
-  .cannon-ring::before,
-  .cannon-ring::after {
-    content: ''; position: absolute; background: rgba(53, 224, 255, .85);
-  }
-  .cannon-ring::before { left: 50%; top: -10px; bottom: -10px; width: 2px; margin-left: -1px; }
-  .cannon-ring::after { top: 50%; left: -10px; right: -10px; height: 2px; margin-top: -1px; }
-  .cannon-ring i {
+  .stick-base {
     position: relative; z-index: 2;
-    width: 16px; height: 16px; border-radius: 50%;
-    background: radial-gradient(circle, #eaffff, rgba(53, 224, 255, .5) 60%, transparent 70%);
-    box-shadow: 0 0 14px var(--cyan);
-  }
-  .cannon-ring b {
-    position: relative; z-index: 2;
-    font-size: 11px; font-weight: 600; letter-spacing: .1em;
-    background: rgba(5, 14, 22, .8); padding: 0 6px;
-  }
-
-  .missile-ring {
-    --p: 0;
-    position: relative;
-    width: clamp(92px, 36vmin, 156px); height: clamp(92px, 36vmin, 156px);
+    width: clamp(120px, 36vmin, 180px); height: clamp(120px, 36vmin, 180px);
     border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
+    border: 2px solid rgba(53, 224, 255, .45);
     background:
-      conic-gradient(rgba(255, 60, 40, .55) calc(var(--p) * 360deg), rgba(255, 155, 61, .16) 0);
-    border: 2px solid rgba(255, 155, 61, .55);
-    box-shadow: 0 0 26px rgba(255, 155, 61, .16), inset 0 0 26px rgba(255, 155, 61, .08);
+      radial-gradient(circle, rgba(12, 40, 60, .9) 0%, rgba(4, 14, 24, .96) 70%);
+    box-shadow: 0 0 26px rgba(53, 224, 255, .15), inset 0 0 40px rgba(0, 0, 0, .5);
+    transition: box-shadow .15s, border-color .15s;
   }
-  .missile-ring::after {
-    content: '';
-    position: absolute; inset: 7px;
+  .stick-base.active {
+    border-color: rgba(53, 224, 255, .9);
+    box-shadow: 0 0 40px rgba(53, 224, 255, .35), inset 0 0 40px rgba(53, 224, 255, .1);
+  }
+  .stick-cross i {
+    position: absolute; background: rgba(53, 224, 255, .28);
+  }
+  .stick-cross .v { left: 50%; top: 12%; bottom: 12%; width: 1px; }
+  .stick-cross .h { top: 50%; left: 12%; right: 12%; height: 1px; }
+
+  .stick-knob {
+    position: absolute; top: 50%; left: 50%;
+    width: clamp(46px, 14vmin, 70px); height: clamp(46px, 14vmin, 70px);
+    margin-left: calc(clamp(46px, 14vmin, 70px) / -2);
+    margin-top: calc(clamp(46px, 14vmin, 70px) / -2);
     border-radius: 50%;
-    background: rgba(5, 14, 22, .9);
-  }
-  .missile-ring b {
-    position: relative; z-index: 2;
-    font-family: var(--num);
-    font-size: clamp(24px, 6vh, 44px); font-weight: 800;
-    color: var(--orange);
-    text-shadow: 0 0 18px rgba(255, 155, 61, .45);
-  }
-  .missile-ring .unit {
-    position: absolute; z-index: 2; bottom: 22%; left: 50%;
-    transform: translateX(-50%);
-    font-size: 10px; color: var(--muted); letter-spacing: .08em;
+    border: 2px solid rgba(53, 224, 255, .7);
+    background:
+      radial-gradient(circle at 35% 30%, rgba(255, 255, 255, .4), rgba(53, 224, 255, .35) 40%, rgba(10, 80, 120, .9) 100%);
+    box-shadow: 0 0 20px rgba(53, 224, 255, .5), inset 0 -4px 8px rgba(0, 0, 0, .3);
+    transition: transform .06s linear;
+    pointer-events: none;
   }
 
-  .ammo-dots {
-    display: flex; gap: 5px; flex-wrap: wrap; justify-content: center;
-    max-width: 88%;
+  .stick-labels {
+    position: absolute; inset: 0;
+    pointer-events: none;
   }
-  .ammo-dot {
-    width: 8px; height: 8px; border-radius: 50%;
-    background: var(--orange);
-    box-shadow: 0 0 7px rgba(255, 155, 61, .55);
-    transition: opacity .18s, background .18s;
+  .stick-labels span {
+    position: absolute;
+    font-size: 10px; color: rgba(53, 224, 255, .55); letter-spacing: .04em;
   }
-  .ammo-dot.empty { background: rgba(255, 255, 255, .07); box-shadow: none; opacity: .5; }
+  .lbl-up    { top: 34px;   left: 50%; transform: translateX(-50%); }
+  .lbl-down  { bottom: 34px; left: 50%; transform: translateX(-50%); }
+  .lbl-left  { left: 14px;  top: 50%; transform: translateY(-50%); }
+  .lbl-right { right: 14px; top: 50%; transform: translateY(-50%); }
 
-  .zone-foot {
-    position: absolute; bottom: 10px; left: 16px; right: 16px;
-    text-align: center;
-    font-size: 11px; color: var(--muted); letter-spacing: .04em;
-  }
-
-  /* 干扰弹条（两武器区之间的竖条） */
-  .flare-bar {
-    flex: none; width: 62px;
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
-    border-radius: 12px;
-    border: 1px solid rgba(255, 190, 90, .32);
-    background: linear-gradient(170deg, rgba(40, 26, 8, .85), rgba(14, 10, 4, .9));
-    color: #ffd9a8;
+  /* ============ 右区：武器按钮组 ============ */
+  .weapon-zone {
+    position: relative;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 12px;
+    border-radius: 18px;
+    border: 1px solid rgba(255, 155, 61, .2);
+    background: linear-gradient(170deg, rgba(40, 22, 8, .85), rgba(14, 10, 4, .9));
     touch-action: none;
-    transition: transform .1s ease, box-shadow .12s ease, opacity .2s;
   }
-  .flare-bar .flare-name {
-    font-size: 12.5px; font-weight: 700; letter-spacing: .18em;
-    writing-mode: vertical-rl;
+
+  .weapon-top, .weapon-bottom {
+    display: grid; gap: 8px;
   }
-  .flare-bar b {
-    font-family: var(--num); font-size: 17px; font-weight: 800; color: var(--orange);
-    text-shadow: 0 0 12px rgba(255, 155, 61, .5);
+  .weapon-top    { grid-template-columns: 1fr 1fr; }
+  .weapon-bottom { grid-template-columns: 1fr 1fr; }
+
+  .wbtn {
+    font-family: inherit;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, .12);
+    background: linear-gradient(170deg, rgba(12, 32, 50, .9), rgba(6, 15, 24, .94));
+    color: var(--text);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 2px;
+    cursor: pointer;
+    transition: transform .08s ease, box-shadow .12s, border-color .18s, opacity .2s;
+    -webkit-tap-highlight-color: transparent;
   }
-  .flare-bar .flare-note {
-    font-size: 10px; color: var(--muted); letter-spacing: .04em;
-    writing-mode: vertical-rl;
-    max-height: 42%;
+  .wbtn b { font-size: 13px; font-weight: 800; letter-spacing: .08em; }
+  .wbtn i { font-size: 10px; font-style: normal; color: var(--muted); }
+  .wbtn:active { transform: scale(.96); }
+  .wbtn.disabled { opacity: .45; pointer-events: none; }
+  .wbtn.pressed { transform: scale(.96); }
+  .wbtn.cooling { opacity: .55; border-color: rgba(255, 211, 92, .35); }
+  .wbtn.empty { opacity: .4; }
+
+  .wbtn.missile {
+    border-color: rgba(255, 155, 61, .4);
+    background: linear-gradient(170deg, rgba(60, 30, 8, .85), rgba(20, 12, 4, .94));
   }
-  .flare-bar.pressed {
-    transform: scale(.97);
-    box-shadow: 0 0 22px rgba(255, 170, 70, .35), inset 0 0 24px rgba(255, 170, 70, .18);
+  .wbtn.missile b { color: #ffe0bf; }
+  .wbtn.missile.pressed {
+    border-color: rgba(255, 155, 61, .85);
+    box-shadow: 0 0 24px rgba(255, 155, 61, .35);
   }
-  .flare-bar.disabled { opacity: .45; }
-  .flare-bar.empty .flare-note { color: var(--err); }
+
+  .wbtn.flare {
+    border-color: rgba(255, 190, 90, .4);
+    background: linear-gradient(170deg, rgba(50, 36, 8, .85), rgba(18, 12, 4, .94));
+  }
+  .wbtn.flare b { color: #ffd9a8; }
+  .wbtn.flare.pressed {
+    border-color: rgba(255, 190, 90, .85);
+    box-shadow: 0 0 24px rgba(255, 190, 90, .35);
+  }
+
+  .wbtn.evade {
+    border-color: rgba(255, 80, 60, .5);
+    background: linear-gradient(170deg, rgba(50, 10, 8, .85), rgba(18, 4, 4, .94));
+  }
+  .wbtn.evade b { color: #ffb0a8; }
+  .wbtn.evade.pressed {
+    border-color: rgba(255, 80, 60, .9);
+    box-shadow: 0 0 28px rgba(255, 80, 60, .45);
+  }
+
+  .wbtn.cannon-big {
+    border-radius: 16px;
+    border: 2px solid rgba(53, 224, 255, .6);
+    background:
+      radial-gradient(circle at 50% 40%, rgba(53, 224, 255, .22), transparent 55%),
+      linear-gradient(170deg, rgba(10, 30, 46, .96), rgba(4, 12, 20, .98));
+    box-shadow: 0 0 26px rgba(53, 224, 255, .18), inset 0 0 26px rgba(53, 224, 255, .08);
+    padding: 22px 14px;
+  }
+  .wbtn.cannon-big b {
+    font-size: clamp(18px, 3.6vh, 26px);
+    color: #eaffff;
+    letter-spacing: .18em;
+  }
+  .wbtn.cannon-big i { font-size: 11px; color: var(--cyan); }
+  .wbtn.cannon-big.pressed {
+    transform: scale(.98);
+    border-color: rgba(53, 224, 255, 1);
+    box-shadow: 0 0 44px rgba(53, 224, 255, .5), inset 0 0 44px rgba(53, 224, 255, .2);
+  }
+
+  @media (max-width: 760px) {
+    main { gap: 8px; padding-top: 8px; }
+    .stick-labels span { display: none; }
+    .wbtn b { font-size: 12px; }
+    .wbtn i { display: none; }
+    .stick-title .stick-hint { display: none; }
+    .stick-name { font-size: 13px; }
+  }
 
   /* 竖屏时的横屏提示（不阻断操作） */
   .rotate-hint {

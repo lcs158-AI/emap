@@ -239,10 +239,16 @@ const game = {
   squatHold: 0,      // 下蹲持续时间（秒）
   evadeT: 0,         // 紧急规避剩余时间（秒）
   evadeCd: 0,        // 规避冷却剩余时间（秒）
+  evadeBtnPressed: false,  // 手机规避按钮按下一次，单次触发后自动复位
   phonePitch: 0,     // 手机体感俯仰（度，已相对校准）
   phoneRoll: 0,      // 手机体感翻滚（度）
   phoneSeenAt: 0,    // 最近一次体感数据时间（performance.now）
   phoneCount: 0,     // 收到的体感数据条数
+  // V2.8.0 手机触屏摇杆输入（归一化 -1 ~ +1，直接当 pitchIn / yawIn / dirX）
+  touchPitch: 0,
+  touchYaw: 0,
+  touchDirX: 0,
+  touchSeenAt: 0,
   fpView: savedFp === null ? savedControl === 'camera' : savedFp === '1'  // 第一人称（体感模式默认开启）
 };
 
@@ -273,9 +279,13 @@ function analog(v, dead, full) {
   return s * Math.min(1, (a - dead) / (full - dead));
 }
 
-/* 手机体感是否新鲜（<1.2s） */
+/* 手机陀螺仪数据是否新鲜（<1.2s） */
 function phoneFresh() {
   return game.phoneSeenAt > 0 && performance.now() - game.phoneSeenAt < 1200;
+}
+/* 手机触屏摇杆数据是否新鲜（<0.4s，摇杆高频） */
+function touchFresh() {
+  return game.touchSeenAt > 0 && performance.now() - game.touchSeenAt < 400;
 }
 
 /* 主机端手机体感状态（约 0.4s 刷新一次，用于确认手机姿态是否真的被识别） */
@@ -527,6 +537,9 @@ function openPreflight(mode) {
       hud.setStatus('pose', '', '准备中…');
       startCamera();
     }
+  } else if (game.control === 'touch') {
+    hud.setStatus('cam', '', '未启用（触屏模式）');
+    hud.setStatus('pose', '', '未启用（触屏模式）');
   } else {
     hud.setStatus('cam', '', '键盘模式');
     hud.setStatus('pose', '', '键盘模式');
@@ -574,6 +587,17 @@ function refreshPreflight() {
     } else {
       hud.setCamFit(false);
       note = '摄像头不可用，本次将使用键盘 A/D 平移 · W/S 俯仰';
+      tone = 'warn';
+    }
+  } else if (game.control === 'touch') {
+    // 手机触屏模式：不依赖摄像头，但需要手机控制器已连接
+    hud.setCamFit(false);
+    if (game.controllers > 0) {
+      note = '手机触屏模式：左拇指飞行摇杆 · 右手武器按钮。所有操作在手机上完成，不依赖摄像头与姿态识别';
+      tone = 'ok';
+    } else {
+      can = false;
+      note = '请先在手机浏览器打开控制器页面（扫码加入），再确认出击';
       tone = 'warn';
     }
   } else {
@@ -1164,23 +1188,36 @@ const net = new Net({
       deployFlare(1);  // 兼容旧服务端：未知 type 会被改写成 cannon
     } else if (msg.type === 'cannon') {
       game.netCannon = msg.action === 'down';
-    } else if (msg.type === 'missile') {
-      shootMissile(1);   // 手机端仍为单发
+    } else if (msg.type === 'missile' || msg.type === 'missileDbl') {
+      shootMissile(msg.type === 'missileDbl' ? 2 : 1);
     } else if (msg.type === 'flare') {
-      deployFlare(1);    // 手机端仍为单发
+      deployFlare(1);
+    } else if (msg.type === 'evade') {
+      game.evadeBtnPressed = true;
     } else if (msg.type === 'cannonTap') {
       game.netCannon = true;
       setTimeout(() => { game.netCannon = false; }, 180);
     }
   },
   onFlight: (m) => {
-    if (!m || !Number.isFinite(m.pitch) || !Number.isFinite(m.roll)) return;
+    if (!m) return;
     const first = game.phoneSeenAt === 0 || performance.now() - game.phoneSeenAt > 3000;
-    game.phonePitch = clamp(m.pitch, -90, 90);
-    game.phoneRoll = clamp(m.roll, -90, 90);
     game.phoneSeenAt = performance.now();
     game.phoneCount += 1;
-    if (first) hud.toast('手机体感已接收 · 抬起/压下控制俯仰，左右翻转控制机头', 2200);
+
+    if (m.source === 'touch') {
+      // V2.8.0 手机摇杆：pitch/yaw 已归一化 -1 ~ +1，直接存
+      if (Number.isFinite(m.pitch)) game.touchPitch = clamp(m.pitch, -1, 1);
+      if (Number.isFinite(m.yaw))   game.touchYaw   = clamp(m.yaw,   -1, 1);
+      if (Number.isFinite(m.dirX))  game.touchDirX  = clamp(m.dirX,  -1, 1);
+      game.touchSeenAt = performance.now();
+      if (first) hud.toast('手机摇杆已接收', 1500);
+    } else if (Number.isFinite(m.pitch) && Number.isFinite(m.roll)) {
+      // 旧手机陀螺仪：角度制，存进 phonePitch/phoneRoll
+      game.phonePitch = clamp(m.pitch, -90, 90);
+      game.phoneRoll = clamp(m.roll, -90, 90);
+      if (first) hud.toast('手机体感已接收 · 抬起/压下控制俯仰，左右翻转控制机头', 2200);
+    }
     updatePhoneStatus(true);
   },
   /* V2.5.2：手机端返回菜单 / 选模式 / 重玩 */
@@ -1255,30 +1292,38 @@ async function loadQr() {
 let lastFrame = performance.now();
 
 function updatePlaying(dt) {
-  // 输入优先级：键盘 > 手机体感 > 摄像头（体感飞行）
+  // 输入优先级：键盘 > 手机触屏摇杆 > 手机陀螺仪 > 摄像头（体感飞行）
   const kp = keyPitch();
   const ky = keyYaw();
-  const fresh = phoneFresh();
+  const kd = keyDir();
+  const touchOk = touchFresh();
+  const gyroOk = phoneFresh();
 
-  // 体感三通道：身体左右平移 → 左右移动/压坡度；双手高度 → 俯仰；下蹲 → 紧急规避
-  const poseActive = game.control === 'camera' && kp === 0 && ky === 0 && !fresh;
+  // 体感三通道：仅 camera 模式下才启用 pose
+  const poseActive = game.control === 'camera' && kp === 0 && ky === 0 && !gyroOk && !touchOk;
   const poseReady = poseActive && pose.tracking;
   let pitchAbs = poseReady ? posePitchAbs() : null;
-  // 人体丢失时方位角也平滑回正（目标 0，指数逼近无突变）；键盘操控时保持原有不回中语义
   const yawAbs = poseReady ? poseYawAbs() : (poseActive ? 0 : null);
 
-  const pitchIn = kp !== 0
-    ? kp
-    : (fresh
-      ? analog(game.phonePitch, CFG.player.phonePitchDead, CFG.player.phonePitchFull)
-      : 0);
+  // pitchIn: 键盘 > 手机摇杆 > 手机陀螺仪
+  let pitchIn;
+  if (kp !== 0) {
+    pitchIn = kp;
+  } else if (game.control === 'touch' || touchOk) {
+    // 摇杆已经归一化 -1~+1，直接用
+    pitchIn = game.touchPitch;
+  } else if (gyroOk) {
+    pitchIn = analog(game.phonePitch, CFG.player.phonePitchDead, CFG.player.phonePitchFull);
+  } else {
+    pitchIn = 0;
+  }
 
-  // 紧急规避：双手快速下压（半身取景主用）或屈膝下蹲（全身入镜时），保持 0.2s 触发 0.6s 急俯冲，冷却 2s
+  // 紧急规避（先保留摄像头双手下压 / 手机规避按钮两条触发链路，touch 模式下只有按钮）
   if (game.evadeCd > 0) game.evadeCd = Math.max(0, game.evadeCd - dt);
-  const evadeSig = pose.press >= 1 || pose.squat >= CFG.pose.squatStart;
-  if (poseReady && evadeSig) {
-    game.squatHold += dt;
-    if (game.squatHold >= CFG.pose.squatHoldMs / 1000 && game.evadeCd <= 0) {
+  const evadeSig = game.evadeBtnPressed || pose.press >= 1 || pose.squat >= CFG.pose.squatStart;
+  if (evadeSig && game.evadeCd <= 0) {
+    game.squatHold = (game.squatHold || 0) + dt;
+    if (game.squatHold >= CFG.pose.squatHoldMs / 1000) {
       game.squatHold = 0;
       game.evadeT = CFG.pose.evadeMs / 1000;
       game.evadeCd = CFG.pose.evadeCdMs / 1000;
@@ -1288,10 +1333,10 @@ function updatePlaying(dt) {
     }
   } else {
     game.squatHold = 0;
+    game.evadeBtnPressed = false;  // 单次触发
   }
   if (game.evadeT > 0) {
     game.evadeT = Math.max(0, game.evadeT - dt);
-    // 强制急俯冲，但保留用户的俯仰叠加（拉起可减轻俯冲），平移/转向/开火不受限
     const base = pitchAbs !== null
       ? pitchAbs
       : clamp(pitchIn, -1, 1) * (pitchIn >= 0 ? CFG.player.pitchMaxUp : CFG.player.pitchMaxDown);
@@ -1299,18 +1344,28 @@ function updatePlaying(dt) {
       -CFG.player.pitchMaxDown, CFG.player.pitchMaxUp);
   }
 
-  // 右倾（roll 正）= 右转：yaw 减小
-  const yawIn = ky !== 0
-    ? ky
-    : (fresh ? -analog(game.phoneRoll, CFG.player.phoneRollDead, CFG.player.phoneRollFull) : 0);
+  // yawIn: 键盘 > 手机摇杆 > 手机陀螺仪
+  let yawIn;
+  if (ky !== 0) {
+    yawIn = ky;
+  } else if (game.control === 'touch' || touchOk) {
+    yawIn = game.touchYaw;   // 左拉为 +yawIn（机头左扫）
+  } else if (gyroOk) {
+    yawIn = -analog(game.phoneRoll, CFG.player.phoneRollDead, CFG.player.phoneRollFull);
+  } else {
+    yawIn = 0;
+  }
 
-  const dirX = keyDir() !== 0
-    ? keyDir()
-    : (poseReady ? poseMoveX() : 0);
+  // dirX（飞机左右平移躲避）：键盘 > 手机摇杆 > 摄像头身体平移
+  const dirX = kd !== 0
+    ? kd
+    : ((game.control === 'touch' || touchOk) ? game.touchDirX :
+      (poseReady ? poseMoveX() : 0));
 
+  // speed: 体感模式下飞机移动速度放慢；其他模式用 moveSpeed
   player.update(dt, {
     dirX,
-    speed: keyDir() !== 0 || !poseReady ? CFG.player.moveSpeed : CFG.player.poseMoveSpeed,
+    speed: (game.control === 'camera' && poseReady) ? CFG.player.poseMoveSpeed : CFG.player.moveSpeed,
     pitchIn: clamp(pitchIn, -1, 1),
     yawIn: clamp(yawIn, -1, 1),
     pitchAbs,
@@ -1461,11 +1516,14 @@ hud.bindControl((mode) => {
   game.control = mode;
   try { localStorage.setItem('mj.control', mode); } catch (err) { /* ignore */ }
   audio.ui();
-  // 体感飞行：摄像头 + Pose 识别器
-  pose.enabled = mode !== 'keys';
+  // 体感飞行才启用 Pose 识别器（键盘 / 手机触屏 都不需要）
+  pose.enabled = mode === 'camera';
   if (mode === 'camera') {
     pose.resetBaseline();  // 重新校准重心/躯干零点
     if (!cameraReady) startCamera();  // 之前失败/超时后可切回体感重试
+  } else {
+    // 切到非 camera 模式：释放摄像头，避免后台继续占用
+    releaseCamera();
   }
   refreshPreflight();
 });

@@ -33,33 +33,47 @@
 </header>
 
 <main>
-  <section class="zone cannon disabled" id="zoneCannon">
-    <div class="zone-top">
-      <span class="zone-name">机炮</span>
-      <span class="zone-note">左拇指按住连射 · 无限弹药</span>
+  <!-- 左区：飞行摇杆 -->
+  <section class="stick-zone" id="zoneStick" aria-label="飞行摇杆（左拇指）">
+    <div class="stick-title">
+      <span class="stick-name">飞行摇杆</span>
+      <span class="stick-hint">左拇指 · 全姿态</span>
     </div>
-    <div class="cannon-ring"><i></i><b>按住</b></div>
-    <div class="zone-foot" id="cannonFoot">等待开始</div>
+    <div class="stick-base" id="stickBase">
+      <div class="stick-cross" aria-hidden="true"><i class="v"></i><i class="h"></i></div>
+      <div class="stick-knob" id="stickKnob"></div>
+    </div>
+    <div class="stick-labels" aria-hidden="true">
+      <span class="lbl-up">爬升 ▲</span>
+      <span class="lbl-down">俯冲 ▼</span>
+      <span class="lbl-left">机头◀</span>
+      <span class="lbl-right">机头▶</span>
+    </div>
   </section>
 
-  <section class="flare-bar disabled" id="zoneFlare">
-    <span class="flare-name">干扰弹</span>
-    <b id="flareCount">∞</b>
-    <span class="flare-note" id="flareFoot">点按释放 · 诱爆来袭导弹</span>
-  </section>
-
-  <section class="zone missile disabled" id="zoneMissile">
-    <div class="zone-top">
-      <span class="zone-name">导弹</span>
-      <span class="zone-note">右拇指点按 · 弱制导</span>
+  <!-- 右区：武器按钮组 -->
+  <section class="weapon-zone" aria-label="武器（右手）">
+    <div class="weapon-top">
+      <button class="wbtn missile" id="btnMissileDbl" type="button">K 双发导弹</button>
+      <button class="wbtn missile" id="btnMissileSingle" type="button">I 单发导弹</button>
     </div>
-    <div class="missile-ring" id="missileRing"><b id="missileCount">10</b><span class="unit">剩余</span></div>
-    <div class="ammo-dots" id="ammoDots"></div>
-    <div class="zone-foot" id="missileFoot">剩余 10 发</div>
+
+    <button class="wbtn cannon-big" id="btnCannon" type="button">
+      <b>机炮</b><i>按住连发</i>
+    </button>
+
+    <div class="weapon-bottom">
+      <button class="wbtn flare" id="btnFlare" type="button">
+        <b>干扰弹 L</b><i id="btnFlareNote">点按释放</i>
+      </button>
+      <button class="wbtn evade" id="btnEvade" type="button">
+        <b>⚡ 紧急规避</b><i id="btnEvadeNote">按住触发 · 2.5s CD</i>
+      </button>
+    </div>
   </section>
 </main>
 
-<div class="rotate-hint" id="rotateHint">建议横屏双手握持 · 左拇指机炮 / 右拇指导弹 · 中条干扰弹</div>
+<div class="rotate-hint" id="rotateHint">建议横屏双手握持 · 左拇指飞行摇杆 / 右手武器按钮</div>
 
 <div class="banner hidden" id="banner">
   <b id="bannerTitle"></b><span id="bannerText"></span>
@@ -111,16 +125,22 @@ const els = {
   ammo: document.getElementById('ammo'),
   status: document.getElementById('status'),
   statusText: document.getElementById('statusText'),
-  zoneCannon: document.getElementById('zoneCannon'),
-  zoneFlare: document.getElementById('zoneFlare'),
-  flareCount: document.getElementById('flareCount'),
-  flareFoot: document.getElementById('flareFoot'),
-  zoneMissile: document.getElementById('zoneMissile'),
-  cannonFoot: document.getElementById('cannonFoot'),
-  missileRing: document.getElementById('missileRing'),
-  missileCount: document.getElementById('missileCount'),
+  // 摇杆
+  zoneStick: document.getElementById('zoneStick'),
+  stickBase: document.getElementById('stickBase'),
+  stickKnob: document.getElementById('stickKnob'),
+  // 武器按钮
+  btnCannon: document.getElementById('btnCannon'),
+  btnMissileSingle: document.getElementById('btnMissileSingle'),
+  btnMissileDbl: document.getElementById('btnMissileDbl'),
+  btnFlare: document.getElementById('btnFlare'),
+  btnFlareNote: document.getElementById('btnFlareNote'),
+  btnEvade: document.getElementById('btnEvade'),
+  btnEvadeNote: document.getElementById('btnEvadeNote'),
+  // 旧渲染元素（保留引用避免空指针）
   missileFoot: document.getElementById('missileFoot'),
   ammoDots: document.getElementById('ammoDots'),
+  // 结算 / 菜单
   banner: document.getElementById('banner'),
   bannerTitle: document.getElementById('bannerTitle'),
   bannerText: document.getElementById('bannerText'),
@@ -151,11 +171,15 @@ const state = {
   flares: Infinity,
   cd: 0,
   flareCd: 0,
+  evadeCd: 0,
   cannonHeld: false,
+  evadeHeld: false,
   resultShown: false,
   modes: [],
   menuOpen: false,
-  ready: false
+  ready: false,
+  // 摇杆输出（归一化 -1 ~ +1）
+  stick: { pitch: 0, yaw: 0, active: false }
 };
 
 /* ---------------- 基础 UI ---------------- */
@@ -259,46 +283,56 @@ function isPlaying() { return state.phase === 'playing'; }
 
 function renderZones() {
   const playing = isPlaying();
-  els.zoneCannon.classList.toggle('disabled', !playing);
-  els.zoneMissile.classList.toggle('disabled', !playing);
-  els.zoneFlare.classList.toggle('disabled', !playing);
-
-  if (state.phase === 'menu') {
-    els.cannonFoot.textContent = '等待电脑端选择模式';
-  } else if (state.phase === 'preflight') {
-    els.cannonFoot.textContent = '电脑端出击检查中…';
-  } else if (state.phase === 'countdown') {
-    els.cannonFoot.textContent = '准备起飞…';
-  } else if (playing) {
-    els.cannonFoot.textContent = state.remain > 0 ? '目标 ' + state.remain + ' · 按住持续开火' : '目标已清空';
-  } else if (state.phase === 'result') {
-    els.cannonFoot.textContent = '本局结束 · 可在手机端重玩或返回';
-  }
+  els.zoneStick.classList.toggle('disabled', !playing);
+  const allBtns = document.querySelectorAll('.weapon-zone .wbtn');
+  allBtns.forEach(b => b.classList.toggle('disabled', !playing));
 }
 
 function renderAmmo() {
   els.ammo.textContent = state.ammo;
-  els.missileCount.textContent = state.ammo;
-  ammoDots.forEach((d, i) => d.classList.toggle('empty', i >= state.ammo));
-  els.missileFoot.textContent = state.ammo > 0
-    ? '剩余 ' + state.ammo + ' 发'
-    : '导弹已耗尽 · 使用机炮';
+  if (els.ammoDots) {
+    ammoDots.forEach((d, i) => d.classList.toggle('empty', i >= state.ammo));
+  }
+  // 更新导弹按钮状态提示
+  const dbl = els.btnMissileDbl;
+  const single = els.btnMissileSingle;
+  if (state.ammo >= 2) {
+    dbl.textContent = 'K 双发导弹（剩 ' + state.ammo + '）';
+    single.textContent = 'I 单发导弹（剩 ' + state.ammo + '）';
+    dbl.classList.remove('empty'); single.classList.remove('empty');
+  } else if (state.ammo === 1) {
+    dbl.textContent = 'K 双发导弹（1发，仅单发）';
+    single.textContent = 'I 单发导弹（剩 1）';
+    dbl.classList.add('empty');
+    single.classList.remove('empty');
+  } else {
+    dbl.textContent = 'K 双发导弹（已耗尽）';
+    single.textContent = 'I 单发导弹（已耗尽）';
+    dbl.classList.add('empty'); single.classList.add('empty');
+  }
 }
 
 function renderArmor() {
-  armorPips.forEach((p, i) => p.classList.toggle('empty', i >= state.armor));
+  if (armorPips) armorPips.forEach((p, i) => p.classList.toggle('empty', i >= state.armor));
 }
 
 function renderFlares() {
-  const unlimited = !Number.isFinite(state.flares);
-  els.flareCount.textContent = unlimited ? '∞' : state.flares;
-  els.zoneFlare.classList.toggle('empty', !unlimited && state.flares <= 0);
   if (state.flareCd > 0) {
-    els.flareFoot.textContent = '冷却 ' + state.flareCd.toFixed(1) + 's';
-  } else if (!unlimited && state.flares <= 0) {
-    els.flareFoot.textContent = '干扰弹已耗尽';
+    els.btnFlareNote.textContent = '冷却 ' + state.flareCd.toFixed(1) + 's';
+    els.btnFlare.classList.add('cooling');
   } else {
-    els.flareFoot.textContent = '点按释放 · 诱爆来袭导弹';
+    els.btnFlareNote.textContent = '点按释放';
+    els.btnFlare.classList.remove('cooling');
+  }
+}
+
+function renderEvade() {
+  if (state.evadeCd > 0) {
+    els.btnEvadeNote.textContent = '冷却 ' + state.evadeCd.toFixed(1) + 's';
+    els.btnEvade.classList.add('cooling');
+  } else {
+    els.btnEvadeNote.textContent = '按住触发 · 2.5s CD';
+    els.btnEvade.classList.remove('cooling');
   }
 }
 
@@ -525,7 +559,15 @@ window.__ctl = {
   get socket() { return socket; }
 };
 
-/* ---------------- 机炮：按住 ---------------- */
+/* ---------------- 旧武器区清理 ---------------- */
+// 原 onPress(zoneCannon/zoneMissile/zoneFlare) 已移除，改用新按钮绑定
+window.removeEventListener && window.removeEventListener('pointerup', releaseCannon);
+
+/* ======================================================
+   V2.8.0 新武器按钮 + 飞行摇杆 + flight 通道
+   ====================================================== */
+
+// ---- 机炮 ----
 function pressCannon(e) {
   if (e) e.preventDefault();
   if (!isPlaying()) { toast('尚未开始战斗'); return; }
@@ -533,44 +575,37 @@ function pressCannon(e) {
   if (!canFire()) return;
   if (!sendWeapon({ type: 'cannon', action: 'down' })) return;
   state.cannonHeld = true;
-  els.zoneCannon.classList.add('pressed');
+  els.btnCannon.classList.add('pressed');
   buzz(18);
-  if (els.zoneCannon.setPointerCapture && e && typeof e.pointerId === 'number') {
-    try { els.zoneCannon.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
-  }
 }
-
 function releaseCannon() {
   if (!state.cannonHeld) return;
   state.cannonHeld = false;
-  els.zoneCannon.classList.remove('pressed');
+  if (els.btnCannon) els.btnCannon.classList.remove('pressed');
   if (socket && socket.connected) socket.emit('weapon', { type: 'cannon', action: 'up' });
 }
+onPress(els.btnCannon, pressCannon, releaseCannon);
 
-onPress(els.zoneCannon, pressCannon, releaseCannon);
-els.zoneCannon.addEventListener('contextmenu', (e) => e.preventDefault());
-
-/* ---------------- 导弹：单击 ---------------- */
-function fireMissile(e) {
+// ---- 导弹（单发 I / 双发 K） ----
+function fireMissile(e, double = false) {
   if (e) e.preventDefault();
   if (!isPlaying()) { toast('尚未开始战斗'); return; }
   if (state.cd > 0) { toast('导弹冷却 ' + state.cd.toFixed(1) + 's'); return; }
-  if (state.ammo <= 0) { toast('导弹已耗尽，使用机炮'); return; }
+  const need = double ? 2 : 1;
+  if (state.ammo < need) { toast('导弹不足，剩余 ' + state.ammo + ' 发'); return; }
   if (!canFire()) return;
-  if (!sendWeapon({ type: 'missile', action: 'fire' })) return;
-
+  if (!sendWeapon({ type: double ? 'missileDbl' : 'missile', action: 'fire' })) return;
   state.cd = MISSILE_CD;
-  state.ammo = Math.max(0, state.ammo - 1);
+  state.ammo = Math.max(0, state.ammo - need);
   renderAmmo();
   buzz(35);
-  els.zoneMissile.classList.add('pressed');
-  setTimeout(() => els.zoneMissile.classList.remove('pressed'), 150);
+  (double ? els.btnMissileDbl : els.btnMissileSingle).classList.add('pressed');
+  setTimeout(() => (double ? els.btnMissileDbl : els.btnMissileSingle).classList.remove('pressed'), 150);
 }
+onPress(els.btnMissileSingle, (e) => fireMissile(e, false), null);
+onPress(els.btnMissileDbl,    (e) => fireMissile(e, true),  null);
 
-onPress(els.zoneMissile, fireMissile, null);
-els.zoneMissile.addEventListener('contextmenu', (e) => e.preventDefault());
-
-/* ---------------- 干扰弹：点按 ---------------- */
+// ---- 干扰弹 L ----
 function fireFlare(e) {
   if (e) e.preventDefault();
   if (!isPlaying()) { toast('尚未开始战斗'); return; }
@@ -578,30 +613,194 @@ function fireFlare(e) {
   if (Number.isFinite(state.flares) && state.flares <= 0) { toast('干扰弹已耗尽'); return; }
   if (!canFire()) return;
   if (!sendWeapon({ type: 'flare', action: 'fire' })) return;
-
   state.flareCd = FLARE_CD;
   if (Number.isFinite(state.flares)) state.flares = Math.max(0, state.flares - 1);
   renderFlares();
   buzz(25);
-  els.zoneFlare.classList.add('pressed');
-  setTimeout(() => els.zoneFlare.classList.remove('pressed'), 150);
+  els.btnFlare.classList.add('pressed');
+  setTimeout(() => els.btnFlare.classList.remove('pressed'), 150);
+}
+onPress(els.btnFlare, fireFlare, null);
+
+// ---- 紧急规避 ----
+function pressEvade(e) {
+  if (e) e.preventDefault();
+  if (!isPlaying()) return;
+  if (state.evadeCd > 0) { toast('紧急规避冷却 ' + state.evadeCd.toFixed(1) + 's'); return; }
+  if (!canFire()) return;
+  state.evadeHeld = true;
+  els.btnEvade.classList.add('pressed');
+  socket.emit('weapon', { type: 'evade', action: 'fire' });
+  state.evadeCd = 2.5;
+  renderEvade();
+  buzz(40);
+  toast('紧急规避！', 700);
+}
+function releaseEvade() {
+  state.evadeHeld = false;
+  if (els.btnEvade) els.btnEvade.classList.remove('pressed');
+}
+onPress(els.btnEvade, pressEvade, releaseEvade);
+
+/* ======================================================
+   左飞行摇杆（V2.8.0 新增）
+   - 双轴：俯仰（Y 轴上=+1/下=-1） + 航向（X 轴左=+1/右=-1）
+   - 死区 ±10%，输出归一化 -1~+1
+   - 松手平滑回中
+   ====================================================== */
+const JOY_DEAD = 0.10;      // 死区
+const JOY_RADIUS_RATIO = 0.42; // 摇杆球活动半径 / 底盘半径
+let joyTouchId = null;
+let joyOrigin = { x: 0, y: 0 };
+let joyRadius = 0;
+let joyKnobSize = 0;
+
+function initJoystickMetrics() {
+  if (!els.stickBase) return;
+  const r = els.stickBase.getBoundingClientRect();
+  joyRadius = Math.min(r.width, r.height) * JOY_RADIUS_RATIO;
+  joyOrigin.x = r.left + r.width / 2;
+  joyOrigin.y = r.top + r.height / 2;
+  const knob = els.stickKnob.getBoundingClientRect();
+  joyKnobSize = knob.width;
 }
 
-onPress(els.zoneFlare, fireFlare, null);
-els.zoneFlare.addEventListener('contextmenu', (e) => e.preventDefault());
+function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
 
-/* ---------------- 全局兜底释放 ---------------- */
-window.addEventListener('pointerup', releaseCannon);
-window.addEventListener('pointercancel', releaseCannon);
-window.addEventListener('touchend', releaseCannon);
-window.addEventListener('touchcancel', releaseCannon);
-window.addEventListener('mouseup', releaseCannon);
-window.addEventListener('blur', releaseCannon);
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden) releaseCannon();
-});
+function updateJoystickUI(dx, dy) {
+  if (!els.stickKnob) return;
+  const maxR = joyRadius || 40;
+  const dist = Math.hypot(dx, dy);
+  let kx = dx, ky = dy;
+  if (dist > maxR) { kx = dx / dist * maxR; ky = dy / dist * maxR; }
+  // knob 中心要从原点偏移 kx, ky
+  els.stickKnob.style.transform = `translate(${kx}px, ${ky}px)`;
+}
 
-/* ---------------- 本地冷却动画 ---------------- */
+function normalizeJoystick(dx, dy) {
+  const maxR = joyRadius || 40;
+  const nx = clamp(dx / maxR, -1, 1);
+  const ny = clamp(dy / maxR, -1, 1);
+  // 死区：半径 < dead% 视为 0
+  const len = Math.hypot(nx, ny);
+  if (len < JOY_DEAD) return { pitch: 0, yaw: 0 };
+  // 缩放到 [dead, 1] → [0, 1]
+  const scale = (len - JOY_DEAD) / (1 - JOY_DEAD);
+  return {
+    pitch: -ny * scale,     // 上推=爬升 +pitchIn
+    yaw:   -nx * scale      // 左拉=机头左扫 +yawIn → 但 game.js 里 yawIn 符号需一致
+  };
+}
+
+function startJoystick(clientX, clientY, touchId) {
+  initJoystickMetrics();
+  joyTouchId = touchId;
+  joyOrigin.x = clientX;
+  joyOrigin.y = clientY;
+  state.stick.active = true;
+  // knob 居中（通过 transform 重置）
+  if (els.stickKnob) els.stickKnob.style.transform = `translate(0, 0)`;
+  if (els.stickBase) els.stickBase.classList.add('active');
+}
+
+function moveJoystick(clientX, clientY) {
+  if (joyTouchId === null) return;
+  const dx = clientX - joyOrigin.x;
+  const dy = clientY - joyOrigin.y;
+  updateJoystickUI(dx, dy);
+  const v = normalizeJoystick(dx, dy);
+  state.stick.pitch = v.pitch;
+  state.stick.yaw = v.yaw;
+  sendJoystickFlight();
+}
+
+function endJoystick(touchId) {
+  if (touchId !== undefined && touchId !== null && touchId !== joyTouchId) return;
+  joyTouchId = null;
+  state.stick.active = false;
+  state.stick.pitch = 0;
+  state.stick.yaw = 0;
+  if (els.stickKnob) els.stickKnob.style.transform = `translate(0, 0)`;
+  if (els.stickBase) els.stickBase.classList.remove('active');
+  sendJoystickFlight(); // 发送一次归零
+}
+
+function sendJoystickFlight() {
+  if (!state.connected || !socket || !socket.connected) return;
+  if (state.phase !== 'playing') return;
+  socket.emit('flight', {
+    pitch: state.stick.pitch,
+    yaw:   state.stick.yaw,
+    dirX:  0,   // 暂不提供横移（通过压坡度+航向间接实现）
+    source: 'touch',
+    ts: performance.now()
+  });
+}
+
+// 摇杆事件绑定（Pointer Events 优先，fallback touch）
+(function bindJoystick() {
+  const zone = els.zoneStick;
+  if (!zone) return;
+
+  if (HAS_POINTER) {
+    zone.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      initJoystickMetrics();
+      // 以当前手指位置为原点（让玩家触摸的地方即摇杆中心）
+      startJoystick(e.clientX, e.clientY, e.pointerId);
+      try { zone.setPointerCapture(e.pointerId); } catch (_) {}
+    });
+    zone.addEventListener('pointermove', (e) => {
+      if (joyTouchId === null || joyTouchId !== e.pointerId) return;
+      e.preventDefault();
+      moveJoystick(e.clientX, e.clientY);
+    });
+    const end = (e) => {
+      if (joyTouchId === null || joyTouchId !== e.pointerId) return;
+      e.preventDefault();
+      endJoystick(e.pointerId);
+    };
+    zone.addEventListener('pointerup', end);
+    zone.addEventListener('pointercancel', end);
+    zone.addEventListener('lostpointercapture', end);
+  } else if (HAS_TOUCH) {
+    zone.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      if (joyTouchId !== null) return;
+      const t = e.changedTouches[0];
+      initJoystickMetrics();
+      startJoystick(t.clientX, t.clientY, t.identifier);
+    }, { passive: false });
+    zone.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      if (joyTouchId === null) return;
+      for (const t of e.changedTouches) {
+        if (t.identifier === joyTouchId) { moveJoystick(t.clientX, t.clientY); break; }
+      }
+    }, { passive: false });
+    const tc = ['touchend', 'touchcancel'];
+    tc.forEach(ev => zone.addEventListener(ev, (e) => {
+      e.preventDefault();
+      for (const t of e.changedTouches) {
+        if (t.identifier === joyTouchId) { endJoystick(t.identifier); break; }
+      }
+    }, { passive: false }));
+  } else {
+    zone.addEventListener('mousedown', (e) => {
+      startJoystick(e.clientX, e.clientY, 'mouse');
+      const onMove = (ev) => moveJoystick(ev.clientX, ev.clientY);
+      const onUp = () => {
+        endJoystick('mouse');
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  }
+})();
+
+// ---- loop 冷却动画 + 规避冷却发送 ----
 let lastFrame = performance.now();
 function loop(now) {
   const dt = Math.min(now - lastFrame, 120);
@@ -617,19 +816,13 @@ function loop(now) {
     renderFlares();
   }
 
-  const p = state.cd > 0 ? state.cd / MISSILE_CD : 0;
-  els.missileRing.style.setProperty('--p', p.toFixed(3));
-  els.missileRing.style.opacity = state.ammo <= 0 ? '.45' : '1';
-
-  if (state.cd > 0 && isPlaying()) {
-    els.missileFoot.textContent = '冷却 ' + state.cd.toFixed(1) + 's';
-  } else if (state.ammo <= 0) {
-    els.missileFoot.textContent = '导弹已耗尽 · 使用机炮';
-  } else if (!isPlaying()) {
-    els.missileFoot.textContent = '剩余 ' + state.ammo + ' 发';
-  } else {
-    els.missileFoot.textContent = '剩余 ' + state.ammo + ' 发';
+  if (state.evadeCd > 0) {
+    state.evadeCd = Math.max(0, state.evadeCd - dt / 1000);
+    renderEvade();
   }
+
+  // 摇杆在 playing 态下每帧确保同步（防止手指不动时 socket 丢包）
+  if (state.phase === 'playing' && state.stick.active) sendJoystickFlight();
 
   requestAnimationFrame(loop);
 }
@@ -640,6 +833,7 @@ renderZones();
 renderAmmo();
 renderArmor();
 renderFlares();
+renderEvade();
 renderClock();
 renderLaunchPanel();
 refreshStatus();

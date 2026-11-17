@@ -38,9 +38,9 @@ export class Hud {
       modeGrid: $('modeGrid'),
       diffSeg: $('diffSeg'),
       flares: $('flareCount'),
-      ctrlCam: $('ctrlCam'), ctrlKeys: $('ctrlKeys'),
+      ctrlCam: $('ctrlCam'), ctrlKeys: $('ctrlKeys'), ctrlTouch: $('ctrlTouch'),
       viewFp: $('viewFp'), viewTp: $('viewTp'),
-      hintCamera: $('hintCamera'), hintKeys: $('hintKeys'),
+      hintCamera: $('hintCamera'), hintKeys: $('hintKeys'), hintTouch: $('hintTouch'),
       resTitle: $('resTitle'), resReason: $('resReason'),
       resScore: $('resScore'), resKills: $('resKills'),
       resAcc: $('resAcc'), resAmmo: $('resAmmo'), resTime: $('resTime'),
@@ -295,6 +295,10 @@ export class Hud {
       this.setControl('keys');
       this.onControl && this.onControl('keys');
     });
+    if (this.el.ctrlTouch) this.el.ctrlTouch.addEventListener('click', () => {
+      this.setControl('touch');
+      this.onControl && this.onControl('touch');
+    });
   }
 
   bindView(cb) {
@@ -359,9 +363,11 @@ export class Hud {
   setControl(mode) {
     this.el.ctrlCam.classList.toggle('active', mode === 'camera');
     this.el.ctrlKeys.classList.toggle('active', mode === 'keys');
-    // 切换控制方式时同步说明文字，避免键盘模式仍显示体感要领
+    if (this.el.ctrlTouch) this.el.ctrlTouch.classList.toggle('active', mode === 'touch');
+    // 切换控制方式时同步说明文字
     if (this.el.hintCamera) this.el.hintCamera.classList.toggle('hidden', mode !== 'camera');
     if (this.el.hintKeys) this.el.hintKeys.classList.toggle('hidden', mode !== 'keys');
+    if (this.el.hintTouch) this.el.hintTouch.classList.toggle('hidden', mode !== 'touch');
   }
 
   setView(fp) {
