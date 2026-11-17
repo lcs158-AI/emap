@@ -1100,10 +1100,10 @@ function createWaypointEntities(route) {
 function createPlaneEntity(waypoint) {
     const position = Cesium.Cartesian3.fromDegrees(waypoint.lon, waypoint.lat, waypoint.height);
 
-    // 计算初始航向（曲线切线的地理方位角，与飞行动画一致）
+    // 计算初始航向（使用真实地理方位角，并与路径/曲线切线保持一致）
     let heading = 0;
     if (flyState.route && flyState.route.waypoints.length > 1) {
-        heading = getCurveHeading(flyState.route, 0);
+        heading = getPathHeading(flyState.route, 0);
     }
 
     // 飞机箭头SVG (三角形指向上方=北方，与Cesium heading 0=北方一致)
@@ -1264,10 +1264,10 @@ function animateFlight() {
     flyState.rafId = requestAnimationFrame(animateFlight);
 }
 
-// 计算曲线在某个全局进度位置的切线航向角（v1.249）
+// 计算路径在某个全局进度位置的切线航向角
 // pointMode：段内线性直飞 → 返回该段恒定方位角（稳定的关键）
 // 沿线模式：向心 Catmull-Rom 数值导数，与 updatePlanePosition 完全同一条曲线
-function getCurveHeading(route, globalProgress) {
+function getPathHeading(route, globalProgress) {
     const waypoints = route.waypoints;
     const n = waypoints.length;
     if (n < 2) return 0;
@@ -1277,7 +1277,7 @@ function getCurveHeading(route, globalProgress) {
     const p1 = waypoints[idx];
     const p2 = waypoints[idx + 1];
 
-    // 按关键点飞行：段内直线，方位角恒定（段间跳变由 smoothHeading 平滑过渡）
+    // pointMode：段内直线，方位角恒定（段间跳变由 smoothHeading 平滑过渡）
     if (route.pointMode) {
         const dLon = (p2.lon - p1.lon) * Math.cos(p1.lat * Math.PI / 180);
         const dLat = p2.lat - p1.lat;
@@ -1285,12 +1285,11 @@ function getCurveHeading(route, globalProgress) {
         return Math.atan2(dLon, dLat);
     }
 
-    // 沿线模式：与插值相同的四个控制点（端点钳制）
+    // 沿线模式：在局部四点上做 Catmull-Rom 数值导数，保持与 updatePlanePosition 完全一致
     const p0 = waypoints[Math.max(0, idx - 1)];
     const p3 = waypoints[Math.min(n - 1, idx + 2)];
     const knots = crKnots(p0, p1, p2, p3);
 
-    // 数值导数：中心差分（ε 取段内归一化步长）
     const eps = 0.02;
     const uA = Math.max(0, u - eps), uB = Math.min(1, u + eps);
     const lonA = crEval(knots, p0.lon, p1.lon, p2.lon, p3.lon, uA);
@@ -1301,7 +1300,6 @@ function getCurveHeading(route, globalProgress) {
     const dLat = (latB - latA) / (uB - uA);
     if (dLon === 0 && dLat === 0) return flyState.smoothHeading || 0;
 
-    // 方位角 = atan2(东分量, 北分量)，东向需乘 cos(lat) 修正经度收敛
     const curLat = crEval(knots, p0.lat, p1.lat, p2.lat, p3.lat, u);
     const east = dLon * Math.cos(curLat * Math.PI / 180);
     return Math.atan2(east, dLat);
@@ -1326,7 +1324,7 @@ function getPathPitch(route, globalProgress) {
     return Math.atan2(dH, horiz || 1);
 }
 
-// 更新飞机位置和朝向（v1.246：Catmull-Rom 曲线插值 + 航向最短路径平滑 + 三视角相机）
+// 更新飞机位置和朝向（Catmull-Rom 曲线插值 + 航向最短路径平滑 + 三视角相机）
 function updatePlanePosition(deltaTime) {
     const route = flyState.route;
     const segIdx = flyState.currentSegment;
@@ -1354,10 +1352,9 @@ function updatePlanePosition(deltaTime) {
     const newPosition = Cesium.Cartesian3.fromDegrees(lon, lat, height);
     flyState.planeEntity.position = newPosition;
 
-    // —— 航向平滑：曲线切线航向 → 最短路径指数逼近（防 ±180° 猛甩/回闪）——
+    // 使用全局路径切线方向计算航向，并做无抖动平滑（避免段切换时航向突变）
     const globalProgress = segIdx + t;
-    const targetHeading = getCurveHeading(route, globalProgress);
-    // 帧率无关平滑系数：时间常数约 0.25s（约 4 帧 @60fps 收敛 95%）
+    const targetHeading = getPathHeading(route, globalProgress);
     const alpha = 1 - Math.exp(-(deltaTime || 0.016) * 4);
     flyState.smoothHeading = lerpAngle(flyState.smoothHeading, targetHeading, alpha);
     const heading = flyState.smoothHeading;
@@ -1366,6 +1363,8 @@ function updatePlanePosition(deltaTime) {
     if (flyState.planeEntity && flyState.planeEntity.billboard) {
         flyState.planeEntity.billboard.rotation = heading;
     }
+    flyState._currentHeading = heading;
+
     flyState._currentHeading = heading;
 
     // —— 三视角相机 ——
@@ -1934,6 +1933,7 @@ async function buildSmartRoute() {
     }));
     try {
         const carto = waypoints.map(w => Cesium.Cartographic.fromDegrees(w.lon, w.lat));
+        const terrainProvider = viewer.globe ? viewer.globe.terrainProvider : viewer.terrainProvider;
         const sampled = await Cesium.sampleTerrainMostDetailed(terrainProvider, carto);
         waypoints.forEach((w, i) => {
             w.groundHeight = sampled[i].height;
