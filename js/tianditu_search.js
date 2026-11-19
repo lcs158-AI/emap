@@ -1,6 +1,6 @@
 // =====================================================
 // 天地图地名搜索模块 (tianditu_search.js)
-// 版本: v20261023
+// 版本: v20261120
 // API: https://api.tianditu.gov.cn/v2/search (POI 搜索)
 // 数据覆盖: 中国地名 / 地标 / POI
 // =====================================================
@@ -330,6 +330,23 @@
             '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
         }[c]));
     }
+
+    // 供地图镜像等外部模块调用；桌面端原有触发按钮保持不变。
+    window.TiandituSearch = {
+        open: function () {
+            const panel = document.getElementById('tiandituSearchPanel');
+            const input = document.getElementById('tiandituSearchInput');
+            if (panel && (panel.style.display === 'none' || !panel.style.display)) {
+                togglePanel(panel, input);
+            }
+        },
+        close: function () {
+            const panel = document.getElementById('tiandituSearchPanel');
+            if (panel) panel.style.display = 'none';
+            clearActiveMarker();
+        },
+        selectPoi: selectPoi
+    };
 
     // =====================================================
     // 5. 启动

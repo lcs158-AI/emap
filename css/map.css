@@ -516,29 +516,6 @@ img, video, canvas {
     color: #9ca3af;
 }
 
-.map-remote-tabs {
-    display: flex;
-    gap: 6px;
-    margin-bottom: 10px;
-}
-
-.map-remote-tab {
-    flex: 1;
-    padding: 6px 0;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
-    background: #f9fafb;
-    color: #374151;
-    font-size: 12px;
-    cursor: pointer;
-}
-
-.map-remote-tab.active {
-    background: #1677ff;
-    border-color: #1677ff;
-    color: #fff;
-}
-
 @media (max-width: 600px) {
     .map-remote-panel {
         top: 60px;
@@ -661,4 +638,139 @@ body:not(.mirror-measuring) #mirrorFinishBtn {
     min-width: 0;
     padding: 6px 12px;
     font-size: 13px;
+}
+
+/* 镜像模式：电脑端基础图层管理 */
+.mirror-layer-panel {
+    display: none;
+}
+
+.mirror-mode .mirror-layer-panel {
+    position: fixed;
+    left: 10px;
+    right: 10px;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 68px);
+    z-index: 1400;
+    max-width: 560px;
+    margin: 0 auto;
+    border-radius: 12px;
+    background: #fff;
+    color: #1f2937;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+    overflow: hidden;
+}
+
+.mirror-layer-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    border-bottom: 1px solid #e5e7eb;
+    font-size: 14px;
+}
+
+.mirror-layer-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.mirror-layer-actions button {
+    min-height: 32px;
+    padding: 4px 8px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: #f9fafb;
+    color: #374151;
+    font-size: 12px;
+}
+
+#mirrorLayerClose {
+    min-width: 32px;
+    padding: 0;
+    font-size: 20px;
+    line-height: 1;
+}
+
+.mirror-layer-list {
+    max-height: 48vh;
+    padding: 6px 12px 12px;
+    overflow-y: auto;
+}
+
+.mirror-layer-group {
+    padding: 8px 0 4px;
+    color: #6b7280;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.mirror-layer-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 0;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.mirror-layer-name {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    font-size: 14px;
+}
+
+.mirror-layer-name input {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 auto;
+}
+
+.mirror-layer-name span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.mirror-layer-row > button {
+    flex: 0 0 auto;
+    padding: 6px 8px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: #f9fafb;
+    color: #374151;
+    font-size: 12px;
+}
+
+.mirror-layer-row > button.is-danger {
+    color: #b91c1c;
+}
+
+.mirror-layer-empty {
+    padding: 24px 8px;
+    color: #6b7280;
+    text-align: center;
+    font-size: 13px;
+}
+
+/* 镜像模式：地名搜索使用底部弹层 */
+.mirror-mode #tiandituSearchPanel {
+    position: fixed !important;
+    top: auto !important;
+    left: 10px !important;
+    right: 10px !important;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 68px) !important;
+    width: auto !important;
+    max-width: 560px;
+    max-height: 62vh;
+    margin: 0 auto;
+    overflow-y: auto;
+    z-index: 1400 !important;
+    box-sizing: border-box;
+}
+
+.mirror-mode #tiandituSearchResults {
+    max-height: 42vh !important;
 }

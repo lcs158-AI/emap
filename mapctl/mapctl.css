@@ -199,21 +199,10 @@ body {
     background: linear-gradient(180deg, rgba(44, 110, 158, 0.95), rgba(14, 44, 68, 0.95));
 }
 
-.round-btn.small {
-    width: 50px;
-    height: 50px;
-    font-size: 22px;
-}
-
-.rotate-group {
-    display: flex;
-    gap: 10px;
-}
-
 .actions {
     flex: 0 0 auto;
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     gap: 8px;
 }
 
@@ -299,17 +288,11 @@ body {
         font-size: 24px;
     }
 
-    .round-btn.small {
-        width: 44px;
-        height: 44px;
-        font-size: 18px;
-    }
-
     .action {
         height: 40px;
     }
 
     .actions {
-        grid-template-columns: repeat(6, 1fr);
+        grid-template-columns: repeat(2, 1fr);
     }
 }

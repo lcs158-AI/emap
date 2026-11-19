@@ -695,6 +695,10 @@ measureAreaBtn.addEventListener('click', function () {
     }
 });
 
+document.getElementById('measureClearBtn').addEventListener('click', function () {
+    deactivateMeasurement();
+});
+
 // ==================== 视域生成功能 ====================
 const footprintGenLayer = new ol.layer.Vector({
     source: new ol.source.Vector(),

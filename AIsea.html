@@ -11,11 +11,11 @@
         if (window.XIAOLIU_EMBED) document.documentElement.classList.add('xiaoliu-embed');
         if (window.MAP_MIRROR_MODE) document.documentElement.classList.add('mirror-mode');
     </script>
-    <title>跬步地图3.05</title>
+    <title>跬步地图3.06</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.5.2/ol.css">
     <script src="/js/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-    <link rel="stylesheet" href="css/map.css?v=20261119">
+    <link rel="stylesheet" href="css/map.css?v=20261120">
 </head>
 
 <body>
@@ -39,6 +39,7 @@
             <div id="measureDropdown" class="dropdown-menu" style="display: none;">
                 <button id="measureLengthBtn" class="dropdown-btn" data-title="测量长度">📏 测量长度</button>
                 <button id="measureAreaBtn" class="dropdown-btn" data-title="测量面积">🔲 测量面积</button>
+                <button id="measureClearBtn" class="dropdown-btn" data-title="清除测量">✖ 清除测量</button>
                 <button id="footprintGenBtn" class="dropdown-btn" data-title="视域生成">🎯 视域生成</button>
                 <button id="clearFootprintBtn" class="dropdown-btn" data-title="清除视域">🧹 清除视域</button>
             </div>
@@ -80,10 +81,6 @@
             <strong>手机遥控跬步地图</strong>
             <button id="mapRemoteClose" class="map-remote-close" type="button" title="关闭">×</button>
         </div>
-        <div class="map-remote-tabs">
-            <button id="mapRemoteTabCtl" class="map-remote-tab active" type="button">简易遥控</button>
-            <button id="mapRemoteTabMirror" class="map-remote-tab" type="button">地图镜像</button>
-        </div>
         <div id="mapRemoteStatus" class="map-remote-status is-offline">未连接中继</div>
         <div class="map-remote-qr-wrap">
             <img id="mapRemoteQr" alt="手机遥控二维码">
@@ -101,13 +98,26 @@
         <span id="mirrorStatus" class="mirror-status">正在连接…</span>
         <span class="mirror-hint">拖动地图、双指缩放会同步到电脑</span>
     </div>
+    <div id="mirrorLayerPanel" class="mirror-layer-panel" style="display: none;">
+        <div class="mirror-layer-head">
+            <strong>电脑图层</strong>
+            <div class="mirror-layer-actions">
+                <button id="mirrorLayerRefresh" type="button" title="刷新图层">↻ 刷新</button>
+                <button id="mirrorLayerClose" type="button" title="关闭">×</button>
+            </div>
+        </div>
+        <div id="mirrorLayerList" class="mirror-layer-list">正在读取电脑图层…</div>
+    </div>
     <div id="mirrorToolbar" class="mirror-toolbar">
+        <button id="mirrorLayersBtn" class="mirror-tool-btn" type="button">🗂️ 图层</button>
+        <button id="mirrorSearchBtn" class="mirror-tool-btn" type="button">🔎 搜索</button>
+        <button id="mirrorLocateBtn" class="mirror-tool-btn" type="button">📍 定位</button>
         <button id="mirrorBaseBtn" class="mirror-tool-btn" type="button">🗺️ 底图</button>
         <button id="mirrorLengthBtn" class="mirror-tool-btn" type="button">📏 测长</button>
         <button id="mirrorAreaBtn" class="mirror-tool-btn" type="button">🔲 测面</button>
         <button id="mirrorUndoBtn" class="mirror-tool-btn" type="button">↩︎ 撤销点</button>
         <button id="mirrorFinishBtn" class="mirror-tool-btn is-primary" type="button">✅ 完成</button>
-        <button id="mirrorStopBtn" class="mirror-tool-btn" type="button">✖ 停测</button>
+        <button id="mirrorStopBtn" class="mirror-tool-btn" type="button">✖ 清除</button>
     </div>
     <style>
         /* 嵌入小刘：仅保留 切换底图/测量/绘制 三个功能（图层管理已融合进小刘面板），其余入口隐藏 */
@@ -533,16 +543,16 @@
     <script src="js/utils.js"></script>
     
     <!-- 地图核心 - 必须在依赖地图的脚本之前加载 -->
-    <script src="js/map.js?v=20261119"></script>
+    <script src="js/map.js?v=20261120"></script>
     <!-- 小刘 Agent 地图桥 -->
     <script src="js/xiaoliu_bridge.js"></script>
     <!-- 手机遥控（socket.io + 宿主编排） -->
     <script src="games/lib/socket.io.min.js"></script>
-    <script src="js/map_remote.js?v=20261119g"></script>
+    <script src="js/map_remote.js?v=20261120b"></script>
     <!-- 手机镜像模式（?mirror=1 才启用） -->
-    <script src="js/map_mirror.js?v=20261119a"></script>
+    <script src="js/map_mirror.js?v=20261120c"></script>
     <!-- 地名搜索模块（天地图 POI） -->
-    <script src="js/tianditu_search.js?v=20261023"></script>
+    <script src="js/tianditu_search.js?v=20261120"></script>
     <!-- 共享属性表单模块 - Schema 设计器 + 属性面板 -->
     <script src="js/feature_form.js?v=20261023"></script>
     <!-- 本地图层编辑功能 -->

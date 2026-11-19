@@ -1,8 +1,8 @@
 /**
  * 跬步地图 · 手机镜像模式（?mirror=1）
  *
- * 手机打开与电脑相同的 AIsea.html，本脚本把手机上的视图、测量、底图操作
- * 同步到电脑端宿主（js/map_remote.js）。电脑端只做展示，不反向驱动手机。
+ * 手机打开与电脑相同的 AIsea.html，本脚本把手机上的视图、测量、底图、
+ * 地名搜索、定位与基础图层操作同步到电脑端宿主（js/map_remote.js）。
  *
  * 依赖：js/map.js 的全局 map / measureLayer / measureDraw / measureActive /
  * currentMeasureType / activateMeasurement / deactivateMeasurement。
@@ -26,10 +26,14 @@
     let userMoved = false;
     let viewTimer = null;
     let lastApplyAt = 0;
+    let viewSyncHoldUntil = 0;
 
     let statusEl = null;
     let lastMeasureFeature = null;
     let syncingMeasure = false;
+    let layerPanelEl = null;
+    let layerListEl = null;
+    let remoteLayers = [];
 
     document.body.classList.add('mirror-mode');
 
@@ -62,6 +66,11 @@
         setStatus('已同步到电脑', 'online');
     }
 
+    function notify(text, tone) {
+        setStatus(text, tone);
+        window.setTimeout(refreshStatus, 2400);
+    }
+
     function send(payload) {
         if (socket && socket.connected) socket.emit('map-cmd', payload);
     }
@@ -70,6 +79,7 @@
     function scheduleView() {
         if (applyingRemote) return;
         userMoved = true;
+        if (performance.now() < viewSyncHoldUntil) return;
         if (viewTimer) return;
         const gap = APPLY_LOCK - (performance.now() - lastApplyAt);
         viewTimer = window.setTimeout(function () {
@@ -79,7 +89,7 @@
     }
 
     function sendView() {
-        if (!window.map || !window.ol) return;
+        if (!window.map || !window.ol || performance.now() < viewSyncHoldUntil) return;
         const view = window.map.getView();
         const center = window.ol.proj.toLonLat(view.getCenter());
         send({
@@ -163,6 +173,157 @@
         });
     }
 
+    // ---------------- 地名搜索与手机定位 ----------------
+    function hookSearch() {
+        if (!window.TiandituSearch || typeof window.TiandituSearch.selectPoi !== 'function') return;
+        const originalSelect = window.TiandituSearch.selectPoi;
+        window.TiandituSearch.selectPoi = function (poi) {
+            userMoved = true;
+            viewSyncHoldUntil = performance.now() + 900;
+            if (viewTimer) {
+                window.clearTimeout(viewTimer);
+                viewTimer = null;
+            }
+            originalSelect(poi);
+            window.setTimeout(function () {
+                if (window.map && !window.map.getView().getAnimating()) sendView();
+            }, 920);
+            const lonlat = poi && (poi.lonlat || poi.hotPointLonLat);
+            if (!lonlat) return;
+            const parts = String(lonlat).trim().split(/[\s,]+/);
+            const lon = Number(parts[0]);
+            const lat = Number(parts[1]);
+            if (!Number.isFinite(lon) || !Number.isFinite(lat)) return;
+            send({
+                action: 'poi-sync',
+                name: poi.name || '搜索结果',
+                center: [lon, lat]
+            });
+        };
+    }
+
+    function locatePhone() {
+        if (!navigator.geolocation) {
+            notify('当前浏览器不支持手机定位', 'error');
+            return;
+        }
+        setStatus('正在获取手机位置…', 'waiting');
+        navigator.geolocation.getCurrentPosition(function (pos) {
+            const lon = pos.coords.longitude;
+            const lat = pos.coords.latitude;
+            const coordinate = window.ol.proj.fromLonLat([lon, lat]);
+            if (typeof positionLayer !== 'undefined') {
+                const source = positionLayer.getSource();
+                source.clear();
+                source.addFeature(new window.ol.Feature({
+                    geometry: new window.ol.geom.Point(coordinate)
+                }));
+            }
+            const view = window.map.getView();
+            view.cancelAnimations();
+            view.setCenter(coordinate);
+            view.setZoom(Math.max(view.getZoom(), 15));
+            send({ action: 'locate', lon: lon, lat: lat });
+            notify('手机位置已同步到电脑', 'online');
+        }, function (error) {
+            notify('定位失败：' + (error.message || '请检查定位权限'), 'error');
+        }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 });
+    }
+
+    // ---------------- 电脑端基础图层管理 ----------------
+    function requestLayers() {
+        send({ action: 'layers', op: 'list' });
+    }
+
+    function closeLayerPanel() {
+        if (layerPanelEl) layerPanelEl.style.display = 'none';
+        const btn = document.getElementById('mirrorLayersBtn');
+        if (btn) btn.classList.remove('active');
+    }
+
+    function openLayerPanel() {
+        if (!layerPanelEl) return;
+        if (window.TiandituSearch && typeof window.TiandituSearch.close === 'function') {
+            window.TiandituSearch.close();
+        }
+        layerPanelEl.style.display = 'block';
+        const btn = document.getElementById('mirrorLayersBtn');
+        if (btn) btn.classList.add('active');
+        renderLayerList();
+        requestLayers();
+    }
+
+    function renderLayerList() {
+        if (!layerListEl || !layerPanelEl || layerPanelEl.style.display === 'none') return;
+        layerListEl.innerHTML = '';
+        if (!remoteLayers.length) {
+            const empty = document.createElement('div');
+            empty.className = 'mirror-layer-empty';
+            empty.textContent = '电脑端暂无配置或本地图层';
+            layerListEl.appendChild(empty);
+            return;
+        }
+
+        [
+            { kind: 'dynamic', title: '配置图层' },
+            { kind: 'local', title: '本地图层' }
+        ].forEach(function (group) {
+            const items = remoteLayers.filter(function (layer) { return layer.kind === group.kind; });
+            if (!items.length) return;
+            const title = document.createElement('div');
+            title.className = 'mirror-layer-group';
+            title.textContent = group.title;
+            layerListEl.appendChild(title);
+
+            items.forEach(function (layer) {
+                const row = document.createElement('div');
+                row.className = 'mirror-layer-row';
+
+                const label = document.createElement('label');
+                label.className = 'mirror-layer-name';
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = !!layer.visible;
+                checkbox.addEventListener('change', function () {
+                    send({
+                        action: 'layers',
+                        op: 'visibility',
+                        id: layer.id,
+                        visible: checkbox.checked
+                    });
+                });
+                const name = document.createElement('span');
+                name.textContent = layer.name;
+                name.title = layer.name;
+                label.appendChild(checkbox);
+                label.appendChild(name);
+
+                const zoomBtn = document.createElement('button');
+                zoomBtn.type = 'button';
+                zoomBtn.textContent = '缩放';
+                zoomBtn.addEventListener('click', function () {
+                    send({ action: 'layers', op: 'zoom', id: layer.id });
+                    notify('已请求电脑缩放至图层', 'online');
+                });
+
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'is-danger';
+                removeBtn.textContent = '移除';
+                removeBtn.addEventListener('click', function () {
+                    if (!window.confirm('仅从电脑当前地图移除“' + layer.name + '”？')) return;
+                    send({ action: 'layers', op: 'remove', id: layer.id });
+                    notify('已请求移除图层', 'online');
+                });
+
+                row.appendChild(label);
+                row.appendChild(zoomBtn);
+                row.appendChild(removeBtn);
+                layerListEl.appendChild(row);
+            });
+        });
+    }
+
     // ---------------- 界面 ----------------
     function syncToolbar() {
         const active = typeof measureActive !== 'undefined' ? measureActive : false;
@@ -194,6 +355,40 @@
     }
 
     function bindButtons() {
+        const layersBtn = document.getElementById('mirrorLayersBtn');
+        if (layersBtn) {
+            layersBtn.addEventListener('click', function (event) {
+                event.stopPropagation();
+                if (layerPanelEl && layerPanelEl.style.display !== 'none') closeLayerPanel();
+                else openLayerPanel();
+            });
+        }
+        const layerClose = document.getElementById('mirrorLayerClose');
+        if (layerClose) layerClose.addEventListener('click', closeLayerPanel);
+        const layerRefresh = document.getElementById('mirrorLayerRefresh');
+        if (layerRefresh) {
+            layerRefresh.addEventListener('click', function () {
+                requestLayers();
+                notify('正在刷新电脑图层…', 'waiting');
+            });
+        }
+
+        const searchBtn = document.getElementById('mirrorSearchBtn');
+        if (searchBtn) {
+            searchBtn.addEventListener('click', function (event) {
+                event.stopPropagation();
+                closeLayerPanel();
+                if (window.TiandituSearch && typeof window.TiandituSearch.open === 'function') {
+                    window.TiandituSearch.open();
+                } else {
+                    notify('地名搜索模块未加载', 'error');
+                }
+            });
+        }
+
+        const locateBtn = document.getElementById('mirrorLocateBtn');
+        if (locateBtn) locateBtn.addEventListener('click', locatePhone);
+
         const baseBtn = document.getElementById('mirrorBaseBtn');
         if (baseBtn) {
             baseBtn.addEventListener('click', function () {
@@ -280,6 +475,10 @@
 
         socket.on('map-state', function (state) {
             if (!userMoved) applyRemoteState(state);
+            if (state && Array.isArray(state.layers)) {
+                remoteLayers = state.layers;
+                renderLayerList();
+            }
         });
 
         socket.on('map-cmd-result', function (res) {
@@ -291,9 +490,12 @@
 
     function init() {
         statusEl = document.getElementById('mirrorStatus');
+        layerPanelEl = document.getElementById('mirrorLayerPanel');
+        layerListEl = document.getElementById('mirrorLayerList');
         bindButtons();
         watchMeasureButtons();
         hookMeasure();
+        hookSearch();
         syncToolbar();
         connect();
 

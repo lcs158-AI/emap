@@ -14,10 +14,9 @@
     const DEFAULT_SERVER = 'https://lzy-fastapi.onrender.com';
     const PAN_SPEED = 480;      // 像素/秒
     const ZOOM_SPEED = 0.9;     // 级/秒
-    const ROTATE_SPEED = 0.9;   // 弧度/秒
     const MIN_ZOOM = 2;
     const MAX_ZOOM = 19;
-    const CMD_TIMEOUT = 1500;   // 超过此时长未收到指令则停止平移/缩放/旋转
+    const CMD_TIMEOUT = 1500;   // 超过此时长未收到指令则停止平移/缩放
     // ?mirror=1：本页在手机上作为地图镜像控制器，不担任电脑端宿主
     const IS_MIRROR = new URLSearchParams(window.location.search).get('mirror') === '1';
 
@@ -27,8 +26,6 @@
     let qrEl = null;
     let qrEmptyEl = null;
     let urlEl = null;
-    let tabCtlEl = null;
-    let tabMirrorEl = null;
     let tipEl = null;
     let remoteData = null;      // /api/map/info 快照
     let activeMode = 'ctl';     // ctl=简易遥控，mirror=地图镜像
@@ -39,12 +36,13 @@
 
     const pan = { vx: 0, vy: 0 };
     const zoom = { dir: 0, active: false };
-    const rotate = { dir: 0, active: false };
     let rafId = null;
     let lastFrame = 0;
     let lastCmdAt = 0;
     let stateTimer = null;
-    let remoteLocateLayer = null;
+    let remoteMarkerLayer = null;
+    const layerUidMap = new WeakMap();
+    let layerUidSeed = 1;
 
     function clamp(v, min, max) {
         return Math.min(max, Math.max(min, v));
@@ -180,6 +178,7 @@
             rotation: Number(view.getRotation().toFixed(3)),
             base: baseBtn && baseBtn.classList.contains('active') ? 'imagery' : 'vector',
             measure: measure,
+            layers: collectLayerState(),
             ts: Date.now()
         });
     }
@@ -199,23 +198,11 @@
                 zoom.active = !!msg.active;
                 startLoop();
                 break;
-            case 'rotate':
-                lastCmdAt = performance.now();
-                rotate.dir = Number(msg.dir) > 0 ? 1 : -1;
-                rotate.active = !!msg.active;
-                startLoop();
-                break;
-            case 'reset':
-                resetView();
-                break;
             case 'locate':
                 locateFromPhone(msg);
                 break;
             case 'base':
                 clickEl('switchBaseMapBtn');
-                break;
-            case 'measure':
-                setMeasure(msg.mode);
                 break;
             case 'view':
                 stopLoop();
@@ -230,6 +217,12 @@
             case 'measure-clear':
                 applyMeasureClear();
                 break;
+            case 'poi-sync':
+                applyPoiSync(msg);
+                break;
+            case 'layers':
+                handleLayersCommand(msg);
+                break;
             default:
                 break;
         }
@@ -241,15 +234,83 @@
         if (el) el.click();
     }
 
-    function setMeasure(mode) {
-        if (mode === 'off') {
-            if (typeof window.deactivateMeasurement === 'function') {
-                window.deactivateMeasurement();
+    // ---------- 地图镜像：电脑端图层清单与操作 ----------
+    function layerGroups() {
+        return [
+            { kind: 'dynamic', items: Array.isArray(window.dynamicLayers) ? window.dynamicLayers : [] },
+            { kind: 'local', items: typeof localGeoJsonLayers !== 'undefined' && Array.isArray(localGeoJsonLayers) ? localGeoJsonLayers : [] }
+        ];
+    }
+
+    function getLayerUid(layer) {
+        if (!layerUidMap.has(layer)) {
+            layerUidMap.set(layer, String(layerUidSeed++));
+        }
+        return layerUidMap.get(layer);
+    }
+
+    function collectLayerState() {
+        const result = [];
+        layerGroups().forEach(function (group) {
+            group.items.forEach(function (item) {
+                if (!item || !item.layer) return;
+                result.push({
+                    id: group.kind + ':' + getLayerUid(item.layer),
+                    name: String(item.name || '未命名图层'),
+                    kind: group.kind,
+                    visible: item.layer.getVisible() !== false
+                });
+            });
+        });
+        return result;
+    }
+
+    function findLayerItem(id) {
+        if (typeof id !== 'string') return null;
+        const sep = id.indexOf(':');
+        if (sep < 1) return null;
+        const kind = id.slice(0, sep);
+        const uid = id.slice(sep + 1);
+        const group = layerGroups().find(function (entry) { return entry.kind === kind; });
+        if (!group) return null;
+        for (let i = 0; i < group.items.length; i++) {
+            const item = group.items[i];
+            if (item && item.layer && layerUidMap.get(item.layer) === uid) {
+                return { item: item, index: i, kind: kind, items: group.items };
             }
-        } else if (mode === 'length' || mode === 'area') {
-            if (typeof window.activateMeasurement === 'function') {
-                window.activateMeasurement(mode);
+        }
+        return null;
+    }
+
+    function handleLayersCommand(msg) {
+        if (msg.op === 'list') {
+            sendState(true);
+            return;
+        }
+        const found = findLayerItem(msg.id);
+        if (!found) {
+            sendState(true);
+            return;
+        }
+        const item = found.item;
+        if (msg.op === 'visibility') {
+            item.visible = !!msg.visible;
+            item.layer.setVisible(item.visible);
+        } else if (msg.op === 'zoom') {
+            const source = item.layer.getSource && item.layer.getSource();
+            const extent = source && source.getExtent ? source.getExtent() : null;
+            if (extent && extent.every(Number.isFinite) &&
+                !window.ol.extent.isEmpty(extent)) {
+                window.map.getView().fit(extent, {
+                    padding: [60, 60, 60, 60],
+                    duration: 500,
+                    maxZoom: 18
+                });
             }
+        } else if (msg.op === 'remove') {
+            window.map.removeLayer(item.layer);
+            found.items.splice(found.index, 1);
+            if (typeof createLayerControl === 'function') createLayerControl();
         }
         sendState(true);
     }
@@ -340,42 +401,43 @@
         }
     }
 
-    function resetView() {
-        const view = window.map.getView();
-        const center = (typeof initCenter !== 'undefined') ? initCenter : [111.2, 21.48];
-        const zoomLevel = (typeof initZoom !== 'undefined') ? initZoom : 5;
-        view.setRotation(0);
-        view.setZoom(zoomLevel);
-        view.setCenter(window.ol.proj.fromLonLat(center));
-        if (typeof window.deactivateMeasurement === 'function') {
-            window.deactivateMeasurement();
-        }
-        sendState(true);
-    }
-
-    function ensureLocateLayer() {
-        if (remoteLocateLayer || !window.ol || !window.map) return remoteLocateLayer;
-        const style = new window.ol.style.Style({
-            image: new window.ol.style.Circle({
-                radius: 7,
-                fill: new window.ol.style.Fill({ color: '#1677ff' }),
-                stroke: new window.ol.style.Stroke({ color: '#ffffff', width: 2 })
-            }),
-            text: new window.ol.style.Text({
-                text: '手机位置',
-                offsetY: -20,
-                font: '12px sans-serif',
-                fill: new window.ol.style.Fill({ color: '#1677ff' }),
-                stroke: new window.ol.style.Stroke({ color: '#ffffff', width: 3 })
-            })
-        });
-        remoteLocateLayer = new window.ol.layer.Vector({
+    function ensureMarkerLayer() {
+        if (remoteMarkerLayer || !window.ol || !window.map) return remoteMarkerLayer;
+        remoteMarkerLayer = new window.ol.layer.Vector({
             source: new window.ol.source.Vector(),
-            style: style,
+            style: function (feature) {
+                const color = feature.get('markerColor') || '#1677ff';
+                return new window.ol.style.Style({
+                    image: new window.ol.style.Circle({
+                        radius: 7,
+                        fill: new window.ol.style.Fill({ color: color }),
+                        stroke: new window.ol.style.Stroke({ color: '#ffffff', width: 2 })
+                    }),
+                    text: new window.ol.style.Text({
+                        text: feature.get('label') || '',
+                        offsetY: -20,
+                        font: '12px sans-serif',
+                        fill: new window.ol.style.Fill({ color: color }),
+                        stroke: new window.ol.style.Stroke({ color: '#ffffff', width: 3 })
+                    })
+                });
+            },
             zIndex: 999
         });
-        window.map.addLayer(remoteLocateLayer);
-        return remoteLocateLayer;
+        window.map.addLayer(remoteMarkerLayer);
+        return remoteMarkerLayer;
+    }
+
+    function showRemoteMarker(lon, lat, label, color) {
+        const layer = ensureMarkerLayer();
+        if (!layer) return;
+        const source = layer.getSource();
+        source.clear();
+        source.addFeature(new window.ol.Feature({
+            geometry: new window.ol.geom.Point(window.ol.proj.fromLonLat([lon, lat])),
+            label: label,
+            markerColor: color
+        }));
     }
 
     function locateFromPhone(msg) {
@@ -383,15 +445,7 @@
         const lon = Number(msg.lon);
         if (Number.isFinite(lat) && Number.isFinite(lon) &&
             Math.abs(lat) <= 90 && Math.abs(lon) <= 180) {
-            const layer = ensureLocateLayer();
-            if (!layer) return;
-            const source = layer.getSource();
-            source.clear();
-            source.addFeature(new window.ol.Feature({
-                geometry: new window.ol.geom.Point(
-                    window.ol.proj.fromLonLat([lon, lat])
-                )
-            }));
+            showRemoteMarker(lon, lat, '手机位置', '#1677ff');
             const view = window.map.getView();
             view.animate({
                 center: window.ol.proj.fromLonLat([lon, lat]),
@@ -401,8 +455,23 @@
             sendState(true);
             return;
         }
-        // 手机未提供坐标时，退回电脑端定位按钮
+        // 简易遥控未提供坐标时，退回电脑端定位按钮
         clickEl('locateBtn');
+    }
+
+    function applyPoiSync(msg) {
+        if (!window.map || !window.ol || !Array.isArray(msg.center)) return;
+        const lon = Number(msg.center[0]);
+        const lat = Number(msg.center[1]);
+        if (!Number.isFinite(lon) || !Number.isFinite(lat) ||
+            Math.abs(lon) > 180 || Math.abs(lat) > 90) return;
+        showRemoteMarker(lon, lat, String(msg.name || '搜索结果').slice(0, 80), '#e74c3c');
+        const view = window.map.getView();
+        view.animate({
+            center: window.ol.proj.fromLonLat([lon, lat]),
+            zoom: Math.max(view.getZoom(), 15),
+            duration: 500
+        });
     }
 
     function startLoop() {
@@ -419,7 +488,6 @@
         pan.vx = 0;
         pan.vy = 0;
         zoom.active = false;
-        rotate.active = false;
     }
 
     function tick(now) {
@@ -445,11 +513,6 @@
 
         if (zoom.active) {
             view.setZoom(clamp(view.getZoom() + zoom.dir * ZOOM_SPEED * dt, MIN_ZOOM, MAX_ZOOM));
-            active = true;
-        }
-
-        if (rotate.active) {
-            view.setRotation(view.getRotation() + rotate.dir * ROTATE_SPEED * dt);
             active = true;
         }
 
@@ -484,12 +547,10 @@
     function renderQr() {
         if (!qrEl) return;
         if (urlEl) urlEl.textContent = currentUrl();
-        if (tabCtlEl) tabCtlEl.classList.toggle('active', activeMode === 'ctl');
-        if (tabMirrorEl) tabMirrorEl.classList.toggle('active', activeMode === 'mirror');
         if (tipEl) {
             tipEl.textContent = activeMode === 'mirror'
-                ? '手机打开后与电脑显示同一张地图，可直接触摸测长、测面，结果实时同步到电脑。'
-                : '手机与电脑无需同一 WiFi；首次连接可能需要等待中继唤醒。';
+                ? '电脑已登录：手机打开同一地图，可同步视图、测量、搜索、定位和图层操作。'
+                : '电脑未登录：提供移动、缩放、定位和底图切换；登录后可使用地图镜像。';
         }
 
         const src = activeMode === 'mirror'
@@ -553,9 +614,12 @@
             });
     }
 
-    function setMode(mode) {
-        activeMode = mode === 'mirror' ? 'mirror' : 'ctl';
-        renderQr();
+    function desktopLoggedIn() {
+        try {
+            return !!(localStorage.getItem('access_token') && localStorage.getItem('username'));
+        } catch (e) {
+            return false;
+        }
     }
 
     function copyUrl() {
@@ -575,6 +639,7 @@
     function openPanel() {
         if (!panelEl) return;
         panelEl.style.display = 'block';
+        activeMode = desktopLoggedIn() ? 'mirror' : 'ctl';
         ensureSocket();
         loadQr();
     }
@@ -594,8 +659,6 @@
         qrEl = document.getElementById('mapRemoteQr');
         qrEmptyEl = document.getElementById('mapRemoteQrEmpty');
         urlEl = document.getElementById('mapRemoteUrl');
-        tabCtlEl = document.getElementById('mapRemoteTabCtl');
-        tabMirrorEl = document.getElementById('mapRemoteTabMirror');
         tipEl = document.getElementById('mapRemoteTip');
 
         if (!panelEl) return;
@@ -621,8 +684,6 @@
             });
         }
         if (closeBtn) closeBtn.addEventListener('click', closePanel);
-        if (tabCtlEl) tabCtlEl.addEventListener('click', function () { setMode('ctl'); });
-        if (tabMirrorEl) tabMirrorEl.addEventListener('click', function () { setMode('mirror'); });
         if (retryBtn) {
             retryBtn.addEventListener('click', function () {
                 if (socket && !socket.connected) socket.connect();

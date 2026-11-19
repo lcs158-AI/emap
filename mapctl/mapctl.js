@@ -3,7 +3,7 @@
  *
  * 中继：FastAPI /map 命名空间
  * -> map-join {role:'controller'}
- * -> map-cmd  {action:'pan'|'zoom'|'rotate'|'reset'|'locate'|'base'|'measure', ...}
+ * -> map-cmd  {action:'pan'|'zoom'|'locate'|'base', ...}
  * <- map-state / map-presence / map-cmd-result
  */
 (function () {
@@ -162,12 +162,6 @@
             els.baseBtn.classList.toggle('active', imagery);
             els.baseBtn.textContent = imagery ? '影像' : '矢量';
         }
-        if (els.measureLengthBtn) {
-            els.measureLengthBtn.classList.toggle('active', state.measure === 'length');
-        }
-        if (els.measureAreaBtn) {
-            els.measureAreaBtn.classList.toggle('active', state.measure === 'area');
-        }
     }
 
     function sendPan() {
@@ -295,7 +289,6 @@
         }
         if (socket && socket.connected) {
             socket.emit('map-cmd', { action: 'zoom', dir: 1, active: false });
-            socket.emit('map-cmd', { action: 'rotate', dir: 1, active: false });
         }
     }
 
@@ -361,12 +354,6 @@
     }
 
     function bindButtons() {
-        els.resetBtn && els.resetBtn.addEventListener('click', function () {
-            vibrate(12);
-            emitCmd({ action: 'reset' });
-            toast('已复位');
-        });
-
         els.locateBtn && els.locateBtn.addEventListener('click', function () {
             vibrate(12);
             doLocate();
@@ -378,23 +365,6 @@
             toast('已切换底图');
         });
 
-        els.measureLengthBtn && els.measureLengthBtn.addEventListener('click', function () {
-            vibrate(12);
-            emitCmd({ action: 'measure', mode: 'length' });
-            toast('测长：请在电脑地图上单击加点');
-        });
-
-        els.measureAreaBtn && els.measureAreaBtn.addEventListener('click', function () {
-            vibrate(12);
-            emitCmd({ action: 'measure', mode: 'area' });
-            toast('测面：请在电脑地图上单击加点');
-        });
-
-        els.measureOffBtn && els.measureOffBtn.addEventListener('click', function () {
-            vibrate(12);
-            emitCmd({ action: 'measure', mode: 'off' });
-            toast('已关闭测量');
-        });
     }
 
     function init() {
@@ -405,14 +375,8 @@
         els.joystickKnob = document.getElementById('joystickKnob');
         els.zoomIn = document.getElementById('zoomIn');
         els.zoomOut = document.getElementById('zoomOut');
-        els.rotateLeft = document.getElementById('rotateLeft');
-        els.rotateRight = document.getElementById('rotateRight');
-        els.resetBtn = document.getElementById('resetBtn');
         els.locateBtn = document.getElementById('locateBtn');
         els.baseBtn = document.getElementById('baseBtn');
-        els.measureLengthBtn = document.getElementById('measureLengthBtn');
-        els.measureAreaBtn = document.getElementById('measureAreaBtn');
-        els.measureOffBtn = document.getElementById('measureOffBtn');
         els.serverBtn = document.getElementById('serverBtn');
         els.viewInfo = document.getElementById('viewInfo');
         els.toast = document.getElementById('toast');
@@ -428,8 +392,6 @@
 
         bindHold(els.zoomIn, 'zoom', 1);
         bindHold(els.zoomOut, 'zoom', -1);
-        bindHold(els.rotateLeft, 'rotate', -1);
-        bindHold(els.rotateRight, 'rotate', 1);
         bindButtons();
         initServerButton();
 
