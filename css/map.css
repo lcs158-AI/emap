@@ -516,10 +516,149 @@ img, video, canvas {
     color: #9ca3af;
 }
 
+.map-remote-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+.map-remote-tab {
+    flex: 1;
+    padding: 6px 0;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: #f9fafb;
+    color: #374151;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.map-remote-tab.active {
+    background: #1677ff;
+    border-color: #1677ff;
+    color: #fff;
+}
+
 @media (max-width: 600px) {
     .map-remote-panel {
         top: 60px;
         right: 10px;
         width: min(86vw, 280px);
     }
+}
+
+/* ==================== 地图镜像模式（手机端 ?mirror=1） ==================== */
+.mirror-bar,
+.mirror-toolbar {
+    display: none;
+}
+
+.mirror-mode .mirror-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1300;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: calc(env(safe-area-inset-top, 0px) + 8px) 12px 8px;
+    background: rgba(17, 24, 39, 0.82);
+    color: #e5e7eb;
+    font-size: 12px;
+    box-sizing: border-box;
+    backdrop-filter: blur(6px);
+}
+
+.mirror-mode .mirror-status {
+    font-weight: 600;
+    color: #e5e7eb;
+}
+
+.mirror-mode .mirror-status.is-online {
+    color: #34d399;
+}
+
+.mirror-mode .mirror-status.is-waiting {
+    color: #fbbf24;
+}
+
+.mirror-mode .mirror-status.is-offline,
+.mirror-mode .mirror-status.is-error {
+    color: #f87171;
+}
+
+.mirror-hint {
+    font-size: 11px;
+    color: #9ca3af;
+}
+
+.mirror-mode .mirror-toolbar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1300;
+    display: flex;
+    gap: 6px;
+    padding: 8px 10px calc(env(safe-area-inset-bottom, 0px) + 8px);
+    background: rgba(17, 24, 39, 0.9);
+    box-sizing: border-box;
+    overflow-x: auto;
+    backdrop-filter: blur(6px);
+}
+
+.mirror-tool-btn {
+    flex: 1 0 auto;
+    min-width: 62px;
+    padding: 10px 6px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #e5e7eb;
+    font-size: 13px;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.mirror-tool-btn:active {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.mirror-tool-btn.active {
+    background: #1677ff;
+    border-color: #1677ff;
+    color: #fff;
+}
+
+.mirror-tool-btn.is-primary {
+    background: #16a34a;
+    border-color: #16a34a;
+    color: #fff;
+}
+
+/* 未进入测量时，撤销/完成按钮弱化显示 */
+body:not(.mirror-measuring) #mirrorUndoBtn,
+body:not(.mirror-measuring) #mirrorFinishBtn {
+    opacity: 0.45;
+}
+
+/* 镜像模式下隐藏桌面端专用入口 */
+.mirror-mode .toolbar,
+.mirror-mode .layer-control,
+.mirror-mode #mapRemotePanel,
+.mirror-mode #uploadSidebar,
+.mirror-mode #sidebarOverlay {
+    display: none !important;
+}
+
+/* 镜像模式：测量结果移到顶部状态条下方，避免被底部操作条遮挡 */
+.mirror-mode #measureResult {
+    top: calc(env(safe-area-inset-top, 0px) + 62px);
+    bottom: auto;
+    right: 50%;
+    transform: translateX(50%);
+    min-width: 0;
+    padding: 6px 12px;
+    font-size: 13px;
 }

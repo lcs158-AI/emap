@@ -6,14 +6,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes">
     <script>
         window.XIAOLIU_EMBED = new URLSearchParams(window.location.search).get('embed') === '1';
+        window.MAP_MIRROR_MODE = new URLSearchParams(window.location.search).get('mirror') === '1';
         window.XiaoLiuMapReady = false;
         if (window.XIAOLIU_EMBED) document.documentElement.classList.add('xiaoliu-embed');
+        if (window.MAP_MIRROR_MODE) document.documentElement.classList.add('mirror-mode');
     </script>
-    <title>跬步地图3.04</title>
+    <title>跬步地图3.05</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.5.2/ol.css">
     <script src="/js/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-    <link rel="stylesheet" href="css/map.css">
+    <link rel="stylesheet" href="css/map.css?v=20261119">
 </head>
 
 <body>
@@ -78,6 +80,10 @@
             <strong>手机遥控跬步地图</strong>
             <button id="mapRemoteClose" class="map-remote-close" type="button" title="关闭">×</button>
         </div>
+        <div class="map-remote-tabs">
+            <button id="mapRemoteTabCtl" class="map-remote-tab active" type="button">简易遥控</button>
+            <button id="mapRemoteTabMirror" class="map-remote-tab" type="button">地图镜像</button>
+        </div>
         <div id="mapRemoteStatus" class="map-remote-status is-offline">未连接中继</div>
         <div class="map-remote-qr-wrap">
             <img id="mapRemoteQr" alt="手机遥控二维码">
@@ -88,7 +94,20 @@
             <button id="mapRemoteCopy" class="map-remote-btn" type="button">复制链接</button>
             <button id="mapRemoteRetry" class="map-remote-btn" type="button">重试</button>
         </div>
-        <div class="map-remote-tip">手机与电脑无需同一 WiFi；首次连接可能需要等待中继唤醒。</div>
+        <div id="mapRemoteTip" class="map-remote-tip">手机与电脑无需同一 WiFi；首次连接可能需要等待中继唤醒。</div>
+    </div>
+    <!-- 地图镜像模式（手机端 ?mirror=1）：状态条 + 触摸操作条 -->
+    <div id="mirrorTopBar" class="mirror-bar">
+        <span id="mirrorStatus" class="mirror-status">正在连接…</span>
+        <span class="mirror-hint">拖动地图、双指缩放会同步到电脑</span>
+    </div>
+    <div id="mirrorToolbar" class="mirror-toolbar">
+        <button id="mirrorBaseBtn" class="mirror-tool-btn" type="button">🗺️ 底图</button>
+        <button id="mirrorLengthBtn" class="mirror-tool-btn" type="button">📏 测长</button>
+        <button id="mirrorAreaBtn" class="mirror-tool-btn" type="button">🔲 测面</button>
+        <button id="mirrorUndoBtn" class="mirror-tool-btn" type="button">↩︎ 撤销点</button>
+        <button id="mirrorFinishBtn" class="mirror-tool-btn is-primary" type="button">✅ 完成</button>
+        <button id="mirrorStopBtn" class="mirror-tool-btn" type="button">✖ 停测</button>
     </div>
     <style>
         /* 嵌入小刘：仅保留 切换底图/测量/绘制 三个功能（图层管理已融合进小刘面板），其余入口隐藏 */
@@ -519,7 +538,9 @@
     <script src="js/xiaoliu_bridge.js"></script>
     <!-- 手机遥控（socket.io + 宿主编排） -->
     <script src="games/lib/socket.io.min.js"></script>
-    <script src="js/map_remote.js?v=20261119e"></script>
+    <script src="js/map_remote.js?v=20261119g"></script>
+    <!-- 手机镜像模式（?mirror=1 才启用） -->
+    <script src="js/map_mirror.js?v=20261119a"></script>
     <!-- 地名搜索模块（天地图 POI） -->
     <script src="js/tianditu_search.js?v=20261023"></script>
     <!-- 共享属性表单模块 - Schema 设计器 + 属性面板 -->

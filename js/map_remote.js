@@ -18,6 +18,8 @@
     const MIN_ZOOM = 2;
     const MAX_ZOOM = 19;
     const CMD_TIMEOUT = 1500;   // 超过此时长未收到指令则停止平移/缩放/旋转
+    // ?mirror=1：本页在手机上作为地图镜像控制器，不担任电脑端宿主
+    const IS_MIRROR = new URLSearchParams(window.location.search).get('mirror') === '1';
 
     let socket = null;
     let panelEl = null;
@@ -25,7 +27,12 @@
     let qrEl = null;
     let qrEmptyEl = null;
     let urlEl = null;
-    let controllerUrl = '';
+    let tabCtlEl = null;
+    let tabMirrorEl = null;
+    let tipEl = null;
+    let remoteData = null;      // /api/map/info 快照
+    let activeMode = 'ctl';     // ctl=简易遥控，mirror=地图镜像
+    let infoFailed = false;
     let hostOnline = false;
     let controllerCount = 0;
     let socketReady = false;
@@ -210,6 +217,19 @@
             case 'measure':
                 setMeasure(msg.mode);
                 break;
+            case 'view':
+                stopLoop();
+                applyRemoteView(msg);
+                break;
+            case 'base-set':
+                applyBaseSet(msg);
+                break;
+            case 'measure-sync':
+                applyMeasureSync(msg);
+                break;
+            case 'measure-clear':
+                applyMeasureClear();
+                break;
             default:
                 break;
         }
@@ -232,6 +252,92 @@
             }
         }
         sendState(true);
+    }
+
+    // ---------- 地图镜像：手机 -> 电脑 的同步指令 ----------
+    function applyRemoteView(msg) {
+        if (!window.map || !window.ol) return;
+        const center = msg.center;
+        if (!Array.isArray(center) || center.length < 2) return;
+        const lon = Number(center[0]);
+        const lat = Number(center[1]);
+        if (!Number.isFinite(lon) || !Number.isFinite(lat)) return;
+        const view = window.map.getView();
+        const zoomLevel = Number(msg.zoom);
+        const rotation = Number(msg.rotation);
+        view.cancelAnimations();
+        if (Number.isFinite(rotation)) view.setRotation(rotation);
+        if (Number.isFinite(zoomLevel)) view.setZoom(clamp(zoomLevel, MIN_ZOOM, MAX_ZOOM));
+        view.setCenter(window.ol.proj.fromLonLat([lon, lat]));
+    }
+
+    function applyBaseSet(msg) {
+        const btn = document.getElementById('switchBaseMapBtn');
+        if (!btn) return;
+        const wantImagery = msg.base === 'imagery';
+        if (btn.classList.contains('active') !== wantImagery) btn.click();
+    }
+
+    function applyMeasureSync(msg) {
+        if (!window.ol || typeof measureLayer === 'undefined') return;
+        const coords = msg.coords;
+        if (!Array.isArray(coords)) return;
+        const isArea = msg.type === 'area';
+        // 线：[[x,y],...]；面：[[[x,y],...]]（按环组织）
+        const valid = isArea
+            ? (Array.isArray(coords[0]) && coords[0].length >= 4)
+            : (coords.length >= 2);
+        if (!valid) return;
+        // 电脑端只做展示：先停掉本机绘制交互，避免与手机重复
+        if (typeof measureActive !== 'undefined' && measureActive &&
+            typeof window.deactivateMeasurement === 'function') {
+            window.deactivateMeasurement();
+        }
+        const source = measureLayer.getSource();
+        let geometry = null;
+        try {
+            geometry = msg.type === 'area'
+                ? new window.ol.geom.Polygon(coords)
+                : new window.ol.geom.LineString(coords);
+        } catch (err) {
+            console.warn('[地图遥控] 测量几何解析失败', err);
+            return;
+        }
+        source.clear();
+        source.addFeature(new window.ol.Feature({ geometry: geometry }));
+
+        const el = document.getElementById('measureResult');
+        if (!el) return;
+        el.style.display = 'block';
+        try {
+            if (msg.type === 'area') {
+                el.innerHTML = '面积: ' + formatArea(
+                    window.ol.sphere.getArea(geometry, { projection: 'EPSG:3857' })
+                );
+            } else {
+                el.innerHTML = '长度: ' + formatLength(
+                    window.ol.sphere.getLength(geometry, { projection: 'EPSG:3857' })
+                );
+            }
+        } catch (err) {
+            el.innerHTML = '测量结果已同步';
+        }
+    }
+
+    function applyMeasureClear() {
+        if (typeof measureActive !== 'undefined' && measureActive &&
+            typeof window.deactivateMeasurement === 'function') {
+            window.deactivateMeasurement();
+            return;
+        }
+        if (typeof measureLayer !== 'undefined') {
+            measureLayer.getSource().clear();
+        }
+        const el = document.getElementById('measureResult');
+        if (el) {
+            el.style.display = 'none';
+            el.innerHTML = '0 米';
+        }
     }
 
     function resetView() {
@@ -353,23 +459,76 @@
         }
     }
 
-    function fallbackControllerUrl() {
-        let base;
+    function pageBase() {
         if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
-            base = window.location.origin + '/mapctl/index.html';
-        } else {
-            base = 'https://lzywhy.com/mapctl/index.html';
+            return window.location.origin;
         }
-        return base + '?server=' + encodeURIComponent(SERVER);
+        return 'https://lzywhy.com';
+    }
+
+    function fallbackControllerUrl() {
+        return pageBase() + '/mapctl/index.html?server=' + encodeURIComponent(SERVER);
+    }
+
+    function fallbackMirrorUrl() {
+        return pageBase() + '/AIsea.html?mirror=1&server=' + encodeURIComponent(SERVER);
+    }
+
+    function currentUrl() {
+        if (activeMode === 'mirror') {
+            return (remoteData && remoteData.mirrorUrl) || fallbackMirrorUrl();
+        }
+        return (remoteData && remoteData.url) || fallbackControllerUrl();
+    }
+
+    function renderQr() {
+        if (!qrEl) return;
+        if (urlEl) urlEl.textContent = currentUrl();
+        if (tabCtlEl) tabCtlEl.classList.toggle('active', activeMode === 'ctl');
+        if (tabMirrorEl) tabMirrorEl.classList.toggle('active', activeMode === 'mirror');
+        if (tipEl) {
+            tipEl.textContent = activeMode === 'mirror'
+                ? '手机打开后与电脑显示同一张地图，可直接触摸测长、测面，结果实时同步到电脑。'
+                : '手机与电脑无需同一 WiFi；首次连接可能需要等待中继唤醒。';
+        }
+
+        const src = activeMode === 'mirror'
+            ? (remoteData && remoteData.mirrorQr)
+            : (remoteData && remoteData.qr);
+
+        if (src) {
+            qrEl.onload = function () {
+                qrEl.style.display = 'block';
+                if (qrEmptyEl) qrEmptyEl.style.display = 'none';
+            };
+            qrEl.onerror = function () {
+                qrEl.style.display = 'none';
+                if (qrEmptyEl) {
+                    qrEmptyEl.style.display = 'flex';
+                    qrEmptyEl.textContent = '二维码加载失败，请复制链接';
+                }
+            };
+            qrEl.src = src;
+            return;
+        }
+
+        qrEl.removeAttribute('src');
+        qrEl.style.display = 'none';
+        if (qrEmptyEl) {
+            qrEmptyEl.style.display = 'flex';
+            qrEmptyEl.textContent = infoFailed
+                ? '中继未响应，请复制链接或重试'
+                : '未获取到二维码，请复制链接';
+        }
     }
 
     function loadQr() {
-        if (!qrEl) return;
         if (qrEmptyEl) {
             qrEmptyEl.style.display = 'flex';
             qrEmptyEl.textContent = '正在获取二维码…';
         }
-        qrEl.style.display = 'none';
+        if (qrEl) qrEl.style.display = 'none';
+        infoFailed = false;
 
         fetch(SERVER + '/api/map/info?server=' + encodeURIComponent(SERVER), { cache: 'no-store' })
             .then(function (res) {
@@ -377,44 +536,30 @@
                 return res.json();
             })
             .then(function (data) {
-                controllerUrl = data.url || fallbackControllerUrl();
-                if (urlEl) urlEl.textContent = controllerUrl;
-                if (data.qr) {
-                    qrEl.onload = function () {
-                        qrEl.style.display = 'block';
-                        if (qrEmptyEl) qrEmptyEl.style.display = 'none';
-                    };
-                    qrEl.onerror = function () {
-                        if (qrEmptyEl) {
-                            qrEmptyEl.style.display = 'flex';
-                            qrEmptyEl.textContent = '二维码加载失败，请复制链接';
-                        }
-                    };
-                    qrEl.src = data.qr;
-                } else if (qrEmptyEl) {
-                    qrEmptyEl.style.display = 'flex';
-                    qrEmptyEl.textContent = '未获取到二维码，请复制链接';
-                }
+                remoteData = data || null;
                 // socket 已连接时以实时 presence 为准，避免请求快照覆盖新状态
-                if (!socketReady) {
+                if (!socketReady && data) {
                     hostOnline = !!data.host;
                     controllerCount = Number(data.controllers) || 0;
                 }
+                renderQr();
                 refreshStatus();
             })
             .catch(function () {
-                controllerUrl = fallbackControllerUrl();
-                if (urlEl) urlEl.textContent = controllerUrl;
-                if (qrEmptyEl) {
-                    qrEmptyEl.style.display = 'flex';
-                    qrEmptyEl.textContent = '中继未响应，请复制链接或重试';
-                }
+                remoteData = null;
+                infoFailed = true;
+                renderQr();
                 setStatus('二维码获取失败', 'error');
             });
     }
 
+    function setMode(mode) {
+        activeMode = mode === 'mirror' ? 'mirror' : 'ctl';
+        renderQr();
+    }
+
     function copyUrl() {
-        const text = controllerUrl || fallbackControllerUrl();
+        const text = currentUrl();
         if (navigator.clipboard && window.isSecureContext) {
             navigator.clipboard.writeText(text).then(function () {
                 setStatus('链接已复制', 'online');
@@ -423,7 +568,7 @@
                 setStatus('复制失败，请手动选择链接', 'error');
             });
         } else {
-            window.prompt('复制手机控制地址：', text);
+            window.prompt('复制手机端地址：', text);
         }
     }
 
@@ -439,6 +584,7 @@
     }
 
     function init() {
+        if (IS_MIRROR) return;   // 手机镜像模式由 map_mirror.js 接管
         if (window.XIAOLIU_EMBED || document.body.classList.contains('xiaoliu-embed')) {
             return;
         }
@@ -448,6 +594,9 @@
         qrEl = document.getElementById('mapRemoteQr');
         qrEmptyEl = document.getElementById('mapRemoteQrEmpty');
         urlEl = document.getElementById('mapRemoteUrl');
+        tabCtlEl = document.getElementById('mapRemoteTabCtl');
+        tabMirrorEl = document.getElementById('mapRemoteTabMirror');
+        tipEl = document.getElementById('mapRemoteTip');
 
         if (!panelEl) return;
 
@@ -472,6 +621,8 @@
             });
         }
         if (closeBtn) closeBtn.addEventListener('click', closePanel);
+        if (tabCtlEl) tabCtlEl.addEventListener('click', function () { setMode('ctl'); });
+        if (tabMirrorEl) tabMirrorEl.addEventListener('click', function () { setMode('mirror'); });
         if (retryBtn) {
             retryBtn.addEventListener('click', function () {
                 if (socket && !socket.connected) socket.connect();

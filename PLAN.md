@@ -1,8 +1,8 @@
 # 跬步地图升级实施方案：手机遥控 + 双版本三维用海
 
-- 文档版本：1.0
+- 文档版本：1.1
 - 日期：2026-11-19
-- 状态：手机遥控部分已实施（2026-11-19）；双版本三维用海暂缓
+- 状态：手机遥控（简易遥控 + 地图镜像）已实施并验证（2026-11-19）；双版本三维用海暂缓
 - 适用仓库：`c:\个人\自编程序\readexif\emap`（前端）与 `c:\个人\自编程序\readexif\fastapi`（中继）
 
 ## 1. 目标与范围
@@ -277,9 +277,9 @@ games 中继 -> 扩展 /map 命名空间 -> js/map_remote.js（电脑端）
   - `map_state`：电脑 -> 手机；服务端转发给所有 controller。
   - 命名空间级 `connect/disconnect`：维护在线状态并广播 presence。
 - 接口：
-  - `GET /api/map/info`：返回 `{ url, qr, server, version }`；`url` 默认 `MAP_SITE_URL`，可带 `?server=` 便于本地测试。
+  - `GET /api/map/info`：返回 `{ url, qr, mirrorUrl, mirrorQr, version }`；`url` 指向简易遥控页（`MAP_SITE_URL`），`mirrorUrl` 指向地图镜像页（`MAP_APP_URL`），均可带 `?server=` 便于本地测试。
   - `GET /api/map/health`：返回 host 在线、controller 数量、版本。
-- 环境变量：`MAP_SITE_URL`（默认 `https://lzywhy.com/mapctl`）、`MAP_VERSION`。
+- 环境变量：`MAP_SITE_URL`（默认 `https://lzywhy.com/mapctl`）、`MAP_APP_URL`（默认 `https://lzywhy.com/AIsea.html`）、`MAP_VERSION`。
 - 二维码复用现有 `qrcode` 依赖。
 
 修改 `main.py`：
@@ -329,6 +329,19 @@ games 中继 -> 扩展 /map 命名空间 -> js/map_remote.js（电脑端）
   - 顶部状态：连接、主机在线、中心/缩放。
   - 长按状态栏可修改中继地址；支持 `?server=`。
 - 触摸：`touch-action: none`、禁止滚动/双击缩放、适配横竖屏与安全区。
+
+#### 6.4.4 手机地图镜像（`?mirror=1`）
+
+手机打开与电脑相同的 `AIsea.html`，省去“模拟鼠标点击”的不稳定性，直接复用地图自身的交互：
+
+- 电脑端 `js/map_remote.js`：面板增加「简易遥控 / 地图镜像」两个 Tab，分别对应 `url/qr` 与 `mirrorUrl/mirrorQr`；`?mirror=1` 时跳过宿主初始化。
+- 新增 `js/map_mirror.js`（仅 `?mirror=1` 启用）：以 controller 加入 `/map`，同步三类操作：
+  - 视图：`moveend` / `change:resolution` / `change:rotation` 节流 120ms 发送 `view`（中心经纬度、缩放、旋转）。
+  - 测量：监听 `measureLayer` 源 `addfeature` 发送 `measure-sync`（几何坐标 + 类型），新测量自动移除上一次；`clear` 发送 `measure-clear`。
+  - 底图：点击镜像页底图按钮后发送 `base-set`。
+- 电脑端处理对应指令：`view` 直接设置视图，`base-set` 对齐底图按钮状态，`measure-sync` 清空并在 `measureLayer` 重建要素、刷新结果文本，`measure-clear` 清空。
+- 手机端 UI：顶部连接状态条；底部触摸操作条（底图 / 测长 / 测面 / 撤销点 / 完成 / 停测）；隐藏桌面端工具栏与遥控面板。
+- 不做反向同步：电脑端不驱动手机，避免双源冲突。
 
 ### 6.5 入口、文档与版本
 
@@ -419,7 +432,7 @@ games 中继 -> 扩展 /map 命名空间 -> js/map_remote.js（电脑端）
 - Cesium 版：删除 `global/sea_use.js`、`global/sea_use.css`，移除 `global/index.html` 的按钮、覆盖层与脚本引用。
 - Three.js 版：删除 `sea3d/`。
 - AIsea 入口：移除「三维用海」与「手机遥控」下拉项及脚本引用。
-- 手机遥控：删除 `js/map_remote.js`、`mapctl/`；后端删除 `app/api/map.py` 与 `main.py` 的挂载。
+- 手机遥控：删除 `js/map_remote.js`、`js/map_mirror.js`、`mapctl/`；后端删除 `app/api/map.py` 与 `main.py` 的挂载。
 - 版本号与 `?v=` 同步回退。
 
 所有改动均为新增文件或加法式入口，不修改 `js/map.js`、游戏前端、游戏事件与现有地球逻辑。
