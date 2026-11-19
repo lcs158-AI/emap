@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0b1f33">
+<title>跬步地图 · 手机遥控</title>
+<link rel="stylesheet" href="mapctl.css?v=20261119">
+</head>
+<body>
+<div class="app">
+    <header class="topbar">
+        <div class="title">
+            <span class="title-main">跬步地图</span>
+            <span class="title-sub">手机遥控</span>
+        </div>
+        <button id="serverBtn" class="status-pill" type="button" title="长按修改中继地址">
+            <span id="statusDot" class="dot"></span>
+            <span id="statusText">连接中…</span>
+        </button>
+    </header>
+
+    <div id="hostBar" class="host-bar">电脑端未连接</div>
+
+    <main class="stage">
+        <section class="joystick-area">
+            <div id="joystick" class="joystick" aria-label="平移摇杆">
+                <div class="joystick-ring"></div>
+                <div id="joystickKnob" class="joystick-knob"></div>
+            </div>
+            <div class="joystick-hint">拖动平移地图</div>
+        </section>
+
+        <section class="zoom-area">
+            <button id="zoomIn" class="round-btn" type="button" aria-label="放大">＋</button>
+            <button id="zoomOut" class="round-btn" type="button" aria-label="缩小">－</button>
+            <div class="rotate-group">
+                <button id="rotateLeft" class="round-btn small" type="button" aria-label="逆时针旋转">↺</button>
+                <button id="rotateRight" class="round-btn small" type="button" aria-label="顺时针旋转">↻</button>
+            </div>
+        </section>
+    </main>
+
+    <section class="actions">
+        <button id="resetBtn" class="action" type="button">复位</button>
+        <button id="locateBtn" class="action" type="button">定位</button>
+        <button id="baseBtn" class="action" type="button">底图</button>
+        <button id="measureLengthBtn" class="action" type="button">测长</button>
+        <button id="measureAreaBtn" class="action" type="button">测面</button>
+        <button id="measureOffBtn" class="action" type="button">停测</button>
+    </section>
+
+    <footer class="footer">
+        <div id="viewInfo" class="view-info">中心 --，缩放 --</div>
+        <div id="toast" class="toast"></div>
+    </footer>
+</div>
+<script src="lib/socket.io.min.js"></script>
+<script src="mapctl.js?v=20261119"></script>
+</body>
+</html>

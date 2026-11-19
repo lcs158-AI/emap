@@ -30,7 +30,8 @@ const esriImagery = new ol.layer.Tile({
 const view = new ol.View({
     center: ol.proj.fromLonLat(initCenter),
     zoom: initZoom,
-    projection: 'EPSG:3857'
+    projection: 'EPSG:3857',
+    constrainRotation: false
 });
 
 // 地图

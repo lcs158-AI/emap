@@ -9,7 +9,7 @@
         window.XiaoLiuMapReady = false;
         if (window.XIAOLIU_EMBED) document.documentElement.classList.add('xiaoliu-embed');
     </script>
-    <title>跬步地图3.03</title>
+    <title>跬步地图3.04</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.5.2/ol.css">
     <script src="/js/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
@@ -60,6 +60,12 @@
             </div>
         </div>
         <div class="dropdown">
+            <button id="remoteMainBtn" class="action-btn" data-title="手机遥控">📱</button>
+            <div id="remoteDropdown" class="dropdown-menu" style="display: none;">
+                <button id="remoteQrBtn" class="dropdown-btn" data-title="手机扫码遥控">📱 手机扫码遥控</button>
+            </div>
+        </div>
+        <div class="dropdown">
             <button id="thematicMapBtn" class="action-btn" data-title="专题地图">📊</button>
             <div id="thematicDropdown" class="dropdown-menu" style="display: none;">
                 <button id="socioeconomicBtn" class="dropdown-btn" data-title="社会经济" onclick="window.location.href='ThematicMap.html'">📊 社会经济</button>
@@ -67,10 +73,28 @@
             </div>
         </div>
     </div>
+    <div id="mapRemotePanel" class="map-remote-panel" style="display: none;">
+        <div class="map-remote-head">
+            <strong>手机遥控跬步地图</strong>
+            <button id="mapRemoteClose" class="map-remote-close" type="button" title="关闭">×</button>
+        </div>
+        <div id="mapRemoteStatus" class="map-remote-status is-offline">未连接中继</div>
+        <div class="map-remote-qr-wrap">
+            <img id="mapRemoteQr" alt="手机遥控二维码">
+            <div id="mapRemoteQrEmpty" class="map-remote-qr-empty">正在获取二维码…</div>
+        </div>
+        <div id="mapRemoteUrl" class="map-remote-url"></div>
+        <div class="map-remote-actions">
+            <button id="mapRemoteCopy" class="map-remote-btn" type="button">复制链接</button>
+            <button id="mapRemoteRetry" class="map-remote-btn" type="button">重试</button>
+        </div>
+        <div class="map-remote-tip">手机与电脑无需同一 WiFi；首次连接可能需要等待中继唤醒。</div>
+    </div>
     <style>
         /* 嵌入小刘：仅保留 切换底图/测量/绘制 三个功能（图层管理已融合进小刘面板），其余入口隐藏 */
         .xiaoliu-embed #citySearchWrapper,
         .xiaoliu-embed .toolbar > .dropdown:has(#myBtn),
+        .xiaoliu-embed .toolbar > .dropdown:has(#remoteMainBtn),
         .xiaoliu-embed .toolbar > .dropdown:has(#weatherMainBtn),
         .xiaoliu-embed .toolbar > .dropdown:has(#thematicMapBtn),
         .xiaoliu-embed .toolbar > .dropdown:has(#layerMainBtn),
@@ -490,9 +514,12 @@
     <script src="js/utils.js"></script>
     
     <!-- 地图核心 - 必须在依赖地图的脚本之前加载 -->
-    <script src="js/map.js?v=20261023d"></script>
+    <script src="js/map.js?v=20261119"></script>
     <!-- 小刘 Agent 地图桥 -->
     <script src="js/xiaoliu_bridge.js"></script>
+    <!-- 手机遥控（socket.io + 宿主编排） -->
+    <script src="games/lib/socket.io.min.js"></script>
+    <script src="js/map_remote.js?v=20261119e"></script>
     <!-- 地名搜索模块（天地图 POI） -->
     <script src="js/tianditu_search.js?v=20261023"></script>
     <!-- 共享属性表单模块 - Schema 设计器 + 属性面板 -->
