@@ -11,11 +11,11 @@
         if (window.XIAOLIU_EMBED) document.documentElement.classList.add('xiaoliu-embed');
         if (window.MAP_MIRROR_MODE) document.documentElement.classList.add('mirror-mode');
     </script>
-    <title>跬步地图3.06</title>
+    <title>跬步地图3.10</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.5.2/ol.css">
     <script src="/js/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-    <link rel="stylesheet" href="css/map.css?v=20261120">
+    <link rel="stylesheet" href="css/map.css?v=20261120e">
 </head>
 
 <body>
@@ -63,16 +63,19 @@
             </div>
         </div>
         <div class="dropdown">
-            <button id="remoteMainBtn" class="action-btn" data-title="手机遥控">📱</button>
-            <div id="remoteDropdown" class="dropdown-menu" style="display: none;">
-                <button id="remoteQrBtn" class="dropdown-btn" data-title="手机扫码遥控">📱 手机扫码遥控</button>
-            </div>
-        </div>
-        <div class="dropdown">
             <button id="thematicMapBtn" class="action-btn" data-title="专题地图">📊</button>
             <div id="thematicDropdown" class="dropdown-menu" style="display: none;">
                 <button id="socioeconomicBtn" class="dropdown-btn" data-title="社会经济" onclick="window.location.href='ThematicMap.html'">📊 社会经济</button>
                 <button id="worldCupBtn" class="dropdown-btn" data-title="2026世界杯">⚽ 2026世界杯</button>
+            </div>
+        </div>
+    </div>
+    <!-- 手机遥控入口：位于左侧缩放按钮下方，手机端隐藏 -->
+    <div class="remote-dock">
+        <div class="dropdown">
+            <button id="remoteMainBtn" class="action-btn" data-title="手机遥控">📱</button>
+            <div id="remoteDropdown" class="dropdown-menu" style="display: none;">
+                <button id="remoteQrBtn" class="dropdown-btn" data-title="手机扫码遥控">📱 手机扫码遥控</button>
             </div>
         </div>
     </div>
@@ -82,6 +85,12 @@
             <button id="mapRemoteClose" class="map-remote-close" type="button" title="关闭">×</button>
         </div>
         <div id="mapRemoteStatus" class="map-remote-status is-offline">未连接中继</div>
+        <div class="map-remote-pair">
+            <span class="map-remote-pair-label">配对码</span>
+            <span id="mapRemotePairCode" class="map-remote-pair-code">------</span>
+            <span id="mapRemotePairTimer" class="map-remote-pair-timer"></span>
+            <button id="mapRemotePairRefresh" class="map-remote-pair-refresh" type="button" title="重新生成配对码">刷新</button>
+        </div>
         <div class="map-remote-qr-wrap">
             <img id="mapRemoteQr" alt="手机遥控二维码">
             <div id="mapRemoteQrEmpty" class="map-remote-qr-empty">正在获取二维码…</div>
@@ -90,13 +99,35 @@
         <div class="map-remote-actions">
             <button id="mapRemoteCopy" class="map-remote-btn" type="button">复制链接</button>
             <button id="mapRemoteRetry" class="map-remote-btn" type="button">重试</button>
+            <button id="mapRemoteKick" class="map-remote-btn is-danger" type="button" disabled>断开手机（0）</button>
         </div>
         <div id="mapRemoteTip" class="map-remote-tip">手机与电脑无需同一 WiFi；首次连接可能需要等待中继唤醒。</div>
     </div>
-    <!-- 地图镜像模式（手机端 ?mirror=1）：状态条 + 触摸操作条 -->
+    <!-- 地图镜像模式（手机端 ?mirror=1）：登录页 + 配对码 + 状态条 + 触摸操作条 -->
+    <div id="mirrorLogin" class="mirror-login" style="display: none;">
+        <form id="mirrorLoginForm" class="mirror-login-card" autocomplete="on">
+            <h3>登录后使用地图镜像</h3>
+            <p id="mirrorLoginHint" class="mirror-login-hint">请使用电脑端同一账号登录</p>
+            <input id="mirrorLoginUser" type="text" name="username" autocomplete="username" placeholder="用户名">
+            <input id="mirrorLoginPass" type="password" name="password" autocomplete="current-password" placeholder="密码">
+            <div id="mirrorLoginMsg" class="mirror-login-msg"></div>
+            <button type="submit" class="mirror-login-submit">登录</button>
+            <button id="mirrorGuestBtn" type="button" class="mirror-login-guest">不登录，仅遥控</button>
+            <p class="mirror-login-guest-hint">不登录时两端数据不同步，图层与弹窗同步不可用</p>
+        </form>
+    </div>
+    <div id="mirrorPair" class="mirror-login" style="display: none;">
+        <form id="mirrorPairForm" class="mirror-login-card" autocomplete="off">
+            <h3>输入配对码</h3>
+            <p class="mirror-login-hint">请输入电脑面板显示的 6 位配对码</p>
+            <input id="mirrorPairInput" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="6 位数字">
+            <div id="mirrorPairMsg" class="mirror-login-msg"></div>
+            <button type="submit" class="mirror-login-submit">配对</button>
+        </form>
+    </div>
     <div id="mirrorTopBar" class="mirror-bar">
         <span id="mirrorStatus" class="mirror-status">正在连接…</span>
-        <span class="mirror-hint">拖动地图、双指缩放会同步到电脑</span>
+        <span id="mirrorAccount" class="mirror-hint">未登录</span>
     </div>
     <div id="mirrorLayerPanel" class="mirror-layer-panel" style="display: none;">
         <div class="mirror-layer-head">
@@ -108,11 +139,19 @@
         </div>
         <div id="mirrorLayerList" class="mirror-layer-list">正在读取电脑图层…</div>
     </div>
+    <div id="mirrorLaserBar" class="mirror-laser-bar">
+        <span class="mirror-laser-label">激光笔</span>
+        <button type="button" class="mirror-laser-mode active" data-laser-mode="point">点</button>
+        <button type="button" class="mirror-laser-mode" data-laser-mode="line">划线</button>
+        <button type="button" class="mirror-laser-mode" data-laser-mode="circle">划圈</button>
+        <button type="button" id="mirrorLaserClear" class="mirror-laser-clear">清除</button>
+    </div>
     <div id="mirrorToolbar" class="mirror-toolbar">
         <button id="mirrorLayersBtn" class="mirror-tool-btn" type="button">🗂️ 图层</button>
         <button id="mirrorSearchBtn" class="mirror-tool-btn" type="button">🔎 搜索</button>
         <button id="mirrorLocateBtn" class="mirror-tool-btn" type="button">📍 定位</button>
         <button id="mirrorBaseBtn" class="mirror-tool-btn" type="button">🗺️ 底图</button>
+        <button id="mirrorLaserBtn" class="mirror-tool-btn" type="button">🔦 激光</button>
         <button id="mirrorLengthBtn" class="mirror-tool-btn" type="button">📏 测长</button>
         <button id="mirrorAreaBtn" class="mirror-tool-btn" type="button">🔲 测面</button>
         <button id="mirrorUndoBtn" class="mirror-tool-btn" type="button">↩︎ 撤销点</button>
@@ -123,7 +162,7 @@
         /* 嵌入小刘：仅保留 切换底图/测量/绘制 三个功能（图层管理已融合进小刘面板），其余入口隐藏 */
         .xiaoliu-embed #citySearchWrapper,
         .xiaoliu-embed .toolbar > .dropdown:has(#myBtn),
-        .xiaoliu-embed .toolbar > .dropdown:has(#remoteMainBtn),
+        .xiaoliu-embed .remote-dock,
         .xiaoliu-embed .toolbar > .dropdown:has(#weatherMainBtn),
         .xiaoliu-embed .toolbar > .dropdown:has(#thematicMapBtn),
         .xiaoliu-embed .toolbar > .dropdown:has(#layerMainBtn),
@@ -548,9 +587,9 @@
     <script src="js/xiaoliu_bridge.js"></script>
     <!-- 手机遥控（socket.io + 宿主编排） -->
     <script src="games/lib/socket.io.min.js"></script>
-    <script src="js/map_remote.js?v=20261120b"></script>
+    <script src="js/map_remote.js?v=20261120f"></script>
     <!-- 手机镜像模式（?mirror=1 才启用） -->
-    <script src="js/map_mirror.js?v=20261120c"></script>
+    <script src="js/map_mirror.js?v=20261120f"></script>
     <!-- 地名搜索模块（天地图 POI） -->
     <script src="js/tianditu_search.js?v=20261120"></script>
     <!-- 共享属性表单模块 - Schema 设计器 + 属性面板 -->

@@ -52,6 +52,12 @@
     }
 
     const SERVER = getServer();
+    const URL_PAIR = new URLSearchParams(window.location.search).get('pair');
+
+    let paired = false;
+    let pairOverlay = null;
+    let pairInput = null;
+    let pairMsg = null;
 
     function setStatus(text, tone) {
         if (!els.statusText || !els.statusDot) return;
@@ -82,7 +88,77 @@
         }
     }
 
+    // ---------------- 配对码 ----------------
+    function setPairMsg(text) {
+        if (pairMsg) pairMsg.textContent = text || '';
+    }
+
+    function showPairOverlay(show) {
+        if (!pairOverlay) return;
+        pairOverlay.style.display = show ? 'flex' : 'none';
+        if (show) {
+            setPairMsg('');
+            window.setTimeout(function () {
+                if (pairInput && !pairInput.value) pairInput.focus();
+            }, 120);
+        }
+    }
+
+    function attemptPair(code) {
+        if (!socket || !socket.connected || paired) return;
+        const clean = String(code || '').replace(/\D/g, '').slice(0, 6);
+        if (!clean) {
+            showPairOverlay(true);
+            return;
+        }
+        if (pairInput) pairInput.value = clean;
+        setPairMsg('正在配对…');
+        socket.emit('map-pair', { code: clean });
+    }
+
+    function ensurePairOverlay() {
+        if (pairOverlay) return pairOverlay;
+        pairOverlay = document.createElement('div');
+        pairOverlay.style.cssText = 'position:fixed;inset:0;z-index:2000;display:none;align-items:center;justify-content:center;padding:24px;background:rgba(11,31,51,0.88);backdrop-filter:blur(6px);box-sizing:border-box;';
+        const card = document.createElement('form');
+        card.style.cssText = 'width:100%;max-width:320px;padding:22px 20px;border-radius:14px;background:#fff;box-sizing:border-box;';
+        card.addEventListener('submit', function (e) {
+            e.preventDefault();
+            attemptPair(pairInput ? pairInput.value : '');
+        });
+        const h = document.createElement('h3');
+        h.textContent = '输入配对码';
+        h.style.cssText = 'margin:0 0 6px;font-size:17px;color:#0b1f33;';
+        const hint = document.createElement('p');
+        hint.textContent = '请输入电脑面板显示的 6 位配对码';
+        hint.style.cssText = 'margin:0 0 14px;font-size:12px;color:#6b7280;';
+        pairInput = document.createElement('input');
+        pairInput.type = 'text';
+        pairInput.inputMode = 'numeric';
+        pairInput.maxLength = 6;
+        pairInput.placeholder = '6 位数字';
+        pairInput.style.cssText = 'display:block;width:100%;margin-bottom:10px;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:18px;letter-spacing:4px;text-align:center;box-sizing:border-box;';
+        pairMsg = document.createElement('div');
+        pairMsg.style.cssText = 'min-height:18px;margin-bottom:8px;font-size:12px;color:#b91c1c;';
+        const btn = document.createElement('button');
+        btn.type = 'submit';
+        btn.textContent = '配对';
+        btn.style.cssText = 'width:100%;padding:11px 0;border:none;border-radius:8px;background:#1677ff;color:#fff;font-size:15px;cursor:pointer;';
+        card.appendChild(h);
+        card.appendChild(hint);
+        card.appendChild(pairInput);
+        card.appendChild(pairMsg);
+        card.appendChild(btn);
+        pairOverlay.appendChild(card);
+        document.body.appendChild(pairOverlay);
+        return pairOverlay;
+    }
+
     function emitCmd(payload) {
+        if (!paired) {
+            toast('请先输入配对码');
+            return false;
+        }
         if (!socket || !socket.connected) {
             toast('未连接中继');
             return false;
@@ -113,6 +189,8 @@
         socket.on('disconnect', function () {
             connected = false;
             hostOnline = false;
+            paired = false;
+            showPairOverlay(false);
             setStatus('连接断开', 'error');
             setHostBar('电脑端未连接');
             stopAllControls();
@@ -146,6 +224,31 @@
                 }
             }
         });
+
+        socket.on('map-pair-required', function () {
+            if (paired) return;
+            if (URL_PAIR) {
+                attemptPair(URL_PAIR);
+            } else {
+                showPairOverlay(true);
+            }
+        });
+
+        socket.on('map-pair-result', function (res) {
+            if (!res || typeof res !== 'object') return;
+            if (res.ok) {
+                paired = true;
+                showPairOverlay(false);
+                setPairMsg('');
+                setStatus('配对成功', 'online');
+                vibrate(20);
+                toast('配对成功，可开始遥控');
+            } else {
+                paired = false;
+                showPairOverlay(true);
+                setPairMsg(res.reason === 'invalid' ? '配对码错误，请重试' : '配对失败，请重试');
+            }
+        });
     }
 
     function applyState(state) {
@@ -165,7 +268,7 @@
     }
 
     function sendPan() {
-        if (!connected) return;
+        if (!connected || !paired) return;
         socket.emit('map-cmd', {
             action: 'pan',
             vx: Number(joy.vx.toFixed(3)),
@@ -249,6 +352,7 @@
 
         function start(event) {
             if (active) return;
+            if (!paired) { toast('请先输入配对码'); return; }
             active = true;
             pointerId = event.pointerId;
             el.setPointerCapture(event.pointerId);
@@ -287,7 +391,7 @@
             joy.timer = null;
             resetJoystick();
         }
-        if (socket && socket.connected) {
+        if (paired && socket && socket.connected) {
             socket.emit('map-cmd', { action: 'zoom', dir: 1, active: false });
         }
     }
@@ -409,6 +513,7 @@
 
         setHostBar('电脑端未连接');
         setStatus('连接中…');
+        ensurePairOverlay();
         connect();
     }
 
