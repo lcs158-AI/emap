@@ -61,6 +61,7 @@
 
     // 弹窗同步：seq 变化时手机才重新应用，避免重复覆盖
     let popupBroadcast = { seq: 0, open: false };
+    let applyingPopupSync = false;
     // 激光笔
     let laserLayer = null;
     let laserPoints = [];
@@ -627,27 +628,32 @@
 
     function applyPopupSync(msg) {
         if (!window.map || !window.ol) return;
-        if (msg.open === false) {
-            if (typeof closePopup === 'function') closePopup();
-            return;
-        }
-        const lon = Number(msg.lon);
-        const lat = Number(msg.lat);
-        if (!Number.isFinite(lon) || !Number.isFinite(lat) ||
-            Math.abs(lon) > 180 || Math.abs(lat) > 90) return;
-        const coordinate = window.ol.proj.fromLonLat([lon, lat]);
-        const pixel = window.map.getPixelFromCoordinate(coordinate);
-        if (!pixel) return;
-        const feature = window.map.forEachFeatureAtPixel(pixel, function (f) { return f; }, {
-            layerFilter: function (layer) {
-                if (typeof footprintGenLayer !== 'undefined' && layer === footprintGenLayer) return false;
-                return layer !== remoteMarkerLayer && layer !== laserLayer;
+        applyingPopupSync = true;
+        try {
+            if (msg.open === false) {
+                if (typeof closePopup === 'function') closePopup();
+                return;
             }
-        });
-        if (feature && typeof showFeaturePopup === 'function') {
-            showFeaturePopup(feature, coordinate);
-        } else if (typeof closePopup === 'function') {
-            closePopup();
+            const lon = Number(msg.lon);
+            const lat = Number(msg.lat);
+            if (!Number.isFinite(lon) || !Number.isFinite(lat) ||
+                Math.abs(lon) > 180 || Math.abs(lat) > 90) return;
+            const coordinate = window.ol.proj.fromLonLat([lon, lat]);
+            const pixel = window.map.getPixelFromCoordinate(coordinate);
+            if (!pixel) return;
+            const feature = window.map.forEachFeatureAtPixel(pixel, function (f) { return f; }, {
+                layerFilter: function (layer) {
+                    if (typeof footprintGenLayer !== 'undefined' && layer === footprintGenLayer) return false;
+                    return layer !== remoteMarkerLayer && layer !== laserLayer;
+                }
+            });
+            if (feature && typeof showFeaturePopup === 'function') {
+                showFeaturePopup(feature, coordinate);
+            } else if (typeof closePopup === 'function') {
+                closePopup();
+            }
+        } finally {
+            applyingPopupSync = false;
         }
     }
 
@@ -1069,15 +1075,14 @@
                 markLocalActivity(LOCAL_HOLD_WHEEL);
             }, { passive: true });
 
-            // 电脑点击要素后，把弹窗同步到手机（与 js/map.js 的点击处理顺序：本监听后执行）
-            window.map.on('click', function () {
-                if (typeof measureActive !== 'undefined' && measureActive) return;
-                window.setTimeout(function () {
+            // 弹窗打开/关闭后同步到手机：点「×」关闭不会产生地图 click，故监听 overlay 位置
+            if (typeof popup !== 'undefined' && popup && typeof popup.on === 'function') {
+                popup.on('change:position', function () {
                     const info = currentPopupInfo();
                     recordPopup(info.open, info.lon, info.lat);
-                    sendState(true);
-                }, 0);
-            });
+                    if (!applyingPopupSync) sendState(true);
+                });
+            }
         }
 
         window.addEventListener('beforeunload', function () {

@@ -638,26 +638,25 @@
     // ---------------- 弹窗同步（电脑 <-> 手机） ----------------
     function hookPopup() {
         if (!window.map) return;
-        window.map.on('click', function () {
+        if (typeof popup === 'undefined' || !popup || typeof popup.on !== 'function') return;
+        // 点「×」关闭弹窗不会产生地图 click，统一监听 overlay 位置变化
+        popup.on('change:position', function () {
             if (guestMode) return;
             if (applyingPopup) return;
             if (laserOn) return;
             if (typeof measureActive !== 'undefined' && measureActive) return;
-            window.setTimeout(function () {
-                if (!window.map) return;
-                const pos = typeof popup !== 'undefined' ? popup.getPosition() : undefined;
-                if (!pos) {
-                    send({ action: 'popup', open: false });
-                    return;
-                }
-                const ll = window.ol.proj.toLonLat(pos);
-                send({
-                    action: 'popup',
-                    open: true,
-                    lon: Number(ll[0].toFixed(6)),
-                    lat: Number(ll[1].toFixed(6))
-                });
-            }, 0);
+            const pos = popup.getPosition();
+            if (!pos) {
+                send({ action: 'popup', open: false });
+                return;
+            }
+            const ll = window.ol.proj.toLonLat(pos);
+            send({
+                action: 'popup',
+                open: true,
+                lon: Number(ll[0].toFixed(6)),
+                lat: Number(ll[1].toFixed(6))
+            });
         });
     }
 
