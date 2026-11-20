@@ -742,15 +742,12 @@
         };
     }
 
-    function showLaserHit(x, y) {
-        const el = document.createElement('div');
-        el.className = 'mirror-laser-hit';
-        el.style.left = x + 'px';
-        el.style.top = y + 'px';
-        document.body.appendChild(el);
-        window.setTimeout(function () {
-            if (el.parentNode) el.parentNode.removeChild(el);
-        }, 520);
+    // 激光指令：发往电脑端的同时在本地渲染，保证手机屏幕同步显示
+    function emitLaser(payload) {
+        send(payload);
+        if (window.MapLaser && typeof window.MapLaser.apply === 'function') {
+            window.MapLaser.apply(payload);
+        }
     }
 
     function sendCircle(centerCoord) {
@@ -768,7 +765,7 @@
             const dLon = (radius * Math.sin(angle)) / (111320 * (Math.abs(cosLat) < 0.01 ? 0.01 : cosLat));
             ring.push([Number((c0[0] + dLon).toFixed(6)), Number((c0[1] + dLat).toFixed(6))]);
         }
-        send({ action: 'laser', mode: 'circle', phase: 'path', coords: ring });
+        emitLaser({ action: 'laser', mode: 'circle', phase: 'path', coords: ring });
     }
 
     function setLaser(on) {
@@ -801,7 +798,7 @@
             laserDisabledInteractions = [];
             laserPointerId = null;
             laserStartCoord = null;
-            send({ action: 'laser', phase: 'clear' });
+            emitLaser({ action: 'laser', phase: 'clear' });
         }
     }
 
@@ -816,9 +813,12 @@
         const point = eventLonLat(evt);
         laserStartCoord = point.coord;
         if (laserMode === 'line') {
-            send({ action: 'laser', mode: 'line', phase: 'start', coords: [[point.lon, point.lat]] });
+            emitLaser({ action: 'laser', mode: 'line', phase: 'start', coords: [[point.lon, point.lat]] });
         }
-        if (laserMode === 'point') showLaserHit(evt.clientX, evt.clientY);
+        if (laserMode === 'point' && window.MapLaser) {
+            // 点模式：按下即在本地显示高亮光点，抬起时再同步给电脑端
+            window.MapLaser.apply({ action: 'laser', mode: 'point', coords: [[point.lon, point.lat]] });
+        }
         try {
             window.map.getViewport().setPointerCapture(evt.pointerId);
         } catch (e) { /* 忽略 */ }
@@ -837,7 +837,7 @@
         lastLaserSendAt = now;
         const point = eventLonLat(evt);
         if (laserMode === 'line') {
-            send({ action: 'laser', mode: 'line', phase: 'move', coords: [[point.lon, point.lat]] });
+            emitLaser({ action: 'laser', mode: 'line', phase: 'move', coords: [[point.lon, point.lat]] });
         } else {
             sendCircle(point.coord);
         }
@@ -850,14 +850,13 @@
         const point = eventLonLat(evt);
         if (laserMode === 'point') {
             if (!laserMoved) {
-                send({ action: 'laser', mode: 'point', coords: [[point.lon, point.lat]] });
-                showLaserHit(evt.clientX, evt.clientY);
+                emitLaser({ action: 'laser', mode: 'point', coords: [[point.lon, point.lat]] });
                 if (navigator.vibrate) navigator.vibrate(10);
             }
         } else if (laserMode === 'circle') {
             sendCircle(point.coord);
         } else {
-            send({ action: 'laser', mode: 'line', phase: 'end', coords: [[point.lon, point.lat]] });
+            emitLaser({ action: 'laser', mode: 'line', phase: 'end', coords: [[point.lon, point.lat]] });
         }
         laserPointerId = null;
         laserStartCoord = null;
@@ -879,13 +878,13 @@
                 modes.forEach(function (other) {
                     other.classList.toggle('active', other === modeBtn);
                 });
-                send({ action: 'laser', phase: 'clear' });
+                emitLaser({ action: 'laser', phase: 'clear' });
             });
         });
         const clearBtn = document.getElementById('mirrorLaserClear');
         if (clearBtn) {
             clearBtn.addEventListener('click', function () {
-                send({ action: 'laser', phase: 'clear' });
+                emitLaser({ action: 'laser', phase: 'clear' });
                 notify('已清除电脑端激光', 'online');
             });
         }

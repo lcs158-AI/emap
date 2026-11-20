@@ -1090,6 +1090,12 @@
         });
     }
 
+    // 激光渲染与宿主会话无关，暴露给镜像页复用，保证手机端本地显示与电脑端一致
+    window.MapLaser = {
+        apply: applyLaserCommand,
+        clear: clearLaser
+    };
+
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {
