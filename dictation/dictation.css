@@ -304,3 +304,10 @@ textarea::placeholder { color: #a0a6b5; }
 .diag-text { margin: 8px 0 0; padding: 10px 12px; border-radius: 12px; background: #f4f6fb; color: #3b4560; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; line-height: 1.65; white-space: pre-wrap; word-break: break-all; overflow-wrap: anywhere; max-width: 100%; min-width: 0; max-height: 230px; overflow: auto; }
 .diag-log { max-height: 180px; }
 .diag-tip { margin: 8px 0 0; color: #7a879e; font-size: 11px; line-height: 1.6; }
+
+/* 浏览器环境提示 */
+.env-hint { margin-top: 14px; padding: 14px 16px; border: 1px solid #f0cf9c; border-radius: 16px; background: #fff8ec; color: #7a5320; }
+.env-hint strong { display: block; font-size: 14px; margin-bottom: 6px; }
+.env-hint p { margin: 0; font-size: 12px; line-height: 1.7; word-break: break-all; }
+.env-hint-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+.env-hint-actions .button { min-height: 42px; padding: 0 10px; font-size: 13px; }

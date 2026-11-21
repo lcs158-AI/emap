@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#f5f6fb">
     <title>小刘听写</title>
-    <link rel="stylesheet" href="dictation.css?v=20261121c">
+    <link rel="stylesheet" href="dictation.css?v=20261121d">
     <script defer src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-    <script defer src="dictation.js?v=20261121e"></script>
+    <script defer src="dictation.js?v=20261121f"></script>
 </head>
 <body>
     <div class="page-shell">
@@ -86,10 +86,20 @@
                     </div>
                     <div class="browser-list">
                         <div><span class="browser-tag">Android</span><strong>Chrome / Edge</strong></div>
+                        <div><span class="browser-tag">华为 / 荣耀</span><strong>华为自带浏览器</strong></div>
                         <div><span class="browser-tag">iPhone / iPad</span><strong>Safari</strong></div>
                     </div>
-                    <p>请使用最新版浏览器。微信等应用的内置浏览器可能限制拍照或语音，建议点击“在浏览器打开”。</p>
+                    <p>请使用最新版浏览器。部分鸿蒙机型上 Edge 无法调用中文语音，听不到声音时请改用华为自带浏览器。微信等应用的内置浏览器可能限制拍照或语音，建议点击“在浏览器打开”。</p>
                 </aside>
+
+                <div id="envHint" class="env-hint" role="alert" hidden>
+                    <strong id="envHintTitle">当前浏览器可能无法发声</strong>
+                    <p id="envHintText"></p>
+                    <div class="env-hint-actions">
+                        <button id="openHuaweiBtn" class="button button-primary" type="button">在华为浏览器打开</button>
+                        <button id="copyLinkBtn" class="button button-secondary" type="button">复制链接</button>
+                    </div>
+                </div>
             </section>
 
             <section class="card words-card" aria-labelledby="wordsTitle">
