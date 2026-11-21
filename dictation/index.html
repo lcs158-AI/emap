@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#f5f6fb">
     <title>小刘听写</title>
-    <link rel="stylesheet" href="dictation.css?v=20261121">
+    <link rel="stylesheet" href="dictation.css?v=20261121b">
     <script defer src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-    <script defer src="dictation.js?v=20261121"></script>
+    <script defer src="dictation.js?v=20261121c"></script>
 </head>
 <body>
     <div class="page-shell">
@@ -68,7 +68,12 @@
                         从相册选择
                     </label>
                     <input id="uploadInput" class="visually-hidden" type="file" accept="image/*">
+                    <button id="pasteBtn" class="button button-secondary paste-action" type="button">
+                        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="9" y="2.5" width="6" height="4" rx="1.5" stroke="currentColor" stroke-width="1.8"/><path d="M9 4.5H7.5A2.5 2.5 0 0 0 5 7v12.5A2.5 2.5 0 0 0 7.5 22h9a2.5 2.5 0 0 0 2.5-2.5V7a2.5 2.5 0 0 0-2.5-2.5H15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+                        粘贴文字
+                    </button>
                 </div>
+                <p class="paste-tip">识别率不理想？可先用豆包等 AI 工具识别图片，复制文字后点“粘贴文字”导入。</p>
 
                 <div id="ocrProgress" class="ocr-progress" hidden>
                     <div class="progress-label"><span id="ocrStatus">准备识别</span><strong id="ocrPercent">0%</strong></div>
@@ -98,7 +103,7 @@
                     </div>
                 </div>
                 <label class="field-label" for="wordsInput">听写词语</label>
-                <textarea id="wordsInput" rows="7" placeholder="每行一个词语，也可以用逗号、顿号或分号分隔。例如：&#10;认真&#10;坚持&#10;闪闪发光" spellcheck="false"></textarea>
+                <textarea id="wordsInput" rows="7" placeholder="识别后仅保留汉字，词语之间用空格分隔。例如：&#10;认真 坚持 闪闪发光" spellcheck="false"></textarea>
                 <div class="word-meta">
                     <span id="wordCount">0 个词语</span>
                     <button id="clearWordsBtn" class="text-button" type="button">清空内容</button>

@@ -1,4 +1,4 @@
-/* 小刘听写 · 拍照识别与朗读控制 · v20261121 */
+/* 小刘听写 · 拍照识别与朗读控制 · v20261121c */
 (function () {
     'use strict';
 
@@ -11,6 +11,7 @@
     const els = {
         cameraInput: document.getElementById('cameraInput'),
         uploadInput: document.getElementById('uploadInput'),
+        pasteBtn: document.getElementById('pasteBtn'),
         fileActions: document.getElementById('fileActions'),
         photoPreview: document.getElementById('photoPreview'),
         photoEmpty: document.getElementById('photoEmpty'),
@@ -69,23 +70,73 @@
 
     function parseWords(text) {
         return String(text || '')
-            .split(/[\n\r,，、;；]+/)
-            .map(function (word) { return word.trim().replace(/\s+/g, ' '); })
+            .split(/[\s,，、;；]+/)
+            .map(function (word) { return word.trim(); })
             .filter(Boolean);
     }
 
     function cleanOcrText(text) {
-        let cleaned = String(text || '').replace(/\r/g, '').replace(/　/g, ' ');
-        // 中文 OCR 有时会在相邻汉字之间插入空格，先合并再按行拆分词语。
-        let previous = '';
-        while (previous !== cleaned) {
-            previous = cleaned;
-            cleaned = cleaned.replace(/([\u3400-\u9fff])[ \t]+(?=[\u3400-\u9fff])/g, '$1');
-        }
-        return cleaned.split('\n')
-            .map(function (line) { return line.replace(/[ \t]+/g, ' ').trim(); })
+        // 原始换行和标点作为词语边界；每项仅保留汉字，词语间用空格分隔。
+        return String(text || '')
+            .replace(/\r/g, '')
+            .split(/[\n,，、;；]+/)
+            .map(function (item) {
+                return (item.match(/[\u3400-\u9fff]/g) || []).join('');
+            })
             .filter(Boolean)
-            .join('\n');
+            .join(' ');
+    }
+
+    // 行首“词语：”这类标签，以及“以下是图片中的词语”这类说明行，不属于听写词语。
+    const PASTE_LABEL = /^[^：:]{0,20}[：:]\s*/;
+    const PASTE_HEADER = /^(以下|下面|以上|上述|图中|图片|照片|识别|整理|列出|为你|我们|这些)/;
+
+    function cleanPastedText(text) {
+        const words = [];
+        String(text || '').replace(/\r/g, '').split('\n').forEach(function (line) {
+            const body = line.replace(PASTE_LABEL, '');
+            body.split(/[\s,，、;；:：。.!！?？"'“”‘’()（）\[\]【】<>《》\/\\|]+/).forEach(function (item) {
+                const word = (item.match(/[\u3400-\u9fff]/g) || []).join('');
+                if (!word) return;
+                if (word.length >= 4 && PASTE_HEADER.test(word)) return;
+                words.push(word);
+            });
+        });
+        return words.join(' ');
+    }
+
+    function applyPastedText(text) {
+        const words = cleanPastedText(text);
+        if (!words) {
+            setStatus('没有找到汉字词语，请确认复制的内容是否正确。', 'error');
+            return false;
+        }
+        if (state.playing) stopPlayback(false);
+        els.wordsInput.value = words;
+        refreshWords();
+        resetPlaybackDisplay();
+        setStatus('已粘贴 ' + parseWords(words).length + ' 个词语，请校对后开始听写。', 'success');
+        return true;
+    }
+
+    function focusManualPaste() {
+        setStatus('无法读取剪贴板，请长按下方输入框并选择“粘贴”。');
+        const length = els.wordsInput.value.length;
+        els.wordsInput.focus();
+        els.wordsInput.setSelectionRange(length, length);
+    }
+
+    function pasteFromClipboard() {
+        if (state.ocrBusy) return;
+        if (!navigator.clipboard || typeof navigator.clipboard.readText !== 'function') {
+            focusManualPaste();
+            return;
+        }
+        navigator.clipboard.readText().then(function (text) {
+            applyPastedText(text);
+        }).catch(function () {
+            focusManualPaste();
+        });
     }
 
     function renderWords(words, activeIndex) {
@@ -136,6 +187,7 @@
         els.fileActions.classList.toggle('is-busy', busy);
         els.cameraInput.disabled = busy;
         els.uploadInput.disabled = busy;
+        els.pasteBtn.disabled = busy;
         els.startBtn.disabled = busy;
         els.scanningBadge.hidden = !busy;
         els.ocrProgress.hidden = !busy;
@@ -525,6 +577,22 @@
         refreshWords();
         if (!state.playing) resetPlaybackDisplay();
     });
+    els.wordsInput.addEventListener('paste', function (event) {
+        const clipboard = event.clipboardData;
+        const text = clipboard && clipboard.getData('text');
+        if (state.playing || !text || !/[\u3400-\u9fff]/.test(text)) return;
+        const words = cleanPastedText(text);
+        if (!words) return;
+        event.preventDefault();
+        const start = els.wordsInput.selectionStart;
+        const end = els.wordsInput.selectionEnd;
+        const before = els.wordsInput.value.slice(0, start);
+        const prefix = before && !/\s$/.test(before) ? ' ' : '';
+        els.wordsInput.setRangeText(prefix + words, start, end, 'end');
+        els.wordsInput.dispatchEvent(new Event('input', { bubbles: true }));
+        setStatus('已粘贴词语，请校对后开始听写。', 'success');
+    });
+    els.pasteBtn.addEventListener('click', pasteFromClipboard);
     els.clearWordsBtn.addEventListener('click', function () {
         if (state.playing) return;
         els.wordsInput.value = '';
