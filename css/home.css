@@ -244,6 +244,18 @@ h1 {
     object-fit: cover;
 }
 
+.card-image-dictation {
+    display: grid;
+    place-items: center;
+    background: linear-gradient(145deg, #f0eeff, #e5f6f3);
+}
+
+.card-image-dictation svg {
+    width: 58px;
+    height: 58px;
+    color: #6259d9;
+}
+
 .card-content {
     flex: 1;
 }
