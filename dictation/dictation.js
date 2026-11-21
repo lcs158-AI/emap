@@ -1,4 +1,4 @@
-/* 小刘听写 · 拍照识别与朗读控制 · v20261121c */
+/* 小刘听写 · 拍照识别与朗读控制 · v20261121d */
 (function () {
     'use strict';
 
@@ -60,7 +60,8 @@
         delayEndsAt: 0,
         delayLabel: '',
         ocrBusy: false,
-        ocrId: 0
+        ocrId: 0,
+        retried: false
     };
 
     function setStatus(text, tone) {
@@ -76,10 +77,10 @@
     }
 
     function cleanOcrText(text) {
-        // 原始换行和标点作为词语边界；每项仅保留汉字，词语间用空格分隔。
+        // 保留 OCR 原有的换行、空白和标点作为词语分隔，每项只保留汉字。
         return String(text || '')
             .replace(/\r/g, '')
-            .split(/[\n,，、;；]+/)
+            .split(/[\s,，、;；]+/)
             .map(function (item) {
                 return (item.match(/[\u3400-\u9fff]/g) || []).join('');
             })
@@ -370,10 +371,18 @@
         state.phase = 'idle';
         state.delayCallback = null;
         state.delayLabel = '';
+        state.retried = false;
+        const active = hasActiveSpeech();
         if (speech) {
             try { speech.cancel(); } catch (error) { /* 浏览器不支持取消时忽略 */ }
         }
         updatePlaybackControls();
+        return active;
+    }
+
+    function hasActiveSpeech() {
+        if (!speech) return false;
+        return !!(speech.speaking || speech.pending);
     }
 
     function stopPlayback(showMessage) {
@@ -449,6 +458,7 @@
 
         utterance.onend = function () {
             if (runId !== state.runId || !state.playing) return;
+            state.retried = false;
             state.completedReadings += 1;
             updatePlaybackProgress();
 
@@ -467,12 +477,33 @@
 
         utterance.onerror = function (event) {
             if (runId !== state.runId || !state.playing) return;
-            console.error('语音朗读失败：', event && event.error);
+            const reason = event && event.error ? String(event.error) : 'unknown';
+            console.error('语音朗读失败：', reason);
+
+            // 系统抢占或取消造成的轻微错误：同一次朗读自动重试一次，不打断整场听写。
+            if ((reason === 'canceled' || reason === 'interrupted') && !state.retried) {
+                state.retried = true;
+                state.repeatIndex = Math.max(0, state.repeatIndex - 1);
+                state.phase = 'idle';
+                scheduleDelay(260, runId, function () { speakCurrent(runId); }, '正在重新朗读');
+                return;
+            }
+
             stopPlayback(false);
             els.playbackKicker.textContent = '朗读中断';
             els.currentWord.textContent = '请重试';
-            setStatus('语音朗读失败，请确认浏览器允许播放声音，并检查设备是否安装中文语音。', 'error');
+            if (reason === 'not-allowed') {
+                setStatus('浏览器阻止了语音播放，请确认手机未静音并允许媒体播放后重试。', 'error');
+            } else if (reason === 'language-unavailable' || reason === 'voice-unavailable') {
+                setStatus('当前设备缺少中文语音，请在系统设置中安装中文语音后重试。', 'error');
+            } else {
+                setStatus('语音朗读失败（' + reason + '），请检查设备语音设置后重试。', 'error');
+            }
         };
+
+        if (speech.paused) {
+            try { speech.resume(); } catch (error) { /* 忽略设备差异 */ }
+        }
 
         try {
             speech.speak(utterance);
@@ -498,7 +529,7 @@
             return;
         }
 
-        cancelPlayback();
+        const wasSpeaking = cancelPlayback();
         loadVoices();
         state.words = words;
         state.wordIndex = 0;
@@ -520,7 +551,13 @@
         els.playbackDisplay.classList.remove('is-complete');
         renderWords(state.words, 0);
         setStatus('正在听写，可随时暂停或停止。', 'success');
-        scheduleDelay(120, runId, function () { speakCurrent(runId); }, '即将开始朗读');
+        if (wasSpeaking) {
+            // 刚取消上一段语音时，部分 Android 浏览器需要短暂间隔才能接受新的朗读。
+            scheduleDelay(180, runId, function () { speakCurrent(runId); }, '即将开始朗读');
+        } else {
+            // 直接朗读以保留点击手势，避免手机浏览器把语音当作自动播放拦截。
+            speakCurrent(runId);
+        }
     }
 
     function pauseOrResumePlayback() {
