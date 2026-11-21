@@ -1,8 +1,13 @@
-/* 小刘听写 · 词语粘贴与朗读控制 · v20261121m */
+/* 小刘听写 · 词语粘贴与朗读控制 · v20261122a */
 (function () {
     'use strict';
 
     const REPEAT_GAP_MS = 550;
+    const DEFAULT_TTS_SERVER = 'https://lzy-fastapi.onrender.com';
+    const TTS_VOLUME = 50;
+    const TTS_ZH_VOICE = 'zh-CN-XiaoxiaoNeural';
+    const TTS_EN_VOICE = 'en-US-AriaNeural';
+    const AUDIO_CACHE_LIMIT = 80;
     const speech = window.speechSynthesis || null;
     let voices = [];
 
@@ -19,6 +24,7 @@
         pauseSeconds: document.getElementById('pauseSeconds'),
         playbackDisplay: document.getElementById('playbackDisplay'),
         playbackKicker: document.getElementById('playbackKicker'),
+        voiceMode: document.getElementById('voiceMode'),
         currentWord: document.getElementById('currentWord'),
         playbackDetail: document.getElementById('playbackDetail'),
         playbackProgress: document.getElementById('playbackProgress'),
@@ -60,7 +66,9 @@
         delayRemaining: 0,
         delayEndsAt: 0,
         delayLabel: '',
-        retried: false
+        retried: false,
+        engine: 'web',
+        audio: null
     };
 
     function setStatus(text, tone) {
@@ -114,6 +122,7 @@
         lines.push('时间：' + new Date().toLocaleString('zh-CN'));
         lines.push('浏览器：' + (navigator.userAgent || '未知'));
         lines.push('协议：' + window.location.protocol + '　页面：' + (document.hidden ? '后台' : '前台'));
+        lines.push('发声方式：' + (state.engine === 'server' ? '后端语音（' + ttsServer() + '）' : '前端语音'));
         lines.push(voiceDetail());
         if (extra) lines.push('最近一次：' + extra);
         if (isAndroidEdge()) {
@@ -385,6 +394,210 @@
             voices.find(function (voice) { return /^(zh|cmn)/i.test(voice.lang); }) || null;
     }
 
+    // ---------------- 后端语音（Edge TTS） ----------------
+    function ttsServer() {
+        const params = new URLSearchParams(window.location.search);
+        const fromUrl = params.get('server');
+        if (fromUrl && /^https?:\/\//i.test(fromUrl)) {
+            const value = fromUrl.replace(/\/+$/, '');
+            try { localStorage.setItem('dictation_tts_server', value); } catch (error) { /* 忽略 */ }
+            return value;
+        }
+        try {
+            const stored = localStorage.getItem('dictation_tts_server');
+            if (stored && /^https?:\/\//i.test(stored)) return stored.replace(/\/+$/, '');
+        } catch (error) { /* 忽略 */ }
+        return DEFAULT_TTS_SERVER;
+    }
+
+    const audioCache = new Map();
+    const pendingAudio = new Map();
+
+    function isEnglishWord(word) {
+        return /^[A-Za-z'’-]+$/.test(word);
+    }
+
+    function serverVoice(word) {
+        return isEnglishWord(word) ? TTS_EN_VOICE : TTS_ZH_VOICE;
+    }
+
+    function trimAudioCache() {
+        while (audioCache.size > AUDIO_CACHE_LIMIT) {
+            const oldest = audioCache.keys().next().value;
+            try { URL.revokeObjectURL(audioCache.get(oldest)); } catch (error) { /* 忽略 */ }
+            audioCache.delete(oldest);
+        }
+    }
+
+    function fetchServerAudio(word) {
+        const voice = serverVoice(word);
+        const key = voice + '|' + word;
+        if (audioCache.has(key)) {
+            diagLog('音频缓存命中：' + word);
+            return Promise.resolve(audioCache.get(key));
+        }
+        if (pendingAudio.has(key)) return pendingAudio.get(key);
+
+        const url = ttsServer() + '/api/tts/speak?text=' + encodeURIComponent(word) +
+            '&voice=' + encodeURIComponent(voice) + '&volume=' + TTS_VOLUME;
+        const started = performance.now();
+        diagLog('请求后端语音：' + word);
+        const task = fetch(url).then(function (response) {
+            if (!response.ok) {
+                return response.text().then(function (body) {
+                    throw new Error('HTTP ' + response.status + (body ? ' · ' + body.slice(0, 120) : ''));
+                });
+            }
+            return response.blob();
+        }).then(function (blob) {
+            const elapsed = Math.round(performance.now() - started);
+            diagLog('后端合成完成：' + word + '，' + elapsed + 'ms，' +
+                Math.max(1, Math.round(blob.size / 1024)) + 'KB');
+            const objectUrl = URL.createObjectURL(blob);
+            audioCache.set(key, objectUrl);
+            trimAudioCache();
+            return objectUrl;
+        });
+        pendingAudio.set(key, task);
+        task.then(function () { pendingAudio.delete(key); }, function () { pendingAudio.delete(key); });
+        return task;
+    }
+
+    function ensureAudio() {
+        if (state.audio) return state.audio;
+        state.audio = new window.Audio();
+        state.audio.preload = 'auto';
+        return state.audio;
+    }
+
+    function prefetchNextWord() {
+        if (state.engine !== 'server') return;
+        let index = state.wordIndex;
+        if (state.repeatIndex >= state.repeatCount) index += 1;
+        const word = state.words[index];
+        if (!word || word === state.words[state.wordIndex]) return;
+        fetchServerAudio(word).catch(function () { /* 预取失败不影响主流程 */ });
+    }
+
+    function playServerCurrent(runId) {
+        const word = state.words[state.wordIndex];
+        const audio = ensureAudio();
+        diagLog('后端朗读：' + word + '（第 ' + state.repeatIndex + ' 遍）');
+        fetchServerAudio(word).then(function (objectUrl) {
+            if (runId !== state.runId || !state.playing) return;
+            audio.onended = function () {
+                if (runId !== state.runId || !state.playing) return;
+                diagLog('音频结束：' + word + '（第 ' + state.repeatIndex + ' 遍）');
+                onReadingFinished(runId);
+            };
+            audio.onerror = function () {
+                if (runId !== state.runId || !state.playing) return;
+                handleBackendFailure(runId, '音频无法播放');
+            };
+            audio.src = objectUrl;
+            state.phase = 'speaking';
+            const promise = audio.play();
+            if (promise && typeof promise.catch === 'function') {
+                promise.catch(function (error) {
+                    if (runId !== state.runId || !state.playing) return;
+                    diagLog('音频播放被拦截：' + (error && error.name ? error.name : 'unknown'));
+                    setStatus('浏览器阻止了音频播放，请再点一次“开始听写”。', 'error');
+                });
+            }
+            prefetchNextWord();
+        }).catch(function (error) {
+            if (runId !== state.runId || !state.playing) return;
+            handleBackendFailure(runId, error && error.message ? error.message : '请求失败');
+        });
+    }
+
+    function handleBackendFailure(runId, message) {
+        if (runId !== state.runId) return;
+        diagLog('后端语音失败：' + message);
+        stopPlayback(false);
+        els.playbackKicker.textContent = '语音加载失败';
+        els.currentWord.textContent = '请检查网络';
+        setStatus('后端语音加载失败（' + message + '），请检查网络后重试。', 'error');
+        if (els.diagPanel) els.diagPanel.open = true;
+        renderDiagInfo('后端语音失败：' + message);
+    }
+
+    function canUseWebSpeech() {
+        return !!speech && typeof window.SpeechSynthesisUtterance === 'function' && voices.length > 0;
+    }
+
+    // 语音列表可能异步加载，开始时最多等待一段时间。
+    function waitForWebSpeech(timeoutMs) {
+        if (!speech || typeof window.SpeechSynthesisUtterance !== 'function') {
+            return Promise.resolve(false);
+        }
+        loadVoices();
+        if (voices.length) return Promise.resolve(true);
+        return new Promise(function (resolve) {
+            let settled = false;
+            const onChange = function () {
+                loadVoices();
+                if (voices.length) finish(true);
+            };
+            const timer = window.setTimeout(function () {
+                loadVoices();
+                finish(voices.length > 0);
+            }, timeoutMs);
+            function finish(ready) {
+                if (settled) return;
+                settled = true;
+                window.clearTimeout(timer);
+                if (typeof speech.removeEventListener === 'function') {
+                    speech.removeEventListener('voiceschanged', onChange);
+                }
+                resolve(ready);
+            }
+            if (typeof speech.addEventListener === 'function') {
+                speech.addEventListener('voiceschanged', onChange);
+            }
+        });
+    }
+
+    function updateVoiceMode() {
+        if (!els.voiceMode) return;
+        els.voiceMode.hidden = !state.playing;
+        els.voiceMode.textContent = state.engine === 'server' ? '后端语音' : '前端语音';
+        els.voiceMode.className = 'voice-mode' + (state.engine === 'server' ? ' is-server' : '');
+    }
+
+    function switchToServer(runId, reason) {
+        if (state.engine === 'server') return false;
+        state.engine = 'server';
+        updateVoiceMode();
+        diagLog('改用后端语音，原因：' + reason);
+        try { speech.cancel(); } catch (error) { /* 忽略设备差异 */ }
+        state.phase = 'idle';
+        // 当前遍尚未完成，回退序号后从同一遍继续。
+        state.repeatIndex = Math.max(0, state.repeatIndex - 1);
+        scheduleDelay(220, runId, function () { speakCurrent(runId); }, '正在切换后端语音');
+        return true;
+    }
+
+    // 一遍朗读结束后的统一推进逻辑（前端语音与后端音频共用）。
+    function onReadingFinished(runId) {
+        if (runId !== state.runId || !state.playing) return;
+        state.retried = false;
+        state.completedReadings += 1;
+        updatePlaybackProgress();
+
+        if (state.repeatIndex < state.repeatCount) {
+            scheduleDelay(REPEAT_GAP_MS, runId, function () { speakCurrent(runId); }, '');
+        } else if (state.wordIndex < state.words.length - 1) {
+            scheduleDelay(state.pauseSeconds * 1000, runId, function () {
+                state.wordIndex += 1;
+                state.repeatIndex = 0;
+                speakCurrent(runId);
+            }, '词语停顿中，请继续书写');
+        } else {
+            scheduleDelay(0, runId, function () { finishPlayback(runId); }, '');
+        }
+    }
+
     function clearPlaybackTimer() {
         if (state.timer) window.clearTimeout(state.timer);
         state.timer = null;
@@ -430,6 +643,7 @@
         els.currentWord.textContent = '等待开始';
         els.playbackDetail.textContent = '共 ' + parseWords(els.wordsInput.value).length + ' 个词语';
         els.playbackProgress.hidden = true;
+        if (els.voiceMode) els.voiceMode.hidden = true;
         els.playbackProgressBar.style.width = '0%';
         els.playbackPercent.textContent = '0%';
     }
@@ -444,11 +658,15 @@
         state.delayLabel = '';
         state.retried = false;
         const active = hasActiveSpeech();
+        if (state.audio) {
+            try { state.audio.pause(); } catch (error) { /* 忽略 */ }
+        }
         if (speech) {
             try { speech.cancel(); } catch (error) { /* 浏览器不支持取消时忽略 */ }
         }
         diagLog('停止或重置朗读：cancel()');
         updatePlaybackControls();
+        updateVoiceMode();
         return active;
     }
 
@@ -484,6 +702,7 @@
         els.currentWord.textContent = '听写完成';
         els.playbackDetail.textContent = '共朗读 ' + state.completedReadings + ' 遍，记得检查书写';
         updatePlaybackProgress();
+        updateVoiceMode();
         setStatus('本次听写已完成。', 'success');
     }
 
@@ -520,6 +739,14 @@
         state.repeatIndex += 1;
         updateCurrentWordDisplay();
 
+        if (state.engine === 'server') {
+            playServerCurrent(runId);
+            return;
+        }
+        speakWebCurrent(runId);
+    }
+
+    function speakWebCurrent(runId) {
         const word = state.words[state.wordIndex];
         const utterance = new window.SpeechSynthesisUtterance(word);
         const isEnglishWord = /^[A-Za-z'’-]+$/.test(word);
@@ -540,21 +767,7 @@
         utterance.onend = function () {
             if (runId !== state.runId || !state.playing) return;
             diagLog('onend：' + state.words[state.wordIndex] + '（第 ' + state.repeatIndex + ' 遍）');
-            state.retried = false;
-            state.completedReadings += 1;
-            updatePlaybackProgress();
-
-            if (state.repeatIndex < state.repeatCount) {
-                scheduleDelay(REPEAT_GAP_MS, runId, function () { speakCurrent(runId); }, '');
-            } else if (state.wordIndex < state.words.length - 1) {
-                scheduleDelay(state.pauseSeconds * 1000, runId, function () {
-                    state.wordIndex += 1;
-                    state.repeatIndex = 0;
-                    speakCurrent(runId);
-                }, '词语停顿中，请继续书写');
-            } else {
-                scheduleDelay(0, runId, function () { finishPlayback(runId); }, '');
-            }
+            onReadingFinished(runId);
         };
 
         utterance.onerror = function (event) {
@@ -576,6 +789,12 @@
                 state.repeatIndex = Math.max(0, state.repeatIndex - 1);
                 state.phase = 'idle';
                 scheduleDelay(260, runId, function () { speakCurrent(runId); }, '正在重新朗读');
+                return;
+            }
+
+            // 本机语音不可用时自动改用后端语音，从当前词当前遍继续。
+            if (switchToServer(runId, reason)) {
+                setStatus('本机语音不可用（' + reason + '），已自动改用后端语音。');
                 return;
             }
 
@@ -608,18 +827,34 @@
     function startPlayback() {
         normalizeSettings();
         const words = parseWords(els.wordsInput.value);
-        if (!speech || typeof window.SpeechSynthesisUtterance !== 'function') {
-            setStatus('当前浏览器不支持语音朗读，请使用推荐的手机浏览器。', 'error');
-            return;
-        }
         if (!words.length) {
             setStatus('请先粘贴或输入至少一个听写词语。', 'error');
             els.wordsInput.focus();
             return;
         }
 
-        const wasSpeaking = cancelPlayback();
         loadVoices();
+        if (canUseWebSpeech()) {
+            beginPlayback(words, 'web');
+            return;
+        }
+        if (!speech || typeof window.SpeechSynthesisUtterance !== 'function') {
+            beginPlayback(words, 'server');
+            return;
+        }
+
+        // 语音列表可能尚未就绪，短暂等待后再决定使用本机还是后端语音。
+        setStatus('正在检测本机语音…');
+        waitForWebSpeech(900).then(function (ready) {
+            const latest = parseWords(els.wordsInput.value);
+            if (!latest.length || state.playing) return;
+            beginPlayback(latest, ready ? 'web' : 'server');
+        });
+    }
+
+    function beginPlayback(words, engine) {
+        const wasSpeaking = cancelPlayback();
+        state.engine = engine;
         state.words = words;
         state.wordIndex = 0;
         state.repeatIndex = 0;
@@ -630,6 +865,7 @@
         state.phase = 'idle';
         const runId = state.runId;
 
+        updateVoiceMode();
         els.playbackProgress.hidden = false;
         updatePlaybackProgress();
         updatePlaybackControls();
@@ -640,10 +876,15 @@
         els.playbackDisplay.classList.remove('is-complete');
         renderWords(state.words, 0);
         setStatus('正在听写，可随时暂停或停止。', 'success');
-        diagLog('开始听写：' + words.length + ' 个词语，每词 ' + state.repeatCount + ' 遍，停顿 ' + state.pauseSeconds + ' 秒');
+        diagLog('开始听写：' + words.length + ' 个词语，每词 ' + state.repeatCount + ' 遍，停顿 ' +
+            state.pauseSeconds + ' 秒，发声方式=' + (engine === 'server' ? '后端语音' : '前端语音'));
         renderDiagInfo();
-        if (isAndroidEdge() && !voices.length) showEnvHint('no-voice');
-        if (wasSpeaking) {
+        if (engine === 'web' && isAndroidEdge() && !voices.length) showEnvHint('no-voice');
+        if (engine === 'server') {
+            // 提前取第一段音频，减少开始时的等待。
+            fetchServerAudio(state.words[0]).catch(function () { /* 失败在主流程提示 */ });
+        }
+        if (wasSpeaking && engine === 'web') {
             // 刚取消上一段语音时，部分 Android 浏览器需要短暂间隔才能接受新的朗读。
             scheduleDelay(180, runId, function () { speakCurrent(runId); }, '即将开始朗读');
         } else {
@@ -662,14 +903,24 @@
                     clearPlaybackTimer();
                 }
             } else if (state.phase === 'speaking') {
-                try { speech.pause(); } catch (error) { /* 忽略设备差异 */ }
-                diagLog('暂停朗读：pause()');
+                if (state.engine === 'server' && state.audio) {
+                    state.audio.pause();
+                    diagLog('暂停后端音频');
+                } else {
+                    try { speech.pause(); } catch (error) { /* 忽略设备差异 */ }
+                    diagLog('暂停朗读：pause()');
+                }
             }
         } else {
             state.paused = false;
             if (state.phase === 'speaking') {
-                try { speech.resume(); } catch (error) { /* 忽略设备差异 */ }
-                diagLog('继续朗读：resume()');
+                if (state.engine === 'server' && state.audio) {
+                    state.audio.play().catch(function () { /* 用户可再次点击继续 */ });
+                    diagLog('继续后端音频');
+                } else {
+                    try { speech.resume(); } catch (error) { /* 忽略设备差异 */ }
+                    diagLog('继续朗读：resume()');
+                }
             } else if (state.phase === 'waiting' && state.delayCallback) {
                 const callback = state.delayCallback;
                 scheduleDelay(state.delayRemaining, state.runId, callback, state.delayLabel);
@@ -682,7 +933,7 @@
     function checkCapabilities() {
         const warnings = [];
         if (!speech || typeof window.SpeechSynthesisUtterance !== 'function') {
-            warnings.push('当前浏览器不支持语音朗读，请使用手机自带的浏览器打开本页。');
+            warnings.push('当前浏览器不支持本机语音，听写将使用后端语音，需要保持联网。');
         }
         if (window.location.protocol === 'file:') {
             warnings.push('请通过 HTTPS 或本地 HTTP 服务打开页面，否则浏览器会限制读取剪贴板。');
@@ -743,9 +994,16 @@
         }
     });
     window.addEventListener('pagehide', function () {
+        if (state.audio) {
+            try { state.audio.pause(); } catch (error) { /* 忽略 */ }
+        }
         if (speech) {
             try { speech.cancel(); } catch (error) { /* 忽略 */ }
         }
+        audioCache.forEach(function (objectUrl) {
+            try { URL.revokeObjectURL(objectUrl); } catch (error) { /* 忽略 */ }
+        });
+        audioCache.clear();
     });
 
     if (speech) {

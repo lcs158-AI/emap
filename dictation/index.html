@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#f5f6fb">
     <title>小刘听写</title>
-    <link rel="stylesheet" href="dictation.css?v=20261121h">
-    <script defer src="dictation.js?v=20261121m"></script>
+    <link rel="stylesheet" href="dictation.css?v=20261122b">
+    <script defer src="dictation.js?v=20261122a"></script>
 </head>
 <body>
     <div class="page-shell">
@@ -144,6 +144,7 @@
 
                 <div id="playbackDisplay" class="playback-display">
                     <span id="playbackKicker">准备就绪</span>
+                    <span id="voiceMode" class="voice-mode" hidden>前端语音</span>
                     <strong id="currentWord">等待开始</strong>
                     <span id="playbackDetail">共 0 个词语</span>
                 </div>
@@ -184,8 +185,8 @@
         </main>
 
         <footer class="page-footer">
-            <p>词语只在本机浏览器中处理，不会上传到服务器。</p>
-            <p>中文朗读音色由当前设备和浏览器提供。</p>
+            <p>浏览器支持本机语音时，词语只在本机处理；不支持时会发送到后端合成语音。</p>
+            <p>前端语音由设备和浏览器提供，后端语音由 Edge TTS 提供。</p>
         </footer>
     </div>
 </body>
