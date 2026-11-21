@@ -1,4 +1,4 @@
-/* 小刘听写 · 拍照识别与朗读控制 · v20261121d */
+/* 小刘听写 · 拍照识别与朗读控制 · v20261121e */
 (function () {
     'use strict';
 
@@ -39,7 +39,14 @@
         startButtonText: document.getElementById('startButtonText'),
         pauseBtn: document.getElementById('pauseBtn'),
         pauseButtonText: document.getElementById('pauseButtonText'),
-        stopBtn: document.getElementById('stopBtn')
+        stopBtn: document.getElementById('stopBtn'),
+        diagPanel: document.getElementById('diagPanel'),
+        diagInfo: document.getElementById('diagInfo'),
+        diagLog: document.getElementById('diagLog'),
+        diagTip: document.getElementById('diagTip'),
+        diagVoicesBtn: document.getElementById('diagVoicesBtn'),
+        diagSpeakBtn: document.getElementById('diagSpeakBtn'),
+        diagCopyBtn: document.getElementById('diagCopyBtn')
     };
 
     const state = {
@@ -67,6 +74,116 @@
     function setStatus(text, tone) {
         els.pageStatus.textContent = text;
         els.pageStatus.className = 'page-status' + (tone ? ' is-' + tone : '');
+    }
+
+    // ---------------- 语音诊断 ----------------
+    const DIAG_MAX_LINES = 60;
+    let diagLines = [];
+
+    function diagStamp() {
+        const now = new Date();
+        function pad(value, size) { return String(value).padStart(size || 2, '0'); }
+        return pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds()) + '.' + pad(now.getMilliseconds(), 3);
+    }
+
+    function diagLog(message) {
+        diagLines.push(diagStamp() + ' ' + message);
+        if (diagLines.length > DIAG_MAX_LINES) diagLines = diagLines.slice(-DIAG_MAX_LINES);
+        if (!els.diagLog) return;
+        els.diagLog.textContent = diagLines.join('\n');
+        els.diagLog.scrollTop = els.diagLog.scrollHeight;
+    }
+
+    function voiceDetail() {
+        loadVoices();
+        const selected = selectChineseVoice();
+        const lines = [];
+        lines.push('语音合成：' + (speech ? '支持' : '不支持') + '　朗读对象：' +
+            (typeof window.SpeechSynthesisUtterance === 'function' ? '支持' : '不支持'));
+        if (speech) {
+            lines.push('状态：speaking=' + speech.speaking + '　pending=' + speech.pending + '　paused=' + speech.paused);
+            lines.push('语音总数：' + voices.length + '　中文语音：' +
+                (selected ? selected.name + '（' + selected.lang + '）' : '未找到'));
+            if (voices.length) {
+                voices.forEach(function (voice) {
+                    lines.push('· ' + voice.name + '｜' + voice.lang +
+                        (voice.localService ? '｜本地' : '｜在线') + (voice.default ? '｜默认' : ''));
+                });
+            } else {
+                lines.push('· 语音列表为空：系统未返回语音，或语音引擎尚未就绪');
+            }
+        }
+        return lines.join('\n');
+    }
+
+    function renderDiagInfo(extra) {
+        if (!els.diagInfo) return;
+        const lines = [];
+        lines.push('时间：' + new Date().toLocaleString('zh-CN'));
+        lines.push('浏览器：' + (navigator.userAgent || '未知'));
+        lines.push('协议：' + window.location.protocol + '　页面：' + (document.hidden ? '后台' : '前台'));
+        lines.push(voiceDetail());
+        if (extra) lines.push('最近一次：' + extra);
+        els.diagInfo.textContent = lines.join('\n');
+    }
+
+    function testSpeech() {
+        if (els.diagPanel) els.diagPanel.open = true;
+        if (!speech || typeof window.SpeechSynthesisUtterance !== 'function') {
+            diagLog('测试朗读：当前浏览器不支持语音合成');
+            renderDiagInfo('不支持语音合成');
+            return;
+        }
+        loadVoices();
+        const voice = selectChineseVoice();
+        const utterance = new window.SpeechSynthesisUtterance('语音测试');
+        if (voice) utterance.voice = voice;
+        utterance.lang = voice ? voice.lang : 'zh-CN';
+        diagLog('测试朗读：调用 speak，lang=' + utterance.lang +
+            (voice ? '，voice=' + voice.name : '，voice=默认'));
+        utterance.onstart = function () { diagLog('测试朗读：onstart，系统已开始发声'); };
+        utterance.onend = function () {
+            diagLog('测试朗读：onend，系统已读完');
+            renderDiagInfo('测试朗读完成；若仍无声音，请检查媒体音量或系统语音输出');
+        };
+        utterance.onerror = function (event) {
+            const reason = event && event.error ? String(event.error) : 'unknown';
+            diagLog('测试朗读：onerror，错误码=' + reason);
+            renderDiagInfo('测试朗读错误码：' + reason);
+        };
+        try {
+            speech.speak(utterance);
+        } catch (error) {
+            diagLog('测试朗读：speak 抛出异常 ' + error.message);
+            renderDiagInfo('speak 异常：' + error.message);
+        }
+    }
+
+    function copyDiagnostics() {
+        if (!els.diagInfo) return;
+        const text = '小刘听写·语音诊断\n' + els.diagInfo.textContent +
+            '\n\n事件记录：\n' + els.diagLog.textContent;
+        function fallback() {
+            const range = document.createRange();
+            range.selectNodeContents(els.diagLog);
+            const selection = window.getSelection();
+            if (selection) {
+                selection.removeAllRanges();
+                selection.addRange(range);
+            }
+            els.diagTip.textContent = '已选中文字，请长按选择“复制”。';
+            diagLog('复制诊断：剪贴板不可用，已选中文本');
+        }
+        if (!navigator.clipboard || typeof navigator.clipboard.writeText !== 'function') {
+            fallback();
+            return;
+        }
+        navigator.clipboard.writeText(text).then(function () {
+            els.diagTip.textContent = '诊断信息已复制，可直接粘贴发送。';
+            diagLog('复制诊断：成功，共 ' + text.length + ' 字');
+        }).catch(function () {
+            fallback();
+        });
     }
 
     function parseWords(text) {
@@ -376,6 +493,7 @@
         if (speech) {
             try { speech.cancel(); } catch (error) { /* 浏览器不支持取消时忽略 */ }
         }
+        diagLog('停止或重置朗读：cancel()');
         updatePlaybackControls();
         return active;
     }
@@ -456,8 +574,14 @@
         utterance.pitch = 1;
         utterance.volume = 1;
 
+        utterance.onstart = function () {
+            if (runId !== state.runId) return;
+            diagLog('onstart：' + state.words[state.wordIndex] + '（第 ' + state.repeatIndex + ' 遍）');
+        };
+
         utterance.onend = function () {
             if (runId !== state.runId || !state.playing) return;
+            diagLog('onend：' + state.words[state.wordIndex] + '（第 ' + state.repeatIndex + ' 遍）');
             state.retried = false;
             state.completedReadings += 1;
             updatePlaybackProgress();
@@ -479,6 +603,9 @@
             if (runId !== state.runId || !state.playing) return;
             const reason = event && event.error ? String(event.error) : 'unknown';
             console.error('语音朗读失败：', reason);
+            diagLog('onerror：错误码=' + reason);
+            renderDiagInfo('朗读错误码：' + reason);
+            if (els.diagPanel) els.diagPanel.open = true;
 
             // 系统抢占或取消造成的轻微错误：同一次朗读自动重试一次，不打断整场听写。
             if ((reason === 'canceled' || reason === 'interrupted') && !state.retried) {
@@ -505,9 +632,12 @@
             try { speech.resume(); } catch (error) { /* 忽略设备差异 */ }
         }
 
+        diagLog('调用 speak：' + state.words[state.wordIndex] + '（第 ' + state.repeatIndex + ' 遍），lang=' +
+            utterance.lang + (utterance.voice ? '，voice=' + utterance.voice.name : '，voice=默认'));
         try {
             speech.speak(utterance);
         } catch (error) {
+            diagLog('speak 抛出异常：' + error.message);
             utterance.onerror({ error: error.message });
         }
     }
@@ -551,6 +681,8 @@
         els.playbackDisplay.classList.remove('is-complete');
         renderWords(state.words, 0);
         setStatus('正在听写，可随时暂停或停止。', 'success');
+        diagLog('开始听写：' + words.length + ' 个词语，每词 ' + state.repeatCount + ' 遍，停顿 ' + state.pauseSeconds + ' 秒');
+        renderDiagInfo();
         if (wasSpeaking) {
             // 刚取消上一段语音时，部分 Android 浏览器需要短暂间隔才能接受新的朗读。
             scheduleDelay(180, runId, function () { speakCurrent(runId); }, '即将开始朗读');
@@ -571,11 +703,13 @@
                 }
             } else if (state.phase === 'speaking') {
                 try { speech.pause(); } catch (error) { /* 忽略设备差异 */ }
+                diagLog('暂停朗读：pause()');
             }
         } else {
             state.paused = false;
             if (state.phase === 'speaking') {
                 try { speech.resume(); } catch (error) { /* 忽略设备差异 */ }
+                diagLog('继续朗读：resume()');
             } else if (state.phase === 'waiting' && state.delayCallback) {
                 const callback = state.delayCallback;
                 scheduleDelay(state.delayRemaining, state.runId, callback, state.delayLabel);
@@ -643,8 +777,15 @@
     els.startBtn.addEventListener('click', startPlayback);
     els.pauseBtn.addEventListener('click', pauseOrResumePlayback);
     els.stopBtn.addEventListener('click', function () { stopPlayback(true); });
+    els.diagVoicesBtn.addEventListener('click', function () {
+        renderDiagInfo();
+        diagLog('检测语音：共 ' + voices.length + ' 条');
+    });
+    els.diagSpeakBtn.addEventListener('click', testSpeech);
+    els.diagCopyBtn.addEventListener('click', copyDiagnostics);
 
     document.addEventListener('visibilitychange', function () {
+        diagLog('页面可见性：' + (document.hidden ? '后台' : '前台'));
         if (document.hidden && state.playing) {
             stopPlayback(false);
             setStatus('页面进入后台，听写已停止。');
@@ -658,10 +799,15 @@
 
     if (speech) {
         loadVoices();
+        const onVoicesChanged = function () {
+            loadVoices();
+            diagLog('语音列表更新：共 ' + voices.length + ' 条');
+            renderDiagInfo();
+        };
         if (typeof speech.addEventListener === 'function') {
-            speech.addEventListener('voiceschanged', loadVoices);
+            speech.addEventListener('voiceschanged', onVoicesChanged);
         } else {
-            speech.onvoiceschanged = loadVoices;
+            speech.onvoiceschanged = onVoicesChanged;
         }
     }
 
@@ -669,4 +815,5 @@
     normalizeSettings();
     updatePlaybackControls();
     checkCapabilities();
+    renderDiagInfo();
 })();

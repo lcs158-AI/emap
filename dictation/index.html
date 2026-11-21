@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#f5f6fb">
     <title>小刘听写</title>
-    <link rel="stylesheet" href="dictation.css?v=20261121b">
+    <link rel="stylesheet" href="dictation.css?v=20261121c">
     <script defer src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-    <script defer src="dictation.js?v=20261121d"></script>
+    <script defer src="dictation.js?v=20261121e"></script>
 </head>
 <body>
     <div class="page-shell">
@@ -171,6 +171,20 @@
                         停止
                     </button>
                 </div>
+            </section>
+
+            <section class="card diag-card">
+                <details id="diagPanel" class="diag-panel">
+                    <summary>语音诊断（听不到声音时点这里）</summary>
+                    <div class="diag-actions">
+                        <button id="diagVoicesBtn" class="button button-secondary" type="button">检测语音</button>
+                        <button id="diagSpeakBtn" class="button button-secondary" type="button">测试朗读</button>
+                        <button id="diagCopyBtn" class="button button-quiet" type="button">复制诊断</button>
+                    </div>
+                    <pre id="diagInfo" class="diag-text">正在读取设备语音信息…</pre>
+                    <pre id="diagLog" class="diag-text diag-log">暂无事件</pre>
+                    <p id="diagTip" class="diag-tip">把这里的内容截图或复制发给开发者，可快速定位问题。</p>
+                </details>
             </section>
         </main>
 
