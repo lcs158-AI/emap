@@ -1,4 +1,4 @@
-/* 小刘听写 · 移动端页面样式 · v20261121g */
+/* 小刘听写 · 移动端页面样式 · v20261121h */
 :root {
     --ink: #18243a;
     --muted: #6e778b;
@@ -75,6 +75,7 @@ body {
 .button-secondary { color: var(--primary); border: 1px solid #dedbf8; background: var(--primary-soft); }
 .button-quiet { color: #596175; border: 1px solid var(--line); background: #f6f7fa; }
 .button-primary:not(:disabled):active, .button-secondary:not(:disabled):active, .button-quiet:not(:disabled):active { transform: translateY(1px); }
+.paste-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .paste-primary { width: 100%; min-height: 54px; font-size: 16px; }
 
 .page-status { min-height: 20px; margin: 12px 2px 0; color: var(--muted); font-size: 12px; }

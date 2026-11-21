@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#f5f6fb">
     <title>小刘听写</title>
-    <link rel="stylesheet" href="dictation.css?v=20261121f">
-    <script defer src="dictation.js?v=20261121l"></script>
+    <link rel="stylesheet" href="dictation.css?v=20261121h">
+    <script defer src="dictation.js?v=20261121m"></script>
 </head>
 <body>
     <div class="page-shell">
@@ -53,11 +53,17 @@
                     </li>
                 </ol>
 
-                <button id="pasteBtn" class="button button-primary paste-primary" type="button">
-                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="9" y="2.5" width="6" height="4" rx="1.5" stroke="currentColor" stroke-width="1.8"/><path d="M9 4.5H7.5A2.5 2.5 0 0 0 5 7v12.5A2.5 2.5 0 0 0 7.5 22h9a2.5 2.5 0 0 0 2.5-2.5V7a2.5 2.5 0 0 0-2.5-2.5H15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-                    粘贴文字
-                </button>
-                <p class="paste-tip">粘贴后自动只保留汉字，词语之间用空格分隔；无法读取剪贴板时会提示长按输入框粘贴。</p>
+                <div class="paste-actions">
+                    <button id="pasteBtn" class="button button-primary paste-primary" type="button">
+                        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="9" y="2.5" width="6" height="4" rx="1.5" stroke="currentColor" stroke-width="1.8"/><path d="M9 4.5H7.5A2.5 2.5 0 0 0 5 7v12.5A2.5 2.5 0 0 0 7.5 22h9a2.5 2.5 0 0 0 2.5-2.5V7a2.5 2.5 0 0 0-2.5-2.5H15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+                        粘贴中文
+                    </button>
+                    <button id="pasteEnBtn" class="button button-secondary paste-primary" type="button">
+                        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="9" y="2.5" width="6" height="4" rx="1.5" stroke="currentColor" stroke-width="1.8"/><path d="M9 4.5H7.5A2.5 2.5 0 0 0 5 7v12.5A2.5 2.5 0 0 0 7.5 22h9a2.5 2.5 0 0 0 2.5-2.5V7a2.5 2.5 0 0 0-2.5-2.5H15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+                        粘贴英文
+                    </button>
+                </div>
+                <p class="paste-tip">“粘贴中文”只保留汉字，“粘贴英文”只保留英文单词；结果均以空格分隔。无法读取剪贴板时会提示长按输入框粘贴。</p>
                 <p id="pageStatus" class="page-status" role="status" aria-live="polite">推荐先用豆包等 AI 工具拍照提取文字。</p>
 
                 <aside class="browser-tip" aria-label="手机浏览器建议">
@@ -90,7 +96,7 @@
                     </div>
                 </div>
                 <label class="field-label" for="wordsInput">听写词语</label>
-                <textarea id="wordsInput" rows="7" placeholder="粘贴或输入词语，词语之间用空格分隔。例如：&#10;认真 坚持 闪闪发光" spellcheck="false"></textarea>
+                <textarea id="wordsInput" rows="7" placeholder="粘贴或输入中文词语、英文单词，词之间用空格分隔。例如：&#10;认真 坚持 闪闪发光&#10;apple banana orange" spellcheck="false"></textarea>
                 <div class="word-meta">
                     <span id="wordCount">0 个词语</span>
                     <button id="clearWordsBtn" class="text-button" type="button">清空内容</button>

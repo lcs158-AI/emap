@@ -1,4 +1,4 @@
-/* 小刘听写 · 词语粘贴与朗读控制 · v20261121l */
+/* 小刘听写 · 词语粘贴与朗读控制 · v20261121m */
 (function () {
     'use strict';
 
@@ -8,6 +8,7 @@
 
     const els = {
         pasteBtn: document.getElementById('pasteBtn'),
+        pasteEnBtn: document.getElementById('pasteEnBtn'),
         pageStatus: document.getElementById('pageStatus'),
         compatWarning: document.getElementById('compatWarning'),
         wordsInput: document.getElementById('wordsInput'),
@@ -263,7 +264,7 @@
     const PASTE_LABEL = /^[^：:]{0,20}[：:]\s*/;
     const PASTE_HEADER = /^(以下|下面|以上|上述|图中|图片|照片|识别|整理|列出|为你|我们|这些)/;
 
-    function cleanPastedText(text) {
+    function cleanChineseText(text) {
         const words = [];
         String(text || '').replace(/\r/g, '').split('\n').forEach(function (line) {
             const body = line.replace(PASTE_LABEL, '');
@@ -277,17 +278,37 @@
         return words.join(' ');
     }
 
-    function applyPastedText(text) {
-        const words = cleanPastedText(text);
+    // 英文模式只保留字母单词，中文、编号、标点都会丢弃。
+    function cleanEnglishText(text) {
+        const words = [];
+        String(text || '').replace(/\r/g, '').split('\n').forEach(function (line) {
+            const body = line.replace(PASTE_LABEL, '').trim();
+            if (PASTE_HEADER.test(body)) return;
+            (body.match(/[A-Za-z]+(?:['’-][A-Za-z]+)*/g) || []).forEach(function (word) {
+                words.push(word);
+            });
+        });
+        return words.join(' ');
+    }
+
+    function cleanPastedText(text, mode) {
+        return mode === 'en' ? cleanEnglishText(text) : cleanChineseText(text);
+    }
+
+    function applyPastedText(text, mode) {
+        const isEnglish = mode === 'en';
+        const words = cleanPastedText(text, mode);
         if (!words) {
-            setStatus('没有找到汉字词语，请确认复制的内容是否正确。', 'error');
+            setStatus(isEnglish ? '没有找到英文单词，请确认复制的内容是否正确。'
+                : '没有找到汉字词语，请确认复制的内容是否正确。', 'error');
             return false;
         }
         if (state.playing) stopPlayback(false);
         els.wordsInput.value = words;
         refreshWords();
         resetPlaybackDisplay();
-        setStatus('已粘贴 ' + parseWords(words).length + ' 个词语，请校对后开始听写。', 'success');
+        setStatus('已粘贴 ' + parseWords(words).length + ' 个' +
+            (isEnglish ? '英文单词' : '中文词语') + '，请校对后开始听写。', 'success');
         return true;
     }
 
@@ -298,13 +319,13 @@
         els.wordsInput.setSelectionRange(length, length);
     }
 
-    function pasteFromClipboard() {
+    function pasteFromClipboard(mode) {
         if (!navigator.clipboard || typeof navigator.clipboard.readText !== 'function') {
             focusManualPaste();
             return;
         }
         navigator.clipboard.readText().then(function (text) {
-            applyPastedText(text);
+            applyPastedText(text, mode);
         }).catch(function () {
             focusManualPaste();
         });
@@ -499,10 +520,14 @@
         state.repeatIndex += 1;
         updateCurrentWordDisplay();
 
-        const utterance = new window.SpeechSynthesisUtterance(state.words[state.wordIndex]);
-        const chineseVoice = selectChineseVoice();
-        if (chineseVoice) utterance.voice = chineseVoice;
-        utterance.lang = chineseVoice ? chineseVoice.lang : 'zh-CN';
+        const word = state.words[state.wordIndex];
+        const utterance = new window.SpeechSynthesisUtterance(word);
+        const isEnglishWord = /^[A-Za-z'’-]+$/.test(word);
+        const voice = isEnglishWord ?
+            (voices.find(function (item) { return /^en[-_]/i.test(item.lang); }) || selectChineseVoice()) :
+            selectChineseVoice();
+        if (voice) utterance.voice = voice;
+        utterance.lang = voice ? voice.lang : (isEnglishWord ? 'en-US' : 'zh-CN');
         utterance.rate = 0.82;
         utterance.pitch = 1;
         utterance.volume = 1;
@@ -673,8 +698,9 @@
     els.wordsInput.addEventListener('paste', function (event) {
         const clipboard = event.clipboardData;
         const text = clipboard && clipboard.getData('text');
-        if (state.playing || !text || !/[\u3400-\u9fff]/.test(text)) return;
-        const words = cleanPastedText(text);
+        if (state.playing || !text) return;
+        const mode = /[\u3400-\u9fff]/.test(text) ? 'zh' : 'en';
+        const words = cleanPastedText(text, mode);
         if (!words) return;
         event.preventDefault();
         const start = els.wordsInput.selectionStart;
@@ -683,9 +709,10 @@
         const prefix = before && !/\s$/.test(before) ? ' ' : '';
         els.wordsInput.setRangeText(prefix + words, start, end, 'end');
         els.wordsInput.dispatchEvent(new Event('input', { bubbles: true }));
-        setStatus('已粘贴词语，请校对后开始听写。', 'success');
+        setStatus('已粘贴' + (mode === 'en' ? '英文单词' : '中文词语') + '，请校对后开始听写。', 'success');
     });
-    els.pasteBtn.addEventListener('click', pasteFromClipboard);
+    els.pasteBtn.addEventListener('click', function () { pasteFromClipboard('zh'); });
+    els.pasteEnBtn.addEventListener('click', function () { pasteFromClipboard('en'); });
     els.clearWordsBtn.addEventListener('click', function () {
         if (state.playing) return;
         els.wordsInput.value = '';
