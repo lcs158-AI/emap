@@ -1,25 +1,13 @@
-/* 小刘听写 · 拍照识别与朗读控制 · v20261121f */
+/* 小刘听写 · 词语粘贴与朗读控制 · v20261121k */
 (function () {
     'use strict';
 
-    const MAX_IMAGE_SIDE = 1800;
-    const MAX_FILE_SIZE = 20 * 1024 * 1024;
     const REPEAT_GAP_MS = 550;
     const speech = window.speechSynthesis || null;
     let voices = [];
 
     const els = {
-        cameraInput: document.getElementById('cameraInput'),
-        uploadInput: document.getElementById('uploadInput'),
         pasteBtn: document.getElementById('pasteBtn'),
-        fileActions: document.getElementById('fileActions'),
-        photoPreview: document.getElementById('photoPreview'),
-        photoEmpty: document.getElementById('photoEmpty'),
-        scanningBadge: document.getElementById('scanningBadge'),
-        ocrProgress: document.getElementById('ocrProgress'),
-        ocrStatus: document.getElementById('ocrStatus'),
-        ocrPercent: document.getElementById('ocrPercent'),
-        ocrProgressBar: document.getElementById('ocrProgressBar'),
         pageStatus: document.getElementById('pageStatus'),
         compatWarning: document.getElementById('compatWarning'),
         wordsInput: document.getElementById('wordsInput'),
@@ -71,8 +59,6 @@
         delayRemaining: 0,
         delayEndsAt: 0,
         delayLabel: '',
-        ocrBusy: false,
-        ocrId: 0,
         retried: false
     };
 
@@ -265,23 +251,12 @@
         });
     }
 
+    // ---------------- 词语解析与粘贴 ----------------
     function parseWords(text) {
         return String(text || '')
             .split(/[\s,，、;；]+/)
             .map(function (word) { return word.trim(); })
             .filter(Boolean);
-    }
-
-    function cleanOcrText(text) {
-        // 保留 OCR 原有的换行、空白和标点作为词语分隔，每项只保留汉字。
-        return String(text || '')
-            .replace(/\r/g, '')
-            .split(/[\s,，、;；]+/)
-            .map(function (item) {
-                return (item.match(/[\u3400-\u9fff]/g) || []).join('');
-            })
-            .filter(Boolean)
-            .join(' ');
     }
 
     // 行首“词语：”这类标签，以及“以下是图片中的词语”这类说明行，不属于听写词语。
@@ -324,7 +299,6 @@
     }
 
     function pasteFromClipboard() {
-        if (state.ocrBusy) return;
         if (!navigator.clipboard || typeof navigator.clipboard.readText !== 'function') {
             focusManualPaste();
             return;
@@ -379,126 +353,7 @@
         els.pauseSeconds.value = state.pauseSeconds;
     }
 
-    function setOcrBusy(busy) {
-        state.ocrBusy = busy;
-        els.fileActions.classList.toggle('is-busy', busy);
-        els.cameraInput.disabled = busy;
-        els.uploadInput.disabled = busy;
-        els.pasteBtn.disabled = busy;
-        els.startBtn.disabled = busy;
-        els.scanningBadge.hidden = !busy;
-        els.ocrProgress.hidden = !busy;
-        if (!busy) {
-            els.ocrProgressBar.style.width = '0%';
-            els.ocrPercent.textContent = '0%';
-        }
-    }
-
-    function updateOcrProgress(message) {
-        if (!message) return;
-        const labels = {
-            'loading tesseract core': '正在加载识别组件',
-            'initializing tesseract': '正在初始化识别组件',
-            'loading language traineddata': '正在加载中文识别数据',
-            'initializing api': '正在准备中文识别',
-            'recognizing text': '正在识别照片中的文字'
-        };
-        if (labels[message.status]) els.ocrStatus.textContent = labels[message.status];
-        if (typeof message.progress === 'number') {
-            const percent = Math.max(0, Math.min(100, Math.round(message.progress * 100)));
-            els.ocrProgressBar.style.width = percent + '%';
-            els.ocrPercent.textContent = percent + '%';
-        }
-    }
-
-    function preparePhoto(file) {
-        return new Promise(function (resolve, reject) {
-            const url = URL.createObjectURL(file);
-            const image = new Image();
-            image.onload = function () {
-                try {
-                    const width = image.naturalWidth;
-                    const height = image.naturalHeight;
-                    if (!width || !height) throw new Error('照片尺寸无效');
-                    const scale = Math.min(1, MAX_IMAGE_SIDE / Math.max(width, height));
-                    const canvas = document.createElement('canvas');
-                    canvas.width = Math.max(1, Math.round(width * scale));
-                    canvas.height = Math.max(1, Math.round(height * scale));
-                    const context = canvas.getContext('2d', { alpha: false });
-                    context.fillStyle = '#ffffff';
-                    context.fillRect(0, 0, canvas.width, canvas.height);
-                    context.drawImage(image, 0, 0, canvas.width, canvas.height);
-                    URL.revokeObjectURL(url);
-                    resolve({ canvas: canvas, preview: canvas.toDataURL('image/jpeg', 0.9) });
-                } catch (error) {
-                    URL.revokeObjectURL(url);
-                    reject(error);
-                }
-            };
-            image.onerror = function () {
-                URL.revokeObjectURL(url);
-                reject(new Error('无法读取照片'));
-            };
-            image.src = url;
-        });
-    }
-
-    async function handlePhoto(file) {
-        if (!file) return;
-        if (!file.type || file.type.indexOf('image/') !== 0) {
-            setStatus('请选择 JPG、PNG 等图片文件。', 'error');
-            return;
-        }
-        if (file.size > MAX_FILE_SIZE) {
-            setStatus('照片超过 20MB，请压缩后再试。', 'error');
-            return;
-        }
-
-        if (state.playing) stopPlayback(false);
-        const ocrId = ++state.ocrId;
-        setOcrBusy(true);
-        setStatus('正在准备照片，请稍候…');
-        els.ocrStatus.textContent = '正在准备照片';
-
-        try {
-            const prepared = await preparePhoto(file);
-            if (ocrId !== state.ocrId) return;
-            els.photoPreview.src = prepared.preview;
-            els.photoPreview.hidden = false;
-            els.photoEmpty.hidden = true;
-
-            if (!window.Tesseract || typeof window.Tesseract.recognize !== 'function') {
-                throw new Error('OCR_UNAVAILABLE');
-            }
-
-            const result = await window.Tesseract.recognize(prepared.canvas, 'chi_sim', {
-                logger: function (message) {
-                    if (ocrId === state.ocrId) updateOcrProgress(message);
-                }
-            });
-            if (ocrId !== state.ocrId) return;
-
-            const text = cleanOcrText(result && result.data && result.data.text);
-            if (!text) {
-                setStatus('没有识别到清晰文字，请调整光线和角度后重试。', 'error');
-                return;
-            }
-            els.wordsInput.value = text;
-            refreshWords();
-            resetPlaybackDisplay();
-            setStatus('识别完成，请校对词语后开始听写。', 'success');
-        } catch (error) {
-            console.error('词语识别失败：', error);
-            if (error && error.message === 'OCR_UNAVAILABLE') {
-                setStatus('识别组件加载失败，请检查网络并刷新页面；也可以手动输入词语。', 'error');
-            } else {
-                setStatus('识别失败，请检查网络，或换一张更清晰的照片重试。', 'error');
-            }
-        } finally {
-            if (ocrId === state.ocrId) setOcrBusy(false);
-        }
-    }
-
+    // ---------------- 朗读控制 ----------------
     function loadVoices() {
         if (!speech) return;
         voices = speech.getVoices();
@@ -523,7 +378,6 @@
 
     function updatePlaybackControls() {
         els.startButtonText.textContent = state.playing ? '重新开始' : '开始听写';
-        els.startBtn.disabled = state.ocrBusy;
         els.pauseBtn.disabled = !state.playing;
         els.stopBtn.disabled = !state.playing;
         els.pauseButtonText.textContent = state.paused ? '继续' : '暂停';
@@ -729,16 +583,12 @@
     function startPlayback() {
         normalizeSettings();
         const words = parseWords(els.wordsInput.value);
-        if (state.ocrBusy) {
-            setStatus('照片仍在识别，请等待识别完成。', 'error');
-            return;
-        }
         if (!speech || typeof window.SpeechSynthesisUtterance !== 'function') {
             setStatus('当前浏览器不支持语音朗读，请使用推荐的手机浏览器。', 'error');
             return;
         }
         if (!words.length) {
-            setStatus('请先拍照识别或输入至少一个听写词语。', 'error');
+            setStatus('请先粘贴或输入至少一个听写词语。', 'error');
             els.wordsInput.focus();
             return;
         }
@@ -806,29 +656,16 @@
 
     function checkCapabilities() {
         const warnings = [];
-        if (!window.Tesseract) {
-            warnings.push('中文识别组件未加载，拍照识别暂不可用，请检查网络后刷新；手动输入和朗读仍可使用。');
-        }
         if (!speech || typeof window.SpeechSynthesisUtterance !== 'function') {
             warnings.push('当前浏览器不支持语音朗读，请改用 Android Chrome / Edge 或 iPhone / iPad Safari。');
         }
         if (window.location.protocol === 'file:') {
-            warnings.push('请通过 HTTPS 或本地 HTTP 服务打开页面，避免拍照和识别组件受到限制。');
+            warnings.push('请通过 HTTPS 或本地 HTTP 服务打开页面，否则浏览器会限制读取剪贴板。');
         }
         els.compatWarning.textContent = warnings.join(' ');
         els.compatWarning.hidden = !warnings.length;
     }
 
-    function bindFileInput(input) {
-        input.addEventListener('change', function (event) {
-            const file = event.target.files && event.target.files[0];
-            event.target.value = '';
-            handlePhoto(file);
-        });
-    }
-
-    bindFileInput(els.cameraInput);
-    bindFileInput(els.uploadInput);
     els.wordsInput.addEventListener('input', function () {
         refreshWords();
         if (!state.playing) resetPlaybackDisplay();
@@ -854,7 +691,7 @@
         els.wordsInput.value = '';
         refreshWords();
         resetPlaybackDisplay();
-        setStatus('内容已清空，可以重新拍照或手动输入。');
+        setStatus('内容已清空，可以重新粘贴词语。');
         els.wordsInput.focus();
     });
     els.repeatCount.addEventListener('change', normalizeSettings);

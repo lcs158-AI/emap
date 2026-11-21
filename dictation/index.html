@@ -5,9 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#f5f6fb">
     <title>小刘听写</title>
-    <link rel="stylesheet" href="dictation.css?v=20261121d">
-    <script defer src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-    <script defer src="dictation.js?v=20261121f"></script>
+    <link rel="stylesheet" href="dictation.css?v=20261121f">
+    <script defer src="dictation.js?v=20261121k"></script>
 </head>
 <body>
     <div class="page-shell">
@@ -19,10 +18,10 @@
             <div class="hero-copy">
                 <p class="eyebrow">XIAOLIU DICTATION</p>
                 <h1>小刘听写</h1>
-                <p>拍一拍词语，校对错字，剩下的交给小刘。</p>
+                <p>用 AI 提取词语，校对后交给小刘朗读。</p>
             </div>
             <div class="hero-steps" aria-label="使用步骤">
-                <span>拍照</span><i></i><span>校对</span><i></i><span>听写</span>
+                <span>提取</span><i></i><span>校对</span><i></i><span>听写</span>
             </div>
         </header>
 
@@ -34,50 +33,32 @@
                 <div class="section-heading">
                     <span class="step-number">01</span>
                     <div>
-                        <h2 id="captureTitle">拍照识别词语</h2>
-                        <p>拍摄课本、生字表或词语清单</p>
+                        <h2 id="captureTitle">用 AI 提取听写词语</h2>
+                        <p>词语多时，AI 识别比网页更准</p>
                     </div>
                 </div>
 
-                <div id="photoStage" class="photo-stage">
-                    <div id="photoEmpty" class="photo-empty">
-                        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                            <path d="M14.5 5 13 3h-2L9.5 5H5a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-4.5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
-                            <circle cx="12" cy="12.5" r="4" stroke="currentColor" stroke-width="1.6"/>
-                        </svg>
-                        <strong>把词语拍清楚</strong>
-                        <span>保持纸张平整，避免阴影和反光</span>
-                    </div>
-                    <img id="photoPreview" alt="待识别的词语照片" hidden>
-                    <div id="scanningBadge" class="scanning-badge" hidden>
-                        <span class="spinner"></span>
-                        <span>正在识别</span>
-                    </div>
-                </div>
+                <ol class="ai-steps">
+                    <li>
+                        <span class="ai-step-index">1</span>
+                        <div><strong>拍照</strong><small>用豆包、微信或 QQ 拍下词语表</small></div>
+                    </li>
+                    <li>
+                        <span class="ai-step-index">2</span>
+                        <div><strong>提取文字</strong><small>让 AI 把图片里的词语提取出来</small></div>
+                    </li>
+                    <li>
+                        <span class="ai-step-index">3</span>
+                        <div><strong>粘贴回来</strong><small>复制文字，回到本页点下方按钮</small></div>
+                    </li>
+                </ol>
 
-                <div id="fileActions" class="file-actions">
-                    <label class="button button-primary" for="cameraInput">
-                        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14.5 5 13 3h-2L9.5 5H5a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-4.5Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="12.5" r="3.5" stroke="currentColor" stroke-width="1.8"/></svg>
-                        拍照识别
-                    </label>
-                    <input id="cameraInput" class="visually-hidden" type="file" accept="image/*" capture="environment">
-                    <label class="button button-secondary" for="uploadInput">
-                        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" stroke-width="1.8"/><circle cx="8.5" cy="8.5" r="1.5" stroke="currentColor" stroke-width="1.5"/><path d="m4 17 5-5 4 4 2-2 5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                        从相册选择
-                    </label>
-                    <input id="uploadInput" class="visually-hidden" type="file" accept="image/*">
-                    <button id="pasteBtn" class="button button-secondary paste-action" type="button">
-                        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="9" y="2.5" width="6" height="4" rx="1.5" stroke="currentColor" stroke-width="1.8"/><path d="M9 4.5H7.5A2.5 2.5 0 0 0 5 7v12.5A2.5 2.5 0 0 0 7.5 22h9a2.5 2.5 0 0 0 2.5-2.5V7a2.5 2.5 0 0 0-2.5-2.5H15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-                        粘贴文字
-                    </button>
-                </div>
-                <p class="paste-tip">识别率不理想？可先用豆包等 AI 工具识别图片，复制文字后点“粘贴文字”导入。</p>
-
-                <div id="ocrProgress" class="ocr-progress" hidden>
-                    <div class="progress-label"><span id="ocrStatus">准备识别</span><strong id="ocrPercent">0%</strong></div>
-                    <div class="progress-track"><div id="ocrProgressBar" class="progress-bar"></div></div>
-                </div>
-                <p id="pageStatus" class="page-status" role="status" aria-live="polite">文字识别在首次使用时需要联网加载组件。</p>
+                <button id="pasteBtn" class="button button-primary paste-primary" type="button">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="9" y="2.5" width="6" height="4" rx="1.5" stroke="currentColor" stroke-width="1.8"/><path d="M9 4.5H7.5A2.5 2.5 0 0 0 5 7v12.5A2.5 2.5 0 0 0 7.5 22h9a2.5 2.5 0 0 0 2.5-2.5V7a2.5 2.5 0 0 0-2.5-2.5H15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+                    粘贴文字
+                </button>
+                <p class="paste-tip">粘贴后自动只保留汉字，词语之间用空格分隔；无法读取剪贴板时会提示长按输入框粘贴。</p>
+                <p id="pageStatus" class="page-status" role="status" aria-live="polite">推荐先用豆包等 AI 工具拍照提取文字。</p>
 
                 <aside class="browser-tip" aria-label="手机浏览器建议">
                     <div class="tip-title">
@@ -89,7 +70,7 @@
                         <div><span class="browser-tag">华为 / 荣耀</span><strong>华为自带浏览器</strong></div>
                         <div><span class="browser-tag">iPhone / iPad</span><strong>Safari</strong></div>
                     </div>
-                    <p>请使用最新版浏览器。部分鸿蒙机型上 Edge 无法调用中文语音，听不到声音时请改用华为自带浏览器。微信等应用的内置浏览器可能限制拍照或语音，建议点击“在浏览器打开”。</p>
+                    <p>请使用最新版浏览器。部分鸿蒙机型上 Edge 无法调用中文语音，听不到声音时请改用华为自带浏览器。微信等应用的内置浏览器可能限制语音，建议点击“在浏览器打开”。</p>
                 </aside>
 
                 <div id="envHint" class="env-hint" role="alert" hidden>
@@ -107,11 +88,11 @@
                     <span class="step-number">02</span>
                     <div>
                         <h2 id="wordsTitle">校对听写内容</h2>
-                        <p>识别可能有误差，开始前请检查一遍</p>
+                        <p>粘贴结果可能带编号或标点，开始前请检查一遍</p>
                     </div>
                 </div>
                 <label class="field-label" for="wordsInput">听写词语</label>
-                <textarea id="wordsInput" rows="7" placeholder="识别后仅保留汉字，词语之间用空格分隔。例如：&#10;认真 坚持 闪闪发光" spellcheck="false"></textarea>
+                <textarea id="wordsInput" rows="7" placeholder="粘贴或输入词语，词语之间用空格分隔。例如：&#10;认真 坚持 闪闪发光" spellcheck="false"></textarea>
                 <div class="word-meta">
                     <span id="wordCount">0 个词语</span>
                     <button id="clearWordsBtn" class="text-button" type="button">清空内容</button>
@@ -199,7 +180,7 @@
         </main>
 
         <footer class="page-footer">
-            <p>照片仅在本机浏览器中识别，不会上传到服务器。</p>
+            <p>词语只在本机浏览器中处理，不会上传到服务器。</p>
             <p>中文朗读音色由当前设备和浏览器提供。</p>
         </footer>
     </div>

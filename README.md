@@ -29,7 +29,7 @@ emap/
 │   ── 根目录板块入口 ──
 ├── AIsea.html            # 跬步地图：OpenLayers 平面地图（主应用）
 ├── mapctl/               # 跬步地图 · 手机遥控控制器（移动端页面，扫码打开）
-├── dictation/            # 小刘听写：拍照识别词语、设置朗读节奏并播放
+├── dictation/            # 小刘听写：粘贴 AI 提取的词语、设置朗读节奏并播放
 │
 │   ── 共享资源（板块共用）──
 ├── css/                  # 公共样式（home / map / jsoncanvas 等）
@@ -49,7 +49,7 @@ emap/
 | CANVAS 地图 | `jsoncanvas/index.html` | 原生 Canvas + GeoJSON + jQuery UI | WebGIS 研发示例，支持放大/缩小/平移/全图 |
 | COVID-19 | `covid19/index.html` | echarts 4.9.0 | 2020 年全球疫情扩散与输入性风险分析（研学作品） |
 | 小刘游戏 | `games/index.html` | Three.js | 3D 体感空战游戏，支持键盘操作、手机扫码遥控、姿态体感、语音控制 |
-| 小刘听写 | `dictation/index.html` | Tesseract.js + Web Speech API | 拍照识别听写词语，支持结果校对、每词朗读次数、词间停顿及播放控制 |
+| 小刘听写 | `dictation/index.html` | Web Speech API | 粘贴 AI 识别的词语，支持结果校对、每词朗读次数、词间停顿及播放控制 |
 
 > 说明：`covid19` 使用本地 echarts（jsdelivr CDN 在国内访问不稳定，已下载嵌入）。
 
@@ -72,7 +72,7 @@ emap/
   - 两端需使用同一账号；电脑端本地导入的文件（浏览器本地数据）不会自动传到手机，需要一致时请先上传到账号数据
   - 手机直接打开 `AIsea.html` 时（非镜像模式）遥控入口自动隐藏，直接用触摸操作地图
 - **游戏**：键盘 / 手机 / 体感 / 语音多种操控方式
-- **小刘听写**：访问 `dictation/index.html`，拍照或从相册识别词语，识别后仅保留汉字且词语以空格分隔，也支持把豆包等外部 AI 识别出的文字直接粘贴导入，校对后可设置每词朗读次数和词间停顿；照片仅在本机识别，不上传服务器。首次 OCR 需联网加载组件，Android 推荐最新版 Chrome / Edge，iPhone / iPad 推荐最新版 Safari，不建议使用应用内置浏览器
+- **小刘听写**：访问 `dictation/index.html`，先用豆包、微信或 QQ 等 AI 工具拍照提取词语，复制文字后点「粘贴文字」导入；页面自动只保留汉字、词语以空格分隔，也支持直接在输入框粘贴或手动输入。校对后可设置每词朗读次数和词间停顿；词语只在本机处理，不上传服务器。Android 推荐最新版 Chrome / Edge，鸿蒙设备若听不到声音请改用华为自带浏览器，iPhone / iPad 推荐 Safari，不建议使用应用内置浏览器
 
 ## 本地运行
 
