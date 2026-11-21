@@ -1,4 +1,4 @@
-/* 小刘听写 · 词语粘贴与朗读控制 · v20261122a */
+/* 小刘听写 · 词语粘贴与朗读控制 · v20261122b */
 (function () {
     'use strict';
 
@@ -41,12 +41,7 @@
         diagTip: document.getElementById('diagTip'),
         diagVoicesBtn: document.getElementById('diagVoicesBtn'),
         diagSpeakBtn: document.getElementById('diagSpeakBtn'),
-        diagCopyBtn: document.getElementById('diagCopyBtn'),
-        envHint: document.getElementById('envHint'),
-        envHintTitle: document.getElementById('envHintTitle'),
-        envHintText: document.getElementById('envHintText'),
-        openHuaweiBtn: document.getElementById('openHuaweiBtn'),
-        copyLinkBtn: document.getElementById('copyLinkBtn')
+        diagCopyBtn: document.getElementById('diagCopyBtn')
     };
 
     const state = {
@@ -125,81 +120,7 @@
         lines.push('发声方式：' + (state.engine === 'server' ? '后端语音（' + ttsServer() + '）' : '前端语音'));
         lines.push(voiceDetail());
         if (extra) lines.push('最近一次：' + extra);
-        if (isAndroidEdge()) {
-            lines.push('建议：Edge 无中文语音时，改用手机自带浏览器，或在系统“文字转语音”中安装中文离线语音。');
-        }
         els.diagInfo.textContent = lines.join('\n');
-    }
-
-    // ---------------- 浏览器环境提示 ----------------
-    function isAndroidEdge() {
-        return /android/i.test(navigator.userAgent) && /EdgA|Edg\//i.test(navigator.userAgent);
-    }
-
-    function copyText(text) {
-        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-            return navigator.clipboard.writeText(text);
-        }
-        return new Promise(function (resolve, reject) {
-            const area = document.createElement('textarea');
-            area.value = text;
-            area.setAttribute('readonly', '');
-            area.style.position = 'fixed';
-            area.style.opacity = '0';
-            document.body.appendChild(area);
-            area.select();
-            let ok = false;
-            try { ok = document.execCommand('copy'); } catch (error) { ok = false; }
-            document.body.removeChild(area);
-            if (ok) resolve(); else reject(new Error('copy-failed'));
-        });
-    }
-
-    function showEnvHint(reason) {
-        if (!els.envHint || !isAndroidEdge()) return;
-        let title = '当前浏览器没有可用的中文语音';
-        let text = '系统没有向 Edge 提供中文语音。请改用手机自带浏览器，或在系统“文字转语音”中安装中文离线语音。';
-        if (reason === 'network') {
-            title = '语音引擎联网失败（network）';
-            text = 'Edge 尝试使用在线语音时被拦截。请改用手机自带浏览器，或在系统“文字转语音”中选择离线中文语音。';
-        }
-        els.envHintTitle.textContent = title;
-        els.envHintText.textContent = text;
-        els.envHint.hidden = false;
-        diagLog('环境提示：' + title);
-    }
-
-    function copyPageLink(prefix) {
-        const url = window.location.href;
-        copyText(url).then(function () {
-            setStatus((prefix || '链接已复制') + '，可在华为浏览器中粘贴打开。', 'success');
-            diagLog('复制链接成功：' + url);
-        }).catch(function () {
-            els.envHintText.textContent = '复制失败，请手动复制这个地址：' + url;
-            diagLog('复制链接失败，已显示地址');
-        });
-    }
-
-    function openInHuaweiBrowser() {
-        const url = window.location.href;
-        const scheme = window.location.protocol === 'http:' ? 'http' : 'https';
-        let leftPage = false;
-        const onHidden = function () {
-            if (document.hidden) leftPage = true;
-        };
-        document.addEventListener('visibilitychange', onHidden);
-        diagLog('尝试唤起华为浏览器');
-        try {
-            window.location.href = 'intent://' + url.replace(/^https?:\/\//, '') +
-                '#Intent;scheme=' + scheme +
-                ';package=com.huawei.browser;S.browser_fallback_url=' + encodeURIComponent(url) + ';end';
-        } catch (error) {
-            diagLog('唤起华为浏览器异常：' + error.message);
-        }
-        window.setTimeout(function () {
-            document.removeEventListener('visibilitychange', onHidden);
-            if (!leftPage) copyPageLink('未能唤起华为浏览器，链接已复制');
-        }, 2000);
     }
 
     function testSpeech() {
@@ -777,11 +698,6 @@
             diagLog('onerror：错误码=' + reason);
             renderDiagInfo('朗读错误码：' + reason);
             if (els.diagPanel) els.diagPanel.open = true;
-            if (reason === 'network') {
-                showEnvHint('network');
-            } else if (!voices.length) {
-                showEnvHint('no-voice');
-            }
 
             // 系统抢占或取消造成的轻微错误：同一次朗读自动重试一次，不打断整场听写。
             if ((reason === 'canceled' || reason === 'interrupted') && !state.retried) {
@@ -879,7 +795,6 @@
         diagLog('开始听写：' + words.length + ' 个词语，每词 ' + state.repeatCount + ' 遍，停顿 ' +
             state.pauseSeconds + ' 秒，发声方式=' + (engine === 'server' ? '后端语音' : '前端语音'));
         renderDiagInfo();
-        if (engine === 'web' && isAndroidEdge() && !voices.length) showEnvHint('no-voice');
         if (engine === 'server') {
             // 提前取第一段音频，减少开始时的等待。
             fetchServerAudio(state.words[0]).catch(function () { /* 失败在主流程提示 */ });
@@ -983,8 +898,6 @@
     });
     els.diagSpeakBtn.addEventListener('click', testSpeech);
     els.diagCopyBtn.addEventListener('click', copyDiagnostics);
-    els.openHuaweiBtn.addEventListener('click', openInHuaweiBrowser);
-    els.copyLinkBtn.addEventListener('click', function () { copyPageLink(); });
 
     document.addEventListener('visibilitychange', function () {
         diagLog('页面可见性：' + (document.hidden ? '后台' : '前台'));
