@@ -1,4 +1,4 @@
-/* 小刘听写 · 词语粘贴与朗读控制 · v20261121k */
+/* 小刘听写 · 词语粘贴与朗读控制 · v20261121l */
 (function () {
     'use strict';
 
@@ -116,7 +116,7 @@
         lines.push(voiceDetail());
         if (extra) lines.push('最近一次：' + extra);
         if (isAndroidEdge()) {
-            lines.push('建议：Edge 无中文语音时，改用华为自带浏览器，或在系统“文字转语音”中安装中文离线语音。');
+            lines.push('建议：Edge 无中文语音时，改用手机自带浏览器，或在系统“文字转语音”中安装中文离线语音。');
         }
         els.diagInfo.textContent = lines.join('\n');
     }
@@ -148,10 +148,10 @@
     function showEnvHint(reason) {
         if (!els.envHint || !isAndroidEdge()) return;
         let title = '当前浏览器没有可用的中文语音';
-        let text = '系统没有向 Edge 提供中文语音。请改用华为自带浏览器，或在系统“文字转语音”中安装中文离线语音。';
+        let text = '系统没有向 Edge 提供中文语音。请改用手机自带浏览器，或在系统“文字转语音”中安装中文离线语音。';
         if (reason === 'network') {
             title = '语音引擎联网失败（network）';
-            text = 'Edge 尝试使用在线语音时被拦截。请改用华为自带浏览器，或在系统“文字转语音”中选择离线中文语音。';
+            text = 'Edge 尝试使用在线语音时被拦截。请改用手机自带浏览器，或在系统“文字转语音”中选择离线中文语音。';
         }
         els.envHintTitle.textContent = title;
         els.envHintText.textContent = text;
@@ -657,7 +657,7 @@
     function checkCapabilities() {
         const warnings = [];
         if (!speech || typeof window.SpeechSynthesisUtterance !== 'function') {
-            warnings.push('当前浏览器不支持语音朗读，请改用 Android Chrome / Edge 或 iPhone / iPad Safari。');
+            warnings.push('当前浏览器不支持语音朗读，请使用手机自带的浏览器打开本页。');
         }
         if (window.location.protocol === 'file:') {
             warnings.push('请通过 HTTPS 或本地 HTTP 服务打开页面，否则浏览器会限制读取剪贴板。');
