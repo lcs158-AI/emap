@@ -104,6 +104,13 @@
             <option value="zh-CN-YunjianNeural">云健（男声，偏解说）</option>
         </select>
 
+        <label for="volume">音量</label>
+        <select id="volume">
+            <option value="0">默认（不增益）</option>
+            <option value="50" selected>提高 50%（推荐）</option>
+            <option value="100">提高 100%（可能失真）</option>
+        </select>
+
         <button id="speakBtn" type="button">合成并播放</button>
         <button id="copyBtn" class="ghost" type="button">复制诊断</button>
 
@@ -126,6 +133,7 @@
     var serverEl = document.getElementById('server');
     var textEl = document.getElementById('text');
     var voiceEl = document.getElementById('voice');
+    var volumeEl = document.getElementById('volume');
     var speakBtn = document.getElementById('speakBtn');
     var copyBtn = document.getElementById('copyBtn');
     var audio = document.getElementById('audio');
@@ -155,7 +163,8 @@
     function currentUrl() {
         var base = String(serverEl.value || '').trim().replace(/\/+$/, '');
         return base + '/api/tts/speak?text=' + encodeURIComponent(textEl.value.trim()) +
-            '&voice=' + encodeURIComponent(voiceEl.value);
+            '&voice=' + encodeURIComponent(voiceEl.value) +
+            '&volume=' + encodeURIComponent(volumeEl.value);
     }
 
     speakBtn.addEventListener('click', function () {
@@ -224,6 +233,7 @@
             '时间：' + new Date().toLocaleString(),
             '结果：' + lastResult,
             '请求：' + (lastRequestUrl || '尚未请求'),
+            '音色：' + voiceEl.options[voiceEl.selectedIndex].text + ' · 音量：' + volumeEl.options[volumeEl.selectedIndex].text,
             envEl.textContent,
             '详情：' + detailEl.textContent
         ].join('\n');
