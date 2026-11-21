@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#f5f6fb">
+    <title>小刘听写</title>
+    <link rel="stylesheet" href="dictation.css?v=20261121">
+    <script defer src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <script defer src="dictation.js?v=20261121"></script>
+</head>
+<body>
+    <div class="page-shell">
+        <header class="hero">
+            <div class="brand-mark" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v16H6.5A2.5 2.5 0 0 0 4 21.5v-16Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+                    <path d="M20 5.5A2.5 2.5 0 0 0 17.5 3H13v16h4.5a2.5 2.5 0 0 1 2.5 2.5v-16Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+                </svg>
+            </div>
+            <div class="hero-copy">
+                <p class="eyebrow">XIAOLIU DICTATION</p>
+                <h1>小刘听写</h1>
+                <p>拍一拍词语，校对错字，剩下的交给小刘。</p>
+            </div>
+            <div class="hero-steps" aria-label="使用步骤">
+                <span>拍照</span><i></i><span>校对</span><i></i><span>听写</span>
+            </div>
+        </header>
+
+        <noscript><div class="compat-warning">请开启浏览器 JavaScript 后使用小刘听写。</div></noscript>
+        <div id="compatWarning" class="compat-warning" role="alert" hidden></div>
+
+        <main class="page-main">
+            <section class="card capture-card" aria-labelledby="captureTitle">
+                <div class="section-heading">
+                    <span class="step-number">01</span>
+                    <div>
+                        <h2 id="captureTitle">拍照识别词语</h2>
+                        <p>拍摄课本、生字表或词语清单</p>
+                    </div>
+                </div>
+
+                <div id="photoStage" class="photo-stage">
+                    <div id="photoEmpty" class="photo-empty">
+                        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <path d="M14.5 5 13 3h-2L9.5 5H5a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-4.5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+                            <circle cx="12" cy="12.5" r="4" stroke="currentColor" stroke-width="1.6"/>
+                        </svg>
+                        <strong>把词语拍清楚</strong>
+                        <span>保持纸张平整，避免阴影和反光</span>
+                    </div>
+                    <img id="photoPreview" alt="待识别的词语照片" hidden>
+                    <div id="scanningBadge" class="scanning-badge" hidden>
+                        <span class="spinner"></span>
+                        <span>正在识别</span>
+                    </div>
+                </div>
+
+                <div id="fileActions" class="file-actions">
+                    <label class="button button-primary" for="cameraInput">
+                        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14.5 5 13 3h-2L9.5 5H5a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-4.5Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="12.5" r="3.5" stroke="currentColor" stroke-width="1.8"/></svg>
+                        拍照识别
+                    </label>
+                    <input id="cameraInput" class="visually-hidden" type="file" accept="image/*" capture="environment">
+                    <label class="button button-secondary" for="uploadInput">
+                        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" stroke-width="1.8"/><circle cx="8.5" cy="8.5" r="1.5" stroke="currentColor" stroke-width="1.5"/><path d="m4 17 5-5 4 4 2-2 5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        从相册选择
+                    </label>
+                    <input id="uploadInput" class="visually-hidden" type="file" accept="image/*">
+                </div>
+
+                <div id="ocrProgress" class="ocr-progress" hidden>
+                    <div class="progress-label"><span id="ocrStatus">准备识别</span><strong id="ocrPercent">0%</strong></div>
+                    <div class="progress-track"><div id="ocrProgressBar" class="progress-bar"></div></div>
+                </div>
+                <p id="pageStatus" class="page-status" role="status" aria-live="polite">文字识别在首次使用时需要联网加载组件。</p>
+
+                <aside class="browser-tip" aria-label="手机浏览器建议">
+                    <div class="tip-title">
+                        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/><path d="M12 11v6M12 7.2v.2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                        <strong>手机使用，推荐这些浏览器</strong>
+                    </div>
+                    <div class="browser-list">
+                        <div><span class="browser-tag">Android</span><strong>Chrome / Edge</strong></div>
+                        <div><span class="browser-tag">iPhone / iPad</span><strong>Safari</strong></div>
+                    </div>
+                    <p>请使用最新版浏览器。微信等应用的内置浏览器可能限制拍照或语音，建议点击“在浏览器打开”。</p>
+                </aside>
+            </section>
+
+            <section class="card words-card" aria-labelledby="wordsTitle">
+                <div class="section-heading">
+                    <span class="step-number">02</span>
+                    <div>
+                        <h2 id="wordsTitle">校对听写内容</h2>
+                        <p>识别可能有误差，开始前请检查一遍</p>
+                    </div>
+                </div>
+                <label class="field-label" for="wordsInput">听写词语</label>
+                <textarea id="wordsInput" rows="7" placeholder="每行一个词语，也可以用逗号、顿号或分号分隔。例如：&#10;认真&#10;坚持&#10;闪闪发光" spellcheck="false"></textarea>
+                <div class="word-meta">
+                    <span id="wordCount">0 个词语</span>
+                    <button id="clearWordsBtn" class="text-button" type="button">清空内容</button>
+                </div>
+                <div id="wordChips" class="word-chips" aria-label="听写词语预览">
+                    <span class="chips-empty">词语会按听写顺序显示在这里</span>
+                </div>
+            </section>
+
+            <section class="card settings-card" aria-labelledby="settingsTitle">
+                <div class="section-heading">
+                    <span class="step-number">03</span>
+                    <div>
+                        <h2 id="settingsTitle">设置听写节奏</h2>
+                        <p>根据孩子的书写速度调整</p>
+                    </div>
+                </div>
+                <div class="settings-grid">
+                    <label class="setting-field" for="repeatCount">
+                        <span class="setting-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none"><path d="M17 2.5 21 6l-4 3.5M3 10V8a2 2 0 0 1 2-2h16M7 21.5 3 18l4-3.5M21 14v2a2 2 0 0 1-2 2H3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </span>
+                        <span class="setting-copy"><strong>每词朗读</strong><small>同一词语连续朗读</small></span>
+                        <span class="number-field"><input id="repeatCount" type="number" min="1" max="5" step="1" value="2" inputmode="numeric"><span>次</span></span>
+                    </label>
+                    <label class="setting-field" for="pauseSeconds">
+                        <span class="setting-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="13" r="8" stroke="currentColor" stroke-width="1.8"/><path d="M12 9v4l2.5 1.5M9 2.5h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </span>
+                        <span class="setting-copy"><strong>词语停顿</strong><small>读完一词后再停顿</small></span>
+                        <span class="number-field"><input id="pauseSeconds" type="number" min="0" max="30" step="1" value="3" inputmode="numeric"><span>秒</span></span>
+                    </label>
+                </div>
+                <p class="setting-note">同一词语的重复朗读之间会保留短暂自然间隔。</p>
+            </section>
+
+            <section class="card playback-card" aria-labelledby="playbackTitle">
+                <div class="section-heading">
+                    <span class="step-number">04</span>
+                    <div>
+                        <h2 id="playbackTitle">开始听写</h2>
+                        <p>准备好纸笔，点击开始</p>
+                    </div>
+                </div>
+
+                <div id="playbackDisplay" class="playback-display">
+                    <span id="playbackKicker">准备就绪</span>
+                    <strong id="currentWord">等待开始</strong>
+                    <span id="playbackDetail">共 0 个词语</span>
+                </div>
+                <div id="playbackProgress" class="playback-progress" hidden>
+                    <div class="progress-track"><div id="playbackProgressBar" class="progress-bar"></div></div>
+                    <span id="playbackPercent">0%</span>
+                </div>
+
+                <button id="startBtn" class="button start-button" type="button">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 9 6-9 6V6Z" fill="currentColor" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+                    <span id="startButtonText">开始听写</span>
+                </button>
+                <div class="playback-controls">
+                    <button id="pauseBtn" class="button button-secondary" type="button" disabled>
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 6v12M16 6v12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+                        <span id="pauseButtonText">暂停</span>
+                    </button>
+                    <button id="stopBtn" class="button button-quiet" type="button" disabled>
+                        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.8"/></svg>
+                        停止
+                    </button>
+                </div>
+            </section>
+        </main>
+
+        <footer class="page-footer">
+            <p>照片仅在本机浏览器中识别，不会上传到服务器。</p>
+            <p>中文朗读音色由当前设备和浏览器提供。</p>
+        </footer>
+    </div>
+</body>
+</html>
