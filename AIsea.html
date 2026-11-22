@@ -11,7 +11,7 @@
         if (window.XIAOLIU_EMBED) document.documentElement.classList.add('xiaoliu-embed');
         if (window.MAP_MIRROR_MODE) document.documentElement.classList.add('mirror-mode');
     </script>
-    <title>跬步地图3.13</title>
+    <title>跬步地图3.12</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.5.2/ol.css">
     <script src="/js/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
@@ -67,14 +67,6 @@
             <div id="thematicDropdown" class="dropdown-menu" style="display: none;">
                 <button id="socioeconomicBtn" class="dropdown-btn" data-title="社会经济" onclick="window.location.href='ThematicMap.html'">📊 社会经济</button>
                 <button id="worldCupBtn" class="dropdown-btn" data-title="2026世界杯">⚽ 2026世界杯</button>
-            </div>
-        </div>
-        <div class="dropdown">
-            <button id="sea3dBtn" class="action-btn" data-title="三维用海"
-                onclick="event.stopPropagation(); var m = document.getElementById('sea3dDropdown'); m.style.display = m.style.display === 'block' ? 'none' : 'block';">🌊</button>
-            <div id="sea3dDropdown" class="dropdown-menu" style="display: none;">
-                <button class="dropdown-btn" data-title="Three.js 版三维用海"
-                    onclick="window.open('sea3d/index.html', '_blank')">🌊 Three.js 沙盘</button>
             </div>
         </div>
     </div>
