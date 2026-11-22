@@ -95,10 +95,10 @@ function prepareColorStops(stops) {
 }
 
 const BED_STOPS = prepareColorStops([
-    [-26, 0x24424f],
-    [-16, 0x365a60],
-    [-8, 0x5d7a6d],
-    [-2.5, 0x9aa27c],
+    [-26, 0x2f261b],
+    [-16, 0x463a29],
+    [-8, 0x6a5638],
+    [-2.5, 0x9c8a63],
     [0, 0xc7b98c]
 ]);
 
@@ -407,8 +407,8 @@ export function createEnvironment({ span }) {
             .replace(
                 '#include <dithering_fragment>',
                 'float d = clamp(-vTerrainY / 22.0, 0.0, 1.0);\n' +
-                'gl_FragColor.rgb *= mix(1.0, 0.38, d);\n' +
-                'gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(0.05, 0.18, 0.32), d * 0.55);\n' +
+                'gl_FragColor.rgb *= mix(1.0, 0.55, d);\n' +
+                'gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(0.10, 0.09, 0.07), d * 0.45);\n' +
                 '#include <dithering_fragment>'
             );
     };
@@ -454,7 +454,7 @@ export function createEnvironment({ span }) {
     soilWallGeometry.computeVertexNormals();
     soilWallGeometry.computeBoundingSphere();
     const soilMaterial = new THREE.MeshStandardMaterial({
-        color: 0x3a3328,
+        color: 0x6b4f34,
         roughness: 1,
         metalness: 0,
         side: THREE.DoubleSide
@@ -463,7 +463,7 @@ export function createEnvironment({ span }) {
 
     const soilBottom = new THREE.Mesh(
         new THREE.PlaneGeometry(size, size),
-        new THREE.MeshStandardMaterial({ color: 0x1f1c17, roughness: 1, metalness: 0, side: THREE.DoubleSide })
+        new THREE.MeshStandardMaterial({ color: 0x3a2b1d, roughness: 1, metalness: 0, side: THREE.DoubleSide })
     );
     soilBottom.rotation.x = -Math.PI / 2;
     soilBottom.position.y = waterBottom;
@@ -492,8 +492,8 @@ export function createEnvironment({ span }) {
     // ---------- 水体：四周半透明侧壁，便于观察水层范围 ----------
     const wallPositions = [];
     const wallColors = [];
-    const topColor = new THREE.Color(0x8fd8f0);
-    const bottomColor = new THREE.Color(0x16506b);
+    const topColor = new THREE.Color(0x9fe6f5);
+    const bottomColor = new THREE.Color(0x0d4a63);
 
     function pushWall(a, b) {
         const corners = [
@@ -525,7 +525,7 @@ export function createEnvironment({ span }) {
         new THREE.MeshStandardMaterial({
             vertexColors: true,
             transparent: true,
-            opacity: 0.22,
+            opacity: 0.38,
             roughness: 0.55,
             metalness: 0.05,
             side: THREE.DoubleSide,
@@ -542,13 +542,13 @@ export function createEnvironment({ span }) {
     const water = new THREE.Mesh(
         waterGeometry,
         new THREE.MeshStandardMaterial({
-            color: 0x3a9cc4,
+            color: 0x1f8fb0,
             transparent: true,
             opacity: 0.5,
             roughness: 0.25,
             metalness: 0.35,
-            emissive: new THREE.Color(0x0b3550),
-            emissiveIntensity: 0.3,
+            emissive: new THREE.Color(0x0a3a4d),
+            emissiveIntensity: 0.35,
             normalMap: waterNormalTexture,
             normalScale: new THREE.Vector2(1.3, 1.3),
             side: THREE.DoubleSide,

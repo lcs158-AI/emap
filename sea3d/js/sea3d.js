@@ -12,7 +12,7 @@ const SeaUseData = window.SeaUseData;
 const DEMO_URL = '../data/sea_use/demo.geojson';
 const EARTH_RADIUS = 6378137;
 const MAX_LABELS = 200;
-const SKY_COLOR = 0x6fb6dc;
+const SKY_COLOR = 0x8ecfe8;
 
 const dom = {
     viewport: document.getElementById('viewport'),

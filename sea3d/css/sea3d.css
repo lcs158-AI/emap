@@ -26,7 +26,7 @@ body {
     color: var(--text);
     font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
     background:
-        linear-gradient(180deg, #9ad4ea 0%, #6fb6dc 46%, #4e94b8 100%);
+        linear-gradient(180deg, #b6e6f6 0%, #8ecfe8 46%, #5fa8c8 100%);
     -webkit-tap-highlight-color: transparent;
 }
 
