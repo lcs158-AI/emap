@@ -573,6 +573,7 @@ function applyLayerVisibility() {
         state.env.seabed.visible = dom.layers.seabed.checked;
         state.env.waterBody.visible = dom.layers.waterBody.checked;
         state.env.water.visible = dom.layers.surface.checked;
+        if (state.env.foam) state.env.foam.visible = dom.layers.surface.checked;
     }
     if (!dom.layers.labels.checked) {
         state.labelItems.forEach((item) => { item.el.style.display = 'none'; });
