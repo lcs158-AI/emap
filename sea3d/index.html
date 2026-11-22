@@ -3,8 +3,8 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <title>三维用海 1.0 · 跬步</title>
-    <link rel="stylesheet" href="css/sea3d.css?v=20261122">
+    <title>三维用海 1.2 · 跬步</title>
+    <link rel="stylesheet" href="css/sea3d.css?v=20261123c">
 </head>
 
 <body>
@@ -30,12 +30,15 @@
     <aside id="controlPanel" class="panel control-panel">
         <section class="panel-section">
             <h2>图层</h2>
+            <label class="switch"><input type="checkbox" id="layerLand" checked><span>陆地</span></label>
+            <label class="switch"><input type="checkbox" id="layerSeabed" checked><span>海床</span></label>
+            <label class="switch"><input type="checkbox" id="layerWaterBody" checked><span>水体</span></label>
+            <label class="switch"><input type="checkbox" id="layerSurface" checked><span>海面</span></label>
+            <label class="switch"><input type="checkbox" id="layerLabels" checked><span>名称标签</span></label>
             <label class="switch"><input type="checkbox" id="layerPrisms" checked><span>棱体</span></label>
             <label class="switch"><input type="checkbox" id="layerPipelines" checked><span>管线</span></label>
             <label class="switch"><input type="checkbox" id="layerNodes" checked><span>管线节点</span></label>
-            <label class="switch"><input type="checkbox" id="layerLabels" checked><span>名称标签</span></label>
-            <label class="switch"><input type="checkbox" id="layerSurface" checked><span>海面</span></label>
-            <label class="switch"><input type="checkbox" id="layerSeabed" checked><span>海床网格</span></label>
+            <p class="hint">地形为模拟效果；海床半透明，便于查看埋设物。后续接入实测海域面、陆地面、水深点</p>
         </section>
 
         <section class="panel-section">
@@ -76,11 +79,14 @@
     </aside>
 
     <div class="panel legend">
+        <span><i class="swatch swatch-land"></i>陆地</span>
+        <span><i class="swatch swatch-seabed"></i>海床</span>
+        <span><i class="swatch swatch-waterbody"></i>水体</span>
+        <span><i class="swatch swatch-surface"></i>海面</span>
         <span><i class="swatch swatch-prism"></i>棱体</span>
         <span><i class="swatch swatch-pipe"></i>管线</span>
         <span><i class="swatch swatch-node"></i>节点</span>
-        <span><i class="swatch swatch-surface"></i>海面</span>
-        <span><i class="swatch swatch-seabed"></i>海床</span>
+        <span class="legend-hint">拖动旋转 · 右键 / 双指平移 · 滚轮 / 双指缩放 · 点击要素查看信息</span>
     </div>
 
     <div class="compass" id="compass">
@@ -89,8 +95,6 @@
             <i class="compass-needle"></i>
         </div>
     </div>
-
-    <div class="hint-bar">拖动旋转 · 右键 / 双指平移 · 滚轮 / 双指缩放 · 点击要素查看信息</div>
 
     <div id="loading" class="loading" hidden>
         <span class="spinner"></span>
@@ -101,6 +105,6 @@
     <input type="file" id="fileInput" accept=".geojson,.json,.kml,application/json,application/vnd.google-earth.kml+xml" hidden>
 
     <script src="../js/sea_use_data.js?v=20261122"></script>
-    <script type="module" src="js/sea3d.js?v=20261122b"></script>
+    <script type="module" src="js/sea3d.js?v=20261123c"></script>
 </body>
 </html>

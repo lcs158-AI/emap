@@ -5,8 +5,8 @@
     <Placemark>
       <name>示例棱体A · 人工鱼礁区</name>
       <ExtendedData>
-        <Data name="底高"><value>-12</value></Data>
-        <Data name="顶高"><value>-6</value></Data>
+        <Data name="底高"><value>-19.5</value></Data>
+        <Data name="顶高"><value>-16.5</value></Data>
         <Data name="颜色"><value>#2e7dd1</value></Data>
         <Data name="说明"><value>示例数据（非真实用海项目）</value></Data>
       </ExtendedData>
@@ -23,8 +23,8 @@
     <Placemark>
       <name>示例棱体B · 养殖用海</name>
       <ExtendedData>
-        <Data name="底高"><value>-8</value></Data>
-        <Data name="顶高"><value>1.5</value></Data>
+        <Data name="底高"><value>-19</value></Data>
+        <Data name="顶高"><value>2.5</value></Data>
         <Data name="颜色"><value>#1fae8a</value></Data>
       </ExtendedData>
       <Polygon>
@@ -40,8 +40,8 @@
     <Placemark>
       <name>示例棱体C · 疏浚区</name>
       <ExtendedData>
-        <Data name="底高"><value>-15</value></Data>
-        <Data name="顶高"><value>-3</value></Data>
+        <Data name="底高"><value>-24</value></Data>
+        <Data name="顶高"><value>0</value></Data>
         <Data name="颜色"><value>#e2685c</value></Data>
       </ExtendedData>
       <Polygon>
@@ -57,15 +57,15 @@
     <Placemark>
       <name>示例棱体D · 桥梁基座</name>
       <ExtendedData>
-        <Data name="底高"><value>-10</value></Data>
-        <Data name="顶高"><value>4</value></Data>
+        <Data name="底高"><value>-23</value></Data>
+        <Data name="顶高"><value>6</value></Data>
         <Data name="颜色"><value>#f0a53e</value></Data>
       </ExtendedData>
       <Polygon>
         <outerBoundaryIs>
           <LinearRing>
             <coordinates>
-              111.2513,21.4496,4 111.2517,21.4496,4 111.2517,21.4500,4 111.2513,21.4500,4 111.2513,21.4496,4
+              111.2513,21.4496,6 111.2517,21.4496,6 111.2517,21.4500,6 111.2513,21.4500,6 111.2513,21.4496,6
             </coordinates>
           </LinearRing>
         </outerBoundaryIs>
@@ -79,7 +79,7 @@
       </ExtendedData>
       <LineString>
         <coordinates>
-          111.2500,21.4490,-8 111.2505,21.4496,-10.5 111.2510,21.4502,-9 111.2515,21.4508,-12
+          111.2500,21.4490,-21.5 111.2505,21.4496,-21 111.2510,21.4502,-20.5 111.2515,21.4508,-20.5
         </coordinates>
       </LineString>
     </Placemark>
@@ -91,7 +91,7 @@
       </ExtendedData>
       <LineString>
         <coordinates>
-          111.2492,21.4508,-6 111.2498,21.4512,-7.5 111.2506,21.4516,-9
+          111.2492,21.4508,-16 111.2498,21.4512,-18 111.2506,21.4516,-20
         </coordinates>
       </LineString>
     </Placemark>

@@ -6,11 +6,13 @@
 import * as THREE from '../lib/three.module.js';
 import { OrbitControls } from '../lib/OrbitControls.js';
 import { mergeGeometries } from '../lib/BufferGeometryUtils.js';
+import { createEnvironment } from './sea3d_env.js';
 
 const SeaUseData = window.SeaUseData;
 const DEMO_URL = '../data/sea_use/demo.geojson';
 const EARTH_RADIUS = 6378137;
 const MAX_LABELS = 200;
+const SKY_COLOR = 0x6fb6dc;
 
 const dom = {
     viewport: document.getElementById('viewport'),
@@ -33,8 +35,10 @@ const dom = {
         pipelines: document.getElementById('layerPipelines'),
         nodes: document.getElementById('layerNodes'),
         labels: document.getElementById('layerLabels'),
-        surface: document.getElementById('layerSurface'),
-        seabed: document.getElementById('layerSeabed')
+        land: document.getElementById('layerLand'),
+        seabed: document.getElementById('layerSeabed'),
+        waterBody: document.getElementById('layerWaterBody'),
+        surface: document.getElementById('layerSurface')
     }
 };
 
@@ -56,10 +60,13 @@ try {
 }
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.setClearColor(0x000000, 0);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
 dom.viewport.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
+scene.background = new THREE.Color(SKY_COLOR);
+scene.fog = new THREE.Fog(SKY_COLOR, 800, 3000);
 const camera = new THREE.PerspectiveCamera(45, 1, 0.5, 100000);
 
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -71,10 +78,10 @@ controls.zoomSpeed = 0.9;
 controls.screenSpacePanning = false;
 controls.maxPolarAngle = Math.PI * 0.95;
 
-const hemiLight = new THREE.HemisphereLight(0x9fd6ff, 0x0a1c2b, 1.15);
+const hemiLight = new THREE.HemisphereLight(0xd0f0ff, 0x0d2a3a, 0.9);
 scene.add(hemiLight);
-const sunLight = new THREE.DirectionalLight(0xffffff, 1.85);
-sunLight.position.set(-0.7, 1.5, -0.9);
+const sunLight = new THREE.DirectionalLight(0xfff4da, 2.0);
+sunLight.position.set(-1, 1.6, 0.7).normalize().multiplyScalar(500);
 scene.add(sunLight);
 
 const root = new THREE.Group();
@@ -86,12 +93,9 @@ const groupPipelines = new THREE.Group();
 const groupNodes = new THREE.Group();
 root.add(groupPrisms, groupPipelines, groupNodes);
 
-const groupSurface = new THREE.Group();
-const groupSeabed = new THREE.Group();
-scene.add(groupSurface, groupSeabed);
-
 const state = {
     model: null,
+    env: null,
     span: 100,
     seabedY: -20,
     exaggeration: 1,
@@ -201,8 +205,11 @@ function clearModel() {
     disposeGroup(groupPrisms);
     disposeGroup(groupPipelines);
     disposeGroup(groupNodes);
-    disposeGroup(groupSurface);
-    disposeGroup(groupSeabed);
+    if (state.env) {
+        scene.remove(state.env.group);
+        state.env.dispose();
+        state.env = null;
+    }
     state.pickables = [];
     state.prismMeshes.clear();
     state.labelItems = [];
@@ -415,50 +422,6 @@ function updateNodeMatrices() {
     mesh.computeBoundingSphere();
 }
 
-// ---------- 海面与海床 ----------
-
-function buildEnvironment(metrics) {
-    const size = metrics.span * 6;
-
-    const water = new THREE.Mesh(
-        new THREE.PlaneGeometry(size, size),
-        new THREE.MeshPhysicalMaterial({
-            color: 0x2e86c4,
-            transparent: true,
-            opacity: 0.3,
-            roughness: 0.25,
-            metalness: 0.05,
-            side: THREE.DoubleSide,
-            depthWrite: false
-        })
-    );
-    water.rotation.x = -Math.PI / 2;
-    water.position.y = 0;
-    groupSurface.add(water);
-
-    state.seabedY = state.model.extent.minHeight - Math.max(4, metrics.span * 0.06);
-
-    const bed = new THREE.Mesh(
-        new THREE.PlaneGeometry(size, size),
-        new THREE.MeshStandardMaterial({
-            color: 0x0a1e2d,
-            roughness: 0.95,
-            metalness: 0,
-            side: THREE.DoubleSide
-        })
-    );
-    bed.rotation.x = -Math.PI / 2;
-    bed.position.y = state.seabedY;
-    groupSeabed.add(bed);
-
-    const grid = new THREE.GridHelper(size, 60, 0x2c6f96, 0x143649);
-    grid.position.y = state.seabedY + 0.05;
-    grid.material.transparent = true;
-    grid.material.opacity = 0.5;
-    grid.material.depthWrite = false;
-    groupSeabed.add(grid);
-}
-
 // ---------- 标签 ----------
 
 function addLabel(name, meta, x, y, z, kind) {
@@ -570,7 +533,6 @@ function buildModel(model, sourceName) {
 
     const metrics = computeMetrics(model);
     state.span = metrics.span;
-    state.seabedY = model.extent.minHeight - Math.max(4, metrics.span * 0.06);
     state.labelDistance = metrics.span * 5;
 
     model.prisms.forEach((prism) => addPrism(prism, metrics.proj));
@@ -579,7 +541,10 @@ function buildModel(model, sourceName) {
     model.pipelines.forEach((pipe) => addPipeline(pipe, metrics.proj, nodeList));
     buildNodes(nodeList);
 
-    buildEnvironment(metrics);
+    state.env = createEnvironment({ span: metrics.span });
+    scene.add(state.env.group);
+    state.seabedY = state.env.seabedMin;
+
     root.scale.y = state.exaggeration;
     updateNodeMatrices();
 
@@ -589,7 +554,7 @@ function buildModel(model, sourceName) {
     camera.far = metrics.span * 40;
     camera.updateProjectionMatrix();
 
-    scene.fog = new THREE.Fog(0x081a29, metrics.span * 1.6, metrics.span * 6);
+    scene.fog = new THREE.Fog(SKY_COLOR, metrics.span * 1.4, metrics.span * 5.2);
 
     applyLayerVisibility();
     updateSummary(model);
@@ -603,8 +568,12 @@ function applyLayerVisibility() {
     groupPrisms.visible = dom.layers.prisms.checked;
     groupPipelines.visible = dom.layers.pipelines.checked;
     groupNodes.visible = dom.layers.nodes.checked;
-    groupSurface.visible = dom.layers.surface.checked;
-    groupSeabed.visible = dom.layers.seabed.checked;
+    if (state.env) {
+        state.env.land.visible = dom.layers.land.checked;
+        state.env.seabed.visible = dom.layers.seabed.checked;
+        state.env.waterBody.visible = dom.layers.waterBody.checked;
+        state.env.water.visible = dom.layers.surface.checked;
+    }
     if (!dom.layers.labels.checked) {
         state.labelItems.forEach((item) => { item.el.style.display = 'none'; });
     }
@@ -797,6 +766,7 @@ function animate(now) {
     }
 
     controls.update();
+    if (state.env) state.env.update(now / 1000, state.frame);
     renderer.render(scene, camera);
 
     state.frame++;

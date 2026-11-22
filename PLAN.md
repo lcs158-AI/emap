@@ -229,6 +229,7 @@ games 中继 -> 扩展 /map 命名空间 -> js/map_remote.js（电脑端）
 - `sea3d/index.html`
 - `sea3d/css/sea3d.css`
 - `sea3d/js/sea3d.js`（ES module）
+- `sea3d/js/sea3d_env.js`（模拟地形：陆地 / 海床 / 水体 / 海面，预留实测数据接入）
 - `sea3d/lib/three.module.js`（复制 `games/lib/three.module.js`，r160）
 - `sea3d/lib/OrbitControls.js`（r160 examples 版本，import 指向本地 three）
 - `sea3d/lib/BufferGeometryUtils.js`（如需合并几何）
@@ -379,6 +380,8 @@ games 中继 -> 扩展 /map 命名空间 -> js/map_remote.js（电脑端）
 - 激光落点高亮与双端同步：`AIsea.html` 3.10 -> 3.11，落点改为白芯红晕高亮脉冲光点，手机镜像端复用 `window.MapLaser` 同步渲染点/线/圈并同步清除，相关静态资源升级为 `css/map.css?v=20261120f`、`js/map_remote.js?v=20261120g`、`js/map_mirror.js?v=20261120g`；仅前端变更，中继保持 1.5.0。
 - 弹窗关闭同步：`AIsea.html` 3.11 -> 3.12，两端改为监听弹窗 overlay 的 `change:position`，修复点「×」关闭不同步的问题（手机与电脑双向），相关静态资源升级为 `js/map_remote.js?v=20261120h`、`js/map_mirror.js?v=20261120h`；仅前端变更，中继保持 1.5.0。
 - 三维用海 Three.js 版落地：新增 `js/sea_use_data.js`、`data/sea_use/demo.geojson`、`data/sea_use/demo.kml` 与 `sea3d/`，相关静态资源使用 `?v=20261122`；按当前安排先单体运行（直接访问 `sea3d/index.html`），暂不在 `AIsea.html` 加入口，`AIsea.html` 保持 3.12，待 Three.js 版完善后再接入工具栏并同步版本号。
+- 三维用海 Three.js 版 1.0 -> 1.1：场景改为日间海战风格（浅蓝天空、雾、暖色阳光、ACES 色调映射）；新增 `sea3d/js/sea3d_env.js` 模拟地形，海岸线按西北陆地、东南开海布置，海洋拆为海床 / 水体 / 海面三层，陆地/海床/水体/海面可分别显隐；预留实测「海域面 / 陆地面 / 水深点」接入接口；相关静态资源升级为 `?v=20261123`。`AIsea.html` 仍保持 3.12，暂不加入口。
+- 三维用海 Three.js 版 1.1 -> 1.2：示例数据按用海类型真实竖向占位调整（养殖区 -19~2.5、人工鱼礁 -19.5~-16.5、疏浚区 -24~0、桥梁 -23~6，管线埋于海床下约 1.5~2 米）；海床改为半透明（85%）并关闭深度写入，默认可见埋设管线、桥梁下部与疏浚区；相关静态资源升级为 `?v=20261123c`。
 
 ## 7. 执行顺序
 
