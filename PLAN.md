@@ -378,6 +378,7 @@ games 中继 -> 扩展 /map 命名空间 -> js/map_remote.js（电脑端）
 - 本地操作优先与断开手机：`AIsea.html` 3.09 -> 3.10，中继 1.4.0 -> 1.5.0（新增 `map-kick`/`map-kicked`/`map-kick-result`），电脑端本地拖拽/滚轮后 1.2–1.8 秒内忽略手机视图类指令，面板新增「断开手机（N）」按钮并连带更换配对码，相关静态资源升级为 `js/map_remote.js?v=20261120f`、`css/map.css?v=20261120e`。
 - 激光落点高亮与双端同步：`AIsea.html` 3.10 -> 3.11，落点改为白芯红晕高亮脉冲光点，手机镜像端复用 `window.MapLaser` 同步渲染点/线/圈并同步清除，相关静态资源升级为 `css/map.css?v=20261120f`、`js/map_remote.js?v=20261120g`、`js/map_mirror.js?v=20261120g`；仅前端变更，中继保持 1.5.0。
 - 弹窗关闭同步：`AIsea.html` 3.11 -> 3.12，两端改为监听弹窗 overlay 的 `change:position`，修复点「×」关闭不同步的问题（手机与电脑双向），相关静态资源升级为 `js/map_remote.js?v=20261120h`、`js/map_mirror.js?v=20261120h`；仅前端变更，中继保持 1.5.0。
+- 三维用海 Three.js 版落地：`AIsea.html` 3.12 -> 3.13，新增 `js/sea_use_data.js`、`data/sea_use/demo.geojson`、`data/sea_use/demo.kml` 与 `sea3d/`；入口先提供「Three.js 沙盘」，「跬步地球版」待 Cesium 版实施后补充，相关静态资源使用 `?v=20261122`。
 
 ## 7. 执行顺序
 

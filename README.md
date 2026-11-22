@@ -23,8 +23,13 @@ emap/
 │   ├── cesium/           # Cesium 引擎（自包含）
 │   └── data/JILONG20260826.kml
 ├── jsoncanvas/           # CANVAS 地图：基于 CANVAS + GeoJSON 的 WebGIS 研发
-└── covid19/              # COVID-19 传播分析：echarts 疫情扩散与输入性风险
+├── covid19/              # COVID-19 传播分析：echarts 疫情扩散与输入性风险
     └── echarts/          # echarts 4.9.0 本地库（含 world.js 世界地图）
+├── sea3d/                # 三维用海 · Three.js 沙盘（独立页面）
+│   ├── index.html
+│   ├── css/sea3d.css
+│   ├── js/sea3d.js
+│   └── lib/              # three r160 + OrbitControls + BufferGeometryUtils
 │
 │   ── 根目录板块入口 ──
 ├── AIsea.html            # 跬步地图：OpenLayers 平面地图（主应用）
@@ -33,9 +38,9 @@ emap/
 │
 │   ── 共享资源（板块共用）──
 ├── css/                  # 公共样式（home / map / jsoncanvas 等）
-├── js/                   # 公共脚本（config / utils / map 等）
+├── js/                   # 公共脚本（config / utils / map / sea_use_data 等）
 ├── geojson/              # 公共地理数据（全国/台湾/日本/世界）
-├── data/                 # 公共 JSON 数据
+├── data/                 # 公共 JSON 数据（含 sea_use 示例数据）
 ├── pics/                 # 公共图片资源
 └── libs/                 # 公共第三方库
 ```
@@ -47,6 +52,7 @@ emap/
 | 跬步地图 | `AIsea.html` | OpenLayers 7.5.2 | 平面地图，支持定位、测量、实时潮汐、图层管理、本地图层编辑、手机扫码遥控，及本地/上传数据可视化 |
 | 跬步地球 | `global/index.html` | Cesium | 3D 地球，支持定位、测量、实时潮汐 |
 | CANVAS 地图 | `jsoncanvas/index.html` | 原生 Canvas + GeoJSON + jQuery UI | WebGIS 研发示例，支持放大/缩小/平移/全图 |
+| 三维用海（Three.js 版） | `sea3d/index.html` | Three.js r160 | 独立三维沙盘，展示棱体底/顶高程与管线逐节点高程，支持视角预设、高程夸张、拾取与本地导入 |
 | COVID-19 | `covid19/index.html` | echarts 4.9.0 | 2020 年全球疫情扩散与输入性风险分析（研学作品） |
 | 小刘游戏 | `games/index.html` | Three.js | 3D 体感空战游戏，支持键盘操作、手机扫码遥控、姿态体感、语音控制 |
 | 小刘听写 | `dictation/index.html` | Web Speech API + Edge TTS | 粘贴 AI 识别的词语，支持结果校对、每词朗读次数、词间停顿及播放控制；本机语音不可用时自动改用后端语音 |
@@ -71,8 +77,28 @@ emap/
   - **断开手机遥控**：面板底部「断开手机（N）」可一键断开所有手机并立即更换配对码，旧链接与旧配对码随即失效，手机需用新码重新配对
   - 两端需使用同一账号；电脑端本地导入的文件（浏览器本地数据）不会自动传到手机，需要一致时请先上传到账号数据
   - 手机直接打开 `AIsea.html` 时（非镜像模式）遥控入口自动隐藏，直接用触摸操作地图
+- **三维用海（Three.js 版）**：从跬步地图工具栏「🌊 三维用海 → Three.js 沙盘」进入，或直接访问 `sea3d/index.html`
+  - 打开即加载 `data/sea_use/demo.geojson`（示例数据，非真实用海项目）；也可「导入数据」选择本地 `.geojson` / `.json` / `.kml`
+  - 以数据范围中心做局部米制投影（x 东、z 南、y 高程），小范围近似，适合几百米至数公里的用海单元
+  - 棱体按底高/顶高拉伸成棱柱并描边，管线按每个节点的第三维高程逐段成管，节点以球体显示
+  - 支持 1×/2×/5×/10× 高程夸张（标签与信息始终显示真实高程）、俯视/斜视/侧视/水下视角、图层开关与点击拾取
+  - 两版三维用海共用 `js/sea_use_data.js` 解析，字段约定见本节末尾
+
 - **游戏**：键盘 / 手机 / 体感 / 语音多种操控方式
 - **小刘听写**：访问 `dictation/index.html`，先用豆包、微信或 QQ 等 AI 工具拍照提取词语，复制文字后点「粘贴中文」或「粘贴英文」导入；页面分别只保留汉字或英文单词，并以空格分隔，也支持直接在输入框粘贴或手动输入。校对后可设置每词朗读次数和词间停顿。浏览器支持 Web Speech API 且存在可用语音时使用本机朗读，词语不上传；本机语音不可用或朗读报错时，自动改用后端 Edge TTS（`/api/tts/speak`）合成音频，此时词语会发送到后端，需要联网。后端地址可用 `?server=` 指定，默认 `https://lzy-fastapi.onrender.com`
+
+### 三维用海数据字段
+
+| 数据字段 | 优先级（GeoJSON / KML 通用） | 说明 |
+|------|------|------|
+| 底高 | `bottom`、`bottomHeight`、`底高` | 高程（米），负值水下 |
+| 顶高 | `top`、`topHeight`、`顶高` | 小于底高时自动交换并告警 |
+| 高程 | `elevation`、`height`、`高程` | 缺顶高时作为顶高；管线节点缺第三维时作为节点高程 |
+| 名称 | `name`、`名称` | 缺省为「棱体 N / 管线 N」 |
+| 颜色 | `color`、`fill`、`stroke`、`颜色` | 支持 `#RRGGBB`、`rgb()`、CSS 颜色名与 KML 8 位色 |
+| 线宽 | `width`、`线宽` | 管线直径（米），缺省 4 |
+
+> 说明：GeoJSON 的 `Polygon`/`MultiPolygon` 视为棱体，`LineString`/`MultiLineString` 视为管线；KML 通过 `ExtendedData` 读取上述中英文字段，不依赖 Cesium 的高度推断，保证两端结果一致。多边形空洞会忽略，无法解析的要素会跳过并在页面「数据告警」中列出。
 
 ## 本地运行
 

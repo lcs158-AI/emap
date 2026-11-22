@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>示例数据（非真实用海项目）</name>
+    <Placemark>
+      <name>示例棱体A · 人工鱼礁区</name>
+      <ExtendedData>
+        <Data name="底高"><value>-12</value></Data>
+        <Data name="顶高"><value>-6</value></Data>
+        <Data name="颜色"><value>#2e7dd1</value></Data>
+        <Data name="说明"><value>示例数据（非真实用海项目）</value></Data>
+      </ExtendedData>
+      <Polygon>
+        <outerBoundaryIs>
+          <LinearRing>
+            <coordinates>
+              111.2494,21.4493,0 111.2499,21.4493,0 111.2499,21.4497,0 111.2494,21.4497,0 111.2494,21.4493,0
+            </coordinates>
+          </LinearRing>
+        </outerBoundaryIs>
+      </Polygon>
+    </Placemark>
+    <Placemark>
+      <name>示例棱体B · 养殖用海</name>
+      <ExtendedData>
+        <Data name="底高"><value>-8</value></Data>
+        <Data name="顶高"><value>1.5</value></Data>
+        <Data name="颜色"><value>#1fae8a</value></Data>
+      </ExtendedData>
+      <Polygon>
+        <outerBoundaryIs>
+          <LinearRing>
+            <coordinates>
+              111.2502,21.4494,0 111.2508,21.4494,0 111.2508,21.4500,0 111.2502,21.4500,0 111.2502,21.4494,0
+            </coordinates>
+          </LinearRing>
+        </outerBoundaryIs>
+      </Polygon>
+    </Placemark>
+    <Placemark>
+      <name>示例棱体C · 疏浚区</name>
+      <ExtendedData>
+        <Data name="底高"><value>-15</value></Data>
+        <Data name="顶高"><value>-3</value></Data>
+        <Data name="颜色"><value>#e2685c</value></Data>
+      </ExtendedData>
+      <Polygon>
+        <outerBoundaryIs>
+          <LinearRing>
+            <coordinates>
+              111.2496,21.4505,0 111.2504,21.4503,0 111.2509,21.4509,0 111.2501,21.4512,0 111.2496,21.4505,0
+            </coordinates>
+          </LinearRing>
+        </outerBoundaryIs>
+      </Polygon>
+    </Placemark>
+    <Placemark>
+      <name>示例棱体D · 桥梁基座</name>
+      <ExtendedData>
+        <Data name="底高"><value>-10</value></Data>
+        <Data name="顶高"><value>4</value></Data>
+        <Data name="颜色"><value>#f0a53e</value></Data>
+      </ExtendedData>
+      <Polygon>
+        <outerBoundaryIs>
+          <LinearRing>
+            <coordinates>
+              111.2513,21.4496,4 111.2517,21.4496,4 111.2517,21.4500,4 111.2513,21.4500,4 111.2513,21.4496,4
+            </coordinates>
+          </LinearRing>
+        </outerBoundaryIs>
+      </Polygon>
+    </Placemark>
+    <Placemark>
+      <name>示例管线1 · 海底电缆</name>
+      <ExtendedData>
+        <Data name="颜色"><value>#ffb02e</value></Data>
+        <Data name="线宽"><value>4</value></Data>
+      </ExtendedData>
+      <LineString>
+        <coordinates>
+          111.2500,21.4490,-8 111.2505,21.4496,-10.5 111.2510,21.4502,-9 111.2515,21.4508,-12
+        </coordinates>
+      </LineString>
+    </Placemark>
+    <Placemark>
+      <name>示例管线2 · 排污管道</name>
+      <ExtendedData>
+        <Data name="颜色"><value>#c45ad0</value></Data>
+        <Data name="线宽"><value>3</value></Data>
+      </ExtendedData>
+      <LineString>
+        <coordinates>
+          111.2492,21.4508,-6 111.2498,21.4512,-7.5 111.2506,21.4516,-9
+        </coordinates>
+      </LineString>
+    </Placemark>
+  </Document>
+</kml>

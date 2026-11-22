@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>三维用海 1.0 · 跬步</title>
+    <link rel="stylesheet" href="css/sea3d.css?v=20261122">
+</head>
+
+<body>
+    <div id="viewport" class="viewport"></div>
+    <div id="labels" class="labels"></div>
+
+    <header class="topbar">
+        <div class="brand">
+            <div class="brand-mark">用海</div>
+            <div class="brand-text">
+                <h1>跬步 · 三维用海</h1>
+                <p>Three.js 沙盘 · <span id="datasetName">示例数据（非真实用海项目）</span></p>
+            </div>
+        </div>
+        <div class="topbar-actions">
+            <button id="btnDemo" class="btn" type="button">示例数据</button>
+            <button id="btnImport" class="btn btn-primary" type="button">导入数据</button>
+            <button id="btnReset" class="btn" type="button">重置视角</button>
+            <button id="btnPanel" class="btn btn-icon" type="button" aria-label="显示或隐藏控制面板">☰</button>
+        </div>
+    </header>
+
+    <aside id="controlPanel" class="panel control-panel">
+        <section class="panel-section">
+            <h2>图层</h2>
+            <label class="switch"><input type="checkbox" id="layerPrisms" checked><span>棱体</span></label>
+            <label class="switch"><input type="checkbox" id="layerPipelines" checked><span>管线</span></label>
+            <label class="switch"><input type="checkbox" id="layerNodes" checked><span>管线节点</span></label>
+            <label class="switch"><input type="checkbox" id="layerLabels" checked><span>名称标签</span></label>
+            <label class="switch"><input type="checkbox" id="layerSurface" checked><span>海面</span></label>
+            <label class="switch"><input type="checkbox" id="layerSeabed" checked><span>海床网格</span></label>
+        </section>
+
+        <section class="panel-section">
+            <h2>高程夸张</h2>
+            <div class="seg" id="exagGroup">
+                <button type="button" data-exag="1" class="active">1×</button>
+                <button type="button" data-exag="2">2×</button>
+                <button type="button" data-exag="5">5×</button>
+                <button type="button" data-exag="10">10×</button>
+            </div>
+            <p class="hint">标签与信息始终显示真实高程</p>
+        </section>
+
+        <section class="panel-section">
+            <h2>视角</h2>
+            <div class="preset-grid">
+                <button type="button" data-view="top">俯视</button>
+                <button type="button" data-view="oblique">斜视</button>
+                <button type="button" data-view="side">侧视</button>
+                <button type="button" data-view="underwater">水下</button>
+            </div>
+        </section>
+    </aside>
+
+    <aside id="infoPanel" class="panel info-panel">
+        <section class="panel-section">
+            <h2>对象信息</h2>
+            <div id="infoBody" class="info-body is-empty">点击棱体、管线或节点查看属性</div>
+        </section>
+        <section class="panel-section">
+            <h2>数据摘要</h2>
+            <dl id="summary" class="summary"></dl>
+        </section>
+        <details class="panel-section warnings" id="warningBox">
+            <summary>数据告警（<span id="warningCount">0</span>）</summary>
+            <ul id="warningList"></ul>
+        </details>
+    </aside>
+
+    <div class="panel legend">
+        <span><i class="swatch swatch-prism"></i>棱体</span>
+        <span><i class="swatch swatch-pipe"></i>管线</span>
+        <span><i class="swatch swatch-node"></i>节点</span>
+        <span><i class="swatch swatch-surface"></i>海面</span>
+        <span><i class="swatch swatch-seabed"></i>海床</span>
+    </div>
+
+    <div class="compass" id="compass">
+        <div class="compass-dial" id="compassDial">
+            <span class="compass-n">N</span>
+            <i class="compass-needle"></i>
+        </div>
+    </div>
+
+    <div class="hint-bar">拖动旋转 · 右键 / 双指平移 · 滚轮 / 双指缩放 · 点击要素查看信息</div>
+
+    <div id="loading" class="loading" hidden>
+        <span class="spinner"></span>
+        <span id="loadingText">数据加载中…</span>
+    </div>
+    <div id="toast" class="toast"></div>
+
+    <input type="file" id="fileInput" accept=".geojson,.json,.kml,application/json,application/vnd.google-earth.kml+xml" hidden>
+
+    <script src="../js/sea_use_data.js?v=20261122"></script>
+    <script type="module" src="js/sea3d.js?v=20261122b"></script>
+</body>
+</html>
