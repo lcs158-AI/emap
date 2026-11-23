@@ -1064,3 +1064,59 @@ body.laser-on .mirror-laser-bar {
         opacity: 1;
     }
 }
+
+/* 手机请求打开电脑本地图层：确认弹窗（仅电脑端宿主使用） */
+.remote-file-prompt {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(15, 23, 42, 0.45);
+}
+
+.remote-file-prompt-card {
+    width: 360px;
+    max-width: 100%;
+    padding: 20px 22px;
+    border-radius: 14px;
+    background: #ffffff;
+    box-shadow: 0 18px 50px rgba(15, 23, 42, 0.3);
+}
+
+.remote-file-prompt-card h3 {
+    margin: 0 0 10px;
+    font-size: 16px;
+    color: #1f2d3d;
+}
+
+.remote-file-prompt-card p {
+    margin: 0 0 16px;
+    font-size: 13px;
+    line-height: 1.7;
+    color: #5a6a7d;
+}
+
+.remote-file-prompt-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.remote-file-prompt-actions button {
+    padding: 8px 18px;
+    border: 1px solid #d5dbe5;
+    border-radius: 8px;
+    background: #f5f7fa;
+    font-size: 13px;
+    color: #45536a;
+    cursor: pointer;
+}
+
+.remote-file-prompt-actions .remote-file-prompt-ok {
+    border-color: transparent;
+    background: #2563eb;
+    color: #ffffff;
+}

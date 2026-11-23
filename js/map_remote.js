@@ -347,6 +347,9 @@
             case 'layers':
                 handleLayersCommand(msg);
                 break;
+            case 'open-local-file':
+                promptLocalFileOpen();
+                return;   // 仅弹确认框，无需触发整状态广播
             case 'laser':
                 applyLaserCommand(msg);
                 return;   // 激光高频指令不触发整状态广播
@@ -362,6 +365,53 @@
     function clickEl(id) {
         const el = document.getElementById(id);
         if (el) el.click();
+    }
+
+    // ---------- 地图镜像：手机请求打开电脑本地图层 ----------
+    const FILE_PROMPT_TIMEOUT = 60000;
+    let filePromptEl = null;
+    let filePromptTimer = null;
+
+    function closeFilePrompt() {
+        if (filePromptTimer) { window.clearTimeout(filePromptTimer); filePromptTimer = null; }
+        if (filePromptEl) { filePromptEl.remove(); filePromptEl = null; }
+    }
+
+    function promptLocalFileOpen() {
+        if (filePromptEl) return;   // 已有待确认弹窗，忽略重复请求
+        const overlay = document.createElement('div');
+        overlay.className = 'remote-file-prompt';
+        const card = document.createElement('div');
+        card.className = 'remote-file-prompt-card';
+        const title = document.createElement('h3');
+        title.textContent = '📱 手机请求打开本地图层';
+        const desc = document.createElement('p');
+        desc.textContent = '支持 .geojson / .json / .kml / .kmz / .gml。点击下方按钮后在系统对话框中选择文件，加载结果会同步到手机。';
+        const actions = document.createElement('div');
+        actions.className = 'remote-file-prompt-actions';
+        const okBtn = document.createElement('button');
+        okBtn.type = 'button';
+        okBtn.className = 'remote-file-prompt-ok';
+        okBtn.textContent = '选择文件';
+        const cancelBtn = document.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.textContent = '取消';
+        okBtn.addEventListener('click', function () {
+            // 必须在真实点击处理器中同步触发，浏览器才允许弹出文件选择框
+            const input = document.getElementById('geoJsonFileInput');
+            closeFilePrompt();
+            if (input) input.click();
+        });
+        cancelBtn.addEventListener('click', closeFilePrompt);
+        actions.appendChild(okBtn);
+        actions.appendChild(cancelBtn);
+        card.appendChild(title);
+        card.appendChild(desc);
+        card.appendChild(actions);
+        overlay.appendChild(card);
+        document.body.appendChild(overlay);
+        filePromptEl = overlay;
+        filePromptTimer = window.setTimeout(closeFilePrompt, FILE_PROMPT_TIMEOUT);
     }
 
     // ---------- 地图镜像：电脑端图层清单与操作 ----------

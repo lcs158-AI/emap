@@ -467,6 +467,14 @@
             });
         }
 
+        const openFileBtn = document.getElementById('mirrorOpenFileBtn');
+        if (openFileBtn) {
+            openFileBtn.addEventListener('click', function () {
+                send({ action: 'open-local-file' });
+                notify('已发送请求，请在电脑端确认后选择文件');
+            });
+        }
+
         const lenBtn = document.getElementById('mirrorLengthBtn');
         if (lenBtn) lenBtn.addEventListener('click', function () { activateMeasure('length'); });
 
