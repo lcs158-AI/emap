@@ -12,19 +12,30 @@
 
     const params = new URLSearchParams(window.location.search);
     if (params.get('mirror') !== '1') return;
-    const URL_PAIR = params.get('pair');
+    const URL_ACCESS = params.get('access');
 
     const DEFAULT_SERVER = 'https://lzy-fastapi.onrender.com';
     const MIN_ZOOM = 2;
     const MAX_ZOOM = 19;
     const VIEW_THROTTLE = 120;     // 视图同步节流（毫秒）
     const APPLY_LOCK = 350;        // 应用电脑端状态后的静默期，避免回环
-    const FILE_ACK_TIMEOUT = 6000; // 请求打开本地文件后，等待中继回执的时长
+    const JOIN_TIMEOUT_MS = 60_000;
+    const CLIENT_TOKEN_KEY = 'xliu.remoteToken';
 
+    const FILE_SEND_TIMEOUT = 20000; // 向电脑推送文件后，等待加载回执的时长
+    const FILE_MAX_SIZE = 1.5 * 1024 * 1024; // 后端消息上限 2 MB，留出转义余量
+    const FILE_EXTS = ['geojson', 'json', 'kml', 'gml'];
+    const FILE_EXT_LABEL = '.geojson / .json / .kml / .gml';
+
+    // 接入状态：idle → joining → connected / rejected / occupied / bad-access / kicked
+    let joinState = 'idle';
+    let joinTimerId = null;
+    let joinOverlay = null;
     let socket = null;
     let ready = false;
     let hostOnline = false;
-    let fileAckTimer = null;
+    let fileSendTimer = null;
+    let pendingFileName = null;
     let applyingRemote = false;
     let userMoved = false;
     let viewTimer = null;
@@ -65,13 +76,6 @@
     let lastLaserSendAt = 0;
     let laserDisabledInteractions = [];
 
-    // 配对码：未配对前不发送任何 map-cmd（后端也会丢弃）
-    let paired = false;
-    let pairEl = null;
-    let pairFormEl = null;
-    let pairInputEl = null;
-    let pairMsgEl = null;
-
     document.body.classList.add('mirror-mode');
 
     function clamp(v, min, max) {
@@ -85,6 +89,117 @@
         return value.replace(/\/+$/, '');
     }
 
+    function getOrGenClientToken() {
+        try {
+            let token = sessionStorage.getItem(CLIENT_TOKEN_KEY);
+            if (token) return token;
+            if (window.crypto && window.crypto.randomUUID) {
+                token = 'u-' + window.crypto.randomUUID().replace(/-/g, '');
+            } else {
+                token = 'u-' + Math.random().toString(16).slice(2) + Date.now().toString(16);
+            }
+            sessionStorage.setItem(CLIENT_TOKEN_KEY, token);
+            return token;
+        } catch (e) {
+            return 'u-' + Math.random().toString(16).slice(2) + Date.now().toString(16);
+        }
+    }
+
+    function getDeviceInfo() {
+        const ua = navigator.userAgent || '';
+        let browser = '浏览器';
+        if (/Edg/i.test(ua)) browser = 'Edge';
+        else if (/Chrome/i.test(ua)) browser = 'Chrome';
+        else if (/Safari/i.test(ua)) browser = 'Safari';
+        else if (/Firefox/i.test(ua)) browser = 'Firefox';
+        else if (/HarmonyOS/i.test(ua)) browser = '鸿蒙浏览器';
+        let os = '系统';
+        if (/Windows NT 10/i.test(ua)) os = 'Windows 10+';
+        else if (/Android/i.test(ua)) os = 'Android';
+        else if (/iPhone|iPad|iPod/i.test(ua)) os = 'iOS';
+        else if (/HarmonyOS/i.test(ua)) os = 'HarmonyOS';
+        return {
+            browser: browser, os: os,
+            width: Math.floor(window.innerWidth || 0),
+            height: Math.floor(window.innerHeight || 0),
+            dpr: Math.round((window.devicePixelRatio || 1) * 10) / 10
+        };
+    }
+
+    function closeJoinOverlay() {
+        if (joinOverlay) joinOverlay.style.display = 'none';
+    }
+
+    function showJoinOverlay(kind) {
+        ensureJoinOverlay();
+        joinOverlay.style.display = 'flex';
+        const titleEl = joinOverlay.querySelector('[data-title]');
+        const descEl = joinOverlay.querySelector('[data-desc]');
+        const cancelBtn = joinOverlay.querySelector('[data-cancel]');
+        const retryBtn = joinOverlay.querySelector('[data-retry]');
+        cancelBtn.style.display = 'none';
+        retryBtn.style.display = 'none';
+        if (kind === 'waiting') {
+            titleEl.textContent = '等待电脑端确认';
+            descEl.textContent = '已发送接入请求，请在电脑端点击「允许」';
+            cancelBtn.style.display = 'block';
+        } else if (kind === 'rejected') {
+            titleEl.textContent = '电脑端已拒绝';
+            descEl.textContent = '电脑端未允许接入';
+            retryBtn.style.display = 'block';
+        } else if (kind === 'occupied') {
+            titleEl.textContent = '电脑端已有手机接入';
+            descEl.textContent = '同一时刻只允许一台手机接入，请稍后再试';
+            retryBtn.style.display = 'block';
+        } else if (kind === 'bad-access') {
+            titleEl.textContent = '链接已失效';
+            descEl.textContent = '请在电脑端重新生成二维码后再次扫码';
+            retryBtn.style.display = 'block';
+        } else if (kind === 'kicked') {
+            titleEl.textContent = '已被电脑端断开';
+            descEl.textContent = '电脑端已重置接入状态';
+            retryBtn.style.display = 'block';
+        } else if (kind === 'timeout') {
+            titleEl.textContent = '等待超时';
+            descEl.textContent = '电脑端未在规定时间内响应，请重试';
+            retryBtn.style.display = 'block';
+        }
+    }
+
+    function ensureJoinOverlay() {
+        if (joinOverlay) return joinOverlay;
+        joinOverlay = document.createElement('div');
+        joinOverlay.style.cssText = 'position:fixed;inset:0;z-index:2000;display:none;align-items:center;justify-content:center;padding:24px;background:rgba(11,31,51,0.88);backdrop-filter:blur(6px);box-sizing:border-box;';
+        const card = document.createElement('div');
+        card.style.cssText = 'width:100%;max-width:320px;padding:22px 20px;border-radius:14px;background:#fff;box-sizing:border-box;text-align:center;';
+        card.innerHTML = [
+            '<h3 data-title style="margin:0 0 6px;font-size:17px;color:#0b1f33;"></h3>',
+            '<p data-desc style="margin:0 0 14px;font-size:12px;color:#6b7280;"></p>',
+            '<button data-cancel type="button" style="width:100%;padding:11px 0;border:none;border-radius:8px;background:#e5e7eb;color:#374151;font-size:14px;cursor:pointer;margin-top:6px;">取消</button>',
+            '<button data-retry type="button" style="width:100%;padding:11px 0;border:none;border-radius:8px;background:#1677ff;color:#fff;font-size:15px;cursor:pointer;margin-top:6px;">重试</button>'
+        ].join('');
+        joinOverlay.appendChild(card);
+        document.body.appendChild(joinOverlay);
+        card.querySelector('[data-cancel]').addEventListener('click', function () {
+            closeJoinOverlay();
+            if (socket && socket.connected) socket.emit('map-leave');
+            if (socket) socket.disconnect();
+            joinState = 'idle';
+        });
+        card.querySelector('[data-retry]').addEventListener('click', function () {
+            closeJoinOverlay();
+            retryJoin();
+        });
+        return joinOverlay;
+    }
+
+    function retryJoin() {
+        if (!URL_ACCESS) { window.location.reload(); return; }
+        joinState = 'idle';
+        if (socket) { try { socket.disconnect(); } catch (e) {} socket = null; }
+        connectMirror();
+    }
+
     function setStatus(text, tone) {
         if (!statusEl) return;
         statusEl.textContent = text;
@@ -96,8 +211,12 @@
             setStatus('未连接中继', 'offline');
             return;
         }
+        if (joinState !== 'connected') {
+            if (joinState === 'joining') setStatus('等待电脑端确认…', 'waiting');
+            return;
+        }
         if (!hostOnline) {
-            setStatus('等待电脑端打开地图…', 'waiting');
+            setStatus('电脑端未连接', 'waiting');
             return;
         }
         setStatus('已同步到电脑', 'online');
@@ -109,36 +228,65 @@
     }
 
     function send(payload) {
-        if (!paired) return;
+        if (joinState !== 'connected') return;
         if (socket && socket.connected) socket.emit('map-cmd', payload);
     }
 
-    // ---------------- 配对码 ----------------
-    function setPairMsg(text) {
-        if (pairMsgEl) pairMsgEl.textContent = text || '';
-    }
-
-    function showPairOverlay(show) {
-        if (!pairEl) return;
-        pairEl.style.display = show ? 'flex' : 'none';
-        if (show) {
-            setPairMsg('');
-            window.setTimeout(function () {
-                if (pairInputEl && !pairInputEl.value) pairInputEl.focus();
-            }, 120);
+    // ---------------- 手机推送图层文件到电脑 ----------------
+    function decodeFileText(buffer) {
+        // 国内 GIS 导出的 KML 常见 GBK，UTF-8 严格解码失败时回退
+        try {
+            return new TextDecoder('utf-8', { fatal: true }).decode(buffer);
+        } catch (e) {
+            try {
+                return new TextDecoder('gb18030').decode(buffer);
+            } catch (e2) {
+                return new TextDecoder('utf-8').decode(buffer);
+            }
         }
     }
 
-    function attemptPair(code) {
-        if (!socket || !socket.connected || paired) return;
-        const clean = String(code || '').replace(/\D/g, '').slice(0, 6);
-        if (!clean) {
-            showPairOverlay(true);
+    function handlePickedFile(file) {
+        if (!file) return;
+        if (!socket || !socket.connected || joinState !== 'connected') {
+            notify('尚未接入电脑端', 'error');
             return;
         }
-        if (pairInputEl) pairInputEl.value = clean;
-        setPairMsg('正在配对…');
-        socket.emit('map-pair', { code: clean });
+        const ext = (file.name.split('.').pop() || '').toLowerCase();
+        if (FILE_EXTS.indexOf(ext) < 0) {
+            notify('仅支持 ' + FILE_EXT_LABEL, 'error');
+            return;
+        }
+        if (file.size > FILE_MAX_SIZE) {
+            notify('文件 ' + (file.size / 1024 / 1024).toFixed(1) +
+                ' MB 超过 1.5 MB 上限，请改用电脑端导入', 'error');
+            return;
+        }
+        if (pendingFileName) {
+            notify('正在发送 ' + pendingFileName + '，请稍候', 'waiting');
+            return;
+        }
+
+        setStatus('正在读取 ' + file.name + '…', 'waiting');
+        const reader = new FileReader();
+        reader.onerror = function () {
+            notify('读取文件失败', 'error');
+        };
+        reader.onload = function () {
+            const text = decodeFileText(reader.result);
+            pendingFileName = file.name;
+            setStatus('正在发送 ' + file.name + '（' +
+                Math.max(1, Math.round(file.size / 1024)) + ' KB）…', 'waiting');
+            send({ action: 'push-file', name: file.name, size: file.size, text: text });
+            if (fileSendTimer) window.clearTimeout(fileSendTimer);
+            fileSendTimer = window.setTimeout(function () {
+                fileSendTimer = null;
+                if (!pendingFileName) return;
+                pendingFileName = null;
+                notify('发送超时，请确认电脑端在线后重试', 'error');
+            }, FILE_SEND_TIMEOUT);
+        };
+        reader.readAsArrayBuffer(file);
     }
 
     // ---------------- 视图同步 ----------------
@@ -472,17 +620,22 @@
         const openFileBtn = document.getElementById('mirrorOpenFileBtn');
         if (openFileBtn) {
             openFileBtn.addEventListener('click', function () {
-                if (!socket || !socket.connected || !paired) {
-                    notify('尚未连接电脑端，请先完成配对', 'error');
+                if (!socket || !socket.connected || joinState !== 'connected') {
+                    notify('尚未接入电脑端', 'error');
                     return;
                 }
-                send({ action: 'open-local-file' });
-                setStatus('请求已发出，等待电脑端确认…', 'waiting');
-                if (fileAckTimer) window.clearTimeout(fileAckTimer);
-                fileAckTimer = window.setTimeout(function () {
-                    fileAckTimer = null;
-                    notify('未收到电脑端回执，请确认电脑端已打开地图，且后端服务已更新', 'error');
-                }, FILE_ACK_TIMEOUT);
+                // 手机端真实点击，触发手机自己的文件选择器
+                const input = document.getElementById('mirrorFileInput');
+                if (input) input.click();
+            });
+        }
+
+        const fileInput = document.getElementById('mirrorFileInput');
+        if (fileInput) {
+            fileInput.addEventListener('change', function () {
+                const file = fileInput.files && fileInput.files[0];
+                fileInput.value = '';   // 允许重复选同一个文件
+                handlePickedFile(file);
             });
         }
 
@@ -921,12 +1074,14 @@
     }
 
     // ---------------- 连接 ----------------
-    function connect() {
+    function connectMirror() {
         if (socket) return;
         if (typeof window.io !== 'function') {
             setStatus('socket.io 未加载', 'error');
             return;
         }
+        ensureJoinOverlay();
+
         socket = window.io(serverBase() + '/map', {
             transports: ['websocket', 'polling'],
             reconnection: true,
@@ -937,15 +1092,40 @@
 
         socket.on('connect', function () {
             ready = true;
-            socket.emit('map-join', { role: 'controller' });
-            setStatus('已连接，等待电脑端…', 'waiting');
+            if (!URL_ACCESS) {
+                joinState = 'bad-access';
+                setStatus('链接无效', 'error');
+                showJoinOverlay('bad-access');
+                return;
+            }
+            joinState = 'joining';
+            setStatus('等待电脑端确认…', 'waiting');
+            showJoinOverlay('waiting');
+            if (joinTimerId) window.clearTimeout(joinTimerId);
+            joinTimerId = window.setTimeout(function () {
+                if (joinState === 'joining') {
+                    joinState = 'timeout';
+                    showJoinOverlay('timeout');
+                    setStatus('等待超时', 'error');
+                }
+            }, JOIN_TIMEOUT_MS);
+
+            socket.emit('map-join', {
+                role: 'controller',
+                access: URL_ACCESS,
+                clientToken: getOrGenClientToken(),
+                device: getDeviceInfo()
+            });
         });
 
         socket.on('disconnect', function () {
             ready = false;
             hostOnline = false;
-            paired = false;
-            showPairOverlay(false);
+            closeJoinOverlay();
+            if (joinState !== 'connected') joinState = 'idle';
+            if (joinTimerId) { window.clearTimeout(joinTimerId); joinTimerId = null; }
+            if (fileSendTimer) { window.clearTimeout(fileSendTimer); fileSendTimer = null; }
+            pendingFileName = null;
             refreshStatus();
         });
 
@@ -958,7 +1138,7 @@
             if (!payload || typeof payload !== 'object') return;
             const wasOnline = hostOnline;
             hostOnline = !!payload.host;
-            if (hostOnline && !wasOnline) requestLayers();
+            if (hostOnline && !wasOnline && joinState === 'connected') requestLayers();
             refreshStatus();
         });
 
@@ -974,58 +1154,73 @@
 
         socket.on('map-cmd-result', function (res) {
             if (!res || typeof res !== 'object') return;
-            if (res.action === 'open-local-file') {
-                if (fileAckTimer) { window.clearTimeout(fileAckTimer); fileAckTimer = null; }
-                if (res.ok === false) {
-                    notify(res.reason === 'host-offline'
-                        ? '电脑端未连接，请确认电脑端已打开地图'
-                        : '电脑端未接受该请求', 'error');
-                } else {
-                    notify('电脑端已收到请求，请在电脑上确认后选择文件', 'online');
-                }
-                return;
-            }
             if (res.ok === false && res.reason === 'host-offline') {
                 setStatus('电脑端未连接，操作未送达', 'error');
+            } else if (res.ok === false && res.reason === 'not-authorized') {
+                setStatus('尚未接入电脑端', 'error');
             }
         });
 
-        socket.on('map-pair-required', function () {
-            if (paired) return;
-            if (URL_PAIR) {
-                attemptPair(URL_PAIR);
-            } else {
-                showPairOverlay(true);
-            }
-        });
-
-        socket.on('map-pair-result', function (res) {
+        // 电脑端加载手机推送文件的结果
+        socket.on('map-file-result', function (res) {
             if (!res || typeof res !== 'object') return;
+            if (fileSendTimer) { window.clearTimeout(fileSendTimer); fileSendTimer = null; }
+            pendingFileName = null;
             if (res.ok) {
-                paired = true;
-                showPairOverlay(false);
-                setPairMsg('');
-                setStatus('配对成功，正在同步…', 'online');
+                notify('电脑已加载 ' + (res.name || '图层') + '（' + (res.count || 0) + ' 个要素）', 'online');
+            } else {
+                notify('电脑加载失败：' + (res.error || '未知错误'), 'error');
+            }
+        });
+
+        // 新安全模型回执
+        socket.on('map-join-result', function (res) {
+            if (!res || typeof res !== 'object') return;
+            if (joinTimerId) { window.clearTimeout(joinTimerId); joinTimerId = null; }
+            if (res.ok) {
+                joinState = 'connected';
+                closeJoinOverlay();
+                setStatus(res.restored ? '已恢复连接' : '已接入，正在同步…', 'online');
                 requestLayers();
                 sendView();
                 window.setTimeout(refreshStatus, 1800);
             } else {
-                paired = false;
-                showPairOverlay(true);
-                setPairMsg(res.reason === 'invalid' ? '配对码错误，请重试' : '配对失败，请重试');
+                const reason = res.reason || 'unknown';
+                if (reason === 'occupied') {
+                    joinState = 'occupied';
+                    showJoinOverlay('occupied');
+                } else if (reason === 'bad-access-token') {
+                    joinState = 'bad-access';
+                    showJoinOverlay('bad-access');
+                } else if (reason === 'rate-limited') {
+                    joinState = 'rejected';
+                    showJoinOverlay('timeout');
+                } else if (reason === 'superseded') {
+                    joinState = 'kicked';
+                    showJoinOverlay('kicked');
+                } else {
+                    joinState = 'rejected';
+                    showJoinOverlay('rejected');
+                }
+                setStatus('接入失败', 'error');
             }
         });
-    }
 
-    function bindPair() {
-        pairEl = document.getElementById('mirrorPair');
-        pairFormEl = document.getElementById('mirrorPairForm');
-        pairInputEl = document.getElementById('mirrorPairInput');
-        pairMsgEl = document.getElementById('mirrorPairMsg');
-        if (!pairFormEl) return;
-        pairFormEl.addEventListener('submit', function (event) {
-            event.preventDefault();
-            attemptPair(pairInputEl ? pairInputEl.value : '');
+        socket.on('map-join-restored', function () {
+            if (joinTimerId) { window.clearTimeout(joinTimerId); joinTimerId = null; }
+            joinState = 'connected';
+            closeJoinOverlay();
+            setStatus('已恢复连接，正在同步…', 'online');
+            requestLayers();
+            sendView();
+            window.setTimeout(refreshStatus, 1500);
+        });
+
+        socket.on('map-kicked', function () {
+            joinState = 'kicked';
+            closeJoinOverlay();
+            showJoinOverlay('kicked');
+            setStatus('已被电脑端断开', 'error');
         });
     }
 
@@ -1036,7 +1231,6 @@
         layerListEl = document.getElementById('mirrorLayerList');
         bindButtons();
         bindLogin();
-        bindPair();
         bindLaser();
         watchMeasureButtons();
         hookMeasure();
@@ -1044,7 +1238,7 @@
         hookPopup();
         syncToolbar();
         if (hasToken()) {
-            connect();
+            connectMirror();
         } else {
             setStatus('请登录，或选择仅遥控', 'waiting');
         }

@@ -38,16 +38,23 @@
     let activeMode = 'ctl';     // ctl=简易遥控，mirror=地图镜像
     let infoFailed = false;
     let hostOnline = false;
-    let controllerCount = 0;
+    let controllerActive = false;  // 是否有手机接入（单槽位）
+    let hasPendingJoin = false;  // 是否有待审批请求
+    let currentDeviceInfo = null; // 已接入手机的设备信息（来自后端）
     let socketReady = false;
-    let pairCodeEl = null;
-    let pairTimerEl = null;
-    let pairRefreshBtn = null;
-    let pairTimerId = null;
-    let lastPairCode = null;
+
+    const HOST_TOKEN_KEY = 'xliu.hostToken';
+    let hostToken = null;
+    let accessToken = null;
+    let pendingApprove = null;   // {device, clientToken, joinedAt}
+    let approveTimerId = null;
+    let approveDialog = null;
+
+    let kickBtn = null;
+    let refreshQrBtn = null;
+    let lastHostTaken = false;   // 是否已弹过 host 顶替拒绝提示
     let localHoldUntil = 0;
     let localHintAt = 0;
-    let kickBtn = null;
 
     const pan = { vx: 0, vy: 0 };
     const zoom = { dir: 0, active: false };
@@ -114,16 +121,21 @@
             setStatus('正在加入遥控会话…', 'waiting');
             return;
         }
-        setStatus(
-            '电脑端已就绪，手机 ' + controllerCount + ' 台',
-            controllerCount > 0 ? 'online' : 'waiting'
-        );
+        if (hasPendingJoin) {
+            setStatus('有手机请求接入，请确认', 'online');
+            return;
+        }
+        if (controllerActive) {
+            setStatus('电脑端已就绪，手机 1 台已接入', 'online');
+            return;
+        }
+        setStatus('电脑端已就绪，等待手机扫码接入', 'waiting');
     }
 
     function updateKickButton() {
         if (!kickBtn) return;
-        kickBtn.textContent = '断开手机（' + controllerCount + '）';
-        kickBtn.disabled = controllerCount === 0;
+        kickBtn.textContent = '断开手机';
+        kickBtn.disabled = !controllerActive;
     }
 
     // ---------------- 本地操作优先 ----------------
@@ -142,50 +154,85 @@
         window.setTimeout(refreshStatus, 1600);
     }
 
-    function clearPairDisplay() {
-        if (pairTimerId) {
-            window.clearInterval(pairTimerId);
-            pairTimerId = null;
+    // ---------------- host token + access token ----------------
+    function getOrGenHostToken() {
+        try {
+            let token = sessionStorage.getItem(HOST_TOKEN_KEY);
+            if (token) return token;
+            if (window.crypto && window.crypto.randomUUID) {
+                token = 'h-' + window.crypto.randomUUID().replace(/-/g, '');
+            } else {
+                token = 'h-' + Math.random().toString(16).slice(2) + Date.now().toString(16);
+            }
+            sessionStorage.setItem(HOST_TOKEN_KEY, token);
+            return token;
+        } catch (e) {
+            return 'h-' + Math.random().toString(16).slice(2) + Date.now().toString(16);
         }
-        lastPairCode = null;
-        if (pairCodeEl) {
-            pairCodeEl.textContent = '------';
-            pairCodeEl.classList.remove('is-expired');
-        }
-        if (pairTimerEl) pairTimerEl.textContent = '';
     }
 
-    function renderPairCode(code, expiresAt) {
-        if (!pairCodeEl) return;
-        lastPairCode = code || null;
-        if (!code) {
-            clearPairDisplay();
-            return;
+    // ---------------- 审批弹窗 ----------------
+    function closeApproveDialog() {
+        if (approveTimerId) {
+            window.clearTimeout(approveTimerId);
+            approveTimerId = null;
         }
-        if (pairTimerId) {
-            window.clearInterval(pairTimerId);
-            pairTimerId = null;
+        if (approveDialog && approveDialog.parentNode) {
+            approveDialog.parentNode.removeChild(approveDialog);
         }
-        pairCodeEl.textContent = code;
-        pairCodeEl.classList.remove('is-expired');
-        const tick = function () {
-            const remain = Math.max(0, Math.round(((Number(expiresAt) || 0) - Date.now()) / 1000));
-            if (!pairTimerEl) return;
-            if (remain <= 0) {
-                pairTimerEl.textContent = '已过期';
-                if (pairCodeEl) pairCodeEl.classList.add('is-expired');
-                if (pairTimerId) {
-                    window.clearInterval(pairTimerId);
-                    pairTimerId = null;
-                }
-                return;
+        approveDialog = null;
+    }
+
+    function showApproveDialog(device) {
+        closeApproveDialog();
+        const info = device || {};
+        const summary = (info.browser || '浏览器') + ' · ' + (info.os || '系统')
+            + (info.width ? (' · ' + info.width + '×' + (info.height || '')) : '');
+
+        approveDialog = document.createElement('div');
+        approveDialog.className = 'remote-approve-overlay';
+        approveDialog.innerHTML = [
+            '<div class="remote-approve-card">',
+            '  <div class="remote-approve-title">📱 手机请求接入</div>',
+            '  <div class="remote-approve-desc">',
+            '    <div>设备：<strong>' + summary + '</strong></div>',
+            '    <div>时间：刚刚</div>',
+            '    <div class="remote-approve-note">同一时刻只允许一台手机接入。允许后此手机可遥控电脑端地图。</div>',
+            '  </div>',
+            '  <div class="remote-approve-actions">',
+            '    <button type="button" class="remote-approve-btn deny">拒绝</button>',
+            '    <button type="button" class="remote-approve-btn allow">允许</button>',
+            '  </div>',
+            '</div>'
+        ].join('');
+        document.body.appendChild(approveDialog);
+
+        const allowBtn = approveDialog.querySelector('.remote-approve-btn.allow');
+        const denyBtn = approveDialog.querySelector('.remote-approve-btn.deny');
+        if (allowBtn) allowBtn.addEventListener('click', function () { handleApprove(true); });
+        if (denyBtn) denyBtn.addEventListener('click', function () { handleApprove(false); });
+
+        // 60 秒超时自动拒绝
+        approveTimerId = window.setTimeout(function () {
+            if (pendingApprove && socket && socket.connected) {
+                socket.emit('map-approve', { ok: false });
             }
-            const mm = String(Math.floor(remain / 60)).padStart(2, '0');
-            const ss = String(remain % 60).padStart(2, '0');
-            pairTimerEl.textContent = mm + ':' + ss;
-        };
-        tick();
-        pairTimerId = window.setInterval(tick, 1000);
+            closeApproveDialog();
+            pendingApprove = null;
+            hasPendingJoin = false;
+            refreshStatus();
+        }, 60000);
+    }
+
+    function handleApprove(ok) {
+        if (approveTimerId) { window.clearTimeout(approveTimerId); approveTimerId = null; }
+        if (socket && socket.connected) {
+            socket.emit('map-approve', { ok: !!ok });
+        }
+        closeApproveDialog();
+        pendingApprove = null;
+        hasPendingJoin = false;
+        refreshStatus();
     }
 
     function ensureSocket() {
@@ -204,8 +251,9 @@
 
         socket.on('connect', function () {
             socketReady = true;
-            hostOnline = true;   // 加入成功即视为在线，避免漏收 presence 时状态卡住
-            socket.emit('map-join', { role: 'host' });
+            hostOnline = true;
+            hostToken = getOrGenHostToken();
+            socket.emit('map-join', { role: 'host', hostToken: hostToken });
             setStatus('已连接中继，等待手机…', 'waiting');
             sendState(true);
         });
@@ -213,9 +261,12 @@
         socket.on('disconnect', function () {
             socketReady = false;
             hostOnline = false;
-            controllerCount = 0;
+            controllerActive = false;
+            hasPendingJoin = false;
+            currentDeviceInfo = null;
             stopLoop();
-            clearPairDisplay();
+            closeLaser();
+            closeApproveDialog();
             refreshStatus();
         });
 
@@ -228,38 +279,68 @@
         socket.on('map-presence', function (payload) {
             if (!payload || typeof payload !== 'object') return;
             hostOnline = !!payload.host;
-            controllerCount = Number(payload.controllers) || 0;
-            if (controllerCount === 0) {
+            controllerActive = !!payload.controller;
+            hasPendingJoin = !!payload.pending;
+            if (!controllerActive) {
                 stopLoop();
-                clearLaser();
+                closeLaser();
+            }
+            if (!hasPendingJoin && !controllerActive) {
+                closeApproveDialog();
             }
             refreshStatus();
         });
 
-        socket.on('map-host-replaced', function () {
+        socket.on('map-host-taken', function () {
             hostOnline = false;
             stopLoop();
-            clearPairDisplay();
-            setStatus('另一台电脑已接管遥控，本页已退出', 'error');
-        });
-
-        socket.on('map-pair', function (payload) {
-            if (!payload || typeof payload !== 'object') return;
-            const changed = !!payload.code && payload.code !== lastPairCode;
-            renderPairCode(payload.code, payload.expiresAt);
-            if (payload.code) {
-                setStatus('配对码已生成，等待手机扫码或输入', 'online');
-                window.setTimeout(refreshStatus, 2000);
+            closeApproveDialog();
+            if (!lastHostTaken) {
+                lastHostTaken = true;
+                setStatus('另一台电脑已接管遥控，本页已退出。请关闭此页面，在原电脑上操作。', 'error');
+                window.setTimeout(function () { lastHostTaken = false; }, 30000);
             }
-            // 配对码变化（如手动刷新）时重新拉取二维码，使内嵌 pair 与面板一致
-            if (changed) loadQr();
         });
 
-        socket.on('map-kick-result', function (payload) {
-            if (!payload || payload.ok !== true) return;
-            const count = Number(payload.kicked) || 0;
-            setStatus('已断开 ' + count + ' 台手机，配对码已更新', 'waiting');
-            window.setTimeout(refreshStatus, 2200);
+        socket.on('map-access', function (payload) {
+            if (!payload || typeof payload !== 'object') return;
+            accessToken = payload.token || null;
+            // access token 变化（如轮换）：重新拉二维码，让内嵌 access 字段与后端一致
+            loadQr();
+        });
+
+        socket.on('map-join-request', function (payload) {
+            if (!payload || typeof payload !== 'object') return;
+            pendingApprove = {
+                device: payload.device || null,
+                joinedAt: payload.ts || Date.now()
+            };
+            hasPendingJoin = true;
+            showApproveDialog(payload.device || null);
+            refreshStatus();
+        });
+
+        socket.on('map-join-restored', function (payload) {
+            closeApproveDialog();
+            hasPendingJoin = false;
+            pendingApprove = null;
+            controllerActive = true;
+            currentDeviceInfo = payload && payload.controller ? payload.controller.device : null;
+            refreshStatus();
+        });
+
+        socket.on('map-join-result', function (res) {
+            // 电脑端不直接监听 controller 的 join-result，由 presence 轮询
+            // 但作为兜底：如果是本页自己的 approve 结果，状态已同步
+            closeApproveDialog();
+            hasPendingJoin = false;
+            refreshStatus();
+        });
+
+        socket.on('map-kicked', function () {
+            // controller 被踢：presence 会通知 controllerActive=false
+            closeApproveDialog();
+            refreshStatus();
         });
 
         socket.on('map-cmd', handleCommand);
@@ -347,9 +428,9 @@
             case 'layers':
                 handleLayersCommand(msg);
                 break;
-            case 'open-local-file':
-                promptLocalFileOpen();
-                return;   // 仅弹确认框，无需触发整状态广播
+            case 'push-file':
+                applyRemoteFile(msg);
+                return;   // 加载结果通过 map-file-result 单独回执
             case 'laser':
                 applyLaserCommand(msg);
                 return;   // 激光高频指令不触发整状态广播
@@ -367,51 +448,91 @@
         if (el) el.click();
     }
 
-    // ---------- 地图镜像：手机请求打开电脑本地图层 ----------
-    const FILE_PROMPT_TIMEOUT = 60000;
-    let filePromptEl = null;
-    let filePromptTimer = null;
+    // ---------- 地图镜像：手机推送本地图层文件，电脑端直接加载 ----------
+    const REMOTE_FILE_MAX = 1.5 * 1024 * 1024;   // 1.5 MB（后端消息上限 2 MB）
+    const REMOTE_FEATURE_MAX = 20000;
 
-    function closeFilePrompt() {
-        if (filePromptTimer) { window.clearTimeout(filePromptTimer); filePromptTimer = null; }
-        if (filePromptEl) { filePromptEl.remove(); filePromptEl = null; }
+    function replyFileResult(result) {
+        if (socket && socket.connected) socket.emit('map-file-result', result);
     }
 
-    function promptLocalFileOpen() {
-        if (filePromptEl) return;   // 已有待确认弹窗，忽略重复请求
-        const overlay = document.createElement('div');
-        overlay.className = 'remote-file-prompt';
-        const card = document.createElement('div');
-        card.className = 'remote-file-prompt-card';
-        const title = document.createElement('h3');
-        title.textContent = '📱 手机请求打开本地图层';
-        const desc = document.createElement('p');
-        desc.textContent = '支持 .geojson / .json / .kml / .kmz / .gml。点击下方按钮后在系统对话框中选择文件，加载结果会同步到手机。';
-        const actions = document.createElement('div');
-        actions.className = 'remote-file-prompt-actions';
-        const okBtn = document.createElement('button');
-        okBtn.type = 'button';
-        okBtn.className = 'remote-file-prompt-ok';
-        okBtn.textContent = '选择文件';
-        const cancelBtn = document.createElement('button');
-        cancelBtn.type = 'button';
-        cancelBtn.textContent = '取消';
-        okBtn.addEventListener('click', function () {
-            // 必须在真实点击处理器中同步触发，浏览器才允许弹出文件选择框
-            const input = document.getElementById('geoJsonFileInput');
-            closeFilePrompt();
-            if (input) input.click();
-        });
-        cancelBtn.addEventListener('click', closeFilePrompt);
-        actions.appendChild(okBtn);
-        actions.appendChild(cancelBtn);
-        card.appendChild(title);
-        card.appendChild(desc);
-        card.appendChild(actions);
-        overlay.appendChild(card);
-        document.body.appendChild(overlay);
-        filePromptEl = overlay;
-        filePromptTimer = window.setTimeout(closeFilePrompt, FILE_PROMPT_TIMEOUT);
+    function showRemoteToast(text) {
+        const toast = document.createElement('div');
+        toast.className = 'map-remote-toast';
+        toast.textContent = text;
+        document.body.appendChild(toast);
+        window.setTimeout(function () {
+            if (toast.parentNode) toast.parentNode.removeChild(toast);
+        }, 4200);
+    }
+
+    function applyRemoteFile(msg) {
+        const name = String(msg.name || '手机图层').slice(0, 120);
+        const text = typeof msg.text === 'string' ? msg.text : '';
+        const ext = (name.split('.').pop() || '').toLowerCase();
+
+        if (!text) {
+            replyFileResult({ ok: false, name: name, error: '文件内容为空' });
+            return;
+        }
+        if (typeof msg.size === 'number' && msg.size > REMOTE_FILE_MAX) {
+            replyFileResult({ ok: false, name: name, error: '文件超过 1.5 MB，请改用电脑端导入' });
+            return;
+        }
+
+        try {
+            let layer = null;
+            if (ext === 'geojson' || ext === 'json') {
+                if (typeof loadLocalGeoJSON !== 'function') throw new Error('加载器不可用');
+                const geoJson = JSON.parse(text);
+                const count = Array.isArray(geoJson && geoJson.features) ? geoJson.features.length : 0;
+                if (count > REMOTE_FEATURE_MAX) {
+                    replyFileResult({ ok: false, name: name, error: '要素数 ' + count + ' 超过上限 ' + REMOTE_FEATURE_MAX });
+                    return;
+                }
+                layer = loadLocalGeoJSON(geoJson, name, {
+                    fileName: name, format: 'geojson', autoFit: true
+                });
+            } else if (ext === 'kml') {
+                if (typeof loadLocalKML !== 'function') throw new Error('加载器不可用');
+                const placemarks = (text.match(/<Placemark[\s>]/gi) || []).length;
+                if (placemarks > REMOTE_FEATURE_MAX) {
+                    replyFileResult({ ok: false, name: name, error: '要素数 ' + placemarks + ' 超过上限 ' + REMOTE_FEATURE_MAX });
+                    return;
+                }
+                layer = loadLocalKML(text, name, { fileName: name, format: 'kml' });
+            } else if (ext === 'gml') {
+                if (typeof loadLocalGML !== 'function') throw new Error('加载器不可用');
+                const members = (text.match(/<(?:[A-Za-z0-9]+:)?(?:featureMember|member)[\s>]/gi) || []).length;
+                if (members > REMOTE_FEATURE_MAX) {
+                    replyFileResult({ ok: false, name: name, error: '要素数 ' + members + ' 超过上限 ' + REMOTE_FEATURE_MAX });
+                    return;
+                }
+                layer = loadLocalGML(text, name);
+            } else if (ext === 'kmz') {
+                replyFileResult({ ok: false, name: name, error: 'KMZ 暂不支持，请解压为 KML 后再发送' });
+                return;
+            } else {
+                replyFileResult({ ok: false, name: name, error: '仅支持 .geojson / .json / .kml / .gml' });
+                return;
+            }
+
+            const features = layer && layer.getSource ? layer.getSource().getFeatures() : [];
+            const count = features.length;
+            if (count === 0) {
+                replyFileResult({ ok: false, name: name, error: '未解析到任何要素' });
+                showRemoteToast('手机发来 ' + name + '，未解析到要素');
+                return;
+            }
+
+            // 本地图层已注册到图层管理面板，这里主动广播一次，让手机端图层列表立即更新
+            sendState(true);
+            replyFileResult({ ok: true, name: name, count: count });
+            showRemoteToast('手机发来 ' + name + '（' + count + ' 个要素）');
+        } catch (error) {
+            replyFileResult({ ok: false, name: name, error: (error && error.message) || '解析失败' });
+            showRemoteToast('手机发来 ' + name + '，加载失败');
+        }
     }
 
     // ---------- 地图镜像：电脑端图层清单与操作 ----------
@@ -986,11 +1107,8 @@
                 // socket 已连接时以实时 presence 为准，避免请求快照覆盖新状态
                 if (!socketReady && data) {
                     hostOnline = !!data.host;
-                    controllerCount = Number(data.controllers) || 0;
-                }
-                // 兜底：socket 的 map-pair 事件未到时，用 /info 返回的配对码先渲染
-                if (data && data.pairCode) {
-                    renderPairCode(data.pairCode, data.pairExpiresAt);
+                    controllerActive = !!data.controller;
+                    hasPendingJoin = !!data.pending;
                 }
                 renderQr();
                 refreshStatus();
@@ -1049,10 +1167,8 @@
         qrEmptyEl = document.getElementById('mapRemoteQrEmpty');
         urlEl = document.getElementById('mapRemoteUrl');
         tipEl = document.getElementById('mapRemoteTip');
-        pairCodeEl = document.getElementById('mapRemotePairCode');
-        pairTimerEl = document.getElementById('mapRemotePairTimer');
-        pairRefreshBtn = document.getElementById('mapRemotePairRefresh');
         kickBtn = document.getElementById('mapRemoteKick');
+        refreshQrBtn = document.getElementById('mapRemoteRefreshQr');
 
         if (!panelEl) return;
 
@@ -1084,11 +1200,12 @@
             });
         }
         if (copyBtn) copyBtn.addEventListener('click', copyUrl);
-        if (pairRefreshBtn) {
-            pairRefreshBtn.addEventListener('click', function () {
+        if (refreshQrBtn) {
+            refreshQrBtn.addEventListener('click', function () {
                 if (socket && socket.connected) {
-                    socket.emit('map-pair-refresh');
-                    setStatus('正在刷新配对码…', 'waiting');
+                    socket.emit('map-refresh-access');
+                    setStatus('正在刷新链接二维码…', 'waiting');
+                    // 等后端 map-access 事件推新 token + loadQr 自动更新
                 } else {
                     setStatus('未连接中继，无法刷新', 'error');
                     window.setTimeout(refreshStatus, 1600);
@@ -1097,10 +1214,11 @@
         }
         if (kickBtn) {
             kickBtn.addEventListener('click', function () {
-                if (!controllerCount) return;
-                if (!window.confirm('断开所有已连接的手机遥控？断开后需要用新的配对码重新连接。')) return;
+                if (!controllerActive) return;
+                if (!window.confirm('断开已接入的手机遥控？断开后将自动轮换 access token，旧链接失效。')) return;
                 if (socket && socket.connected) {
                     socket.emit('map-kick');
+                    closeApproveDialog();
                     setStatus('正在断开手机…', 'waiting');
                 } else {
                     setStatus('未连接中继，无法断开', 'error');

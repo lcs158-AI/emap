@@ -1,20 +1,27 @@
 /**
- * 跬步地图 · 手机遥控（控制器）
+ * 跬步地图 · 手机遥控（简易控制器）· v20261124a
  *
  * 中继：FastAPI /map 命名空间
- * -> map-join {role:'controller'}
+ * -> map-join {role:'controller', access, clientToken, device}
  * -> map-cmd  {action:'pan'|'zoom'|'locate'|'base', ...}
- * <- map-state / map-presence / map-cmd-result
+ * <- map-state / map-presence / map-cmd-result / map-join-result / map-join-restored / map-kicked
  */
 (function () {
     'use strict';
 
     const DEFAULT_SERVER = 'https://lzy-fastapi.onrender.com';
+    const CLIENT_TOKEN_KEY = 'xliu.remoteToken';
+    const JOIN_TIMEOUT_MS = 60_000;
     const JOY_DEAD_ZONE = 0.12;
 
     let socket = null;
     let connected = false;
     let hostOnline = false;
+
+    // 接入状态：joining（等待审批）| connected（已接入）| rejected | occupied | bad-access | kicked
+    let joinState = 'idle';
+    let joinTimerId = null;
+    let joinOverlay = null;
 
     const els = {};
     const joy = {
@@ -52,12 +59,52 @@
     }
 
     const SERVER = getServer();
-    const URL_PAIR = new URLSearchParams(window.location.search).get('pair');
+    const URL_ACCESS = new URLSearchParams(window.location.search).get('access');
 
-    let paired = false;
-    let pairOverlay = null;
-    let pairInput = null;
-    let pairMsg = null;
+    function getOrGenClientToken() {
+        try {
+            let token = sessionStorage.getItem(CLIENT_TOKEN_KEY);
+            if (token) return token;
+            // 使用 crypto.randomUUID 作为 token，长度够、碰撞低
+            if (window.crypto && window.crypto.randomUUID) {
+                token = 'u-' + window.crypto.randomUUID().replace(/-/g, '');
+            } else {
+                // 兜底
+                token = 'u-' + Math.random().toString(16).slice(2) + Date.now().toString(16);
+            }
+            sessionStorage.setItem(CLIENT_TOKEN_KEY, token);
+            return token;
+        } catch (e) {
+            // sessionStorage 不可用：每次刷新都当新设备（体验差但能工作）
+            return 'u-' + Math.random().toString(16).slice(2) + Date.now().toString(16);
+        }
+    }
+
+    function getDeviceInfo() {
+        const ua = navigator.userAgent || '';
+        let browser = '浏览器';
+        if (/Edg/i.test(ua)) browser = 'Edge';
+        else if (/Chrome/i.test(ua)) browser = 'Chrome';
+        else if (/Safari/i.test(ua)) browser = 'Safari';
+        else if (/Firefox/i.test(ua)) browser = 'Firefox';
+        else if (/HarmonyOS/i.test(ua)) browser = '鸿蒙浏览器';
+
+        let os = '系统';
+        if (/Windows NT 10/i.test(ua)) os = 'Windows 10+';
+        else if (/Windows/i.test(ua)) os = 'Windows';
+        else if (/Mac OS X/i.test(ua)) os = 'macOS';
+        else if (/Android/i.test(ua)) os = 'Android';
+        else if (/iPhone|iPad|iPod/i.test(ua)) os = 'iOS';
+        else if (/HarmonyOS/i.test(ua)) os = 'HarmonyOS';
+
+        return {
+            browser: browser,
+            os: os,
+            width: Math.floor(window.innerWidth || 0),
+            height: Math.floor(window.innerHeight || 0),
+            dpr: Math.round((window.devicePixelRatio || 1) * 10) / 10
+        };
+    }
 
     function setStatus(text, tone) {
         if (!els.statusText || !els.statusDot) return;
@@ -88,75 +135,79 @@
         }
     }
 
-    // ---------------- 配对码 ----------------
-    function setPairMsg(text) {
-        if (pairMsg) pairMsg.textContent = text || '';
+    // ---------------- 接入状态弹层 ----------------
+    function closeJoinOverlay() {
+        if (joinOverlay) joinOverlay.style.display = 'none';
     }
 
-    function showPairOverlay(show) {
-        if (!pairOverlay) return;
-        pairOverlay.style.display = show ? 'flex' : 'none';
-        if (show) {
-            setPairMsg('');
-            window.setTimeout(function () {
-                if (pairInput && !pairInput.value) pairInput.focus();
-            }, 120);
+    function showJoinOverlay(kind, reason) {
+        if (!joinOverlay) return;
+        joinOverlay.style.display = 'flex';
+        const titleEl = joinOverlay.querySelector('[data-title]');
+        const descEl = joinOverlay.querySelector('[data-desc]');
+        const cancelBtn = joinOverlay.querySelector('[data-cancel]');
+        const retryBtn = joinOverlay.querySelector('[data-retry]');
+        if (cancelBtn) cancelBtn.style.display = 'none';
+        if (retryBtn) retryBtn.style.display = 'none';
+
+        if (kind === 'waiting') {
+            if (titleEl) titleEl.textContent = '等待电脑端确认';
+            if (descEl) descEl.textContent = '已发送接入请求，请在电脑端点击「允许」';
+            if (cancelBtn) cancelBtn.style.display = 'block';
+        } else if (kind === 'rejected') {
+            if (titleEl) titleEl.textContent = '电脑端已拒绝';
+            if (descEl) descEl.textContent = '电脑端未允许接入';
+            if (retryBtn) retryBtn.style.display = 'block';
+        } else if (kind === 'occupied') {
+            if (titleEl) titleEl.textContent = '电脑端已有手机接入';
+            if (descEl) descEl.textContent = '同一时刻只允许一台手机接入，请稍后再试';
+            if (retryBtn) retryBtn.style.display = 'block';
+        } else if (kind === 'bad-access') {
+            if (titleEl) titleEl.textContent = '链接已失效';
+            if (descEl) descEl.textContent = '请在电脑端重新生成二维码后再次扫码';
+            if (retryBtn) retryBtn.style.display = 'block';
+        } else if (kind === 'kicked') {
+            if (titleEl) titleEl.textContent = '已被电脑端断开';
+            if (descEl) descEl.textContent = '电脑端已重置接入状态';
+            if (retryBtn) retryBtn.style.display = 'block';
+        } else if (kind === 'timeout') {
+            if (titleEl) titleEl.textContent = '等待超时';
+            if (descEl) descEl.textContent = '电脑端未在规定时间内响应，请重试';
+            if (retryBtn) retryBtn.style.display = 'block';
         }
     }
 
-    function attemptPair(code) {
-        if (!socket || !socket.connected || paired) return;
-        const clean = String(code || '').replace(/\D/g, '').slice(0, 6);
-        if (!clean) {
-            showPairOverlay(true);
-            return;
-        }
-        if (pairInput) pairInput.value = clean;
-        setPairMsg('正在配对…');
-        socket.emit('map-pair', { code: clean });
-    }
-
-    function ensurePairOverlay() {
-        if (pairOverlay) return pairOverlay;
-        pairOverlay = document.createElement('div');
-        pairOverlay.style.cssText = 'position:fixed;inset:0;z-index:2000;display:none;align-items:center;justify-content:center;padding:24px;background:rgba(11,31,51,0.88);backdrop-filter:blur(6px);box-sizing:border-box;';
-        const card = document.createElement('form');
-        card.style.cssText = 'width:100%;max-width:320px;padding:22px 20px;border-radius:14px;background:#fff;box-sizing:border-box;';
-        card.addEventListener('submit', function (e) {
-            e.preventDefault();
-            attemptPair(pairInput ? pairInput.value : '');
+    function ensureJoinOverlay() {
+        if (joinOverlay) return joinOverlay;
+        joinOverlay = document.createElement('div');
+        joinOverlay.style.cssText = 'position:fixed;inset:0;z-index:2000;display:none;align-items:center;justify-content:center;padding:24px;background:rgba(11,31,51,0.88);backdrop-filter:blur(6px);box-sizing:border-box;';
+        const card = document.createElement('div');
+        card.style.cssText = 'width:100%;max-width:320px;padding:22px 20px;border-radius:14px;background:#fff;box-sizing:border-box;text-align:center;';
+        card.innerHTML = [
+            '<h3 data-title style="margin:0 0 6px;font-size:17px;color:#0b1f33;"></h3>',
+            '<p data-desc style="margin:0 0 14px;font-size:12px;color:#6b7280;"></p>',
+            '<button data-cancel type="button" style="width:100%;padding:11px 0;border:none;border-radius:8px;background:#e5e7eb;color:#374151;font-size:14px;cursor:pointer;margin-top:6px;">取消</button>',
+            '<button data-retry type="button" style="width:100%;padding:11px 0;border:none;border-radius:8px;background:#1677ff;color:#fff;font-size:15px;cursor:pointer;margin-top:6px;">重试</button>'
+        ].join('');
+        joinOverlay.appendChild(card);
+        document.body.appendChild(joinOverlay);
+        card.querySelector('[data-cancel]').addEventListener('click', function () {
+            closeJoinOverlay();
+            if (socket && socket.connected) socket.emit('map-leave');
+            if (socket) socket.disconnect();
+            joinState = 'idle';
         });
-        const h = document.createElement('h3');
-        h.textContent = '输入配对码';
-        h.style.cssText = 'margin:0 0 6px;font-size:17px;color:#0b1f33;';
-        const hint = document.createElement('p');
-        hint.textContent = '请输入电脑面板显示的 6 位配对码';
-        hint.style.cssText = 'margin:0 0 14px;font-size:12px;color:#6b7280;';
-        pairInput = document.createElement('input');
-        pairInput.type = 'text';
-        pairInput.inputMode = 'numeric';
-        pairInput.maxLength = 6;
-        pairInput.placeholder = '6 位数字';
-        pairInput.style.cssText = 'display:block;width:100%;margin-bottom:10px;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:18px;letter-spacing:4px;text-align:center;box-sizing:border-box;';
-        pairMsg = document.createElement('div');
-        pairMsg.style.cssText = 'min-height:18px;margin-bottom:8px;font-size:12px;color:#b91c1c;';
-        const btn = document.createElement('button');
-        btn.type = 'submit';
-        btn.textContent = '配对';
-        btn.style.cssText = 'width:100%;padding:11px 0;border:none;border-radius:8px;background:#1677ff;color:#fff;font-size:15px;cursor:pointer;';
-        card.appendChild(h);
-        card.appendChild(hint);
-        card.appendChild(pairInput);
-        card.appendChild(pairMsg);
-        card.appendChild(btn);
-        pairOverlay.appendChild(card);
-        document.body.appendChild(pairOverlay);
-        return pairOverlay;
+        card.querySelector('[data-retry]').addEventListener('click', function () {
+            closeJoinOverlay();
+            retryJoin();
+        });
+        return joinOverlay;
     }
 
+    // ---------------- 发送指令 ----------------
     function emitCmd(payload) {
-        if (!paired) {
-            toast('请先输入配对码');
+        if (joinState !== 'connected') {
+            toast('尚未接入电脑端');
             return false;
         }
         if (!socket || !socket.connected) {
@@ -167,11 +218,28 @@
         return true;
     }
 
+    function retryJoin() {
+        if (!URL_ACCESS) {
+            // 没有 access token（用户手开）：让刷新页面重新生成
+            window.location.reload();
+            return;
+        }
+        joinState = 'idle';
+        if (socket) {
+            try { socket.disconnect(); } catch (e) {}
+            socket = null;
+        }
+        connect();
+    }
+
+    // ---------------- 连接中继 ----------------
     function connect() {
         if (typeof window.io !== 'function') {
             setStatus('socket.io 未加载', 'error');
             return;
         }
+        ensureJoinOverlay();
+
         socket = window.io(SERVER + '/map', {
             transports: ['websocket', 'polling'],
             reconnection: true,
@@ -182,18 +250,40 @@
 
         socket.on('connect', function () {
             connected = true;
-            setStatus('已连接', 'online');
-            socket.emit('map-join', { role: 'controller' });
+            if (!URL_ACCESS) {
+                joinState = 'bad-access';
+                setStatus('链接无效', 'error');
+                showJoinOverlay('bad-access');
+                return;
+            }
+            joinState = 'joining';
+            setStatus('等待电脑端确认', '');
+            showJoinOverlay('waiting');
+            if (joinTimerId) window.clearTimeout(joinTimerId);
+            joinTimerId = window.setTimeout(function () {
+                if (joinState === 'joining') {
+                    joinState = 'timeout';
+                    showJoinOverlay('timeout');
+                    setStatus('等待超时', 'error');
+                }
+            }, JOIN_TIMEOUT_MS);
+
+            socket.emit('map-join', {
+                role: 'controller',
+                access: URL_ACCESS,
+                clientToken: getOrGenClientToken(),
+                device: getDeviceInfo()
+            });
         });
 
         socket.on('disconnect', function () {
             connected = false;
             hostOnline = false;
-            paired = false;
-            showPairOverlay(false);
+            if (joinState !== 'connected') joinState = 'idle';
             setStatus('连接断开', 'error');
             setHostBar('电脑端未连接');
             stopAllControls();
+            closeJoinOverlay();
         });
 
         socket.on('connect_error', function () {
@@ -206,10 +296,8 @@
             hostOnline = !!payload.host;
             if (hostOnline) {
                 setHostBar('电脑端在线', true);
-                setStatus('已连接', 'online');
             } else {
                 setHostBar('电脑端未连接，请先打开跬步地图');
-                if (connected) setStatus('等待电脑端', '');
             }
         });
 
@@ -219,35 +307,59 @@
             if (payload && payload.ok === false) {
                 if (payload.reason === 'host-offline') {
                     toast('电脑端未连接');
+                } else if (payload.reason === 'not-authorized') {
+                    toast('尚未接入电脑端');
                 } else {
                     toast('操作未生效');
                 }
             }
         });
 
-        socket.on('map-pair-required', function () {
-            if (paired) return;
-            if (URL_PAIR) {
-                attemptPair(URL_PAIR);
+        // 新安全模型回执
+        socket.on('map-join-result', function (res) {
+            if (!res || typeof res !== 'object') return;
+            if (joinTimerId) { window.clearTimeout(joinTimerId); joinTimerId = null; }
+            if (res.ok) {
+                joinState = 'connected';
+                closeJoinOverlay();
+                setStatus('已接入', 'online');
+                vibrate(20);
+                toast(res.restored ? '已恢复连接' : '已接入，可开始遥控');
             } else {
-                showPairOverlay(true);
+                joinState = 'rejected';
+                const reason = res.reason || 'unknown';
+                if (reason === 'occupied') {
+                    joinState = 'occupied';
+                    showJoinOverlay('occupied');
+                } else if (reason === 'bad-access-token') {
+                    joinState = 'bad-access';
+                    showJoinOverlay('bad-access');
+                } else if (reason === 'rate-limited') {
+                    showJoinOverlay('timeout');
+                } else if (reason === 'superseded') {
+                    joinState = 'kicked';
+                    showJoinOverlay('kicked');
+                } else {
+                    joinState = 'rejected';
+                    showJoinOverlay('rejected');
+                }
+                setStatus('接入失败', 'error');
             }
         });
 
-        socket.on('map-pair-result', function (res) {
-            if (!res || typeof res !== 'object') return;
-            if (res.ok) {
-                paired = true;
-                showPairOverlay(false);
-                setPairMsg('');
-                setStatus('配对成功', 'online');
-                vibrate(20);
-                toast('配对成功，可开始遥控');
-            } else {
-                paired = false;
-                showPairOverlay(true);
-                setPairMsg(res.reason === 'invalid' ? '配对码错误，请重试' : '配对失败，请重试');
-            }
+        socket.on('map-join-restored', function () {
+            joinState = 'connected';
+            closeJoinOverlay();
+            if (joinTimerId) { window.clearTimeout(joinTimerId); joinTimerId = null; }
+            setStatus('已恢复', 'online');
+        });
+
+        socket.on('map-kicked', function () {
+            joinState = 'kicked';
+            closeJoinOverlay();
+            showJoinOverlay('kicked');
+            setStatus('已被断开', 'error');
+            stopAllControls();
         });
     }
 
@@ -268,7 +380,7 @@
     }
 
     function sendPan() {
-        if (!connected || !paired) return;
+        if (!connected || joinState !== 'connected') return;
         socket.emit('map-cmd', {
             action: 'pan',
             vx: Number(joy.vx.toFixed(3)),
@@ -352,7 +464,7 @@
 
         function start(event) {
             if (active) return;
-            if (!paired) { toast('请先输入配对码'); return; }
+            if (joinState !== 'connected') { toast('尚未接入电脑端'); return; }
             active = true;
             pointerId = event.pointerId;
             el.setPointerCapture(event.pointerId);
@@ -391,7 +503,7 @@
             joy.timer = null;
             resetJoystick();
         }
-        if (paired && socket && socket.connected) {
+        if (joinState === 'connected' && socket && socket.connected) {
             socket.emit('map-cmd', { action: 'zoom', dir: 1, active: false });
         }
     }
@@ -513,7 +625,7 @@
 
         setHostBar('电脑端未连接');
         setStatus('连接中…');
-        ensurePairOverlay();
+        ensureJoinOverlay();
         connect();
     }
 

@@ -15,7 +15,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.5.2/ol.css">
     <script src="/js/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-    <link rel="stylesheet" href="css/map.css?v=20261124">
+    <link rel="stylesheet" href="css/map.css?v=20261124c">
 </head>
 
 <body>
@@ -86,10 +86,9 @@
         </div>
         <div id="mapRemoteStatus" class="map-remote-status is-offline">未连接中继</div>
         <div class="map-remote-pair">
-            <span class="map-remote-pair-label">配对码</span>
-            <span id="mapRemotePairCode" class="map-remote-pair-code">------</span>
-            <span id="mapRemotePairTimer" class="map-remote-pair-timer"></span>
-            <button id="mapRemotePairRefresh" class="map-remote-pair-refresh" type="button" title="重新生成配对码">刷新</button>
+            <span class="map-remote-pair-label">接入链接</span>
+            <span class="map-remote-pair-code">扫码即申请接入，电脑端确认</span>
+            <button id="mapRemoteRefreshQr" class="map-remote-pair-refresh" type="button" title="刷新接入链接（旧链接立即失效）">刷新链接</button>
         </div>
         <div class="map-remote-qr-wrap">
             <img id="mapRemoteQr" alt="手机遥控二维码">
@@ -99,11 +98,11 @@
         <div class="map-remote-actions">
             <button id="mapRemoteCopy" class="map-remote-btn" type="button">复制链接</button>
             <button id="mapRemoteRetry" class="map-remote-btn" type="button">重试</button>
-            <button id="mapRemoteKick" class="map-remote-btn is-danger" type="button" disabled>断开手机（0）</button>
+            <button id="mapRemoteKick" class="map-remote-btn is-danger" type="button" disabled>断开手机</button>
         </div>
-        <div id="mapRemoteTip" class="map-remote-tip">手机与电脑无需同一 WiFi；首次连接可能需要等待中继唤醒。</div>
+        <div id="mapRemoteTip" class="map-remote-tip">同一时刻只允许一台手机接入；扫码后需在电脑端点击「允许」。断开手机或刷新链接后旧链接立即失效。</div>
     </div>
-    <!-- 地图镜像模式（手机端 ?mirror=1）：登录页 + 配对码 + 状态条 + 触摸操作条 -->
+    <!-- 地图镜像模式（手机端 ?mirror=1）：登录页 + 状态条 + 触摸操作条 -->
     <div id="mirrorLogin" class="mirror-login" style="display: none;">
         <form id="mirrorLoginForm" class="mirror-login-card" autocomplete="on">
             <h3>登录后使用地图镜像</h3>
@@ -114,15 +113,6 @@
             <button type="submit" class="mirror-login-submit">登录</button>
             <button id="mirrorGuestBtn" type="button" class="mirror-login-guest">不登录，仅遥控</button>
             <p class="mirror-login-guest-hint">不登录时两端数据不同步，图层与弹窗同步不可用</p>
-        </form>
-    </div>
-    <div id="mirrorPair" class="mirror-login" style="display: none;">
-        <form id="mirrorPairForm" class="mirror-login-card" autocomplete="off">
-            <h3>输入配对码</h3>
-            <p class="mirror-login-hint">请输入电脑面板显示的 6 位配对码</p>
-            <input id="mirrorPairInput" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="6 位数字">
-            <div id="mirrorPairMsg" class="mirror-login-msg"></div>
-            <button type="submit" class="mirror-login-submit">配对</button>
         </form>
     </div>
     <div id="mirrorTopBar" class="mirror-bar">
@@ -151,7 +141,7 @@
         <button id="mirrorSearchBtn" class="mirror-tool-btn" type="button">🔎 搜索</button>
         <button id="mirrorLocateBtn" class="mirror-tool-btn" type="button">📍 定位</button>
         <button id="mirrorBaseBtn" class="mirror-tool-btn" type="button">🗺️ 底图</button>
-        <button id="mirrorOpenFileBtn" class="mirror-tool-btn" type="button">📂 打开文件</button>
+        <button id="mirrorOpenFileBtn" class="mirror-tool-btn" type="button">📂 发文件</button>
         <button id="mirrorLaserBtn" class="mirror-tool-btn" type="button">🔦 激光</button>
         <button id="mirrorLengthBtn" class="mirror-tool-btn" type="button">📏 测长</button>
         <button id="mirrorAreaBtn" class="mirror-tool-btn" type="button">🔲 测面</button>
@@ -159,6 +149,7 @@
         <button id="mirrorFinishBtn" class="mirror-tool-btn is-primary" type="button">✅ 完成</button>
         <button id="mirrorStopBtn" class="mirror-tool-btn" type="button">✖ 清除</button>
     </div>
+    <input type="file" id="mirrorFileInput" accept=".geojson,.json,.kml,.gml" style="display: none;" />
     <style>
         /* 嵌入小刘：仅保留 切换底图/测量/绘制 三个功能（图层管理已融合进小刘面板），其余入口隐藏 */
         .xiaoliu-embed #citySearchWrapper,
@@ -583,14 +574,14 @@
     <script src="js/utils.js"></script>
     
     <!-- 地图核心 - 必须在依赖地图的脚本之前加载 -->
-    <script src="js/map.js?v=20261120"></script>
+    <script src="js/map.js?v=20261124d"></script>
     <!-- 小刘 Agent 地图桥 -->
     <script src="js/xiaoliu_bridge.js"></script>
     <!-- 手机遥控（socket.io + 宿主编排） -->
     <script src="games/lib/socket.io.min.js"></script>
-    <script src="js/map_remote.js?v=20261124"></script>
+    <script src="js/map_remote.js?v=20261124c"></script>
     <!-- 手机镜像模式（?mirror=1 才启用） -->
-    <script src="js/map_mirror.js?v=20261124b"></script>
+    <script src="js/map_mirror.js?v=20261124c"></script>
     <!-- 地名搜索模块（天地图 POI） -->
     <script src="js/tianditu_search.js?v=20261120"></script>
     <!-- 共享属性表单模块 - Schema 设计器 + 属性面板 -->

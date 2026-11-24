@@ -1065,58 +1065,98 @@ body.laser-on .mirror-laser-bar {
     }
 }
 
-/* 手机请求打开电脑本地图层：确认弹窗（仅电脑端宿主使用） */
-.remote-file-prompt {
+/* 手机推送图层文件后，电脑端右下角提示 */
+.map-remote-toast {
+    position: fixed;
+    right: 20px;
+    bottom: 24px;
+    z-index: 5100;
+    max-width: 320px;
+    padding: 11px 16px;
+    border-radius: 10px;
+    background: rgba(15, 23, 42, 0.92);
+    color: #ffffff;
+    font-size: 13px;
+    line-height: 1.5;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.32);
+    animation: mapRemoteToastIn 0.18s ease-out;
+}
+@keyframes mapRemoteToastIn {
+    from { transform: translateY(8px); opacity: 0; }
+    to   { transform: translateY(0);   opacity: 1; }
+}
+/* ---------------- 手机遥控 · 电脑端接入审批弹窗 ---------------- */
+.remote-approve-overlay {
     position: fixed;
     inset: 0;
-    z-index: 2000;
+    z-index: 5000;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 20px;
-    background: rgba(15, 23, 42, 0.45);
+    padding: 24px;
+    background: rgba(11, 31, 51, 0.78);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    box-sizing: border-box;
 }
-
-.remote-file-prompt-card {
-    width: 360px;
-    max-width: 100%;
-    padding: 20px 22px;
+.remote-approve-card {
+    width: 100%;
+    max-width: 360px;
+    padding: 20px;
     border-radius: 14px;
     background: #ffffff;
-    box-shadow: 0 18px 50px rgba(15, 23, 42, 0.3);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.24);
+    box-sizing: border-box;
+    animation: remoteApprovePop 0.18s ease-out;
 }
-
-.remote-file-prompt-card h3 {
-    margin: 0 0 10px;
+@keyframes remoteApprovePop {
+    from { transform: scale(0.92); opacity: 0; }
+    to   { transform: scale(1);    opacity: 1; }
+}
+.remote-approve-title {
     font-size: 16px;
-    color: #1f2d3d;
+    font-weight: 700;
+    color: #0b1f33;
+    margin-bottom: 12px;
 }
-
-.remote-file-prompt-card p {
-    margin: 0 0 16px;
+.remote-approve-desc {
     font-size: 13px;
-    line-height: 1.7;
-    color: #5a6a7d;
+    color: #334155;
+    line-height: 1.8;
+    margin-bottom: 18px;
 }
-
-.remote-file-prompt-actions {
+.remote-approve-desc strong { color: #0b1f33; }
+.remote-approve-note {
+    margin-top: 10px;
+    font-size: 12px;
+    color: #6b7280;
+    line-height: 1.6;
+}
+.remote-approve-actions {
     display: flex;
-    justify-content: flex-end;
     gap: 10px;
 }
-
-.remote-file-prompt-actions button {
-    padding: 8px 18px;
-    border: 1px solid #d5dbe5;
+.remote-approve-btn {
+    flex: 1;
+    min-height: 40px;
+    padding: 0 14px;
+    border: 0;
     border-radius: 8px;
-    background: #f5f7fa;
-    font-size: 13px;
-    color: #45536a;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
     cursor: pointer;
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
 }
-
-.remote-file-prompt-actions .remote-file-prompt-ok {
-    border-color: transparent;
+.remote-approve-btn.deny {
+    background: #f1f5f9;
+    color: #475569;
+}
+.remote-approve-btn.deny:hover { background: #e2e8f0; }
+.remote-approve-btn.allow {
     background: #2563eb;
     color: #ffffff;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.28);
 }
+.remote-approve-btn.allow:hover { background: #1d4ed8; }
+.remote-approve-btn:active { transform: translateY(1px); }
