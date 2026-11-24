@@ -19,10 +19,12 @@
     const MAX_ZOOM = 19;
     const VIEW_THROTTLE = 120;     // 视图同步节流（毫秒）
     const APPLY_LOCK = 350;        // 应用电脑端状态后的静默期，避免回环
+    const FILE_ACK_TIMEOUT = 6000; // 请求打开本地文件后，等待中继回执的时长
 
     let socket = null;
     let ready = false;
     let hostOnline = false;
+    let fileAckTimer = null;
     let applyingRemote = false;
     let userMoved = false;
     let viewTimer = null;
@@ -470,8 +472,17 @@
         const openFileBtn = document.getElementById('mirrorOpenFileBtn');
         if (openFileBtn) {
             openFileBtn.addEventListener('click', function () {
+                if (!socket || !socket.connected || !paired) {
+                    notify('尚未连接电脑端，请先完成配对', 'error');
+                    return;
+                }
                 send({ action: 'open-local-file' });
-                notify('已发送请求，请在电脑端确认后选择文件');
+                setStatus('请求已发出，等待电脑端确认…', 'waiting');
+                if (fileAckTimer) window.clearTimeout(fileAckTimer);
+                fileAckTimer = window.setTimeout(function () {
+                    fileAckTimer = null;
+                    notify('未收到电脑端回执，请确认电脑端已打开地图，且后端服务已更新', 'error');
+                }, FILE_ACK_TIMEOUT);
             });
         }
 
@@ -962,7 +973,19 @@
         });
 
         socket.on('map-cmd-result', function (res) {
-            if (res && res.ok === false && res.reason === 'host-offline') {
+            if (!res || typeof res !== 'object') return;
+            if (res.action === 'open-local-file') {
+                if (fileAckTimer) { window.clearTimeout(fileAckTimer); fileAckTimer = null; }
+                if (res.ok === false) {
+                    notify(res.reason === 'host-offline'
+                        ? '电脑端未连接，请确认电脑端已打开地图'
+                        : '电脑端未接受该请求', 'error');
+                } else {
+                    notify('电脑端已收到请求，请在电脑上确认后选择文件', 'online');
+                }
+                return;
+            }
+            if (res.ok === false && res.reason === 'host-offline') {
                 setStatus('电脑端未连接，操作未送达', 'error');
             }
         });
