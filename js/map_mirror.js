@@ -36,6 +36,7 @@
     let hostOnline = false;
     let fileSendTimer = null;
     let pendingFileName = null;
+    let pendingPush = null;   // 待电脑端确认的推送内容，确认成功后在手机本地也加载一份
     let applyingRemote = false;
     let userMoved = false;
     let viewTimer = null;
@@ -275,6 +276,7 @@
         reader.onload = function () {
             const text = decodeFileText(reader.result);
             pendingFileName = file.name;
+            pendingPush = { name: file.name, ext: ext, text: text };
             setStatus('正在发送 ' + file.name + '（' +
                 Math.max(1, Math.round(file.size / 1024)) + ' KB）…', 'waiting');
             send({ action: 'push-file', name: file.name, size: file.size, text: text });
@@ -283,10 +285,61 @@
                 fileSendTimer = null;
                 if (!pendingFileName) return;
                 pendingFileName = null;
+                pendingPush = null;
                 notify('发送超时，请确认电脑端在线后重试', 'error');
             }, FILE_SEND_TIMEOUT);
         };
         reader.readAsArrayBuffer(file);
+    }
+
+    function localLayerArray() {
+        if (typeof localGeoJsonLayers !== 'undefined' && Array.isArray(localGeoJsonLayers)) {
+            return localGeoJsonLayers;
+        }
+        return Array.isArray(window.localGeoJsonLayers) ? window.localGeoJsonLayers : null;
+    }
+
+    // 电脑端确认加载成功后，手机本地也加载同一份，避免"电脑端有、手机端没有"
+    function loadFileOnPhone(text, name, ext) {
+        try {
+            if (ext === 'geojson' || ext === 'json') {
+                if (typeof loadLocalGeoJSON !== 'function') return;
+                loadLocalGeoJSON(JSON.parse(text), name, { fileName: name, format: 'geojson', autoFit: true });
+            } else if (ext === 'kml') {
+                if (typeof loadLocalKML !== 'function') return;
+                loadLocalKML(text, name, { fileName: name, format: 'kml' });
+            } else if (ext === 'gml') {
+                if (typeof loadLocalGML !== 'function') return;
+                loadLocalGML(text, name);
+            } else {
+                return;
+            }
+            const items = localLayerArray();
+            const item = items && items.length ? items[items.length - 1] : null;
+            if (item) item.mirrorPushed = true;
+        } catch (e) {
+            console.warn('[地图镜像] 手机本地加载推送图层失败', e);
+        }
+    }
+
+    // 手机端为「发文件」保留的副本：电脑端移除后一并清理，避免手机残留
+    function syncPushedLocalLayers(layers) {
+        const items = localLayerArray();
+        if (!items || !Array.isArray(layers)) return;
+        const hostNames = {};
+        layers.forEach(function (l) {
+            if (l && l.kind === 'local' && typeof l.name === 'string') hostNames[l.name] = true;
+        });
+        let changed = false;
+        for (let i = items.length - 1; i >= 0; i--) {
+            const item = items[i];
+            if (!item || !item.mirrorPushed) continue;
+            if (hostNames[String(item.name)]) continue;
+            if (item.layer && window.map) window.map.removeLayer(item.layer);
+            items.splice(i, 1);
+            changed = true;
+        }
+        if (changed && typeof createLayerControl === 'function') createLayerControl();
     }
 
     // ---------------- 视图同步 ----------------
@@ -1126,6 +1179,7 @@
             if (joinTimerId) { window.clearTimeout(joinTimerId); joinTimerId = null; }
             if (fileSendTimer) { window.clearTimeout(fileSendTimer); fileSendTimer = null; }
             pendingFileName = null;
+            pendingPush = null;
             refreshStatus();
         });
 
@@ -1148,6 +1202,7 @@
                 remoteLayers = state.layers;
                 renderLayerList();
                 applyRemoteLayerVisibility(state.layers);
+                syncPushedLocalLayers(state.layers);
             }
             if (!guestMode && state && state.popup) applyRemotePopup(state.popup);
         });
@@ -1166,7 +1221,11 @@
             if (!res || typeof res !== 'object') return;
             if (fileSendTimer) { window.clearTimeout(fileSendTimer); fileSendTimer = null; }
             pendingFileName = null;
+            const pushed = pendingPush;
+            pendingPush = null;
             if (res.ok) {
+                // 电脑端已加载成功，手机本地也加载同一份，两端都能看到
+                if (pushed) loadFileOnPhone(pushed.text, res.name || pushed.name, pushed.ext);
                 notify('电脑已加载 ' + (res.name || '图层') + '（' + (res.count || 0) + ' 个要素）', 'online');
             } else {
                 notify('电脑加载失败：' + (res.error || '未知错误'), 'error');

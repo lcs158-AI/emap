@@ -417,6 +417,9 @@ img, video, canvas {
     box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
     border: 1px solid #e5e7eb;
     box-sizing: border-box;
+    /* 视口较矮时面板可滚动，避免底部信息被遮挡 */
+    max-height: calc(100vh - 140px);
+    overflow-y: auto;
 }
 
 .map-remote-head {
@@ -569,26 +572,11 @@ img, video, canvas {
     flex: 0 0 auto;
 }
 
-.map-remote-pair-code {
+.map-remote-pair-hint {
     flex: 1;
-    text-align: center;
-    font-size: 22px;
-    font-weight: 700;
-    letter-spacing: 5px;
-    font-family: 'SF Mono', Consolas, 'Courier New', monospace;
-    color: #1677ff;
-}
-
-.map-remote-pair-code.is-expired {
-    color: #b91c1c;
-}
-
-.map-remote-pair-timer {
     font-size: 11px;
-    color: #9ca3af;
-    flex: 0 0 auto;
-    min-width: 34px;
-    text-align: right;
+    line-height: 1.5;
+    color: #6b7280;
 }
 
 .map-remote-pair-refresh {
