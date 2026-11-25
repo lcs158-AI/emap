@@ -42,6 +42,8 @@
     let viewTimer = null;
     let lastApplyAt = 0;
     let viewSyncHoldUntil = 0;
+    // 本地加载推送图层触发的自动定位属于程序行为，窗口期内不回传视图、不拦截电脑端视图
+    let programmaticFitUntil = 0;
 
     let statusEl = null;
     let accountEl = null;
@@ -302,6 +304,7 @@
     // 电脑端确认加载成功后，手机本地也加载同一份，避免"电脑端有、手机端没有"
     function loadFileOnPhone(text, name, ext) {
         try {
+            programmaticFitUntil = performance.now() + 1200;
             if (ext === 'geojson' || ext === 'json') {
                 if (typeof loadLocalGeoJSON !== 'function') return;
                 loadLocalGeoJSON(JSON.parse(text), name, { fileName: name, format: 'geojson', autoFit: true });
@@ -345,6 +348,7 @@
     // ---------------- 视图同步 ----------------
     function scheduleView() {
         if (applyingRemote) return;
+        if (performance.now() < programmaticFitUntil) return;
         userMoved = true;
         if (performance.now() < viewSyncHoldUntil) return;
         if (viewTimer) return;
@@ -1197,7 +1201,8 @@
         });
 
         socket.on('map-state', function (state) {
-            if (!userMoved) applyRemoteState(state);
+            // 本地加载图层后的自动定位窗口期内，忽略电脑端可能滞后的视图状态，避免把手机拉回旧视角
+            if (!userMoved && performance.now() >= programmaticFitUntil) applyRemoteState(state);
             if (!guestMode && state && Array.isArray(state.layers)) {
                 remoteLayers = state.layers;
                 renderLayerList();
