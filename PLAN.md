@@ -1,8 +1,8 @@
 # 跬步地图升级实施方案：手机遥控 + 双版本三维用海
 
-- 文档版本：1.3
-- 日期：2026-11-20
-- 状态：手机遥控分档与镜像增强已实施并通过本地双页面联调（2026-11-20）；镜像登录、激光笔、弹窗/图层同步与入口调整已实施（2026-11-20）；配对码安全机制（6 位 / 120 秒 / 嵌入二维码 + 手输兜底）已实施（2026-11-20），待中继重新部署后联调；镜像页「不登录，仅遥控」访客模式已实施（2026-11-20）；电脑端本地操作优先与「断开手机」入口已实施（2026-11-20），待中继重新部署后联调；激光落点高亮与手机端点/线/圈同步渲染已实施（2026-11-20）；双版本三维用海暂缓
+- 文档版本：1.4
+- 日期：2026-11-27
+- 状态：手机遥控分档与镜像增强已实施并通过本地双页面联调（2026-11-20）；镜像登录、激光笔、弹窗/图层同步与入口调整已实施（2026-11-20）；配对码安全机制与访客模式已实施（2026-11-20）；激光落点高亮与手机端点/线/圈同步渲染已实施（2026-11-20）；双版本三维用海暂缓。**2026-11-27 遥控机制重制为「电脑登录态 + 手机账号」三场景分档**：二维码统一指向镜像页；同账号免审批完整镜像（仅一台），其余仅激光随机配色可多台并逐台审批；后端比对两端 access_token 用户名，电脑端退出登录即断开完整镜像手机；中继协议升至 3.0.0，电脑端支持多手机列表、逐台/全部断开与分色激光
 - 适用仓库：`c:\个人\自编程序\readexif\emap`（前端）与 `c:\个人\自编程序\readexif\fastapi`（中继）
 
 ## 1. 目标与范围
@@ -276,15 +276,18 @@ games 中继 -> 扩展 /map 命名空间 -> js/map_remote.js（电脑端）
   - `map_join`：`{role: 'host'|'controller'}`；host 顶替旧 host 时通知旧连接；host 加入时下发 `map-pair`；controller 加入后进入待配对集合并收到 `map-pair-required`，不直接加入 controllers、不补发状态。
   - `map_pair`：controller 提交 `{code}`；匹配则移入 controllers、补发 `map-state`、广播 presence，连续 5 次错误断开连接。
   - `map_pair_refresh`：仅 host 可调用，重新生成配对码并下发 `map-pair`。
-  - `map_kick`：仅 host 可调用，向所有已配对/待配对手机推送 `map-kicked` 并断开，清空控制器集合并重新生成配对码，回 `map-kick-result`。
-  - `map_cmd`：手机 -> 电脑；仅已配对（在 `_map_controllers` 中）的连接可下发，服务端仅转发给 host。
-  - `map_state`：电脑 -> 手机；服务端转发给所有已配对 controller。
-  - 命名空间级 `connect/disconnect`：维护在线状态并广播 presence；host 断开时清空配对码并断开所有待配对连接。
-- 配对码：6 位数字、120 秒有效；`GET /api/map/info` 打开面板时即生成，嵌入 `url` 与 `mirrorUrl` 的 `pair=` 参数，并返回 `pairCode`/`pairExpiresAt` 供面板先渲染。
+  - `map_kick`：仅 host 可调用；`{id}` 断开单台手机，`{all:true}` 断开全部并轮换 access token，回 `map-session`。
+  - `map_host_auth`：host 上报当前登录令牌，用于电脑端登录/退出/切换账号即时生效；退出登录时断开已接入的完整镜像手机。
+  - `map_approve`：host 逐台审批 `{id, ok}`；审批时按最新 host 用户重判角色（同账号完整镜像，否则仅激光）。
+  - `map_cmd`：手机 -> 电脑；服务端校正 `from` 与激光 `color`，仅激光角色只放行 `laser` 指令。
+  - `map_state`：电脑 -> 手机；完整镜像手机收到全量状态，仅激光手机只收到 `center/zoom/rotation/base/ts`。
+  - `map_file_result`：电脑端把手机推送文件的加载结果定向回执给发起该次推送的手机（`to` 字段）。
+  - 命名空间级 `connect/disconnect`：维护在线状态并广播 presence；controller 断线进入 60 秒恢复窗口；host 断开清空全部手机与 access token。
+- 角色判定：两端各上报 `access_token`，后端 `verify_token` 比对用户名。电脑未登录 → 全部手机仅激光；同账号 → 完整镜像（免审批、仅一台，第二台 `occupied-full`）；其他 → 仅激光（随机配色、最多 8 台、逐台审批）。
 - 接口：
-  - `GET /api/map/info`：返回 `{ url, qr, mirrorUrl, mirrorQr, pairCode, pairExpiresAt, version }`；`url` 指向简易遥控页（`MAP_SITE_URL`），`mirrorUrl` 指向地图镜像页（`MAP_APP_URL`），均可带 `?server=` 便于本地测试，且均内嵌 `pair=` 供扫码自动配对。
+  - `GET /api/map/info`：返回 `{ url, qr, mirrorUrl, mirrorQr, version, host, hostLoggedIn, controllerCount, pendingCount }`；`url` 与 `mirrorUrl` **统一指向镜像页** `AIsea.html?mirror=1`，带 `?server=` 便于本地测试；电脑端在线时才内嵌一次性 `access`，离线不返回 token。
   - `GET /api/map/health`：返回 host 在线、controller 数量、版本。
-- 环境变量：`MAP_SITE_URL`（默认 `https://lzywhy.com/mapctl`）、`MAP_APP_URL`（默认 `https://lzywhy.com/AIsea.html`）、`MAP_VERSION`。
+- 环境变量：`MAP_APP_URL`（默认 `https://lzywhy.com/AIsea.html`）；中继协议版本由代码内 `MAP_VERSION`（3.0.0）声明。
 - 二维码复用现有 `qrcode` 依赖。
 
 修改 `main.py`：
@@ -384,6 +387,7 @@ games 中继 -> 扩展 /map 命名空间 -> js/map_remote.js（电脑端）
 - 三维用海 Three.js 版 1.1 -> 1.2：示例数据按用海类型真实竖向占位调整（养殖区 -19~2.5、人工鱼礁 -19.5~-16.5、疏浚区 -24~0、桥梁 -23~6，管线埋于海床下约 1.5~2 米）；海床改为半透明（85%）并关闭深度写入，默认可见埋设管线、桥梁下部与疏浚区；相关静态资源升级为 `?v=20261123c`。
 - 三维用海 Three.js 版 1.2 -> 1.3：强化分层边界与质感——海床增加运行时生成的泥沙纹理（canvas），海面增加波纹法线贴图，海床下增设底土实体侧壁与底盖形成下边界，海岸线提取 height≈0 等高线生成泡沫带，海床材质用 `onBeforeCompile` 注入水下深度吸收让水体呈现有色体积；相关静态资源升级为 `?v=20261123d`。
 - 三维用海 Three.js 版 1.3 -> 1.4：竖向三带配色——海床以下（含底土）土褐（海床色带改为土褐系并只做变暗、底土侧壁 `0x6b4f34`、底盖 `0x3a2b1d`），海床至海面水体青蓝（水体侧壁不透明度 0.38，海面 `0x1f8fb0`），海面以上至天空淡天蓝（`0x8ecfe8`，同步雾与页面兜底背景）；相关静态资源升级为 `?v=20261123f`。
+- 遥控机制重制（三场景分档）：`AIsea.html` 3.12 -> 3.13，中继 2.0.0 -> 3.0.0；二维码统一指向镜像页，后端比对两端 `access_token` 用户名——电脑未登录全部手机仅激光（随机配色、多台、逐台审批），同账号免审批完整镜像（仅一台，第二台 `occupied-full`），异账号/未登录仅激光；电脑端退出登录即断开完整镜像手机；电脑端面板新增已接入手机列表、逐台/全部断开与分色激光；相关静态资源升级为 `js/map_remote.js?v=20261127a`、`js/map_mirror.js?v=20261127a`、`css/map.css?v=20261127a`。
 
 ## 7. 执行顺序
 
@@ -496,7 +500,7 @@ games 中继 -> 扩展 /map 命名空间 -> js/map_remote.js（电脑端）
 
 1. 确认本方案文件内容与执行顺序。
 2. 确认中继域名仍为 `https://lzy-fastapi.onrender.com`；如有变化，修改 `MAP_SERVER` 默认值。
-3. 确认手机控制页部署路径为 `https://lzywhy.com/mapctl/`；如有变化，修改 `MAP_SITE_URL`。
+3. 手机端入口统一为镜像页 `https://lzywhy.com/AIsea.html?mirror=1`（旧 `mapctl/` 入口停用）；如有变化，修改 `MAP_APP_URL`。
 4. 确认高程数据以“米、海平面以上为正”展示，不要求基准面换算。
 
 确认后按第 7 节顺序实施；每完成一个阶段，更新 README 与版本号，并汇总改动、验证结果。

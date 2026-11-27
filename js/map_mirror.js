@@ -62,8 +62,14 @@
     let loginHintEl = null;
     let loginSubmitEl = null;
 
-    // 访客模式（不登录，仅遥控）：关闭依赖账号数据的图层与弹窗同步
+    // 访客模式（不登录，仅遥控）
     let guestMode = false;
+
+    // 接入角色：'full' 完整镜像；'laser' 仅激光（只读跟随电脑端视图）
+    let myRole = null;
+    let myColor = null;
+    let readOnly = false;
+    let pendingDataLoad = false;   // 登录后才需补载账号图层（页面加载时已登录由 user.js 处理）
 
     // 弹窗同步
     let lastPopupSeq = 0;
@@ -77,12 +83,16 @@
     let laserStartClient = null;
     let laserMoved = false;
     let lastLaserSendAt = 0;
-    let laserDisabledInteractions = [];
 
     document.body.classList.add('mirror-mode');
 
     function clamp(v, min, max) {
         return Math.min(max, Math.max(min, v));
+    }
+
+    // 完整镜像功能（图层/弹窗/测量等）仅对 full 角色开放
+    function canFull() {
+        return myRole === 'full';
     }
 
     function serverBase() {
@@ -154,6 +164,18 @@
             titleEl.textContent = '电脑端已有手机接入';
             descEl.textContent = '同一时刻只允许一台手机接入，请稍后再试';
             retryBtn.style.display = 'block';
+        } else if (kind === 'occupied-full') {
+            titleEl.textContent = '完整镜像已被占用';
+            descEl.textContent = '同账号只允许一台手机使用完整镜像，请先断开其他手机；也可改用其他账号或未登录，仅使用激光笔';
+            retryBtn.style.display = 'block';
+        } else if (kind === 'host-offline') {
+            titleEl.textContent = '电脑端未连接';
+            descEl.textContent = '请先在电脑端打开地图并保持页面在线，再重新扫码';
+            retryBtn.style.display = 'block';
+        } else if (kind === 'too-many') {
+            titleEl.textContent = '接入数已达上限';
+            descEl.textContent = '当前手机接入数量过多，请稍后再试';
+            retryBtn.style.display = 'block';
         } else if (kind === 'bad-access') {
             titleEl.textContent = '链接已失效';
             descEl.textContent = '请在电脑端重新生成二维码后再次扫码';
@@ -222,6 +244,10 @@
             setStatus('电脑端未连接', 'waiting');
             return;
         }
+        if (myRole === 'laser') {
+            setStatus('仅激光 · 只读跟随电脑端', 'online');
+            return;
+        }
         setStatus('已同步到电脑', 'online');
     }
 
@@ -232,6 +258,8 @@
 
     function send(payload) {
         if (joinState !== 'connected') return;
+        // 仅激光角色只允许激光指令，其余功能不发送
+        if (!canFull() && payload && payload.action !== 'laser') return;
         if (socket && socket.connected) socket.emit('map-cmd', payload);
     }
 
@@ -253,6 +281,10 @@
         if (!file) return;
         if (!socket || !socket.connected || joinState !== 'connected') {
             notify('尚未接入电脑端', 'error');
+            return;
+        }
+        if (!canFull()) {
+            notify('仅激光模式不支持发送文件', 'error');
             return;
         }
         const ext = (file.name.split('.').pop() || '').toLowerCase();
@@ -347,6 +379,7 @@
 
     // ---------------- 视图同步 ----------------
     function scheduleView() {
+        if (!canFull()) return;
         if (applyingRemote) return;
         if (performance.now() < programmaticFitUntil) return;
         userMoved = true;
@@ -361,6 +394,7 @@
 
     function sendView() {
         if (!window.map || !window.ol || performance.now() < viewSyncHoldUntil) return;
+        if (!canFull()) return;
         const view = window.map.getView();
         const center = window.ol.proj.toLonLat(view.getCenter());
         send({
@@ -503,7 +537,7 @@
 
     // ---------------- 电脑端基础图层管理 ----------------
     function requestLayers() {
-        if (guestMode) return;
+        if (!canFull()) return;
         send({ action: 'layers', op: 'list' });
     }
 
@@ -514,7 +548,7 @@
     }
 
     function openLayerPanel() {
-        if (!layerPanelEl || guestMode) return;
+        if (!layerPanelEl || !canFull()) return;
         if (window.TiandituSearch && typeof window.TiandituSearch.close === 'function') {
             window.TiandituSearch.close();
         }
@@ -740,6 +774,14 @@
         }
     }
 
+    function getAuthToken() {
+        try {
+            return localStorage.getItem('access_token') || '';
+        } catch (e) {
+            return '';
+        }
+    }
+
     function updateAccountLabel() {
         if (!accountEl) return;
         if (guestMode) {
@@ -752,7 +794,26 @@
         } catch (e) {
             name = '';
         }
-        accountEl.textContent = hasToken() ? ('账号：' + (name || '已登录')) : '未登录';
+        let text = hasToken() ? ('账号：' + (name || '已登录')) : '未登录';
+        if (myRole === 'full') text += ' · 完整镜像';
+        else if (myRole === 'laser') text += ' · 仅激光';
+        accountEl.textContent = text;
+    }
+
+    // 角色确定后切换界面：laser 隐藏工具栏、只读跟随、显示激光按钮
+    function applyRoleUI() {
+        const laserOnly = myRole === 'laser';
+        readOnly = laserOnly;
+        document.body.classList.toggle('mirror-laser-only', laserOnly);
+        const onlyBtn = document.getElementById('mirrorLaserOnlyToggle');
+        if (onlyBtn) onlyBtn.style.display = laserOnly ? 'inline-flex' : 'none';
+        if (myColor) document.body.style.setProperty('--my-laser-color', myColor);
+        if (laserOnly) {
+            closeLayerPanel();
+            setLayersButtonHidden(true);
+        }
+        setNavigationEnabled(!readOnly && !laserOn);
+        updateAccountLabel();
     }
 
     function setLoginMsg(text) {
@@ -776,7 +837,7 @@
         showLogin(false);
         updateAccountLabel();
         setLayersButtonHidden(true);
-        connect();
+        connectMirror();
         notify('仅遥控模式：两端数据不同步', 'waiting');
     }
 
@@ -829,17 +890,14 @@
                     localStorage.setItem('access_token', data.access_token);
                     localStorage.setItem('username', username);
                 } catch (e) { /* 忽略存储失败 */ }
-                setLoginMsg('登录成功，正在加载数据…');
+                pendingDataLoad = true;   // 角色确认为 full 后再补载账号图层
+                setLoginMsg('登录成功，正在接入…');
                 updateAccountLabel();
-                connect();
-                if (typeof window.loadUserUploadedData === 'function') {
-                    window.loadUserUploadedData();
-                }
+                connectMirror();
                 window.setTimeout(function () {
                     showLogin(false);
-                    requestLayers();
-                    notify('已登录，正在同步地图数据', 'online');
-                }, 500);
+                    notify('正在接入电脑端', 'waiting');
+                }, 300);
             }).catch(function (error) {
                 setLoginMsg((error && error.message) || '网络错误，请重试');
             }).then(function () {
@@ -870,7 +928,7 @@
         if (typeof popup === 'undefined' || !popup || typeof popup.on !== 'function') return;
         // 点「×」关闭弹窗不会产生地图 click，统一监听 overlay 位置变化
         popup.on('change:position', function () {
-            if (guestMode) return;
+            if (!canFull()) return;
             if (applyingPopup) return;
             if (laserOn) return;
             if (typeof measureActive !== 'undefined' && measureActive) return;
@@ -890,7 +948,7 @@
     }
 
     function applyRemotePopup(info) {
-        if (guestMode) return;
+        if (!canFull()) return;
         if (!info || typeof info !== 'object') return;
         const seq = Number(info.seq);
         if (!Number.isFinite(seq) || seq === lastPopupSeq) return;
@@ -927,7 +985,7 @@
 
     // 电脑端图层显隐同步到手机本地同名图层
     function applyRemoteLayerVisibility(layers) {
-        if (guestMode) return;
+        if (!canFull()) return;
         if (!Array.isArray(layers)) return;
         const groups = [
             { kind: 'dynamic', items: Array.isArray(window.dynamicLayers) ? window.dynamicLayers : [] },
@@ -972,6 +1030,10 @@
 
     // 激光指令：发往电脑端的同时在本地渲染，保证手机屏幕同步显示
     function emitLaser(payload) {
+        if (!payload) return;
+        if (myColor && payload.action === 'laser') {
+            payload = Object.assign({}, payload, { color: myColor });
+        }
         send(payload);
         if (window.MapLaser && typeof window.MapLaser.apply === 'function') {
             window.MapLaser.apply(payload);
@@ -996,11 +1058,28 @@
         emitLaser({ action: 'laser', mode: 'circle', phase: 'path', coords: ring });
     }
 
+    // 只读/绘制模式下禁用地图平移缩放交互
+    function setNavigationEnabled(enabled) {
+        if (!window.map || !window.ol) return;
+        window.map.getInteractions().forEach(function (interaction) {
+            const isNav =
+                interaction instanceof window.ol.interaction.DragPan ||
+                interaction instanceof window.ol.interaction.MouseWheelZoom ||
+                interaction instanceof window.ol.interaction.PinchZoom ||
+                interaction instanceof window.ol.interaction.DoubleClickZoom ||
+                interaction instanceof window.ol.interaction.KeyboardPan ||
+                interaction instanceof window.ol.interaction.KeyboardZoom;
+            if (isNav) interaction.setActive(!!enabled);
+        });
+    }
+
     function setLaser(on) {
         laserOn = !!on;
         document.body.classList.toggle('laser-on', laserOn);
         const btn = document.getElementById('mirrorLaserBtn');
         if (btn) btn.classList.toggle('active', laserOn);
+        const onlyBtn = document.getElementById('mirrorLaserOnlyToggle');
+        if (onlyBtn) onlyBtn.classList.toggle('active', laserOn);
         if (!window.map) return;
         if (laserOn) {
             if (typeof measureActive !== 'undefined' && measureActive &&
@@ -1008,22 +1087,10 @@
                 window.deactivateMeasurement();
                 syncToolbar();
             }
-            laserDisabledInteractions = [];
-            window.map.getInteractions().forEach(function (interaction) {
-                if (interaction instanceof window.ol.interaction.DragPan ||
-                    interaction instanceof window.ol.interaction.DoubleClickZoom) {
-                    if (interaction.getActive()) {
-                        interaction.setActive(false);
-                        laserDisabledInteractions.push(interaction);
-                    }
-                }
-            });
+            setNavigationEnabled(false);
             notify('激光已开启：点=光点，拖=划线；再次点击「激光」退出', 'waiting');
         } else {
-            laserDisabledInteractions.forEach(function (interaction) {
-                interaction.setActive(true);
-            });
-            laserDisabledInteractions = [];
+            setNavigationEnabled(!readOnly);
             laserPointerId = null;
             laserStartCoord = null;
             emitLaser({ action: 'laser', phase: 'clear' });
@@ -1045,7 +1112,11 @@
         }
         if (laserMode === 'point' && window.MapLaser) {
             // 点模式：按下即在本地显示高亮光点，抬起时再同步给电脑端
-            window.MapLaser.apply({ action: 'laser', mode: 'point', coords: [[point.lon, point.lat]] });
+            window.MapLaser.apply({
+                action: 'laser', mode: 'point',
+                coords: [[point.lon, point.lat]],
+                color: myColor || undefined
+            });
         }
         try {
             window.map.getViewport().setPointerCapture(evt.pointerId);
@@ -1099,6 +1170,10 @@
         if (btn) {
             btn.addEventListener('click', function () { setLaser(!laserOn); });
         }
+        const onlyBtn = document.getElementById('mirrorLaserOnlyToggle');
+        if (onlyBtn) {
+            onlyBtn.addEventListener('click', function () { setLaser(!laserOn); });
+        }
         const modes = document.querySelectorAll('.mirror-laser-mode');
         modes.forEach(function (modeBtn) {
             modeBtn.addEventListener('click', function () {
@@ -1149,6 +1224,12 @@
 
         socket.on('connect', function () {
             ready = true;
+            // 终止态（被拒/被踢/链接失效）不再自动重试，保留提示，避免反复弹审批
+            if (joinState === 'occupied' || joinState === 'bad-access' ||
+                joinState === 'rejected' || joinState === 'kicked') {
+                socket.disconnect();
+                return;
+            }
             if (!URL_ACCESS) {
                 joinState = 'bad-access';
                 setStatus('链接无效', 'error');
@@ -1171,6 +1252,7 @@
                 role: 'controller',
                 access: URL_ACCESS,
                 clientToken: getOrGenClientToken(),
+                authToken: getAuthToken(),
                 device: getDeviceInfo()
             });
         });
@@ -1178,8 +1260,10 @@
         socket.on('disconnect', function () {
             ready = false;
             hostOnline = false;
-            closeJoinOverlay();
-            if (joinState !== 'connected') joinState = 'idle';
+            if (joinState === 'connected' || joinState === 'joining' || joinState === 'idle') {
+                closeJoinOverlay();
+                joinState = 'idle';
+            }
             if (joinTimerId) { window.clearTimeout(joinTimerId); joinTimerId = null; }
             if (fileSendTimer) { window.clearTimeout(fileSendTimer); fileSendTimer = null; }
             pendingFileName = null;
@@ -1201,15 +1285,21 @@
         });
 
         socket.on('map-state', function (state) {
-            // 本地加载图层后的自动定位窗口期内，忽略电脑端可能滞后的视图状态，避免把手机拉回旧视角
+            if (!state) return;
+            // 仅激光：只读跟随电脑端视图；正在绘制的瞬间暂停跟随，避免地图在手指下移动
+            if (myRole === 'laser') {
+                if (!(laserOn && laserPointerId)) applyRemoteState(state);
+                return;
+            }
+            // 完整镜像：本地加载图层后的自动定位窗口期内，忽略电脑端可能滞后的视图状态
             if (!userMoved && performance.now() >= programmaticFitUntil) applyRemoteState(state);
-            if (!guestMode && state && Array.isArray(state.layers)) {
+            if (canFull() && Array.isArray(state.layers)) {
                 remoteLayers = state.layers;
                 renderLayerList();
                 applyRemoteLayerVisibility(state.layers);
                 syncPushedLocalLayers(state.layers);
             }
-            if (!guestMode && state && state.popup) applyRemotePopup(state.popup);
+            if (canFull() && state.popup) applyRemotePopup(state.popup);
         });
 
         socket.on('map-cmd-result', function (res) {
@@ -1218,6 +1308,8 @@
                 setStatus('电脑端未连接，操作未送达', 'error');
             } else if (res.ok === false && res.reason === 'not-authorized') {
                 setStatus('尚未接入电脑端', 'error');
+            } else if (res.ok === false && res.reason === 'forbidden') {
+                setStatus('仅激光模式不支持该操作', 'error');
             }
         });
 
@@ -1237,29 +1329,46 @@
             }
         });
 
-        // 新安全模型回执
+        // 接入结果（含角色与激光颜色）
         socket.on('map-join-result', function (res) {
             if (!res || typeof res !== 'object') return;
             if (joinTimerId) { window.clearTimeout(joinTimerId); joinTimerId = null; }
             if (res.ok) {
                 joinState = 'connected';
+                myRole = res.role === 'full' ? 'full' : 'laser';
+                myColor = res.color || null;
                 closeJoinOverlay();
-                setStatus(res.restored ? '已恢复连接' : '已接入，正在同步…', 'online');
-                requestLayers();
-                sendView();
-                window.setTimeout(refreshStatus, 1800);
+                applyRoleUI();
+                if (myRole === 'full') {
+                    if (pendingDataLoad && typeof window.loadUserUploadedData === 'function') {
+                        pendingDataLoad = false;
+                        window.loadUserUploadedData();
+                    }
+                    requestLayers();
+                    sendView();
+                    setStatus(res.restored ? '已恢复完整镜像' : '完整镜像已接入，正在同步…', 'online');
+                } else {
+                    setStatus('已接入：仅激光（只读跟随电脑端）', 'online');
+                }
+                refreshStatus();
             } else {
                 const reason = res.reason || 'unknown';
-                if (reason === 'occupied') {
+                if (reason === 'occupied' || reason === 'occupied-full') {
                     joinState = 'occupied';
-                    showJoinOverlay('occupied');
+                    showJoinOverlay('occupied-full');
                 } else if (reason === 'bad-access-token') {
                     joinState = 'bad-access';
                     showJoinOverlay('bad-access');
                 } else if (reason === 'rate-limited') {
                     joinState = 'rejected';
                     showJoinOverlay('timeout');
-                } else if (reason === 'superseded') {
+                } else if (reason === 'host-offline') {
+                    joinState = 'rejected';
+                    showJoinOverlay('host-offline');
+                } else if (reason === 'too-many') {
+                    joinState = 'rejected';
+                    showJoinOverlay('too-many');
+                } else if (reason === 'kicked' || reason === 'superseded') {
                     joinState = 'kicked';
                     showJoinOverlay('kicked');
                 } else {
@@ -1270,21 +1379,17 @@
             }
         });
 
-        socket.on('map-join-restored', function () {
-            if (joinTimerId) { window.clearTimeout(joinTimerId); joinTimerId = null; }
-            joinState = 'connected';
-            closeJoinOverlay();
-            setStatus('已恢复连接，正在同步…', 'online');
-            requestLayers();
-            sendView();
-            window.setTimeout(refreshStatus, 1500);
-        });
-
-        socket.on('map-kicked', function () {
+        socket.on('map-kicked', function (payload) {
             joinState = 'kicked';
             closeJoinOverlay();
             showJoinOverlay('kicked');
-            setStatus('已被电脑端断开', 'error');
+            if (payload && payload.reason === 'host-logout') {
+                setStatus('电脑端已退出登录，完整镜像已断开', 'error');
+            } else if (payload && payload.reason === 'host-user-changed') {
+                setStatus('电脑端切换了账号，完整镜像已断开', 'error');
+            } else {
+                setStatus('已被电脑端断开', 'error');
+            }
         });
     }
 

@@ -11,11 +11,11 @@
         if (window.XIAOLIU_EMBED) document.documentElement.classList.add('xiaoliu-embed');
         if (window.MAP_MIRROR_MODE) document.documentElement.classList.add('mirror-mode');
     </script>
-    <title>跬步地图3.12</title>
+    <title>跬步地图3.13</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.5.2/ol.css">
     <script src="/js/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-    <link rel="stylesheet" href="css/map.css?v=20261124d">
+    <link rel="stylesheet" href="css/map.css?v=20261127a">
 </head>
 
 <body>
@@ -85,9 +85,10 @@
             <button id="mapRemoteClose" class="map-remote-close" type="button" title="关闭">×</button>
         </div>
         <div id="mapRemoteStatus" class="map-remote-status is-offline">未连接中继</div>
+        <div id="mapRemoteControllers" class="map-remote-controllers"></div>
         <div class="map-remote-pair">
             <span class="map-remote-pair-label">接入链接</span>
-            <span class="map-remote-pair-hint">扫码即申请接入，电脑端确认</span>
+            <span class="map-remote-pair-hint">扫码即申请；同账号免审批完整镜像</span>
             <button id="mapRemoteRefreshQr" class="map-remote-pair-refresh" type="button" title="刷新接入链接（旧链接立即失效）">刷新链接</button>
         </div>
         <div class="map-remote-qr-wrap">
@@ -98,21 +99,21 @@
         <div class="map-remote-actions">
             <button id="mapRemoteCopy" class="map-remote-btn" type="button">复制链接</button>
             <button id="mapRemoteRetry" class="map-remote-btn" type="button">重试</button>
-            <button id="mapRemoteKick" class="map-remote-btn is-danger" type="button" disabled>断开手机</button>
+            <button id="mapRemoteKick" class="map-remote-btn is-danger" type="button" disabled>断开全部</button>
         </div>
-        <div id="mapRemoteTip" class="map-remote-tip">同一时刻只允许一台手机接入；扫码后需在电脑端点击「允许」。断开手机或刷新链接后旧链接立即失效。</div>
+        <div id="mapRemoteTip" class="map-remote-tip">同账号登录手机免审批使用完整镜像（仅一台）；其他账号或未登录仅激光笔，可多台、需逐台审批，颜色各不相同。</div>
     </div>
     <!-- 地图镜像模式（手机端 ?mirror=1）：登录页 + 状态条 + 触摸操作条 -->
     <div id="mirrorLogin" class="mirror-login" style="display: none;">
         <form id="mirrorLoginForm" class="mirror-login-card" autocomplete="on">
             <h3>登录后使用地图镜像</h3>
-            <p id="mirrorLoginHint" class="mirror-login-hint">请使用电脑端同一账号登录</p>
+            <p id="mirrorLoginHint" class="mirror-login-hint">与电脑端同一账号登录可用完整镜像；其他账号或未登录仅激光笔</p>
             <input id="mirrorLoginUser" type="text" name="username" autocomplete="username" placeholder="用户名">
             <input id="mirrorLoginPass" type="password" name="password" autocomplete="current-password" placeholder="密码">
             <div id="mirrorLoginMsg" class="mirror-login-msg"></div>
             <button type="submit" class="mirror-login-submit">登录</button>
-            <button id="mirrorGuestBtn" type="button" class="mirror-login-guest">不登录，仅遥控</button>
-            <p class="mirror-login-guest-hint">不登录时两端数据不同步，图层与弹窗同步不可用</p>
+            <button id="mirrorGuestBtn" type="button" class="mirror-login-guest">不登录，仅激光笔</button>
+            <p class="mirror-login-guest-hint">不登录只可使用激光笔：只读跟随电脑端视图，图层与弹窗同步不可用</p>
         </form>
     </div>
     <div id="mirrorTopBar" class="mirror-bar">
@@ -136,6 +137,7 @@
         <button type="button" class="mirror-laser-mode" data-laser-mode="circle">划圈</button>
         <button type="button" id="mirrorLaserClear" class="mirror-laser-clear">清除</button>
     </div>
+    <button id="mirrorLaserOnlyToggle" class="mirror-laser-only-toggle" type="button">🔦 激光</button>
     <div id="mirrorToolbar" class="mirror-toolbar">
         <button id="mirrorLayersBtn" class="mirror-tool-btn" type="button">🗂️ 图层</button>
         <button id="mirrorSearchBtn" class="mirror-tool-btn" type="button">🔎 搜索</button>
@@ -579,9 +581,9 @@
     <script src="js/xiaoliu_bridge.js"></script>
     <!-- 手机遥控（socket.io + 宿主编排） -->
     <script src="games/lib/socket.io.min.js"></script>
-    <script src="js/map_remote.js?v=20261124c"></script>
+    <script src="js/map_remote.js?v=20261127a"></script>
     <!-- 手机镜像模式（?mirror=1 才启用） -->
-    <script src="js/map_mirror.js?v=20261125a"></script>
+    <script src="js/map_mirror.js?v=20261127a"></script>
     <!-- 地名搜索模块（天地图 POI） -->
     <script src="js/tianditu_search.js?v=20261120"></script>
     <!-- 共享属性表单模块 - Schema 设计器 + 属性面板 -->

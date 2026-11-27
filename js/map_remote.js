@@ -35,23 +35,28 @@
     let urlEl = null;
     let tipEl = null;
     let remoteData = null;      // /api/map/info 快照
-    let activeMode = 'ctl';     // ctl=简易遥控，mirror=地图镜像
     let infoFailed = false;
     let hostOnline = false;
-    let controllerActive = false;  // 是否有手机接入（单槽位）
-    let hasPendingJoin = false;  // 是否有待审批请求
-    let currentDeviceInfo = null; // 已接入手机的设备信息（来自后端）
+    let controllerCount = 0;    // 已接入手机数量
+    let pendingCount = 0;       // 待审批数量
+    let controllers = [];       // 已接入手机明细 {id, device, role, color, user}
+    let pendingList = [];       // 待审批明细 {id, device, role, color, user}
+    let hostUser = null;        // 电脑端当前登录用户名（来自后端）
     let socketReady = false;
 
     const HOST_TOKEN_KEY = 'xliu.hostToken';
+    const AUTH_WATCH_MS = 3000;
     let hostToken = null;
     let accessToken = null;
-    let pendingApprove = null;   // {device, clientToken, joinedAt}
+    let activeApproveId = null;   // 当前审批弹窗对应的申请 id
     let approveTimerId = null;
     let approveDialog = null;
+    let lastSentAuth = null;      // 已上报给后端的 access_token，用于轮询登录态
+    let authWatchId = null;
 
     let kickBtn = null;
     let refreshQrBtn = null;
+    let controllersEl = null;
     let lastHostTaken = false;   // 是否已弹过 host 顶替拒绝提示
     let localHoldUntil = 0;
     let localHintAt = 0;
@@ -69,12 +74,13 @@
     // 弹窗同步：seq 变化时手机才重新应用，避免重复覆盖
     let popupBroadcast = { seq: 0, open: false };
     let applyingPopupSync = false;
-    // 激光笔
+    // 激光笔：按手机 from 区分轨迹/光点/颜色
     let laserLayer = null;
-    let laserPoints = [];
-    let laserDotEl = null;
-    let laserDotCoord = null;
-    let laserClearTimer = null;
+    const laserTrails = new Map();        // from -> coords[]
+    const laserDots = new Map();          // from -> {el, coord, color}
+    const laserClearTimers = new Map();   // from -> timerId
+    let laserDotListenerAttached = false;
+    const LASER_FALLBACK_COLOR = '#ff2d55';
 
     function clamp(v, min, max) {
         return Math.min(max, Math.max(min, v));
@@ -121,12 +127,18 @@
             setStatus('正在加入遥控会话…', 'waiting');
             return;
         }
-        if (hasPendingJoin) {
-            setStatus('有手机请求接入，请确认', 'online');
+        if (pendingCount > 0) {
+            setStatus('有 ' + pendingCount + ' 台手机请求接入，请确认', 'online');
             return;
         }
-        if (controllerActive) {
-            setStatus('电脑端已就绪，手机 1 台已接入', 'online');
+        if (controllerCount > 0) {
+            const fullCount = controllers.filter(function (c) { return c.role === 'full'; }).length;
+            const laserCount = controllerCount - fullCount;
+            const parts = [];
+            if (fullCount) parts.push('完整 ' + fullCount + ' 台');
+            if (laserCount) parts.push('激光 ' + laserCount + ' 台');
+            setStatus('电脑端已就绪，手机 ' + controllerCount + ' 台已接入' +
+                (parts.length ? '（' + parts.join('，') + '）' : ''), 'online');
             return;
         }
         setStatus('电脑端已就绪，等待手机扫码接入', 'waiting');
@@ -134,8 +146,8 @@
 
     function updateKickButton() {
         if (!kickBtn) return;
-        kickBtn.textContent = '断开手机';
-        kickBtn.disabled = !controllerActive;
+        kickBtn.textContent = '断开全部';
+        kickBtn.disabled = controllerCount === 0;
     }
 
     // ---------------- 本地操作优先 ----------------
@@ -171,7 +183,7 @@
         }
     }
 
-    // ---------------- 审批弹窗 ----------------
+    // ---------------- 审批弹窗（逐台） ----------------
     function closeApproveDialog() {
         if (approveTimerId) {
             window.clearTimeout(approveTimerId);
@@ -181,13 +193,29 @@
             approveDialog.parentNode.removeChild(approveDialog);
         }
         approveDialog = null;
+        activeApproveId = null;
     }
 
-    function showApproveDialog(device) {
-        closeApproveDialog();
-        const info = device || {};
-        const summary = (info.browser || '浏览器') + ' · ' + (info.os || '系统')
+    function deviceSummary(info) {
+        if (!info) return '未知设备';
+        return (info.browser || '浏览器') + ' · ' + (info.os || '系统')
             + (info.width ? (' · ' + info.width + '×' + (info.height || '')) : '');
+    }
+
+    function escapeHtml(text) {
+        return String(text).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    }
+
+    function showApproveDialog(request) {
+        closeApproveDialog();
+        if (!request) return;
+        activeApproveId = request.id;
+        const summary = escapeHtml(deviceSummary(request.device));
+        const queueNote = pendingList.length > 1
+            ? ('另有 ' + (pendingList.length - 1) + ' 个请求排队。')
+            : '';
 
         approveDialog = document.createElement('div');
         approveDialog.className = 'remote-approve-overlay';
@@ -196,8 +224,9 @@
             '  <div class="remote-approve-title">📱 手机请求接入</div>',
             '  <div class="remote-approve-desc">',
             '    <div>设备：<strong>' + summary + '</strong></div>',
+            '    <div>权限：<strong>仅激光笔（只读跟随）</strong></div>',
             '    <div>时间：刚刚</div>',
-            '    <div class="remote-approve-note">同一时刻只允许一台手机接入。允许后此手机可遥控电脑端地图。</div>',
+            '    <div class="remote-approve-note">同账号登录可免审批使用完整镜像；其他账号或未登录仅激光笔。' + queueNote + '</div>',
             '  </div>',
             '  <div class="remote-approve-actions">',
             '    <button type="button" class="remote-approve-btn deny">拒绝</button>',
@@ -214,25 +243,66 @@
 
         // 60 秒超时自动拒绝
         approveTimerId = window.setTimeout(function () {
-            if (pendingApprove && socket && socket.connected) {
-                socket.emit('map-approve', { ok: false });
+            if (activeApproveId && socket && socket.connected) {
+                socket.emit('map-approve', { id: activeApproveId, ok: false });
             }
             closeApproveDialog();
-            pendingApprove = null;
-            hasPendingJoin = false;
             refreshStatus();
         }, 60000);
     }
 
     function handleApprove(ok) {
+        if (!activeApproveId) { closeApproveDialog(); return; }
         if (approveTimerId) { window.clearTimeout(approveTimerId); approveTimerId = null; }
         if (socket && socket.connected) {
-            socket.emit('map-approve', { ok: !!ok });
+            socket.emit('map-approve', { id: activeApproveId, ok: !!ok });
         }
         closeApproveDialog();
-        pendingApprove = null;
-        hasPendingJoin = false;
         refreshStatus();
+    }
+
+    function syncApproveDialog() {
+        if (!pendingList.length) {
+            closeApproveDialog();
+            return;
+        }
+        const active = pendingList.find(function (p) { return p.id === activeApproveId; });
+        if (active) return;   // 已在显示当前请求
+        showApproveDialog(pendingList[0]);
+    }
+
+    // ---------------- 已接入手机列表 ----------------
+    function renderControllers() {
+        if (!controllersEl) return;
+        if (!controllers.length) {
+            controllersEl.innerHTML = '<div class="map-remote-ctrl-empty">暂无手机接入</div>';
+            return;
+        }
+        const roleText = { full: '完整镜像', laser: '仅激光' };
+        controllersEl.innerHTML = controllers.map(function (c) {
+            const color = escapeHtml(c.color || LASER_FALLBACK_COLOR);
+            return [
+                '<div class="map-remote-ctrl-row" data-id="' + escapeHtml(c.id) + '">',
+                '  <span class="map-remote-ctrl-dot" style="background:' + color + '"></span>',
+                '  <span class="map-remote-ctrl-name">' + escapeHtml(deviceSummary(c.device)) + '</span>',
+                '  <span class="map-remote-ctrl-role is-' + (c.role === 'full' ? 'full' : 'laser') + '">' +
+                (roleText[c.role] || '仅激光') + '</span>',
+                '  <button type="button" class="map-remote-ctrl-kick" data-kick="' + escapeHtml(c.id) + '">断开</button>',
+                '</div>'
+            ].join('');
+        }).join('');
+    }
+
+    function bindControllerList() {
+        if (!controllersEl) return;
+        controllersEl.addEventListener('click', function (event) {
+            const btn = event.target.closest('[data-kick]');
+            if (!btn) return;
+            const id = btn.getAttribute('data-kick');
+            if (!id) return;
+            if (!window.confirm('断开这台手机？')) return;
+            if (socket && socket.connected) socket.emit('map-kick', { id: id });
+        });
     }
 
     function ensureSocket() {
@@ -253,7 +323,13 @@
             socketReady = true;
             hostOnline = true;
             hostToken = getOrGenHostToken();
-            socket.emit('map-join', { role: 'host', hostToken: hostToken });
+            lastSentAuth = getAuthToken();
+            socket.emit('map-join', {
+                role: 'host',
+                hostToken: hostToken,
+                authToken: lastSentAuth
+            });
+            startAuthWatch();
             setStatus('已连接中继，等待手机…', 'waiting');
             sendState(true);
         });
@@ -261,12 +337,15 @@
         socket.on('disconnect', function () {
             socketReady = false;
             hostOnline = false;
-            controllerActive = false;
-            hasPendingJoin = false;
-            currentDeviceInfo = null;
+            controllerCount = 0;
+            pendingCount = 0;
+            controllers = [];
+            pendingList = [];
+            hostUser = null;
             stopLoop();
-            closeLaser();
+            clearAllLaser();
             closeApproveDialog();
+            renderControllers();
             refreshStatus();
         });
 
@@ -279,14 +358,11 @@
         socket.on('map-presence', function (payload) {
             if (!payload || typeof payload !== 'object') return;
             hostOnline = !!payload.host;
-            controllerActive = !!payload.controller;
-            hasPendingJoin = !!payload.pending;
-            if (!controllerActive) {
+            if (typeof payload.controllerCount === 'number') controllerCount = payload.controllerCount;
+            if (typeof payload.pendingCount === 'number') pendingCount = payload.pendingCount;
+            if (!controllerCount) {
                 stopLoop();
-                closeLaser();
-            }
-            if (!hasPendingJoin && !controllerActive) {
-                closeApproveDialog();
+                clearAllLaser();
             }
             refreshStatus();
         });
@@ -309,43 +385,56 @@
             loadQr();
         });
 
-        socket.on('map-join-request', function (payload) {
+        // 会话明细：已接入手机 + 待审批队列
+        socket.on('map-session', function (payload) {
             if (!payload || typeof payload !== 'object') return;
-            pendingApprove = {
-                device: payload.device || null,
-                joinedAt: payload.ts || Date.now()
-            };
-            hasPendingJoin = true;
-            showApproveDialog(payload.device || null);
+            hostUser = payload.hostUser || null;
+            const prevIds = controllers.map(function (c) { return c.id; });
+            controllers = Array.isArray(payload.controllers) ? payload.controllers : [];
+            pendingList = Array.isArray(payload.pending) ? payload.pending : [];
+            controllerCount = controllers.length;
+            pendingCount = pendingList.length;
+            // 已离开的手机：清掉它留下的激光
+            const nextIds = controllers.map(function (c) { return c.id; });
+            prevIds.forEach(function (id) {
+                if (nextIds.indexOf(id) < 0) clearLaserFor(id);
+            });
+            renderControllers();
+            syncApproveDialog();
             refreshStatus();
+            sendState(true);
         });
 
-        socket.on('map-join-restored', function (payload) {
-            closeApproveDialog();
-            hasPendingJoin = false;
-            pendingApprove = null;
-            controllerActive = true;
-            currentDeviceInfo = payload && payload.controller ? payload.controller.device : null;
-            refreshStatus();
-        });
-
-        socket.on('map-join-result', function (res) {
-            // 电脑端不直接监听 controller 的 join-result，由 presence 轮询
-            // 但作为兜底：如果是本页自己的 approve 结果，状态已同步
-            closeApproveDialog();
-            hasPendingJoin = false;
-            refreshStatus();
-        });
-
-        socket.on('map-kicked', function () {
-            // controller 被踢：presence 会通知 controllerActive=false
-            closeApproveDialog();
-            refreshStatus();
+        socket.on('map-join-request', function (payload) {
+            // 明细随后由 map-session 下发；这里只做即时提示
+            if (payload && payload.request) {
+                showRemoteToast('手机请求接入：' + deviceSummary(payload.request.device));
+            }
         });
 
         socket.on('map-cmd', handleCommand);
 
         return socket;
+    }
+
+    // ---------------- host 登录态轮询 ----------------
+    function getAuthToken() {
+        try {
+            return localStorage.getItem('access_token') || '';
+        } catch (e) {
+            return '';
+        }
+    }
+
+    function startAuthWatch() {
+        if (authWatchId) return;
+        authWatchId = window.setInterval(function () {
+            if (!socket || !socket.connected) return;
+            const token = getAuthToken();
+            if (token === lastSentAuth) return;
+            lastSentAuth = token;
+            socket.emit('map-host-auth', { authToken: token });
+        }, AUTH_WATCH_MS);
     }
 
     function sendState(immediate) {
@@ -432,7 +521,7 @@
                 applyRemoteFile(msg);
                 return;   // 加载结果通过 map-file-result 单独回执
             case 'laser':
-                applyLaserCommand(msg);
+                applyLaserFor(msg.from || '__local__', msg.color, msg);
                 return;   // 激光高频指令不触发整状态广播
             case 'popup':
                 applyPopupSync(msg);
@@ -452,8 +541,12 @@
     const REMOTE_FILE_MAX = 1.5 * 1024 * 1024;   // 1.5 MB（后端消息上限 2 MB）
     const REMOTE_FEATURE_MAX = 20000;
 
+    let replyTarget = null;
+
     function replyFileResult(result) {
-        if (socket && socket.connected) socket.emit('map-file-result', result);
+        if (socket && socket.connected) {
+            socket.emit('map-file-result', Object.assign({ to: replyTarget }, result));
+        }
     }
 
     function showRemoteToast(text) {
@@ -470,6 +563,7 @@
         const name = String(msg.name || '手机图层').slice(0, 120);
         const text = typeof msg.text === 'string' ? msg.text : '';
         const ext = (name.split('.').pop() || '').toLowerCase();
+        replyTarget = msg.from || null;
 
         if (!text) {
             replyFileResult({ ok: false, name: name, error: '文件内容为空' });
@@ -828,73 +922,110 @@
         }
     }
 
-    // ---------- 激光笔：手机 -> 电脑 ----------
-    function laserStyles() {
-        if (laserStyles.cache) return laserStyles.cache;
-        laserStyles.cache = [
+    // ---------- 激光笔：手机 -> 电脑（分手机、分颜色） ----------
+    function hexToRgba(hex, alpha) {
+        let h = String(hex || LASER_FALLBACK_COLOR).replace('#', '');
+        if (h.length === 3) h = h.split('').map(function (c) { return c + c; }).join('');
+        const n = parseInt(h, 16);
+        if (!Number.isFinite(n)) return 'rgba(255,45,85,' + alpha + ')';
+        return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + alpha + ')';
+    }
+
+    const laserStyleCache = new Map();
+    function laserStyleFor(color) {
+        const key = color || LASER_FALLBACK_COLOR;
+        if (laserStyleCache.has(key)) return laserStyleCache.get(key);
+        const styles = [
             new window.ol.style.Style({
                 stroke: new window.ol.style.Stroke({
-                    color: 'rgba(255, 45, 85, 0.32)', width: 11,
+                    color: hexToRgba(key, 0.32), width: 11,
                     lineCap: 'round', lineJoin: 'round'
                 })
             }),
             new window.ol.style.Style({
                 stroke: new window.ol.style.Stroke({
-                    color: '#ff2d55', width: 4, lineDash: [10, 6],
+                    color: key, width: 4, lineDash: [10, 6],
                     lineCap: 'round', lineJoin: 'round'
                 })
             }),
             new window.ol.style.Style({
                 image: new window.ol.style.Circle({
                     radius: 6,
-                    fill: new window.ol.style.Fill({ color: '#ff2d55' }),
+                    fill: new window.ol.style.Fill({ color: key }),
                     stroke: new window.ol.style.Stroke({ color: '#ffffff', width: 2 })
                 })
             })
         ];
-        return laserStyles.cache;
+        laserStyleCache.set(key, styles);
+        return styles;
     }
 
     function ensureLaserLayer() {
         if (laserLayer || !window.ol || !window.map) return laserLayer;
         laserLayer = new window.ol.layer.Vector({
             source: new window.ol.source.Vector(),
-            style: laserStyles(),
+            style: function (feature) {
+                return laserStyleFor(feature.get('laserColor'));
+            },
             zIndex: 1200
         });
         window.map.addLayer(laserLayer);
         return laserLayer;
     }
 
-    function ensureLaserDot() {
-        if (laserDotEl || !window.map) return laserDotEl;
-        laserDotEl = document.createElement('div');
-        laserDotEl.className = 'map-laser-dot';
-        laserDotEl.style.display = 'none';
-        document.body.appendChild(laserDotEl);
-        window.map.on('postrender', positionLaserDot);
-        return laserDotEl;
+    function styleLaserDot(el, color) {
+        const c = color || LASER_FALLBACK_COLOR;
+        el.style.background = 'radial-gradient(circle, #ffffff 0%, ' + c + ' 38%, '
+            + hexToRgba(c, 0.45) + ' 62%, ' + hexToRgba(c, 0) + ' 78%)';
+        el.style.boxShadow = '0 0 22px 8px ' + hexToRgba(c, 0.75)
+            + ', 0 0 6px 2px rgba(255, 255, 255, 0.85)';
     }
 
-    function positionLaserDot() {
-        if (!laserDotEl || !laserDotCoord || !window.map) return;
-        const pixel = window.map.getPixelFromCoordinate(laserDotCoord);
-        if (!pixel) {
-            laserDotEl.style.display = 'none';
-            return;
+    function laserDotFor(from, color) {
+        let entry = laserDots.get(from);
+        if (entry && entry.el) {
+            if (entry.color !== color) {
+                entry.color = color;
+                styleLaserDot(entry.el, color);
+            }
+            return entry;
         }
-        const rect = window.map.getViewport().getBoundingClientRect();
-        laserDotEl.style.left = (rect.left + pixel[0]) + 'px';
-        laserDotEl.style.top = (rect.top + pixel[1]) + 'px';
+        const el = document.createElement('div');
+        el.className = 'map-laser-dot';
+        styleLaserDot(el, color);
+        el.style.display = 'none';
+        document.body.appendChild(el);
+        entry = { el: el, coord: null, color: color };
+        laserDots.set(from, entry);
+        if (window.map && !laserDotListenerAttached) {
+            window.map.on('postrender', positionAllLaserDots);
+            laserDotListenerAttached = true;
+        }
+        return entry;
     }
 
-    function showLaserDot(lon, lat) {
+    function positionAllLaserDots() {
+        if (!window.map) return;
+        const rect = window.map.getViewport().getBoundingClientRect();
+        laserDots.forEach(function (entry) {
+            if (!entry || !entry.coord || !entry.el) return;
+            const pixel = window.map.getPixelFromCoordinate(entry.coord);
+            if (!pixel) {
+                entry.el.style.display = 'none';
+                return;
+            }
+            entry.el.style.left = (rect.left + pixel[0]) + 'px';
+            entry.el.style.top = (rect.top + pixel[1]) + 'px';
+        });
+    }
+
+    function showLaserDotFor(from, color, lon, lat) {
         if (!window.ol || !window.map) return;
-        if (!ensureLaserDot()) return;
-        laserDotCoord = window.ol.proj.fromLonLat([lon, lat]);
-        laserDotEl.style.display = 'block';
-        positionLaserDot();
-        scheduleLaserClear(4200);
+        const entry = laserDotFor(from, color);
+        entry.coord = window.ol.proj.fromLonLat([lon, lat]);
+        entry.el.style.display = 'block';
+        positionAllLaserDots();
+        scheduleLaserClearFor(from, 4200);
     }
 
     function toMapCoordinates(coords, limit) {
@@ -913,37 +1044,65 @@
         return result;
     }
 
-    function drawLaserTrail(coords, close) {
-        if (!laserLayer) return;
-        const source = laserLayer.getSource();
-        source.clear();
+    function trailFeatureFor(from, coords, color, close) {
+        const layer = ensureLaserLayer();
+        if (!layer) return;
+        const source = layer.getSource();
+        source.getFeatures().forEach(function (f) {
+            if (f.get('laserFrom') === from) source.removeFeature(f);
+        });
         if (!coords || coords.length < 2) return;
         const points = close ? coords.concat([coords[0]]) : coords;
-        source.addFeature(new window.ol.Feature({
+        const feature = new window.ol.Feature({
             geometry: new window.ol.geom.LineString(points)
-        }));
+        });
+        feature.set('laserFrom', from);
+        feature.set('laserColor', color || LASER_FALLBACK_COLOR);
+        source.addFeature(feature);
     }
 
-    function scheduleLaserClear(delay) {
-        if (laserClearTimer) window.clearTimeout(laserClearTimer);
-        laserClearTimer = window.setTimeout(clearLaser, delay);
+    function scheduleLaserClearFor(from, delay) {
+        const timer = laserClearTimers.get(from);
+        if (timer) window.clearTimeout(timer);
+        laserClearTimers.set(from, window.setTimeout(function () {
+            clearLaserFor(from);
+        }, delay));
     }
 
-    function clearLaser() {
-        if (laserClearTimer) {
-            window.clearTimeout(laserClearTimer);
-            laserClearTimer = null;
+    function clearLaserFor(from) {
+        const timer = laserClearTimers.get(from);
+        if (timer) {
+            window.clearTimeout(timer);
+            laserClearTimers.delete(from);
         }
-        laserPoints = [];
-        laserDotCoord = null;
-        if (laserLayer) laserLayer.getSource().clear();
-        if (laserDotEl) laserDotEl.style.display = 'none';
+        laserTrails.delete(from);
+        const dot = laserDots.get(from);
+        if (dot && dot.el && dot.el.parentNode) dot.el.parentNode.removeChild(dot.el);
+        laserDots.delete(from);
+        if (laserLayer) {
+            const source = laserLayer.getSource();
+            source.getFeatures().forEach(function (f) {
+                if (f.get('laserFrom') === from) source.removeFeature(f);
+            });
+        }
     }
 
-    function applyLaserCommand(msg) {
+    function clearAllLaser() {
+        Array.from(laserClearTimers.keys()).forEach(clearLaserFor);
+        laserClearTimers.clear();
+        laserTrails.clear();
+        laserDots.forEach(function (dot) {
+            if (dot && dot.el && dot.el.parentNode) dot.el.parentNode.removeChild(dot.el);
+        });
+        laserDots.clear();
+        if (laserLayer) laserLayer.getSource().clear();
+    }
+
+    function applyLaserFor(from, color, msg) {
         if (!msg || !window.ol || !window.map) return;
+        const c = color || LASER_FALLBACK_COLOR;
         if (msg.phase === 'clear') {
-            clearLaser();
+            clearLaserFor(from);
             return;
         }
         if (msg.mode === 'point') {
@@ -951,7 +1110,7 @@
             if (point && point.length >= 2) {
                 const lon = Number(point[0]);
                 const lat = Number(point[1]);
-                if (Number.isFinite(lon) && Number.isFinite(lat)) showLaserDot(lon, lat);
+                if (Number.isFinite(lon) && Number.isFinite(lat)) showLaserDotFor(from, c, lon, lat);
             }
             return;
         }
@@ -961,23 +1120,21 @@
         if (msg.mode === 'circle') {
             const ring = toMapCoordinates(msg.coords, 96);
             if (ring.length >= 3) {
-                laserPoints = ring;
-                drawLaserTrail(ring, true);
-                scheduleLaserClear(2600);
+                trailFeatureFor(from, ring, c, true);
+                scheduleLaserClearFor(from, 2600);
             }
             return;
         }
 
         // 划线：增量追加
-        if (msg.phase === 'start') {
-            laserPoints = [];
-            laserLayer.getSource().clear();
-        }
-        const points = toMapCoordinates(msg.coords, 400);
-        if (points.length) laserPoints = laserPoints.concat(points);
-        if (laserPoints.length > 4000) laserPoints = laserPoints.slice(-4000);
-        if (laserPoints.length >= 2) drawLaserTrail(laserPoints, false);
-        scheduleLaserClear(2600);
+        let points = laserTrails.get(from) || [];
+        if (msg.phase === 'start') points = [];
+        const incoming = toMapCoordinates(msg.coords, 400);
+        points = points.concat(incoming);
+        if (points.length > 4000) points = points.slice(-4000);
+        laserTrails.set(from, points);
+        if (points.length >= 2) trailFeatureFor(from, points, c, false);
+        scheduleLaserClearFor(from, 2600);
     }
 
     function startLoop() {
@@ -1035,33 +1192,24 @@
         return 'https://lzywhy.com';
     }
 
-    function fallbackControllerUrl() {
-        return pageBase() + '/mapctl/index.html?server=' + encodeURIComponent(SERVER);
-    }
-
     function fallbackMirrorUrl() {
         return pageBase() + '/AIsea.html?mirror=1&server=' + encodeURIComponent(SERVER);
     }
 
     function currentUrl() {
-        if (activeMode === 'mirror') {
-            return (remoteData && remoteData.mirrorUrl) || fallbackMirrorUrl();
-        }
-        return (remoteData && remoteData.url) || fallbackControllerUrl();
+        return (remoteData && remoteData.mirrorUrl) || fallbackMirrorUrl();
     }
 
     function renderQr() {
         if (!qrEl) return;
         if (urlEl) urlEl.textContent = currentUrl();
         if (tipEl) {
-            tipEl.textContent = activeMode === 'mirror'
-                ? '电脑已登录：手机打开同一地图，可同步视图、测量、搜索、定位和图层操作。'
-                : '电脑未登录：提供移动、缩放、定位和底图切换；登录后可使用地图镜像。';
+            tipEl.textContent = desktopLoggedIn()
+                ? '手机扫码后：同账号登录 → 完整镜像（免审批，仅一台）；其他账号或未登录 → 仅激光笔（需审批，可多台）。'
+                : '电脑未登录：手机扫码后仅激光笔（需审批，随机配色，可多台）。';
         }
 
-        const src = activeMode === 'mirror'
-            ? (remoteData && remoteData.mirrorQr)
-            : (remoteData && remoteData.qr);
+        const src = remoteData && remoteData.mirrorQr;
 
         if (src) {
             qrEl.onload = function () {
@@ -1107,8 +1255,8 @@
                 // socket 已连接时以实时 presence 为准，避免请求快照覆盖新状态
                 if (!socketReady && data) {
                     hostOnline = !!data.host;
-                    controllerActive = !!data.controller;
-                    hasPendingJoin = !!data.pending;
+                    controllerCount = data.controllerCount || 0;
+                    pendingCount = data.pendingCount || 0;
                 }
                 renderQr();
                 refreshStatus();
@@ -1146,8 +1294,8 @@
     function openPanel() {
         if (!panelEl) return;
         panelEl.style.display = 'block';
-        activeMode = desktopLoggedIn() ? 'mirror' : 'ctl';
         ensureSocket();
+        startAuthWatch();
         loadQr();
     }
 
@@ -1169,8 +1317,11 @@
         tipEl = document.getElementById('mapRemoteTip');
         kickBtn = document.getElementById('mapRemoteKick');
         refreshQrBtn = document.getElementById('mapRemoteRefreshQr');
+        controllersEl = document.getElementById('mapRemoteControllers');
 
         if (!panelEl) return;
+        renderControllers();
+        bindControllerList();
 
         const remoteMainBtn = document.getElementById('remoteMainBtn');
         const remoteDropdown = document.getElementById('remoteDropdown');
@@ -1214,12 +1365,12 @@
         }
         if (kickBtn) {
             kickBtn.addEventListener('click', function () {
-                if (!controllerActive) return;
-                if (!window.confirm('断开已接入的手机遥控？断开后将自动轮换 access token，旧链接失效。')) return;
+                if (!controllerCount) return;
+                if (!window.confirm('断开全部手机遥控？断开后将自动轮换 access token，旧链接失效。')) return;
                 if (socket && socket.connected) {
-                    socket.emit('map-kick');
+                    socket.emit('map-kick', { all: true });
                     closeApproveDialog();
-                    setStatus('正在断开手机…', 'waiting');
+                    setStatus('正在断开全部手机…', 'waiting');
                 } else {
                     setStatus('未连接中继，无法断开', 'error');
                     window.setTimeout(refreshStatus, 1600);
@@ -1255,18 +1406,19 @@
 
         window.addEventListener('beforeunload', function () {
             stopLoop();
-            clearPairDisplay();
-            clearLaser();
-            if (laserDotEl && laserDotEl.parentNode) laserDotEl.parentNode.removeChild(laserDotEl);
-            laserDotEl = null;
+            clearAllLaser();
+            if (authWatchId) { window.clearInterval(authWatchId); authWatchId = null; }
             if (socket) socket.disconnect();
         });
     }
 
     // 激光渲染与宿主会话无关，暴露给镜像页复用，保证手机端本地显示与电脑端一致
     window.MapLaser = {
-        apply: applyLaserCommand,
-        clear: clearLaser
+        apply: function (payload) {
+            if (!payload) return;
+            applyLaserFor('__local__', payload.color || LASER_FALLBACK_COLOR, payload);
+        },
+        clear: function () { clearLaserFor('__local__'); }
     };
 
     if (document.readyState === 'loading') {
