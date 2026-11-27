@@ -1324,6 +1324,8 @@
                 // 电脑端已加载成功，手机本地也加载同一份，两端都能看到
                 if (pushed) loadFileOnPhone(pushed.text, res.name || pushed.name, pushed.ext);
                 notify('电脑已加载 ' + (res.name || '图层') + '（' + (res.count || 0) + ' 个要素）', 'online');
+                // 通用图层面板在镜像模式下已隐藏，改为打开可双向同步的镜像图层面板
+                openLayerPanel();
             } else {
                 notify('电脑加载失败：' + (res.error || '未知错误'), 'error');
             }

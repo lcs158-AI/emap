@@ -776,6 +776,8 @@ body:not(.mirror-measuring) #mirrorFinishBtn {
 .mirror-mode .toolbar,
 .mirror-mode .remote-dock,
 .mirror-mode .layer-control,
+/* 通用「图层管理」面板只在本地生效，镜像模式改用可双向同步的镜像图层面板 */
+.mirror-mode #layerControl,
 .mirror-mode #mapRemotePanel,
 .mirror-mode #uploadSidebar,
 .mirror-mode #sidebarOverlay {

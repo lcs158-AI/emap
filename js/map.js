@@ -2434,7 +2434,7 @@ if (geoJsonFileInput) {
                         // 加载 GML
                         try {
                             console.log('GML 文件读取成功，准备加载到地图');
-                            loadLocalGML(event.target.result, file.name.replace(/\.gml$/i, ''));
+                            loadLocalGML(event.target.result, file.name.replace(/\.gml$/i, ''), { fileName: file.name, format: 'gml' });
                         } catch (parseError) {
                             console.error('GML 解析失败:', parseError);
                             throw new Error('GML 文件解析失败: ' + parseError.message);
@@ -2498,6 +2498,65 @@ let localGeoJsonLayers = [];
 // 暴露到 window 供 layer_editor.js 访问
 window.localGeoJsonLayers = localGeoJsonLayers;
 
+// 本地矢量数据自动识别标签字段的候选（按优先级）
+const LOCAL_LABEL_CANDIDATES = ['name', 'Name', 'NAME', '名称', '地名', '标题', 'title', 'Title', 'label'];
+
+/**
+ * 从要素属性中自动识别标签字段
+ * 只采用候选字段，且要求至少一个要素有非空值，避免误标 ID、编码等字段。
+ * @param {ol.Feature[]} features
+ * @returns {string} 命中的字段名，未命中返回空串
+ */
+function detectLabelField(features) {
+    if (!Array.isArray(features) || features.length === 0) return '';
+    const keys = new Set();
+    const sample = features.slice(0, 20);
+    sample.forEach(function(feature) {
+        const properties = feature.getProperties();
+        Object.keys(properties).forEach(function(key) {
+            if (key !== 'geometry') keys.add(key);
+        });
+    });
+    for (let i = 0; i < LOCAL_LABEL_CANDIDATES.length; i++) {
+        const field = LOCAL_LABEL_CANDIDATES[i];
+        if (!keys.has(field)) continue;
+        const hasValue = sample.some(function(feature) {
+            const value = feature.get(field);
+            return value !== undefined && value !== null && String(value).trim() !== '';
+        });
+        if (hasValue) return field;
+    }
+    return '';
+}
+
+/**
+ * 写入标签字段元数据：要素级供弹窗/悬浮提示读取，图层级供样式编辑器读取
+ */
+function bindLocalLayerLabel(features, layer, labelField) {
+    if (layer) layer.set('labelField', labelField);
+    if (!Array.isArray(features)) return;
+    features.forEach(function(feature) {
+        feature.set('layer', { labelField: labelField, linkField: '' });
+    });
+}
+
+/**
+ * 生成要素的标签文字样式；无标签字段或该要素无值时返回 null
+ */
+function localLabelText(feature, labelField, geomType) {
+    if (!labelField) return null;
+    const value = feature.get(labelField);
+    if (value === undefined || value === null || String(value).trim() === '') return null;
+    return new ol.style.Text({
+        text: String(value),
+        font: '12px sans-serif',
+        fill: new ol.style.Fill({ color: '#333' }),
+        stroke: new ol.style.Stroke({ color: '#fff', width: 2 }),
+        offsetY: (geomType === 'Point' || geomType === 'MultiPoint') ? -15 : 0
+    });
+}
+
+
 /**
  * 加载本地 GeoJSON 数据到地图
  * @param {Object} geoJson - GeoJSON 对象
@@ -2514,6 +2573,7 @@ function loadLocalGeoJSON(geoJson, name, fileInfo) {
         });
         
         console.log('成功加载本地 GeoJSON:', name, '要素数量:', features.length);
+        const labelField = detectLabelField(features);
 
         // 每个图层只创建一次默认样式，避免渲染时重复实例化
         const pointStyle = new ol.style.Style({
@@ -2548,16 +2608,22 @@ function loadLocalGeoJSON(geoJson, name, fileInfo) {
             source: new ol.source.Vector({ features }),
             style: function(feature) {
                 const geometry = feature.getGeometry();
-                return geometry ? (styleCache[geometry.getType()] || emptyStyle) : emptyStyle;
+                if (!geometry) return emptyStyle;
+                const base = styleCache[geometry.getType()] || emptyStyle;
+                const text = localLabelText(feature, labelField, geometry.getType());
+                return text ? [base, new ol.style.Style({ text: text })] : base;
             },
             visible: true,
             properties: {
-                labelField: '',
+                labelField: labelField,
                 linkField: ''
             },
             name: name
         });
         
+        // 写入标签字段：点击/悬浮弹窗与标注渲染都依赖它
+        bindLocalLayerLabel(features, vectorLayer, labelField);
+
         // 添加到地图
         map.addLayer(vectorLayer);
         
@@ -2566,7 +2632,8 @@ function loadLocalGeoJSON(geoJson, name, fileInfo) {
             layer: vectorLayer,
             name: name,
             visible: true,
-            style: {}, // 初始化空样式对象
+            style: labelField ? { labelField: labelField, labelVisible: true } : {}, // 初始化样式对象
+            labelField: labelField,
             fileInfo: fileInfo || { fileName: name + '.geojson', format: 'geojson' },
             editable: false
         });
@@ -2617,16 +2684,18 @@ function loadLocalKML(kmlText, name, fileInfo) {
         });
         
         console.log('成功加载本地 KML:', name, '要素数量:', features.length);
+        // 优先使用数据中的标签字段，KML 无匹配时沿用 name
+        const labelField = detectLabelField(features) || 'name';
         
         // 为每个要素设置图层信息
         features.forEach(feature => {
             feature.set('layer', {
-                labelField: 'name', // KML 通常使用 name 字段作为标签
+                labelField: labelField,
                 linkField: ''
             });
             
             // 打印要素属性，用于调试
-            console.log('KML要素:', feature.get('name'), feature.getGeometry().getType());
+            console.log('KML要素:', feature.get(labelField), feature.getGeometry().getType());
         });
         
         // 创建矢量图层
@@ -2635,6 +2704,7 @@ function loadLocalKML(kmlText, name, fileInfo) {
             style: function(feature) {
                 // 强制使用自定义样式，确保点可见
                 const geometryType = feature.getGeometry().getType();
+                const textStyle = localLabelText(feature, labelField, geometryType);
                 
                 if (geometryType === 'Point') {
                     return new ol.style.Style({
@@ -2643,19 +2713,15 @@ function loadLocalKML(kmlText, name, fileInfo) {
                             fill: new ol.style.Fill({ color: 'rgba(255, 0, 0, 0.8)' }), // 红色
                             stroke: new ol.style.Stroke({ color: '#fff', width: 2 })
                         }),
-                        text: new ol.style.Text({
-                            text: feature.get('name') || '',
-                            offsetY: -15,
-                            fill: new ol.style.Fill({ color: '#333' }),
-                            stroke: new ol.style.Stroke({ color: '#fff', width: 2 })
-                        })
+                        text: textStyle
                     });
                 } else if (geometryType === 'LineString' || geometryType === 'MultiLineString') {
                     return new ol.style.Style({
                         stroke: new ol.style.Stroke({
                             color: 'rgba(54, 162, 235, 0.9)',
                             width: 3
-                        })
+                        }),
+                        text: textStyle
                     });
                 } else if (geometryType === 'Polygon' || geometryType === 'MultiPolygon') {
                     return new ol.style.Style({
@@ -2665,7 +2731,8 @@ function loadLocalKML(kmlText, name, fileInfo) {
                         stroke: new ol.style.Stroke({
                             color: 'rgba(75, 192, 192, 0.9)',
                             width: 2
-                        })
+                        }),
+                        text: textStyle
                     });
                 }
                 
@@ -2673,7 +2740,7 @@ function loadLocalKML(kmlText, name, fileInfo) {
             },
             visible: true,
             properties: {
-                labelField: 'name', // KML 通常使用 name 字段作为标签
+                labelField: labelField,
                 linkField: ''
             },
             name: name
@@ -2687,8 +2754,8 @@ function loadLocalKML(kmlText, name, fileInfo) {
             layer: vectorLayer,
             name: name,
             visible: true,
-            style: {}, // 初始化空样式对象
-            labelField: 'name', // 默认使用 name 字段作为标签
+            style: labelField ? { labelField: labelField, labelVisible: true } : {}, // 初始化样式对象
+            labelField: labelField,
             fileInfo: fileInfo || { fileName: name + '.kml', format: 'kml' },
             editable: false
         });
@@ -2723,7 +2790,7 @@ function loadLocalKML(kmlText, name, fileInfo) {
  * @param {string} gmlText - GML 文本内容
  * @param {string} name - 图层名称
  */
-function loadLocalGML(gmlText, name) {
+function loadLocalGML(gmlText, name, fileInfo) {
     try {
         // 使用 OpenLayers GML 解析器
         const gmlFormat = new ol.format.GML({
@@ -2736,6 +2803,8 @@ function loadLocalGML(gmlText, name) {
             dataProjection: 'EPSG:4326',
             featureProjection: 'EPSG:3857'
         });
+        // 优先使用数据自带标签字段，未命中再回退 name
+        const labelField = detectLabelField(features) || 'name';
         
         // 为每个要素设置默认属性
         features.forEach(function(feature) {
@@ -2750,6 +2819,7 @@ function loadLocalGML(gmlText, name) {
             source: new ol.source.Vector({ features }),
             style: function(feature) {
                 const geometryType = feature.getGeometry().getType();
+                const textStyle = localLabelText(feature, labelField, geometryType);
                 
                 if (geometryType === 'Point') {
                     return new ol.style.Style({
@@ -2758,19 +2828,15 @@ function loadLocalGML(gmlText, name) {
                             fill: new ol.style.Fill({ color: 'rgba(255, 0, 0, 0.8)' }),
                             stroke: new ol.style.Stroke({ color: '#fff', width: 2 })
                         }),
-                        text: new ol.style.Text({
-                            text: feature.get('name') || '',
-                            offsetY: -15,
-                            fill: new ol.style.Fill({ color: '#333' }),
-                            stroke: new ol.style.Stroke({ color: '#fff', width: 2 })
-                        })
+                        text: textStyle
                     });
                 } else if (geometryType === 'LineString' || geometryType === 'MultiLineString') {
                     return new ol.style.Style({
                         stroke: new ol.style.Stroke({
                             color: 'rgba(54, 162, 235, 0.9)',
                             width: 3
-                        })
+                        }),
+                        text: textStyle
                     });
                 } else if (geometryType === 'Polygon' || geometryType === 'MultiPolygon') {
                     return new ol.style.Style({
@@ -2780,7 +2846,8 @@ function loadLocalGML(gmlText, name) {
                         stroke: new ol.style.Stroke({
                             color: 'rgba(75, 192, 192, 0.9)',
                             width: 2
-                        })
+                        }),
+                        text: textStyle
                     });
                 }
                 
@@ -2788,11 +2855,14 @@ function loadLocalGML(gmlText, name) {
             },
             visible: true,
             properties: {
-                labelField: 'name',
+                labelField: labelField,
                 linkField: ''
             },
             name: name
         });
+        
+        // 写入标签字段：点击/悬浮弹窗与标注渲染都依赖它
+        bindLocalLayerLabel(features, vectorLayer, labelField);
         
         // 添加到地图
         map.addLayer(vectorLayer);
@@ -2802,9 +2872,9 @@ function loadLocalGML(gmlText, name) {
             layer: vectorLayer,
             name: name,
             visible: true,
-            style: {},
-            labelField: 'name',
-            fileInfo: fileInfo || { fileName: name + '.kmz', format: 'kml' },
+            style: labelField ? { labelField: labelField, labelVisible: true } : {},
+            labelField: labelField,
+            fileInfo: fileInfo || { fileName: name + '.gml', format: 'gml' },
             editable: false
         });
         
