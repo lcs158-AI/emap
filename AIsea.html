@@ -11,11 +11,11 @@
         if (window.XIAOLIU_EMBED) document.documentElement.classList.add('xiaoliu-embed');
         if (window.MAP_MIRROR_MODE) document.documentElement.classList.add('mirror-mode');
     </script>
-    <title>跬步地图3.13</title>
+    <title>跬步地图3.14</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.5.2/ol.css">
     <script src="/js/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-    <link rel="stylesheet" href="css/map.css?v=20261127b">
+    <link rel="stylesheet" href="css/map.css?v=20261128a">
 </head>
 
 <body>
@@ -119,16 +119,6 @@
     <div id="mirrorTopBar" class="mirror-bar">
         <span id="mirrorStatus" class="mirror-status">正在连接…</span>
         <span id="mirrorAccount" class="mirror-hint">未登录</span>
-    </div>
-    <div id="mirrorLayerPanel" class="mirror-layer-panel" style="display: none;">
-        <div class="mirror-layer-head">
-            <strong>电脑图层</strong>
-            <div class="mirror-layer-actions">
-                <button id="mirrorLayerRefresh" type="button" title="刷新图层">↻ 刷新</button>
-                <button id="mirrorLayerClose" type="button" title="关闭">×</button>
-            </div>
-        </div>
-        <div id="mirrorLayerList" class="mirror-layer-list">正在读取电脑图层…</div>
     </div>
     <div id="mirrorLaserBar" class="mirror-laser-bar">
         <span class="mirror-laser-label">激光笔</span>
@@ -576,14 +566,14 @@
     <script src="js/utils.js"></script>
     
     <!-- 地图核心 - 必须在依赖地图的脚本之前加载 -->
-    <script src="js/map.js?v=20261127c"></script>
+    <script src="js/map.js?v=20261128a"></script>
     <!-- 小刘 Agent 地图桥 -->
     <script src="js/xiaoliu_bridge.js"></script>
     <!-- 手机遥控（socket.io + 宿主编排） -->
     <script src="games/lib/socket.io.min.js"></script>
-    <script src="js/map_remote.js?v=20261127a"></script>
+    <script src="js/map_remote.js?v=20261128a"></script>
     <!-- 手机镜像模式（?mirror=1 才启用） -->
-    <script src="js/map_mirror.js?v=20261127b"></script>
+    <script src="js/map_mirror.js?v=20261128a"></script>
     <!-- 地名搜索模块（天地图 POI） -->
     <script src="js/tianditu_search.js?v=20261120"></script>
     <!-- 共享属性表单模块 - Schema 设计器 + 属性面板 -->

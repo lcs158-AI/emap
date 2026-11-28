@@ -70,6 +70,8 @@
     let remoteMarkerLayer = null;
     const layerUidMap = new WeakMap();
     let layerUidSeed = 1;
+    // 图层清单/设置的版本号：只有图层变化时才递增，手机端据此决定是否应用
+    let layerStateSeq = 0;
 
     // 弹窗同步：seq 变化时手机才重新应用，避免重复覆盖
     let popupBroadcast = { seq: 0, open: false };
@@ -467,10 +469,22 @@
             base: baseBtn && baseBtn.classList.contains('active') ? 'imagery' : 'vector',
             measure: measure,
             layers: collectLayerState(),
+            layerSeq: layerStateSeq,
             popup: popupBroadcast,
             ts: Date.now()
         });
     }
+
+    /**
+     * 图层清单或图层设置发生变化：递增版本号并立即广播。
+     * 供电脑端本地操作（map.js）和手机指令处理后调用。
+     */
+    function notifyLayerStateChanged() {
+        if (!socketReady || !socket || !socket.connected) return;
+        layerStateSeq++;
+        sendState(true);
+    }
+    window.MapRemoteLayerChanged = notifyLayerStateChanged;
 
     function handleCommand(msg) {
         if (!msg || typeof msg !== 'object') return;
@@ -620,7 +634,7 @@
             }
 
             // 本地图层已注册到图层管理面板，这里主动广播一次，让手机端图层列表立即更新
-            sendState(true);
+            notifyLayerStateChanged();
             replyFileResult({ ok: true, name: name, count: count });
             showRemoteToast('手机发来 ' + name + '（' + count + ' 个要素）');
         } catch (error) {
@@ -646,14 +660,19 @@
 
     function collectLayerState() {
         const result = [];
+        let order = 0;
         layerGroups().forEach(function (group) {
             group.items.forEach(function (item) {
                 if (!item || !item.layer) return;
+                const style = item.style || {};
                 result.push({
                     id: group.kind + ':' + getLayerUid(item.layer),
                     name: String(item.name || '未命名图层'),
                     kind: group.kind,
-                    visible: item.layer.getVisible() !== false
+                    visible: item.layer.getVisible() !== false,
+                    order: order++,
+                    labelField: String(style.labelField || item.labelField || ''),
+                    labelVisible: !!style.labelVisible
                 });
             });
         });
@@ -679,7 +698,7 @@
 
     function handleLayersCommand(msg) {
         if (msg.op === 'list') {
-            sendState(true);
+            notifyLayerStateChanged();
             return;
         }
         const found = findLayerItem(msg.id);
@@ -691,6 +710,8 @@
         if (msg.op === 'visibility') {
             item.visible = !!msg.visible;
             item.layer.setVisible(item.visible);
+            notifyLayerStateChanged();
+            return;
         } else if (msg.op === 'zoom') {
             const source = item.layer.getSource && item.layer.getSource();
             const extent = source && source.getExtent ? source.getExtent() : null;
@@ -702,12 +723,51 @@
                     maxZoom: 18
                 });
             }
+        } else if (msg.op === 'move') {
+            if (typeof moveLayerWithinGroup === 'function') {
+                moveLayerWithinGroup(found.items, found.index, msg.dir === 1 ? 1 : -1);
+            }
+            notifyLayerStateChanged();
+            return;
+        } else if (msg.op === 'label') {
+            item.style = item.style || {};
+            if (msg.labelField !== undefined) {
+                item.style.labelField = String(msg.labelField || '');
+                item.labelField = item.style.labelField;
+            }
+            item.style.labelVisible = !!msg.labelVisible;
+            if (typeof applyLayerStyle === 'function' && item.layer) {
+                applyLayerStyle(item.layer, item.style, detectItemGeometryType(item));
+            }
+            if (typeof createLayerControl === 'function') createLayerControl();
+            notifyLayerStateChanged();
+            return;
         } else if (msg.op === 'remove') {
             window.map.removeLayer(item.layer);
             found.items.splice(found.index, 1);
             if (typeof createLayerControl === 'function') createLayerControl();
+            notifyLayerStateChanged();
+            return;
         }
         sendState(true);
+    }
+
+    // 判断图层几何类型，供 applyLayerStyle 使用（点/线/面/混合）
+    function detectItemGeometryType(item) {
+        try {
+            const source = item.layer.getSource && item.layer.getSource();
+            const features = source && source.getFeatures ? source.getFeatures() : [];
+            const types = new Set();
+            features.forEach(function (feature) {
+                const geometry = feature.getGeometry();
+                if (geometry) types.add(geometry.getType());
+            });
+            if (types.size === 0) return '';
+            if (types.size > 1) return 'Mixed';
+            return types.values().next().value;
+        } catch (e) {
+            return '';
+        }
     }
 
     // ---------- 地图镜像：手机 -> 电脑 的同步指令 ----------
@@ -1245,7 +1305,14 @@
         if (qrEl) qrEl.style.display = 'none';
         infoFailed = false;
 
-        fetch(SERVER + '/api/map/info?server=' + encodeURIComponent(SERVER), { cache: 'no-store' })
+        let configParam = '';
+        try {
+            configParam = new URLSearchParams(window.location.search).get('config') || '';
+        } catch (e) { /* ignore */ }
+        const infoUrl = SERVER + '/api/map/info?server=' + encodeURIComponent(SERVER)
+            + (configParam ? '&config=' + encodeURIComponent(configParam) : '');
+
+        fetch(infoUrl, { cache: 'no-store' })
             .then(function (res) {
                 if (!res.ok) throw new Error('HTTP ' + res.status);
                 return res.json();

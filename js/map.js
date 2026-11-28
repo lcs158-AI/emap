@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿//================== 地图初始化 ====================
 // 触摸检测
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 document.body.classList.add(isTouchDevice ? 'touch' : 'no-touch');
@@ -1879,9 +1879,182 @@ async function loadLayersFromConfig(configUrl) {
 
 let layerPanelVisible = true; // 面板当前是否可见
 
+/**
+ * 交换两个图层在地图图层集合中的位置，其他图层相对顺序不变
+ */
+function swapLayerPositions(layerA, layerB) {
+    if (!layerA || !layerB || !window.map) return;
+    const layers = map.getLayers();
+    const arr = layers.getArray();
+    const ia = arr.indexOf(layerA);
+    const ib = arr.indexOf(layerB);
+    if (ia < 0 || ib < 0 || ia === ib) return;
+    const lowIndex = Math.min(ia, ib);
+    const highIndex = Math.max(ia, ib);
+    const lowerLayer = ia < ib ? layerA : layerB;
+    const upperLayer = ia < ib ? layerB : layerA;
+    layers.removeAt(highIndex);
+    layers.removeAt(lowIndex);
+    layers.insertAt(lowIndex, lowerLayer);
+    layers.insertAt(lowIndex + 1, upperLayer);
+    map.render();
+}
+
+/**
+ * 组内上移/下移图层（数组索引越大越靠上）
+ * @param {Array} items 图层数组
+ * @param {number} index 当前索引
+ * @param {number} dir 1 上移（更靠上），-1 下移（更靠下）
+ * @returns {boolean} 是否发生移动
+ */
+function moveLayerWithinGroup(items, index, dir) {
+    if (!Array.isArray(items)) return false;
+    const target = index + dir;
+    if (index < 0 || target < 0 || target >= items.length) return false;
+    const current = items[index];
+    const neighbor = items[target];
+    if (!current || !neighbor || !current.layer || !neighbor.layer) return false;
+    items[index] = neighbor;
+    items[target] = current;
+    swapLayerPositions(current.layer, neighbor.layer);
+    return true;
+}
+
+/**
+ * 手机镜像遥控端：渲染电脑端图层清单（行数据来自宿主广播）。
+ * 行内操作只下发指令，不直接改本地图层。
+ */
+function renderMirrorLayerRows(panel, bridge) {
+    panel.classList.add('mirror-remote');
+    const rows = (bridge.getRows ? bridge.getRows() : []) || [];
+    if (!rows.length) {
+        const empty = document.createElement('div');
+        empty.className = 'mirror-layer-empty';
+        empty.textContent = '电脑端暂无图层';
+        panel.appendChild(empty);
+        return;
+    }
+    const canOp = bridge.canOperate ? bridge.canOperate() : true;
+    const sections = [
+        { kind: 'local', title: '本地图层' },
+        { kind: 'dynamic', title: '配置图层' }
+    ];
+    sections.forEach(function (section) {
+        const items = rows.filter(function (row) {
+            return row.kind === section.kind;
+        }).sort(function (a, b) {
+            return b.order - a.order;
+        });
+        if (!items.length) return;
+
+        const titleEl = document.createElement('div');
+        titleEl.className = 'mirror-layer-section';
+        titleEl.textContent = section.title;
+        panel.appendChild(titleEl);
+
+        items.forEach(function (row, displayIndex) {
+            const div = document.createElement('div');
+            div.className = 'mirror-layer-row';
+
+            const left = document.createElement('div');
+            left.className = 'mirror-layer-left';
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = !!row.visible;
+            checkbox.disabled = !canOp;
+            checkbox.addEventListener('change', function (e) {
+                if (bridge.setVisibility) bridge.setVisibility(row.id, e.target.checked);
+            });
+            const nameEl = document.createElement('span');
+            nameEl.className = 'mirror-layer-name';
+            nameEl.textContent = row.name;
+            left.appendChild(checkbox);
+            left.appendChild(nameEl);
+
+            const btnUp = makeMirrorBtn('▲', '上移一层（更靠上）',
+                !canOp || displayIndex === 0, function () {
+                    if (bridge.move) bridge.move(row.id, 1);
+                });
+            const btnDown = makeMirrorBtn('▼', '下移一层（更靠下）',
+                !canOp || displayIndex === items.length - 1, function () {
+                    if (bridge.move) bridge.move(row.id, -1);
+                });
+            const btnLabel = makeMirrorBtn('🏷️',
+                row.labelField ? '显示/隐藏文字标注' : '电脑端未设置标注字段',
+                !canOp || !row.labelField, function () {
+                    if (bridge.setLabel) bridge.setLabel(row.id, !row.labelVisible);
+                });
+            if (row.labelVisible) btnLabel.classList.add('is-on');
+            const btnZoom = makeMirrorBtn('🔍', '缩放到图层', !canOp, function () {
+                if (bridge.zoom) bridge.zoom(row.id);
+            });
+            const btnRemove = makeMirrorBtn('🗑️', '移除图层', !canOp, function () {
+                if (!window.confirm('确定在电脑端移除图层「' + row.name + '」？')) return;
+                if (bridge.remove) bridge.remove(row.id);
+            });
+
+            div.appendChild(left);
+            [btnUp, btnDown, btnLabel, btnZoom, btnRemove].forEach(function (btn) {
+                div.appendChild(btn);
+            });
+            panel.appendChild(div);
+        });
+    });
+}
+
+function makeMirrorBtn(text, title, disabled, onClick) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = text;
+    btn.title = title;
+    btn.className = 'mirror-layer-btn';
+    btn.disabled = !!disabled;
+    btn.addEventListener('click', onClick);
+    return btn;
+}
+
+function bindLayerPanelToggle(panel) {
+    // 添加工具栏按钮事件（如果不存在则添加）
+    let toggleBtn = document.getElementById('toggleLayerPanelBtn');
+    if (!toggleBtn) {
+        // 如果按钮不在工具栏，动态创建（但通常已在 HTML 中）
+        const toolbar = document.querySelector('.toolbar');
+        if (toolbar) {
+            toggleBtn = document.createElement('button');
+            toggleBtn.id = 'toggleLayerPanelBtn';
+            toggleBtn.className = 'action-btn';
+            toggleBtn.setAttribute('data-title', '图层管理');
+            toggleBtn.textContent = '🗂️';
+            toolbar.appendChild(toggleBtn);
+        }
+    }
+    if (toggleBtn) {
+        if (layerPanelVisible) toggleBtn.classList.add('active');
+        // 面板会反复重建，工具栏按钮只绑定一次，避免点击被叠加多次
+        if (toggleBtn.dataset.layerToggleBound === '1') return;
+        toggleBtn.dataset.layerToggleBound = '1';
+        toggleBtn.addEventListener('click', () => {
+            // 面板会重建，这里始终操作当前面板
+            const current = document.getElementById('layerControl');
+            if (!current) return;
+            if (current.style.display === 'none') {
+                current.style.display = 'block';
+                layerPanelVisible = true;
+                toggleBtn.classList.add('active');
+            } else {
+                current.style.display = 'none';
+                layerPanelVisible = false;
+                toggleBtn.classList.remove('active');
+            }
+        });
+    }
+}
+
 function createLayerControl() {
     // 如果面板已存在，先移除（避免重复）
     const oldPanel = document.getElementById('layerControl');
+    // 记住当前可见状态，重建后保持一致
+    const keepVisible = oldPanel ? oldPanel.style.display !== 'none' : layerPanelVisible;
     if (oldPanel) oldPanel.remove();
     
     // 创建新面板
@@ -1898,6 +2071,7 @@ function createLayerControl() {
     panel.style.minWidth = '150px';
     panel.style.maxHeight = '60vh';
     panel.style.overflowY = 'auto';
+    if (!keepVisible) panel.style.display = 'none';
     document.body.appendChild(panel);
     
     // 面板头部：标题 + 关闭按钮
@@ -1970,6 +2144,15 @@ function createLayerControl() {
         panel.style.cursor = 'default';
     });
     
+    // 手机镜像遥控端：行数据来自电脑端广播，操作只下发指令
+    const mirrorBridge = (window.MirrorLayerBridge && window.MirrorLayerBridge.enabled)
+        ? window.MirrorLayerBridge : null;
+    if (mirrorBridge) {
+        renderMirrorLayerRows(panel, mirrorBridge);
+        bindLayerPanelToggle(panel);
+        return;
+    }
+
     // 添加本地 GeoJSON 图层列表
     if (localGeoJsonLayers.length > 0) {
         const localTitle = document.createElement('div');
@@ -1981,7 +2164,10 @@ function createLayerControl() {
         localTitle.style.color = '#666';
         panel.appendChild(localTitle);
         
-        localGeoJsonLayers.forEach((item, index) => {
+        // 顶层在上：反转副本渲染，避免改动数组本身
+        const localDisplay = localGeoJsonLayers.slice().reverse();
+        localDisplay.forEach((item) => {
+            const index = localGeoJsonLayers.indexOf(item);
             const div = document.createElement('div');
             div.style.marginBottom = '8px';
             div.style.padding = '5px';
@@ -2006,6 +2192,7 @@ function createLayerControl() {
                 const isVisible = e.target.checked;
                 item.layer.setVisible(isVisible);
                 item.visible = isVisible;
+                if (window.MapRemoteLayerChanged) window.MapRemoteLayerChanged();
             });
             
             const label = document.createElement('label');
@@ -2046,6 +2233,44 @@ function createLayerControl() {
                 localGeoJsonLayers.splice(index, 1);
                 // 重新创建图层控制面板
                 createLayerControl();
+                if (window.MapRemoteLayerChanged) window.MapRemoteLayerChanged();
+            });
+            
+            // 图层顺序调整：▲ 上移一层（更靠上），▼ 下移一层（更靠下）
+            const upBtn = document.createElement('button');
+            upBtn.textContent = '▲';
+            upBtn.title = '上移一层（更靠上）';
+            upBtn.style.background = 'none';
+            upBtn.style.border = 'none';
+            upBtn.style.fontSize = '12px';
+            upBtn.style.padding = '2px 3px';
+            upBtn.style.color = '#666';
+            upBtn.disabled = index >= localGeoJsonLayers.length - 1;
+            upBtn.style.cursor = upBtn.disabled ? 'default' : 'pointer';
+            upBtn.style.opacity = upBtn.disabled ? '0.3' : '1';
+            upBtn.addEventListener('click', () => {
+                if (moveLayerWithinGroup(localGeoJsonLayers, index, 1)) {
+                    createLayerControl();
+                    if (window.MapRemoteLayerChanged) window.MapRemoteLayerChanged();
+                }
+            });
+            
+            const downBtn = document.createElement('button');
+            downBtn.textContent = '▼';
+            downBtn.title = '下移一层（更靠下）';
+            downBtn.style.background = 'none';
+            downBtn.style.border = 'none';
+            downBtn.style.fontSize = '12px';
+            downBtn.style.padding = '2px 3px';
+            downBtn.style.color = '#666';
+            downBtn.disabled = index <= 0;
+            downBtn.style.cursor = downBtn.disabled ? 'default' : 'pointer';
+            downBtn.style.opacity = downBtn.disabled ? '0.3' : '1';
+            downBtn.addEventListener('click', () => {
+                if (moveLayerWithinGroup(localGeoJsonLayers, index, -1)) {
+                    createLayerControl();
+                    if (window.MapRemoteLayerChanged) window.MapRemoteLayerChanged();
+                }
             });
             
             // 标注显示切换按钮（红=显示，灰=隐藏）
@@ -2074,9 +2299,12 @@ function createLayerControl() {
                 item.style.labelVisible = !isLabelOn();
                 applyLayerStyle(item.layer, item.style);
                 refreshLabelBtn();
+                if (window.MapRemoteLayerChanged) window.MapRemoteLayerChanged();
             });
 
             layerHeader.appendChild(leftSection);
+            layerHeader.appendChild(upBtn);
+            layerHeader.appendChild(downBtn);
             layerHeader.appendChild(labelBtn);
             layerHeader.appendChild(infoBtn);
             layerHeader.appendChild(removeBtn);
@@ -2135,7 +2363,10 @@ function createLayerControl() {
         dynamicTitle.style.color = '#666';
         panel.appendChild(dynamicTitle);
         
-        window.dynamicLayers.reverse().forEach((item, index) => {
+        // 顶层在上：反转副本渲染，避免原地 reverse 打乱数组顺序
+        const dynamicDisplay = window.dynamicLayers.slice().reverse();
+        dynamicDisplay.forEach((item) => {
+            const index = window.dynamicLayers.indexOf(item);
             const div = document.createElement('div');
             div.style.marginBottom = '8px';
             div.style.padding = '5px';
@@ -2160,6 +2391,7 @@ function createLayerControl() {
                 const isVisible = e.target.checked;
                 item.layer.setVisible(isVisible);
                 item.visible = isVisible;
+                if (window.MapRemoteLayerChanged) window.MapRemoteLayerChanged();
             });
             
             const label = document.createElement('label');
@@ -2197,9 +2429,47 @@ function createLayerControl() {
                 // 从地图中移除图层
                 map.removeLayer(item.layer);
                 // 从动态图层列表中移除
-                dynamicLayers.splice(index, 1);
+                window.dynamicLayers.splice(index, 1);
                 // 重新创建图层控制面板
                 createLayerControl();
+                if (window.MapRemoteLayerChanged) window.MapRemoteLayerChanged();
+            });
+            
+            // 图层顺序调整：▲ 上移一层（更靠上），▼ 下移一层（更靠下）
+            const upBtn = document.createElement('button');
+            upBtn.textContent = '▲';
+            upBtn.title = '上移一层（更靠上）';
+            upBtn.style.background = 'none';
+            upBtn.style.border = 'none';
+            upBtn.style.fontSize = '12px';
+            upBtn.style.padding = '2px 3px';
+            upBtn.style.color = '#666';
+            upBtn.disabled = index >= window.dynamicLayers.length - 1;
+            upBtn.style.cursor = upBtn.disabled ? 'default' : 'pointer';
+            upBtn.style.opacity = upBtn.disabled ? '0.3' : '1';
+            upBtn.addEventListener('click', () => {
+                if (moveLayerWithinGroup(window.dynamicLayers, index, 1)) {
+                    createLayerControl();
+                    if (window.MapRemoteLayerChanged) window.MapRemoteLayerChanged();
+                }
+            });
+            
+            const downBtn = document.createElement('button');
+            downBtn.textContent = '▼';
+            downBtn.title = '下移一层（更靠下）';
+            downBtn.style.background = 'none';
+            downBtn.style.border = 'none';
+            downBtn.style.fontSize = '12px';
+            downBtn.style.padding = '2px 3px';
+            downBtn.style.color = '#666';
+            downBtn.disabled = index <= 0;
+            downBtn.style.cursor = downBtn.disabled ? 'default' : 'pointer';
+            downBtn.style.opacity = downBtn.disabled ? '0.3' : '1';
+            downBtn.addEventListener('click', () => {
+                if (moveLayerWithinGroup(window.dynamicLayers, index, -1)) {
+                    createLayerControl();
+                    if (window.MapRemoteLayerChanged) window.MapRemoteLayerChanged();
+                }
             });
             
             // 标注显示切换按钮（红=显示，灰=隐藏）
@@ -2228,9 +2498,12 @@ function createLayerControl() {
                 item.style.labelVisible = !isLabelOn();
                 applyLayerStyle(item.layer, item.style);
                 refreshLabelBtn();
+                if (window.MapRemoteLayerChanged) window.MapRemoteLayerChanged();
             });
 
             layerHeader.appendChild(leftSection);
+            layerHeader.appendChild(upBtn);
+            layerHeader.appendChild(downBtn);
             layerHeader.appendChild(labelBtn);
             layerHeader.appendChild(infoBtn);
             layerHeader.appendChild(removeBtn);
@@ -2265,35 +2538,23 @@ function createLayerControl() {
     }
     
     // 添加工具栏按钮事件（如果不存在则添加）
-    let toggleBtn = document.getElementById('toggleLayerPanelBtn');
-    if (!toggleBtn) {
-        // 如果按钮不在工具栏，动态创建（但通常已在 HTML 中）
-        const toolbar = document.querySelector('.toolbar');
-        if (toolbar) {
-            toggleBtn = document.createElement('button');
-            toggleBtn.id = 'toggleLayerPanelBtn';
-            toggleBtn.className = 'action-btn';
-            toggleBtn.setAttribute('data-title', '图层管理');
-            toggleBtn.textContent = '🗂️';
-            toolbar.appendChild(toggleBtn);
-        }
-    }
-    if (toggleBtn) {
-        toggleBtn.addEventListener('click', () => {
-            if (panel.style.display === 'none') {
-                panel.style.display = 'block';
-                layerPanelVisible = true;
-                toggleBtn.classList.add('active');
-            } else {
-                panel.style.display = 'none';
-                layerPanelVisible = false;
-                toggleBtn.classList.remove('active');
-            }
-        });
-        // 初始同步按钮状态
-        if (layerPanelVisible) toggleBtn.classList.add('active');
-    }
+    bindLayerPanelToggle(panel);
 }
+
+// 手机镜像工具栏等外部入口：显示/隐藏图层管理面板
+window.toggleLayerControl = function () {
+    let panel = document.getElementById('layerControl');
+    if (!panel) {
+        layerPanelVisible = true;
+        createLayerControl();
+        return;
+    }
+    const show = panel.style.display === 'none';
+    panel.style.display = show ? 'block' : 'none';
+    layerPanelVisible = show;
+    const toggleBtn = document.getElementById('toggleLayerPanelBtn');
+    if (toggleBtn) toggleBtn.classList.toggle('active', show);
+};
 // 获取URL参数，决定加载哪个配置文件
 function getConfigUrlFromParams() {
     const urlParams = new URLSearchParams(window.location.search);
@@ -5040,6 +5301,7 @@ function openLayerInfoEditor(item, index) {
         
         // 刷新图层控制面板
         createLayerControl();
+        if (window.MapRemoteLayerChanged) window.MapRemoteLayerChanged();
         
         console.log(`图层 ${item.name} 设置已更新:`, {
             labelField: selectedLabelField,
@@ -5518,6 +5780,7 @@ function openLayerStyleEditor(item, index) {
         
         // 应用新样式到图层
         applyLayerStyle(item.layer, newStyle, layerGeometryType);
+        if (window.MapRemoteLayerChanged) window.MapRemoteLayerChanged();
         
         // 关闭模态框
         document.body.removeChild(modal);

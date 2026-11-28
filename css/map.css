@@ -776,8 +776,6 @@ body:not(.mirror-measuring) #mirrorFinishBtn {
 .mirror-mode .toolbar,
 .mirror-mode .remote-dock,
 .mirror-mode .layer-control,
-/* 通用「图层管理」面板只在本地生效，镜像模式改用可双向同步的镜像图层面板 */
-.mirror-mode #layerControl,
 .mirror-mode #mapRemotePanel,
 .mirror-mode #uploadSidebar,
 .mirror-mode #sidebarOverlay {
@@ -795,112 +793,79 @@ body:not(.mirror-measuring) #mirrorFinishBtn {
     font-size: 13px;
 }
 
-/* 镜像模式：电脑端基础图层管理 */
-.mirror-layer-panel {
-    display: none;
-}
-
-.mirror-mode .mirror-layer-panel {
-    position: fixed;
-    left: 10px;
-    right: 10px;
-    bottom: calc(env(safe-area-inset-bottom, 0px) + 68px);
-    z-index: 1400;
+/* 镜像模式：常规图层管理面板在手机上的布局（行数据来自电脑端广播） */
+.mirror-mode #layerControl.mirror-remote {
+    position: fixed !important;
+    left: 10px !important;
+    right: 10px !important;
+    top: auto !important;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 68px) !important;
+    z-index: 1500 !important;
+    min-width: 0 !important;
     max-width: 560px;
+    max-height: 52vh;
     margin: 0 auto;
     border-radius: 12px;
-    background: #fff;
-    color: #1f2937;
-    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
-    overflow: hidden;
 }
 
-.mirror-layer-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 10px 12px;
-    border-bottom: 1px solid #e5e7eb;
-    font-size: 14px;
-}
-
-.mirror-layer-actions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.mirror-layer-actions button {
-    min-height: 32px;
-    padding: 4px 8px;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
-    background: #f9fafb;
-    color: #374151;
-    font-size: 12px;
-}
-
-#mirrorLayerClose {
-    min-width: 32px;
-    padding: 0;
-    font-size: 20px;
-    line-height: 1;
-}
-
-.mirror-layer-list {
-    max-height: 48vh;
-    padding: 6px 12px 12px;
-    overflow-y: auto;
-}
-
-.mirror-layer-group {
-    padding: 8px 0 4px;
+.mirror-remote .mirror-layer-section {
+    margin: 8px 0 4px;
     color: #6b7280;
     font-size: 12px;
     font-weight: 600;
 }
 
-.mirror-layer-row {
+.mirror-remote .mirror-layer-row {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 7px 0;
+    gap: 4px;
+    padding: 6px 0;
     border-bottom: 1px solid #f3f4f6;
 }
 
-.mirror-layer-name {
+.mirror-remote .mirror-layer-left {
     display: flex;
     flex: 1;
     align-items: center;
     gap: 8px;
     min-width: 0;
-    font-size: 14px;
 }
 
-.mirror-layer-name input {
+.mirror-remote .mirror-layer-left input {
     width: 18px;
     height: 18px;
     flex: 0 0 auto;
 }
 
-.mirror-layer-name span {
+.mirror-remote .mirror-layer-name {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    font-size: 14px;
 }
 
-.mirror-layer-row > button {
+.mirror-remote .mirror-layer-btn {
     flex: 0 0 auto;
-    padding: 6px 8px;
+    min-width: 32px;
+    min-height: 32px;
+    padding: 2px 4px;
     border: 1px solid #d1d5db;
     border-radius: 6px;
     background: #f9fafb;
     color: #374151;
-    font-size: 12px;
+    font-size: 14px;
+    cursor: pointer;
 }
 
-.mirror-layer-row > button.is-danger {
-    color: #b91c1c;
+.mirror-remote .mirror-layer-btn:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+.mirror-remote .mirror-layer-btn.is-on {
+    color: #e74c3c;
+    border-color: #fca5a5;
+    background: #fef2f2;
 }
 
 .mirror-layer-empty {

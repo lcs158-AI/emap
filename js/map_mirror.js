@@ -49,8 +49,6 @@
     let accountEl = null;
     let lastMeasureFeature = null;
     let syncingMeasure = false;
-    let layerPanelEl = null;
-    let layerListEl = null;
     let remoteLayers = [];
 
     // 登录页
@@ -357,26 +355,6 @@
         }
     }
 
-    // 手机端为「发文件」保留的副本：电脑端移除后一并清理，避免手机残留
-    function syncPushedLocalLayers(layers) {
-        const items = localLayerArray();
-        if (!items || !Array.isArray(layers)) return;
-        const hostNames = {};
-        layers.forEach(function (l) {
-            if (l && l.kind === 'local' && typeof l.name === 'string') hostNames[l.name] = true;
-        });
-        let changed = false;
-        for (let i = items.length - 1; i >= 0; i--) {
-            const item = items[i];
-            if (!item || !item.mirrorPushed) continue;
-            if (hostNames[String(item.name)]) continue;
-            if (item.layer && window.map) window.map.removeLayer(item.layer);
-            items.splice(i, 1);
-            changed = true;
-        }
-        if (changed && typeof createLayerControl === 'function') createLayerControl();
-    }
-
     // ---------------- 视图同步 ----------------
     function scheduleView() {
         if (!canFull()) return;
@@ -541,93 +519,190 @@
         send({ action: 'layers', op: 'list' });
     }
 
-    function closeLayerPanel() {
-        if (layerPanelEl) layerPanelEl.style.display = 'none';
-        const btn = document.getElementById('mirrorLayersBtn');
-        if (btn) btn.classList.remove('active');
+    // 手机端图层管理桥接：常规面板的行数据来自电脑端广播，操作只下发指令
+    let layerBridgeInstalled = false;
+    let lastLayerSeq = -1;
+
+    function installLayerBridge() {
+        if (!layerBridgeInstalled) {
+            window.MirrorLayerBridge = {
+                enabled: true,
+                getRows: function () { return remoteLayers || []; },
+                canOperate: function () {
+                    return canFull() && !!(socket && socket.connected);
+                },
+                setVisibility: function (id, visible) {
+                    send({ action: 'layers', op: 'visibility', id: id, visible: !!visible });
+                },
+                move: function (id, dir) {
+                    send({ action: 'layers', op: 'move', id: id, dir: dir === 1 ? 1 : -1 });
+                },
+                setLabel: function (id, visible) {
+                    send({ action: 'layers', op: 'label', id: id, labelVisible: !!visible });
+                },
+                zoom: function (id) {
+                    send({ action: 'layers', op: 'zoom', id: id });
+                },
+                remove: function (id) {
+                    send({ action: 'layers', op: 'remove', id: id });
+                    // 手机端先移除本地副本，电脑端广播到达后再校正
+                    const row = (remoteLayers || []).find(function (r) {
+                        return r && r.id === id;
+                    });
+                    const group = row ? localLayerGroups()[row.kind] : null;
+                    if (!row || !group) return;
+                    const idx = group.items.findIndex(function (it) {
+                        return it && String(it.name) === row.name;
+                    });
+                    if (idx < 0) return;
+                    const item = group.items[idx];
+                    if (item.layer && window.map) window.map.removeLayer(item.layer);
+                    group.items.splice(idx, 1);
+                    if (typeof createLayerControl === 'function') createLayerControl();
+                }
+            };
+            layerBridgeInstalled = true;
+        }
+        if (typeof createLayerControl === 'function') createLayerControl();
+        hideLayerPanel();
+    }
+
+    function uninstallLayerBridge() {
+        if (!layerBridgeInstalled) return;
+        delete window.MirrorLayerBridge;
+        layerBridgeInstalled = false;
+        if (typeof createLayerControl === 'function') createLayerControl();
+        hideLayerPanel();
+    }
+
+    // 手机端图层管理面板默认收起，由工具栏「图层」按钮或发文件成功后打开
+    function hideLayerPanel() {
+        const panel = document.getElementById('layerControl');
+        if (panel && panel.style.display !== 'none' && typeof window.toggleLayerControl === 'function') {
+            window.toggleLayerControl();
+        }
     }
 
     function openLayerPanel() {
-        if (!layerPanelEl || !canFull()) return;
-        if (window.TiandituSearch && typeof window.TiandituSearch.close === 'function') {
-            window.TiandituSearch.close();
+        if (!canFull()) return;
+        const panel = document.getElementById('layerControl');
+        if (!panel || panel.style.display === 'none') {
+            if (typeof window.toggleLayerControl === 'function') window.toggleLayerControl();
         }
-        layerPanelEl.style.display = 'block';
-        const btn = document.getElementById('mirrorLayersBtn');
-        if (btn) btn.classList.add('active');
-        renderLayerList();
-        requestLayers();
     }
 
-    function renderLayerList() {
-        if (!layerListEl || !layerPanelEl || layerPanelEl.style.display === 'none') return;
-        layerListEl.innerHTML = '';
-        if (!remoteLayers.length) {
-            const empty = document.createElement('div');
-            empty.className = 'mirror-layer-empty';
-            empty.textContent = '电脑端暂无配置或本地图层';
-            layerListEl.appendChild(empty);
-            return;
-        }
+    function localLayerGroups() {
+        return {
+            dynamic: {
+                items: Array.isArray(window.dynamicLayers) ? window.dynamicLayers : []
+            },
+            local: {
+                items: typeof localGeoJsonLayers !== 'undefined' && Array.isArray(localGeoJsonLayers)
+                    ? localGeoJsonLayers
+                    : (Array.isArray(window.localGeoJsonLayers) ? window.localGeoJsonLayers : [])
+            }
+        };
+    }
 
-        [
-            { kind: 'dynamic', title: '配置图层' },
-            { kind: 'local', title: '本地图层' }
-        ].forEach(function (group) {
-            const items = remoteLayers.filter(function (layer) { return layer.kind === group.kind; });
-            if (!items.length) return;
-            const title = document.createElement('div');
-            title.className = 'mirror-layer-group';
-            title.textContent = group.title;
-            layerListEl.appendChild(title);
-
-            items.forEach(function (layer) {
-                const row = document.createElement('div');
-                row.className = 'mirror-layer-row';
-
-                const label = document.createElement('label');
-                label.className = 'mirror-layer-name';
-                const checkbox = document.createElement('input');
-                checkbox.type = 'checkbox';
-                checkbox.checked = !!layer.visible;
-                checkbox.addEventListener('change', function () {
-                    send({
-                        action: 'layers',
-                        op: 'visibility',
-                        id: layer.id,
-                        visible: checkbox.checked
-                    });
-                });
-                const name = document.createElement('span');
-                name.textContent = layer.name;
-                name.title = layer.name;
-                label.appendChild(checkbox);
-                label.appendChild(name);
-
-                const zoomBtn = document.createElement('button');
-                zoomBtn.type = 'button';
-                zoomBtn.textContent = '缩放';
-                zoomBtn.addEventListener('click', function () {
-                    send({ action: 'layers', op: 'zoom', id: layer.id });
-                    notify('已请求电脑缩放至图层', 'online');
-                });
-
-                const removeBtn = document.createElement('button');
-                removeBtn.type = 'button';
-                removeBtn.className = 'is-danger';
-                removeBtn.textContent = '移除';
-                removeBtn.addEventListener('click', function () {
-                    if (!window.confirm('仅从电脑当前地图移除“' + layer.name + '”？')) return;
-                    send({ action: 'layers', op: 'remove', id: layer.id });
-                    notify('已请求移除图层', 'online');
-                });
-
-                row.appendChild(label);
-                row.appendChild(zoomBtn);
-                row.appendChild(removeBtn);
-                layerListEl.appendChild(row);
-            });
+    // 按电脑端图层顺序排序本地数组（数组索引越大越靠上）
+    function hostOrderComparator(rows, kind) {
+        const orderMap = {};
+        rows.forEach(function (row) {
+            if (!row || row.kind !== kind) return;
+            if (orderMap[row.name] === undefined) orderMap[row.name] = row.order;
         });
+        return function (a, b) {
+            const oa = orderMap[String(a && a.name)];
+            const ob = orderMap[String(b && b.name)];
+            return (oa === undefined ? 1e9 : oa) - (ob === undefined ? 1e9 : ob);
+        };
+    }
+
+    // 让地图图层集合中的顺序与本地数组一致（升序=下层→上层）
+    function reorderLocalLayers(items) {
+        if (!window.map || !Array.isArray(items) || items.length < 2) return;
+        if (typeof swapLayerPositions !== 'function') return;
+        const collection = window.map.getLayers();
+        for (let i = 0; i < items.length; i++) {
+            for (let j = 0; j < items.length - 1 - i; j++) {
+                const lower = items[j] && items[j].layer;
+                const upper = items[j + 1] && items[j + 1].layer;
+                if (!lower || !upper) continue;
+                const lowerIndex = collection.getArray().indexOf(lower);
+                const upperIndex = collection.getArray().indexOf(upper);
+                if (lowerIndex > -1 && upperIndex > -1 && lowerIndex > upperIndex) {
+                    swapLayerPositions(lower, upper);
+                }
+            }
+        }
+    }
+
+    function applyRemoteLabel(item, remote) {
+        if (!remote || !remote.labelField || !item.layer) return;
+        if (!item.style) item.style = {};
+        const style = item.style;
+        const nextVisible = !!remote.labelVisible;
+        if (style.labelField === remote.labelField && !!style.labelVisible === nextVisible) return;
+        style.labelField = remote.labelField;
+        style.labelVisible = nextVisible;
+        if (typeof applyLayerStyle === 'function') applyLayerStyle(item.layer, style);
+    }
+
+    // 应用电脑端图层状态：显隐、标注、顺序，并按需清理手机端残留副本
+    function applyRemoteLayerState(layers, seq) {
+        if (!canFull() || !Array.isArray(layers)) return;
+        if (typeof seq === 'number' && seq <= lastLayerSeq) return;
+        if (typeof seq === 'number') lastLayerSeq = seq;
+        remoteLayers = layers;
+
+        const groups = localLayerGroups();
+        const counters = {};
+        layers.forEach(function (remote) {
+            if (!remote || typeof remote.name !== 'string') return;
+            const group = groups[remote.kind];
+            if (!group) return;
+            const key = remote.kind + '|' + remote.name;
+            const occurrence = (counters[key] = (counters[key] || 0) + 1);
+            const matches = group.items.filter(function (item) {
+                return item && String(item.name) === remote.name;
+            });
+            const item = matches[occurrence - 1];
+            if (!item || !item.layer) return;
+            const nextVisible = !!remote.visible;
+            if ((item.layer.getVisible() !== false) !== nextVisible) {
+                item.layer.setVisible(nextVisible);
+            }
+            item.visible = nextVisible;
+            applyRemoteLabel(item, remote);
+        });
+
+        groups.dynamic.items.sort(hostOrderComparator(layers, 'dynamic'));
+        groups.local.items.sort(hostOrderComparator(layers, 'local'));
+        reorderLocalLayers(groups.dynamic.items);
+        reorderLocalLayers(groups.local.items);
+
+        // 电脑端已不存在的图层：手机推送副本直接删除，其他仅隐藏，避免残留在图上
+        const hostNames = {};
+        layers.forEach(function (row) {
+            if (row && typeof row.name === 'string') {
+                hostNames[row.kind + '|' + row.name] = true;
+            }
+        });
+        [groups.local, groups.dynamic].forEach(function (group) {
+            for (let i = group.items.length - 1; i >= 0; i--) {
+                const item = group.items[i];
+                if (!item || typeof item.name !== 'string') continue;
+                if (hostNames[group.kind + '|' + item.name]) continue;
+                if (item.mirrorPushed) {
+                    if (item.layer && window.map) window.map.removeLayer(item.layer);
+                    group.items.splice(i, 1);
+                } else if (item.layer) {
+                    item.layer.setVisible(false);
+                }
+            }
+        });
+
+        if (typeof createLayerControl === 'function') createLayerControl();
     }
 
     // ---------------- 界面 ----------------
@@ -666,17 +741,7 @@
         if (layersBtn) {
             layersBtn.addEventListener('click', function (event) {
                 event.stopPropagation();
-                if (layerPanelEl && layerPanelEl.style.display !== 'none') closeLayerPanel();
-                else openLayerPanel();
-            });
-        }
-        const layerClose = document.getElementById('mirrorLayerClose');
-        if (layerClose) layerClose.addEventListener('click', closeLayerPanel);
-        const layerRefresh = document.getElementById('mirrorLayerRefresh');
-        if (layerRefresh) {
-            layerRefresh.addEventListener('click', function () {
-                requestLayers();
-                notify('正在刷新电脑图层…', 'waiting');
+                if (typeof window.toggleLayerControl === 'function') window.toggleLayerControl();
             });
         }
 
@@ -684,7 +749,7 @@
         if (searchBtn) {
             searchBtn.addEventListener('click', function (event) {
                 event.stopPropagation();
-                closeLayerPanel();
+                hideLayerPanel();
                 if (window.TiandituSearch && typeof window.TiandituSearch.open === 'function') {
                     window.TiandituSearch.open();
                 } else {
@@ -809,8 +874,10 @@
         if (onlyBtn) onlyBtn.style.display = laserOnly ? 'inline-flex' : 'none';
         if (myColor) document.body.style.setProperty('--my-laser-color', myColor);
         if (laserOnly) {
-            closeLayerPanel();
+            uninstallLayerBridge();
             setLayersButtonHidden(true);
+        } else if (canFull()) {
+            installLayerBridge();
         }
         setNavigationEnabled(!readOnly && !laserOn);
         updateAccountLabel();
@@ -844,7 +911,7 @@
     function setLayersButtonHidden(hidden) {
         const btn = document.getElementById('mirrorLayersBtn');
         if (btn) btn.style.display = hidden ? 'none' : '';
-        if (hidden) closeLayerPanel();
+        if (hidden) hideLayerPanel();
     }
 
     function bindLogin() {
@@ -981,35 +1048,6 @@
         } finally {
             applyingPopup = false;
         }
-    }
-
-    // 电脑端图层显隐同步到手机本地同名图层
-    function applyRemoteLayerVisibility(layers) {
-        if (!canFull()) return;
-        if (!Array.isArray(layers)) return;
-        const groups = [
-            { kind: 'dynamic', items: Array.isArray(window.dynamicLayers) ? window.dynamicLayers : [] },
-            {
-                kind: 'local',
-                items: typeof localGeoJsonLayers !== 'undefined' && Array.isArray(localGeoJsonLayers)
-                    ? localGeoJsonLayers
-                    : (Array.isArray(window.localGeoJsonLayers) ? window.localGeoJsonLayers : [])
-            }
-        ];
-        layers.forEach(function (remote) {
-            if (!remote || typeof remote.name !== 'string') return;
-            const group = groups.find(function (g) { return g.kind === remote.kind; });
-            if (!group) return;
-            const item = group.items.find(function (it) {
-                return it && String(it.name) === remote.name;
-            });
-            if (item && item.layer && typeof item.layer.setVisible === 'function') {
-                const next = !!remote.visible;
-                if ((item.layer.getVisible() !== false) !== next) {
-                    item.layer.setVisible(next);
-                }
-            }
-        });
     }
 
     // ---------------- 激光笔（手机 -> 电脑） ----------------
@@ -1294,10 +1332,7 @@
             // 完整镜像：本地加载图层后的自动定位窗口期内，忽略电脑端可能滞后的视图状态
             if (!userMoved && performance.now() >= programmaticFitUntil) applyRemoteState(state);
             if (canFull() && Array.isArray(state.layers)) {
-                remoteLayers = state.layers;
-                renderLayerList();
-                applyRemoteLayerVisibility(state.layers);
-                syncPushedLocalLayers(state.layers);
+                applyRemoteLayerState(state.layers, state.layerSeq);
             }
             if (canFull() && state.popup) applyRemotePopup(state.popup);
         });
@@ -1324,7 +1359,7 @@
                 // 电脑端已加载成功，手机本地也加载同一份，两端都能看到
                 if (pushed) loadFileOnPhone(pushed.text, res.name || pushed.name, pushed.ext);
                 notify('电脑已加载 ' + (res.name || '图层') + '（' + (res.count || 0) + ' 个要素）', 'online');
-                // 通用图层面板在镜像模式下已隐藏，改为打开可双向同步的镜像图层面板
+                // 打开与电脑端一致的常规图层管理面板
                 openLayerPanel();
             } else {
                 notify('电脑加载失败：' + (res.error || '未知错误'), 'error');
@@ -1345,6 +1380,8 @@
                     if (pendingDataLoad && typeof window.loadUserUploadedData === 'function') {
                         pendingDataLoad = false;
                         window.loadUserUploadedData();
+                        // 账号图层异步加载完成后重新拉取一次，确保远端显隐/顺序/标注应用到新加载的图层
+                        window.setTimeout(requestLayers, 1500);
                     }
                     requestLayers();
                     sendView();
@@ -1398,8 +1435,6 @@
     function init() {
         statusEl = document.getElementById('mirrorStatus');
         accountEl = document.getElementById('mirrorAccount');
-        layerPanelEl = document.getElementById('mirrorLayerPanel');
-        layerListEl = document.getElementById('mirrorLayerList');
         bindButtons();
         bindLogin();
         bindLaser();
